@@ -3,6 +3,7 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { SessionUser } from "../domain";
 import { keyIdFromJwk } from "../key-id";
+import { verifyPassword } from "../password";
 import { assertPublicName, isConstraintError, nowIso } from "./shared";
 
 const AUTH_WINDOW_MS = 15 * 60 * 1000;
@@ -208,20 +209,113 @@ export function getPublicKey(userId: string): JsonWebKey | null {
 export function setPublicKey(
   userId: string,
   jwk: JsonWebKey,
-): PublicKeyRecord & { previousKeyId: string | null } {
+  reason: "initial" | "rotation" = "initial",
+): PublicKeyRecord & { previousKeyId: string | null; changed: boolean } {
   const record = {
     jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y },
     keyId: keyIdFromJwk(jwk),
   };
   const previous = getPublicKeyRecord(userId);
+  if (previous?.keyId === record.keyId) {
+    return { ...record, previousKeyId: previous.keyId, changed: false };
+  }
+
+  const db = getDb();
   const now = nowIso();
-  getDb()
-    .prepare(
+  db.transaction(() => {
+    // Cada rotación deja rastro: se cierra la fila abierta y se apunta la nueva.
+    db.prepare(
+      "UPDATE public_key_history SET replaced_at = ? WHERE user_id = ? AND replaced_at IS NULL",
+    ).run(now, userId);
+    db.prepare(
+      `INSERT INTO public_key_history (id, user_id, key_id, public_jwk, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(`pkh_${randomUUID()}`, userId, record.keyId, JSON.stringify(record.jwk), reason, now);
+    db.prepare(
       `UPDATE users SET public_key = ?, public_key_id = ?, public_key_at = ?
        WHERE id = ?`,
+    ).run(JSON.stringify(record.jwk), record.keyId, now, userId);
+  })();
+  return { ...record, previousKeyId: previous?.keyId ?? null, changed: true };
+}
+
+/**
+ * Publica o **sustituye** la clave de cifrado.
+ *
+ * Sustituir una clave existente exige la contraseña de la cuenta: quien robe
+ * una sesión no puede instalar su propia clave y leer los mensajes futuros.
+ * La primera publicación es TOFU (no hay clave anterior que verificar).
+ */
+export async function changePublicKey(
+  userId: string,
+  jwk: JsonWebKey,
+  options: { password?: string } = {},
+): Promise<PublicKeyRecord & { previousKeyId: string | null; changed: boolean }> {
+  const keyId = keyIdFromJwk(jwk);
+  const previous = getPublicKeyRecord(userId);
+  if (previous?.keyId === keyId) {
+    return {
+      jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y },
+      keyId,
+      previousKeyId: previous.keyId,
+      changed: false,
+    };
+  }
+
+  if (previous) {
+    if (!options.password) {
+      throw new ApiError(428, "Confirma tu contraseña para cambiar la clave de cifrado.", {
+        details: { rotationRequired: true },
+      });
+    }
+    const row = getDb()
+      .prepare("SELECT password_hash FROM users WHERE id = ?")
+      .get(userId) as { password_hash: string } | undefined;
+    const valid = row ? await verifyPassword(options.password, row.password_hash) : false;
+    if (!valid) {
+      throw new ApiError(403, "La contraseña no es correcta.");
+    }
+  }
+
+  return setPublicKey(userId, jwk, previous ? "rotation" : "initial");
+}
+
+/** Personas con un intercambio abierto o cerrado: las que cifran contigo. */
+export function listConversationPeers(userId: string, limit = 20): string[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT DISTINCT CASE WHEN owner_id = ? THEN requester_id ELSE owner_id END AS peer
+         FROM requests
+        WHERE status IN ('accepted','completed') AND (owner_id = ? OR requester_id = ?)
+        LIMIT ?`,
     )
-    .run(JSON.stringify(record.jwk), record.keyId, now, userId);
-  return { ...record, previousKeyId: previous?.keyId ?? null };
+    .all(userId, userId, userId, limit) as { peer: string }[];
+  return rows.map((row) => row.peer).filter((peer) => peer !== userId);
+}
+
+/** Historial de claves (la más reciente primero). */
+export function listPublicKeyHistory(
+  userId: string,
+  limit = 5,
+): { keyId: string; reason: string; createdAt: string; replacedAt: string | null }[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT key_id, reason, created_at, replaced_at
+         FROM public_key_history WHERE user_id = ?
+        ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(userId, limit) as {
+    key_id: string;
+    reason: string;
+    created_at: string;
+    replaced_at: string | null;
+  }[];
+  return rows.map((row) => ({
+    keyId: row.key_id,
+    reason: row.reason,
+    createdAt: row.created_at,
+    replacedAt: row.replaced_at,
+  }));
 }
 
 /** True cuando la cuenta ya puede recibir mensajes cifrados. */

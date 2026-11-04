@@ -9,7 +9,7 @@ import { normalizeText } from "./text";
 
 export type Db = Database.Database;
 
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 /** Hash fijo de "demo1234": evita ejecutar scrypt al sembrar la base. */
 export const DEMO_PASSWORD_HASH =
@@ -994,6 +994,49 @@ function migrateToV27(db: Db) {
 }
 
 /**
+ * v28: historial de claves públicas de cifrado. Permite auditar rotaciones y
+ * enseñar en el perfil cuándo cambió la clave.
+ */
+function migrateToV28(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS public_key_history (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key_id TEXT NOT NULL,
+      public_jwk TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      replaced_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS public_key_history_user
+      ON public_key_history(user_id, created_at DESC);
+  `);
+
+  // Las claves ya publicadas antes de esta migración cuentan como iniciales.
+  const existing = db
+    .prepare(
+      `SELECT id, public_key, public_key_id, COALESCE(public_key_at, created_at) AS at
+         FROM users
+        WHERE public_key IS NOT NULL AND public_key_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM public_key_history h WHERE h.user_id = users.id)`,
+    )
+    .all() as { id: string; public_key: string; public_key_id: string; at: string }[];
+  const insert = db.prepare(
+    `INSERT INTO public_key_history (id, user_id, key_id, public_jwk, reason, created_at)
+     VALUES (?, ?, ?, ?, 'initial', ?)`,
+  );
+  db.transaction(() => {
+    for (const row of existing) {
+      insert.run(`pkh_${randomUUID()}`, row.id, row.public_key_id, row.public_key, row.at);
+    }
+  })();
+  if (existing.length > 0) {
+    console.log(`[db] historial de claves iniciado para ${existing.length} cuentas`);
+  }
+  db.pragma("user_version = 28");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1100,6 +1143,7 @@ function migrate(db: Db) {
   if (userVersion(db) < 25) migrateToV25(db);
   if (userVersion(db) < 26) migrateToV26(db);
   if (userVersion(db) < 27) migrateToV27(db);
+  if (userVersion(db) < 28) migrateToV28(db);
 
   backfillSearchKeys(db);
 }

@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation";
 import { Check, Download, LogOut, User } from "lucide-react";
 import { Dialog } from "../dialog";
 import { api } from "@/lib/client-api";
+import { ensureIdentity } from "@/lib/e2e";
 import { CityField } from "../city-field";
 import type { RequestView, SessionUser } from "@/lib/domain";
+import { formatWhen } from "@/lib/text";
 import { useI18n } from "../i18n-provider";
 import type { BaseDialogProps } from "./shared";
+
+type KeyHistory = { keyId: string; reason: string; createdAt: string; replacedAt: string | null };
 
 export function ProfileDialog({
   open,
@@ -27,7 +31,7 @@ export function ProfileDialog({
   onToggleAlert?: () => void;
   onLoggedOut: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [pending, setPending] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -49,6 +53,34 @@ export function ProfileDialog({
   const [totpBusy, setTotpBusy] = useState(false);
   const [totpMsg, setTotpMsg] = useState("");
   const [totpError, setTotpError] = useState("");
+
+  const [keys, setKeys] = useState<{ keyId: string | null; history: KeyHistory[] } | null>(null);
+  const [localKeyId, setLocalKeyId] = useState<string | null>(null);
+  const [keyPassword, setKeyPassword] = useState("");
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [keyMsg, setKeyMsg] = useState("");
+  const [keyError, setKeyError] = useState("");
+
+  useEffect(() => {
+    if (!open || !user) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [stored, identity] = await Promise.all([
+          api<{ keyId: string | null; history: KeyHistory[] }>("/api/account/keys"),
+          ensureIdentity(),
+        ]);
+        if (cancelled) return;
+        setKeys(stored);
+        setLocalKeyId(identity.keyId);
+      } catch {
+        if (!cancelled) setKeyError("No se pudo cargar el estado del cifrado.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user]);
 
   useEffect(() => {
     if (!open || !user) return;
@@ -101,6 +133,36 @@ export function ProfileDialog({
       setVerifyMsg(caught instanceof Error ? caught.message : t("No se pudo enviar el enlace."));
     } finally {
       setVerifyBusy(false);
+    }
+  }
+
+  /**
+   * Publica o sustituye la clave de este navegador. Si la cuenta ya tenía otra,
+   * el servidor exige la contraseña («rotationRequired»).
+   */
+  async function activateKey() {
+    setKeyBusy(true);
+    setKeyMsg("");
+    setKeyError("");
+    try {
+      const identity = await ensureIdentity();
+      const body: Record<string, unknown> = { ...identity.publicJwk };
+      if (keys?.keyId) body.password = keyPassword;
+      const saved = await api<{ keyId: string; history: KeyHistory[] }>("/api/account/keys", {
+        method: "PUT",
+        body,
+      });
+      setKeys({ keyId: saved.keyId, history: saved.history });
+      setLocalKeyId(identity.keyId);
+      setKeyPassword("");
+      setKeyMsg(t("Cifrado activado en este navegador."));
+      router.refresh();
+    } catch (caught) {
+      setKeyError(
+        caught instanceof Error ? caught.message : t("No se pudo activar el cifrado."),
+      );
+    } finally {
+      setKeyBusy(false);
     }
   }
 
@@ -375,6 +437,73 @@ export function ProfileDialog({
               {t("Guardar contraseña")}
             </button>
           </form>
+        </details>
+
+        <details>
+          <summary>{t("Cifrado de mensajes")}</summary>
+          {keyMsg && (
+            <p className="action-feedback" role="status">
+              {keyMsg}
+            </p>
+          )}
+          {keyError && (
+            <p className="form-error" role="alert">
+              {keyError}
+            </p>
+          )}
+          <p className="form-hint">
+            {t(
+              "Los mensajes de tus intercambios se cifran en este navegador: la clave privada no sale de aquí.",
+            )}
+          </p>
+          {keys === null ? (
+            <p className="form-hint">{t("Cargando…")}</p>
+          ) : !keys.keyId ? (
+            <button
+              className="secondary-button small"
+              type="button"
+              disabled={keyBusy}
+              onClick={() => void activateKey()}
+            >
+              {t("Publicar la clave de este navegador")}
+            </button>
+          ) : keys.keyId === localKeyId ? (
+            <p className="form-hint">
+              {t("Cifrado activo en este navegador.")}{" "}
+              <code className="secret-code">{keys.keyId.slice(0, 8)}</code>
+            </p>
+          ) : (
+            <>
+              <p className="form-hint">
+                {t(
+                  "Tu cuenta ya tiene otra clave (por ejemplo, de otro dispositivo). Si la sustituyes, ese dispositivo dejará de leer los mensajes nuevos.",
+                )}
+              </p>
+              <label htmlFor="key-password">{t("Contraseña actual")}</label>
+              <input
+                id="key-password"
+                type="password"
+                autoComplete="current-password"
+                value={keyPassword}
+                onChange={(event) => setKeyPassword(event.target.value)}
+              />
+              <button
+                className="secondary-button small"
+                type="button"
+                disabled={keyBusy || !keyPassword}
+                onClick={() => void activateKey()}
+              >
+                {t("Activar en este navegador")}
+              </button>
+            </>
+          )}
+          {keys && keys.history.length > 0 && (
+            <p className="form-hint">
+              {t("Último cambio de clave: {date}", {
+                date: formatWhen(keys.history[0]!.createdAt, locale),
+              })}
+            </p>
+          )}
         </details>
 
         <details>

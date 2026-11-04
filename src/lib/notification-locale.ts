@@ -42,6 +42,7 @@ const TITLES: Record<string, string> = {
   "Préstamo de club": "Club-Ausleihe",
   "Préstamo de club devuelto": "Club-Ausleihe zurückgegeben",
   "Nueva clave de cifrado en tu cuenta": "Neuer Verschlüsselungsschlüssel in deinem Konto",
+  "Cambio de clave de cifrado": "Verschlüsselungsschlüssel geändert",
 };
 
 /** Cuerpos con partes variables: se traducen conservando los datos. */
@@ -85,6 +86,7 @@ const STATIC_BODIES: Record<string, string> = {
   "Verás sus novedades en la pestaña «Siguiendo» de la comunidad.": "Ihre Neuigkeiten erscheinen im Tab „Folgt“ der Gemeinschaft.",
   "El club ha elegido otra lectura en curso. Entra para verla.": "Der Club hat eine andere Lektüre gewählt. Öffne den Club, um sie zu sehen.",
   "Se ha activado una clave distinta en otro dispositivo. Revisa que seas tú.": "Auf einem anderen Gerät wurde ein anderer Schlüssel aktiviert. Prüfe, ob du das warst.",
+  "La persona con la que hablabas ha cambiado su clave. Confirma la nueva huella antes de enviar mensajes.": "Die Person, mit der du geschrieben hast, hat ihren Schlüssel geändert. Bestätige den neuen Fingerabdruck, bevor du Nachrichten sendest.",
 };
 
 function translateTitle(title: string): string {

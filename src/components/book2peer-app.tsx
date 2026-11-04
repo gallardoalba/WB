@@ -183,12 +183,10 @@ export default function Book2PeerApp({
           "/api/account/keys",
         );
         if (cancelled) return;
-        const same =
-          stored.publicJwk &&
-          stored.keyId === identity.keyId &&
-          stored.publicJwk.x === identity.publicJwk.x &&
-          stored.publicJwk.y === identity.publicJwk.y;
-        if (!same) {
+        // Solo se publica la **primera** clave. Sustituir una existente exige
+        // la contraseña: se hace desde el perfil, nunca en silencio al entrar
+        // (así un navegador nuevo no rompe el cifrado del que ya funcionaba).
+        if (!stored.keyId) {
           await api("/api/account/keys", { method: "PUT", body: identity.publicJwk });
         }
       } catch {
