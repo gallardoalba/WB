@@ -118,3 +118,36 @@ test("una denuncia solo se resuelve una vez", () => {
     isStatus(409),
   );
 });
+
+test("las listas de administración paginan y sus contadores cuadran", () => {
+  const db = dbModule.getDb();
+  const insertAudit = db.prepare(
+    `INSERT INTO admin_audit (id, admin_id, action, target_type, target_id, details, created_at)
+     VALUES (?, 'usr_admin', 'dismiss', 'listing', ?, '', ?)`,
+  );
+  const auditBefore = repo.countAudit();
+  for (let index = 0; index < 7; index += 1) {
+    insertAudit.run(`aud_test_${index}`, `lst_${index}`, new Date(Date.now() - index * 1000).toISOString());
+  }
+  assert.equal(repo.countAudit(), auditBefore + 7);
+  const firstPage = repo.listAudit(3, 0).map((entry) => entry.id);
+  const secondPage = repo.listAudit(3, 3).map((entry) => entry.id);
+  assert.equal(firstPage.length, 3);
+  assert.equal(secondPage.length, 3);
+  assert.equal(firstPage.some((id) => secondPage.includes(id)), false);
+
+  const insertComment = db.prepare(
+    `INSERT INTO book_comments (id, book_id, author_id, parent_id, body, spoiler, status, created_at)
+     VALUES (?, 'bok_1', 'usr_ana', NULL, 'texto', 0, 'hidden', ?)`,
+  );
+  const commentsBefore = repo.countHiddenComments();
+  for (let index = 0; index < 3; index += 1) {
+    insertComment.run(`cmt_hidden_${index}`, new Date(Date.now() - index * 1000).toISOString());
+  }
+  assert.equal(repo.countHiddenComments(), commentsBefore + 3);
+  assert.deepEqual(
+    repo.listHiddenComments(2, commentsBefore).map((comment) => comment.id),
+    ["cmt_hidden_0", "cmt_hidden_1"],
+  );
+  assert.equal(repo.listHiddenComments(2, 2).length, 1);
+});

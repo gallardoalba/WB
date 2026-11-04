@@ -149,6 +149,22 @@ test("guardar un libro no roba el foco del teclado", async ({ page }) => {
   await expect.poll(async () => favorite.getAttribute("aria-pressed")).toBe(pressed);
 });
 
+test("el panel de administración abre con sus secciones", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.locator('input[name="email"]').fill("admin@book2peer.test");
+  await dialog.locator('input[name="password"]').fill("demo1234");
+  await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
+
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Denuncias abiertas" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Últimas acciones" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cuentas suspendidas" })).toBeVisible();
+});
+
 test("el panel de comunidad carga cada pestaña por separado", async ({ page }) => {  await page.goto("/");
   await waitForHydration(page);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();

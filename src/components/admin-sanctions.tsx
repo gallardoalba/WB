@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BookOpen, History, Eye, EyeOff, UserCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
 import type { AuditView, HiddenClubView, HiddenCommentView, SuspendedUserView } from "@/lib/repo";
@@ -13,7 +14,51 @@ type Props = {
   hiddenComments: HiddenCommentView[];
   hiddenClubs: HiddenClubView[];
   audit: AuditView[];
+  pageSize: number;
+  pagination: Record<"suspended" | "comments" | "clubs" | "audit", { page: number; total: number }>;
 };
+
+/** Página de una sección del panel, conservando solo su propio parámetro. */
+function ListPager({
+  param,
+  page,
+  total,
+  pageSize,
+  label,
+}: {
+  param: string;
+  page: number;
+  total: number;
+  pageSize: number;
+  label: string;
+}) {
+  const { t } = useI18n();
+  const last = Math.max(1, Math.ceil(total / pageSize));
+  if (last <= 1) return null;
+  return (
+    <nav className="pager" aria-label={label}>
+      {page <= 1 ? (
+        <span className="secondary-button small is-disabled" aria-disabled="true">
+          {t("Anterior")}
+        </span>
+      ) : (
+        <Link className="secondary-button small" href={`/admin?${param}=${page - 1}`}>
+          {t("Anterior")}
+        </Link>
+      )}
+      <span>{t("Página {page} de {total}", { page, total: last })}</span>
+      {page >= last ? (
+        <span className="secondary-button small is-disabled" aria-disabled="true">
+          {t("Siguiente")}
+        </span>
+      ) : (
+        <Link className="secondary-button small" href={`/admin?${param}=${page + 1}`}>
+          {t("Siguiente")}
+        </Link>
+      )}
+    </nav>
+  );
+}
 
 const ACTION_LABELS: Record<string, string> = {
   suspend_user: "Cuenta suspendida",
@@ -27,7 +72,14 @@ const ACTION_LABELS: Record<string, string> = {
   dismiss: "Denuncia descartada",
 };
 
-export function AdminSanctions({ suspended, hiddenComments, hiddenClubs, audit }: Props) {
+export function AdminSanctions({
+  suspended,
+  hiddenComments,
+  hiddenClubs,
+  audit,
+  pageSize,
+  pagination,
+}: Props) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -131,6 +183,13 @@ export function AdminSanctions({ suspended, hiddenComments, hiddenClubs, audit }
             ))}
           </div>
         )}
+        <ListPager
+          param="suspendedPage"
+          page={pagination.suspended.page}
+          total={pagination.suspended.total}
+          pageSize={pageSize}
+          label={t("Paginación de cuentas suspendidas")}
+        />
       </section>
 
       <section>
@@ -164,6 +223,13 @@ export function AdminSanctions({ suspended, hiddenComments, hiddenClubs, audit }
             ))}
           </div>
         )}
+        <ListPager
+          param="commentsPage"
+          page={pagination.comments.page}
+          total={pagination.comments.total}
+          pageSize={pageSize}
+          label={t("Paginación de comentarios ocultos")}
+        />
       </section>
 
       <section>
@@ -196,6 +262,13 @@ export function AdminSanctions({ suspended, hiddenComments, hiddenClubs, audit }
             ))}
           </div>
         )}
+        <ListPager
+          param="clubsPage"
+          page={pagination.clubs.page}
+          total={pagination.clubs.total}
+          pageSize={pageSize}
+          label={t("Paginación de clubes ocultos")}
+        />
       </section>
 
       <section>
@@ -216,6 +289,13 @@ export function AdminSanctions({ suspended, hiddenComments, hiddenClubs, audit }
             ))}
           </ul>
         )}
+        <ListPager
+          param="auditPage"
+          page={pagination.audit.page}
+          total={pagination.audit.total}
+          pageSize={pageSize}
+          label={t("Paginación de auditoría")}
+        />
       </section>
     </div>
   );

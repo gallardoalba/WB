@@ -884,16 +884,16 @@ export type HiddenClubView = {
 };
 
 /** Clubes retirados por moderación, para poder restablecerlos. */
-export function listHiddenClubs(limit = 50): HiddenClubView[] {
+export function listHiddenClubs(limit = 50, offset = 0): HiddenClubView[] {
   const rows = getDb()
     .prepare(
       `SELECT c.id, c.name, c.city, u.name AS owner_name, c.created_at
          FROM clubs c JOIN users u ON u.id = c.owner_id
         WHERE c.status = 'hidden'
         ORDER BY c.created_at DESC
-        LIMIT ?`,
+        LIMIT ? OFFSET ?`,
     )
-    .all(limit) as {
+    .all(limit, offset) as {
     id: string;
     name: string;
     city: string;
@@ -907,6 +907,14 @@ export function listHiddenClubs(limit = 50): HiddenClubView[] {
     ownerName: row.owner_name,
     createdAt: row.created_at,
   }));
+}
+
+/** Total de clubes ocultos (para paginar la lista). */
+export function countHiddenClubs(): number {
+  const row = getDb()
+    .prepare("SELECT COUNT(*) AS count FROM clubs WHERE status = 'hidden'")
+    .get() as { count: number };
+  return row.count;
 }
 
 /**

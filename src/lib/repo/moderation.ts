@@ -459,7 +459,7 @@ export type SuspendedUserView = {
 };
 
 /** Cuentas suspendidas por moderación (excluye las eliminadas por su dueño). */
-export function listSuspendedUsers(limit = 50): SuspendedUserView[] {
+export function listSuspendedUsers(limit = 50, offset = 0): SuspendedUserView[] {
   const rows = getDb()
     .prepare(
       `SELECT u.id, u.name, u.email, u.city,
@@ -469,9 +469,9 @@ export function listSuspendedUsers(limit = 50): SuspendedUserView[] {
        FROM users u
        WHERE u.is_suspended = 1 AND u.email NOT LIKE 'deleted-%'
        ORDER BY suspended_at DESC, u.created_at DESC
-       LIMIT ?`,
+       LIMIT ? OFFSET ?`,
     )
-    .all(limit) as {
+    .all(limit, offset) as {
     id: string;
     name: string;
     email: string;
@@ -488,6 +488,16 @@ export function listSuspendedUsers(limit = 50): SuspendedUserView[] {
   }));
 }
 
+/** Total de cuentas suspendidas (para paginar la lista). */
+export function countSuspendedUsers(): number {
+  const row = getDb()
+    .prepare(
+      "SELECT COUNT(*) AS count FROM users WHERE is_suspended = 1 AND email NOT LIKE 'deleted-%'",
+    )
+    .get() as { count: number };
+  return row.count;
+}
+
 export type HiddenCommentView = {
   id: string;
   body: string;
@@ -498,7 +508,7 @@ export type HiddenCommentView = {
 };
 
 /** Comentarios ocultos por moderación: la acción se puede deshacer. */
-export function listHiddenComments(limit = 20): HiddenCommentView[] {
+export function listHiddenComments(limit = 20, offset = 0): HiddenCommentView[] {
   const rows = getDb()
     .prepare(
       `SELECT c.id, c.body, c.created_at, c.book_id, b.title AS book_title, u.name AS author_name
@@ -507,9 +517,9 @@ export function listHiddenComments(limit = 20): HiddenCommentView[] {
        JOIN users u ON u.id = c.author_id
        WHERE c.status = 'hidden'
        ORDER BY c.created_at DESC, c.rowid DESC
-       LIMIT ?`,
+       LIMIT ? OFFSET ?`,
     )
-    .all(limit) as {
+    .all(limit, offset) as {
     id: string;
     body: string;
     created_at: string;
@@ -528,6 +538,14 @@ export function listHiddenComments(limit = 20): HiddenCommentView[] {
   }));
 }
 
+/** Total de comentarios ocultos (para paginar la lista). */
+export function countHiddenComments(): number {
+  const row = getDb()
+    .prepare("SELECT COUNT(*) AS count FROM book_comments WHERE status = 'hidden'")
+    .get() as { count: number };
+  return row.count;
+}
+
 export type AuditView = {
   id: string;
   action: string;
@@ -538,15 +556,15 @@ export type AuditView = {
   adminName: string;
 };
 
-export function listAudit(limit = 20): AuditView[] {
+export function listAudit(limit = 20, offset = 0): AuditView[] {
   const rows = getDb()
     .prepare(
       `SELECT a.id, a.action, a.target_type, a.target_id, a.details, a.created_at,
               u.name AS admin_name
        FROM admin_audit a JOIN users u ON u.id = a.admin_id
-       ORDER BY a.created_at DESC, a.rowid DESC LIMIT ?`,
+       ORDER BY a.created_at DESC, a.rowid DESC LIMIT ? OFFSET ?`,
     )
-    .all(limit) as {
+    .all(limit, offset) as {
     id: string;
     action: string;
     target_type: string;
@@ -565,4 +583,12 @@ export function listAudit(limit = 20): AuditView[] {
     createdAt: row.created_at,
     adminName: row.admin_name,
   }));
+}
+
+/** Total de entradas de auditoría (para paginar la lista). */
+export function countAudit(): number {
+  const row = getDb().prepare("SELECT COUNT(*) AS count FROM admin_audit").get() as {
+    count: number;
+  };
+  return row.count;
 }

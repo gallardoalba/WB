@@ -10,7 +10,11 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import {
+  countAudit,
+  countHiddenClubs,
+  countHiddenComments,
   countOpenReports,
+  countSuspendedUsers,
   getCommunityMetrics,
   getTotpState,
   listAudit,
@@ -32,6 +36,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const PAGE_SIZE = 25;
 
+const firstValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value;
+
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -47,16 +54,31 @@ export default async function AdminPage({ searchParams }: PageProps) {
   }
 
   const raw = await searchParams;
-  const rawPage = Array.isArray(raw.page) ? raw.page[0] : raw.page;
-  const page = Math.max(1, Number.parseInt(rawPage ?? "1", 10) || 1);
+  const page = Math.max(1, Number.parseInt(firstValue(raw.page) ?? "1", 10) || 1);
+  // Cada sección pagina por separado: el contenido antiguo sigue siendo
+  // alcanzable sin tapar la lista de denuncias.
+  const auditPage = Math.max(1, Number.parseInt(firstValue(raw.auditPage) ?? "1", 10) || 1);
+  const suspendedPage = Math.max(
+    1,
+    Number.parseInt(firstValue(raw.suspendedPage) ?? "1", 10) || 1,
+  );
+  const commentsPage = Math.max(
+    1,
+    Number.parseInt(firstValue(raw.commentsPage) ?? "1", 10) || 1,
+  );
+  const clubsPage = Math.max(1, Number.parseInt(firstValue(raw.clubsPage) ?? "1", 10) || 1);
 
   const total = countOpenReports();
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const reports = listReports({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
-  const suspended = listSuspendedUsers();
-  const hiddenComments = listHiddenComments();
-  const hiddenClubs = listHiddenClubs();
-  const audit = listAudit();
+  const suspendedTotal = countSuspendedUsers();
+  const suspended = listSuspendedUsers(PAGE_SIZE, (suspendedPage - 1) * PAGE_SIZE);
+  const commentsTotal = countHiddenComments();
+  const hiddenComments = listHiddenComments(PAGE_SIZE, (commentsPage - 1) * PAGE_SIZE);
+  const clubsTotal = countHiddenClubs();
+  const hiddenClubs = listHiddenClubs(PAGE_SIZE, (clubsPage - 1) * PAGE_SIZE);
+  const auditTotal = countAudit();
+  const audit = listAudit(PAGE_SIZE, (auditPage - 1) * PAGE_SIZE);
   const metrics = getCommunityMetrics();
 
   return (
@@ -154,6 +176,13 @@ export default async function AdminPage({ searchParams }: PageProps) {
         hiddenComments={hiddenComments}
         hiddenClubs={hiddenClubs}
         audit={audit}
+        pageSize={PAGE_SIZE}
+        pagination={{
+          suspended: { page: suspendedPage, total: suspendedTotal },
+          comments: { page: commentsPage, total: commentsTotal },
+          clubs: { page: clubsPage, total: clubsTotal },
+          audit: { page: auditPage, total: auditTotal },
+        }}
       />
     </SiteShell>
   );

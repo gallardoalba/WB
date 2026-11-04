@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   Activity,
   ArrowDownUp,
@@ -37,13 +38,22 @@ import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { OnboardingCard } from "./onboarding-card";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
-import {
-  AuthDialog,
-  ExchangeDialog,
-  NotificationsDialog,
-  OfferDialog,
-  ProfileDialog,
-} from "./dialogs";
+import { AuthDialog } from "./dialogs/auth-dialog";
+
+// Los diálogos pesados (cripto E2E y QR, TOTP, escáner ISBN) solo se descargan
+// cuando se abren: el catálogo no paga su bundle.
+const ExchangeDialog = dynamic(() =>
+  import("./dialogs/exchange-dialog").then((module) => module.ExchangeDialog),
+);
+const ProfileDialog = dynamic(() =>
+  import("./dialogs/profile-dialog").then((module) => module.ProfileDialog),
+);
+const OfferDialog = dynamic(() =>
+  import("./dialogs/offer-dialog").then((module) => module.OfferDialog),
+);
+const NotificationsDialog = dynamic(() =>
+  import("./dialogs/notifications-dialog").then((module) => module.NotificationsDialog),
+);
 import {
   CATALOG_LANGUAGES,
   CATEGORIES,
@@ -1279,7 +1289,8 @@ export default function Book2PeerApp({
         </div>
       )}
 
-      <AuthDialog
+      {authOpen && (
+        <AuthDialog
         open={authOpen}
         onClose={() => {
           pendingFavorite.current = null;
@@ -1311,7 +1322,8 @@ export default function Book2PeerApp({
           }
           if (target) router.push(target);
         }}
-      />
+        />
+      )}
 
       <ListingPreview
         listing={previewListing}
@@ -1324,7 +1336,8 @@ export default function Book2PeerApp({
         }}
       />
 
-      <OfferDialog
+      {offerOpen && (
+        <OfferDialog
         open={offerOpen}
         onClose={() => {
           setOfferOpen(false);
@@ -1343,10 +1356,12 @@ export default function Book2PeerApp({
                 : t("Tu libro ya está en la estantería de la comunidad."),
           );
         }}
-      />
+        />
+      )}
 
-      <NotificationsDialog
-        open={notificationsOpen}
+      {notificationsOpen && (
+        <NotificationsDialog
+          open={notificationsOpen}
         onClose={() => {
           setNotificationsOpen(false);
           clearQueryParams("notifications");
@@ -1355,17 +1370,21 @@ export default function Book2PeerApp({
         unread={unreadNotifications}
         onMarkRead={markNotificationsRead}
         onRefresh={refresh}
-      />
+        />
+      )}
 
-      <ExchangeDialog
-        open={Boolean(exchangeRequest)}
-        onClose={() => setExchangeId(null)}
-        request={exchangeRequest}
-        onChanged={refresh}
-      />
+      {exchangeRequest && (
+        <ExchangeDialog
+          open
+          onClose={() => setExchangeId(null)}
+          request={exchangeRequest}
+          onChanged={refresh}
+        />
+      )}
 
-      <ProfileDialog
-        open={profileOpen}
+      {profileOpen && user && (
+        <ProfileDialog
+          open
         onClose={() => {
           setProfileOpen(false);
           clearQueryParams("profile");
@@ -1379,7 +1398,8 @@ export default function Book2PeerApp({
           refresh();
           notify(t("Has cerrado sesión."));
         }}
-      />
+        />
+      )}
     </main>
   );
 }
