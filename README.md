@@ -329,7 +329,8 @@ La guía completa (usuario de sistema, systemd, nginx, TLS, timers de cron y cop
 - **Tareas**: `deploy/book2peer-maintenance.timer` (cada 15 min) y `deploy/book2peer-backup.timer` (diario).
 - **Comprobación de entorno al arrancar** (`src/instrumentation.ts` + `src/lib/env-check.ts`): en producción el proceso revisa la configuración y deja en el log `[env] ERROR …` / `[env] AVISO …`. Si falta algo grave —`NEXT_PUBLIC_SITE_URL` en https, `MAIL_WEBHOOK_URL` o `APP_ENCRYPTION_KEY`— el proceso arranca pero responde **500** a todo, con el motivo en el log, en lugar de parecer que funciona y rechazar a la gente. `BOOK2PEER_SKIP_ENV_CHECK=1` lo salta a propósito.
 - **Una sola instancia**: SQLite (un escritor) y el bus de avisos en memoria no admiten réplicas; escalar exige PostgreSQL y Redis/pubsub.
-- **`npm ci` incluye devDependencies** porque los scripts de operación (`admin:create`, `db:backup`, `user:verify`, `smoke`) corren con `tsx`.
+- **Dos rutas**: host con systemd (`deploy/book2peer.service`) o contenedor (`Dockerfile` + `docker-compose.yml`, multi-etapa con solo dependencias de producción). El build de la imagen se valida en CI.
+- **`tsx` es dependencia de producción** (no de desarrollo): lo usan `admin:create`, `db:backup`, `user:verify` y `smoke`, también dentro de la imagen con `npm ci --omit=dev`.
 
 ## Sistema visual
 

@@ -1,0 +1,21 @@
+# Contexto de la imagen: solo entra lo que el build y la ejecución necesitan.
+# `deploy/` es pequeño y sirve de documentación dentro de la imagen.
+.git
+.github
+node_modules
+.next
+.data
+test-results
+playwright-report
+e2e
+tests
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Nunca secretos: el entorno llega por `env_file` o variables del orquestador.
+.env
+.env.*
+!.env.example

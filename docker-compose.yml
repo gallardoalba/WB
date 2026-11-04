@@ -1,0 +1,48 @@
+# Wanderbibliothek en Docker.
+#
+#   cp deploy/env.example .env      # rellena URL, correo y secretos
+#   docker compose up -d --build
+#   docker compose exec app node --import tsx scripts/admin-create.ts …  (ver abajo)
+#
+# La aplicación escucha solo en 127.0.0.1:3000: pon un proxy con TLS delante
+# (el nginx de deploy/nginx.conf sirve apuntando a 127.0.0.1:3000).
+# Para probar en local, http://localhost:3000 funciona: el navegador trata
+# localhost como contexto seguro y acepta la cookie __Host-.
+
+services:
+  app:
+    build: .
+    image: book2peer:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Sobrescriben lo que venga en .env: dentro del contenedor las rutas son
+      # estas, y las carpetas son volúmenes.
+      BOOK2PEER_DB: /data/book2peer.db
+      BOOK2PEER_BACKUP_DIR: /backups
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - book2peer-data:/data
+      - book2peer-backups:/backups
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  book2peer-data:
+  book2peer-backups:

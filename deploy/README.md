@@ -35,10 +35,11 @@ npm ci
 npm run build
 ```
 
-`npm ci` incluye **devDependencies** a propósito: los guiones de operación
-(`admin:create`, `db:backup`, `user:verify`, `smoke`) se ejecutan con `tsx`, que
-vive ahí. Si necesitas un artefacto mínimo con `npm ci --omit=dev`, tendrás que
-compilar antes esos scripts a JavaScript o ejecutarlos desde otra copia.
+`npm ci` instala también devDependencies porque el **build** necesita
+TypeScript, Tailwind y ESLint. En ejecución basta con `npm ci --omit=dev`:
+`tsx` (lo que usan `admin:create`, `db:backup`, `user:verify` y `smoke`) es
+dependencia de producción a propósito. Si prefieres adelgazar la release, tras
+el `npm run build` puedes ejecutar `npm prune --omit=dev`.
 
 El build **no** necesita base de datos ni variables de entorno: se puede hacer
 en CI y desplegar el artefacto.
@@ -66,6 +67,9 @@ consecuencias están comentadas en el propio fichero; el resumen:
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se **incrusta en el bundle
 del cliente**: si lo activas, tiene que existir en el momento del `build`, no
 solo en el entorno del servicio.
+
+> **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
+> abajo: el mismo entorno sirve, con `BOOK2PEER_DB=/data/book2peer.db`.
 
 ## 5. Servicio, proxy y tareas programadas
 
@@ -186,8 +190,71 @@ curl -fsS https://biblioteca.example.com/api/health
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no
   admiten varias réplicas. Escalar exige PostgreSQL y Redis/pubsub.
-- **El servicio necesita `tsx`** para las tareas programadas y los scripts.
+- **Los scripts de operación necesitan `tsx`**, que está en `dependencies` a
+  propósito (no es una devDependency): así funcionan también con
+  `npm ci --omit=dev` y dentro de la imagen.
 - **La base no se migra hacia atrás**: ante un despliegue que cambie el esquema,
   la copia previa es la vuelta atrás.
-- **Los registros van a journald** (`journalctl -u book2peer`). Con
-  `ERROR_WEBHOOK_URL` se reenvían además los errores a un servicio externo.
+- **Los registros van a journald** (`journalctl -u book2peer`) en host, y a
+  `docker compose logs` en contenedor. Con `ERROR_WEBHOOK_URL` se reenvían además
+  los errores a un servicio externo.
+
+## 11. Docker
+
+Alternativa al servicio systemd, mismo comportamiento. `Dockerfile` es
+multi-etapa (el runtime solo lleva dependencias de producción) y
+`docker-compose.yml` monta dos volúmenes: datos y copias.
+
+```bash
+cp deploy/env.example .env      # NEXT_PUBLIC_SITE_URL=https://tu-dominio…
+docker compose up -d --build
+docker compose ps               # debe estar «healthy»
+curl -fsS http://127.0.0.1:3000/api/health
+```
+
+En el `.env` cambia solo las rutas de datos:
+
+```
+BOOK2PEER_DB=/data/book2peer.db
+BOOK2PEER_BACKUP_DIR=/backups
+```
+
+(el `docker-compose.yml` ya las fija, así que no hace falta tocar nada si
+partes de `deploy/env.example`).
+
+La aplicación escucha en `127.0.0.1:3000` del host: pon delante el mismo nginx de
+`deploy/nginx.conf` (el `proxy_pass` ya apunta a `127.0.0.1:3000`). Para probar en
+local basta `http://localhost:3000`: el navegador trata localhost como contexto
+seguro y acepta la cookie `__Host-`.
+
+Tareas y administración dentro del contenedor:
+
+```bash
+# Administrador (solo la primera vez)
+docker compose exec -T app node --import tsx scripts/create-admin.ts admin@tu-dominio 'contraseña-larga'
+
+# Verificar un correo a mano
+docker compose exec -T app node --import tsx scripts/verify-user.ts alguien@ejemplo.com
+
+# Copia de seguridad
+# (el volumen /backups es lo que conviene llevarse fuera)
+```
+
+Programa desde el **host** (systemd timer o cron), no dentro del contenedor:
+
+```cron
+*/15 * * * *  curl -fsS -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" http://127.0.0.1:3000/api/cron/maintenance
+20 3 * * *    cd /srv/book2peer && docker compose exec -T app node --import tsx scripts/backup.ts
+```
+
+Notas:
+
+- `docker compose exec` necesita el contenedor en marcha; si el servicio está
+  caído, arranca primero `docker compose start app`.
+- El `HEALTHCHECK` (y el de compose) consulta `/api/health`: si el entorno está
+  incompleto, el contenedor queda **unhealthy** y `docker compose logs` muestra
+  las líneas `[env] ERROR …`.
+- Las releases se cambian con `docker compose build` + `up -d`: el volumen de
+datos sobrevive.
+- El build de la imagen se valida en CI (job `imagen`), no hace falta compilarla
+  en el servidor.
