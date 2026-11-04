@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --import tsx --test \"tests/*.test.ts\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "db:reset": "rm -f .data/book2peer.db .data/book2peer.db-wal .data/book2peer.db-shm",
     "db:backup": "node --import tsx scripts/backup.ts",
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
