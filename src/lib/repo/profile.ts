@@ -10,6 +10,7 @@ import {
 } from "./shared";
 import { getUserById } from "./users";
 import { getFollowState } from "./social";
+import { countAuthorComments } from "./comments";
 
 /* --------------------------------- perfil --------------------------------- */
 
@@ -71,18 +72,14 @@ export function getPublicProfile(
     .prepare(
       `SELECT AVG(r.rating) AS average, COUNT(*) AS count
        FROM reviews r JOIN users author ON author.id = r.author_id
-       WHERE r.target_id = ? AND author.is_suspended = 0`,
+       WHERE r.target_id = @profileId AND author.is_suspended = 0
+         ${viewerId ? `AND ${blockPair("@viewerId", "r.author_id")}` : ""}`,
     )
-    .get(userId) as { average: number | null; count: number };
-  const comments = (
-    db
-      .prepare(
-        `SELECT COUNT(*) AS value FROM book_comments c
-         JOIN users author ON author.id = c.author_id
-         WHERE c.author_id = ? AND c.status <> 'hidden' AND author.is_suspended = 0`,
-      )
-      .get(userId) as { value: number }
-  ).value;
+    .get(
+      viewerId ? { profileId: userId, viewerId } : { profileId: userId },
+    ) as { average: number | null; count: number };
+  // Mismo filtro que la pestaña de comentarios del perfil.
+  const comments = countAuthorComments(userId, viewerId ? { id: viewerId, isAdmin: false } : null);
   const follow = getFollowState(userId, viewerId);
   const memberSince = (
     db.prepare("SELECT created_at AS value FROM users WHERE id = ?").get(userId) as {

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { RequestStatus, ReviewView } from "../domain";
-import { isConstraintError, nowIso } from "./shared";
+import { isConstraintError, nowIso, blockPair } from "./shared";
 import { getUserById } from "./users";
 import { notify } from "./notifications";
 
@@ -58,15 +58,20 @@ export function addReview(
   }
 }
 
-export function listReviews(userId: string, limit = 10): ReviewView[] {
+export function listReviews(
+  userId: string,
+  limit = 10,
+  viewerId: string | null = null,
+): ReviewView[] {
+  const blocked = viewerId ? `AND ${blockPair("@viewerId", "r.author_id")}` : "";
   const rows = getDb()
     .prepare(
       `SELECT r.id, r.rating, r.comment, r.created_at, r.author_id, u.name AS author_name
        FROM reviews r JOIN users u ON u.id = r.author_id
-       WHERE r.target_id = ? AND u.is_suspended = 0
-       ORDER BY r.created_at DESC LIMIT ?`,
+       WHERE r.target_id = @userId AND u.is_suspended = 0 ${blocked}
+       ORDER BY r.created_at DESC LIMIT @limit`,
     )
-    .all(userId, limit) as {
+    .all(viewerId ? { userId, limit, viewerId } : { userId, limit }) as {
     id: string;
     rating: number;
     comment: string;

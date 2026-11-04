@@ -38,7 +38,7 @@ export default async function Page({ searchParams }: PageProps) {
   const viewer = await requirePageUser("/listas");
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
-  if (!(await allowPageView(240, 60_000))) {
+  if (!(await allowPageView(240, 60_000, viewer?.id ?? null))) {
     return (
       <main className="page-shell">
         <h1>{t("Demasiadas peticiones")}</h1>

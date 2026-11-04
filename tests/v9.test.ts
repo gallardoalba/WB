@@ -100,7 +100,11 @@ test("el perfil público expone seguidores, siguiendo y comentarios", () => {
   assert.ok(profile);
   assert.equal(profile!.isFollowing, true);
   assert.ok(profile!.followers >= 1);
-  assert.ok(profile!.comments >= 1);
+
+  // El recuento cuenta conversaciones (comentarios raíz) visibles, igual que la
+  // pestaña «Cómo lee»: Clara solo respondió en la semilla, así que suma 0.
+  const anas = repo.getPublicProfile("usr_ana", "usr_clara");
+  assert.ok(anas!.comments >= 1);
 
   const own = repo.getPublicProfile("usr_clara", "usr_clara");
   assert.equal(own!.isFollowing, false);

@@ -15,6 +15,7 @@ import { regionName } from "@/lib/cities";
 import { ListPicker } from "@/components/list-picker";
 import {
   countBookWants,
+  countListingsForBook,
   countReadingStates,
   getBook,
   getReadingState,
@@ -67,6 +68,7 @@ export default async function Page({ params }: PageProps) {
   const commentViewer = viewer ? { id: viewer.id, isAdmin: viewer.isAdmin } : null;
   const thread = listBookComments(book.id, commentViewer);
   const copies = listingsForBook(book.id, viewer?.id ?? null);
+  const copiesTotal = countListingsForBook(book.id, viewer?.id ?? null);
   const similar = similarListings(book.id, viewer?.id ?? null);
   const myLists = viewer ? listReadingLists(viewer.id, viewer.id) : [];
   const inLists = viewer ? listIdsContainingBook(viewer.id, book.id) : [];
@@ -103,7 +105,7 @@ export default async function Page({ params }: PageProps) {
           <ul className="work-facts">
             <li>
               <Users size={14} />{" "}
-              {copies.length === 1 ? t("1 ejemplar") : t("{n} ejemplares", { n: copies.length })}
+              {copiesTotal === 1 ? t("1 ejemplar") : t("{n} ejemplares", { n: copiesTotal })}
             </li>
             <li>
               <MessageCircle size={14} />{" "}

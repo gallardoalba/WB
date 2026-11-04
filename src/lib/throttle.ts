@@ -73,18 +73,42 @@ export function hit(quota: Quota): void {
 }
 
 /**
- * IP del cliente. Solo se confía en `X-Forwarded-For` cuando el despliegue
- * declara `TRUST_PROXY=1` (hay un proxy propio delante); en caso contrario
- * todas las peticiones comparten la clave "direct", que falla del lado seguro.
+ * IP del cliente a partir de las cabeceras de la petición.
+ *
+ * Solo se confía en `X-Forwarded-For` cuando el despliegue declara
+ * `TRUST_PROXY=1` (hay un proxy propio delante); en caso contrario todas las
+ * peticiones comparten la clave "direct", que falla del lado seguro.
+ *
+ * De la lista se toma la entrada que añadió el proxy más cercano (la última),
+ * no la primera: el cliente puede escribir las de la izquierda. Con varios
+ * proxies encadenados, define `TRUSTED_PROXY_HOPS`.
  */
-export function clientIp(request: Request): string {
-  if (process.env.TRUST_PROXY === "1") {
-    const forwarded = request.headers.get("x-forwarded-for");
-    if (forwarded) return forwarded.split(",")[0]!.trim();
-    const realIp = request.headers.get("x-real-ip");
-    if (realIp) return realIp.trim();
+export function clientIpFrom(get: (name: string) => string | null): string {
+  if (process.env.TRUST_PROXY !== "1") return "direct";
+  const forwarded = get("x-forwarded-for");
+  if (forwarded) {
+    const hops = forwarded
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (hops.length > 0) {
+      const index = hops.length - trustedProxyHops();
+      return hops[index >= 0 ? index : 0]!;
+    }
   }
-  return "direct";
+  const realIp = get("x-real-ip");
+  return realIp?.trim() || "direct";
+}
+
+/** Saltos de confianza declarados por el operador (por defecto, uno). */
+function trustedProxyHops(): number {
+  const parsed = Number.parseInt(process.env.TRUSTED_PROXY_HOPS ?? "1", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.min(parsed, 10);
+}
+
+export function clientIp(request: Request): string {
+  return clientIpFrom((name) => request.headers.get(name));
 }
 
 /** Rechaza mutaciones cuyo Origin no coincide con el Host atendido. */

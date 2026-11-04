@@ -3,12 +3,15 @@ import { handleApiError, json, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { processOutbox } from "@/lib/outbox";
 import { createRequest, listRequests } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { guard, hit } from "@/lib/throttle";
 import { requestSchema } from "@/lib/validation";
 
 export async function GET() {
   try {
     const user = await requireUser();
+    // La respuesta trae hasta 500 conversaciones con subconsultas: se limita
+    // por cuenta para que no sirva de amplificador.
+    hit({ bucket: "requests:list", key: user.id, limit: 240, windowMs: 60 * 60 * 1000 });
     return json({ requests: listRequests(user.id) });
   } catch (error) {
     return handleApiError(error);

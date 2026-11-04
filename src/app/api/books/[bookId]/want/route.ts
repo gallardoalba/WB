@@ -1,7 +1,7 @@
 import { handleApiError, json, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { countBookWants, isBookWanted, setBookWant } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { guard, hit } from "@/lib/throttle";
 import { bookWantSchema } from "@/lib/validation";
 
 type Context = { params: Promise<{ bookId: string }> };
@@ -9,6 +9,7 @@ type Context = { params: Promise<{ bookId: string }> };
 export async function GET(_request: Request, { params }: Context) {
   try {
     const user = await requireUser();
+    hit({ bucket: "book:want:read", key: user.id, limit: 600, windowMs: 60 * 60 * 1000 });
     const { bookId } = await params;
     return json({
       wanted: isBookWanted(user.id, bookId),

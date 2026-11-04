@@ -1,7 +1,7 @@
 import { handleApiError, json, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { createReadingList, listReadingLists } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { guard, hit } from "@/lib/throttle";
 import { readingListSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const user = await requireUser();
+    hit({ bucket: "lists:list", key: user.id, limit: 240, windowMs: 60 * 60 * 1000 });
     return json({ lists: listReadingLists(user.id, user.id) });
   } catch (error) {
     return handleApiError(error);

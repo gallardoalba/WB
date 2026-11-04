@@ -80,9 +80,10 @@ export default async function Page({ params, searchParams }: PageProps) {
       : [];
   const meeting = formatMeeting(club.meetsAt, club.meetsOn, locale);
   const clubCopies = club.book
-    ? listingsForBook(club.book.id, viewer?.id ?? null).filter(
-        (listing) => listing.status === "available" && listing.city === club.city,
-      )
+    ? listingsForBook(club.book.id, viewer?.id ?? null, {
+        city: club.city,
+        availableOnly: true,
+      })
     : [];
   // Los préstamos solo los ven los miembros del club (ver `listClubLoans`).
   const clubLoans = viewer && club.isMember ? listClubLoans(club.id, viewer.id) : [];

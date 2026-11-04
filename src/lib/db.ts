@@ -4,11 +4,12 @@ import { chmodSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { hashPasswordSync } from "./password";
 import { CITIES, cityDistances } from "./cities";
+import { CATEGORIES } from "./domain";
 import { normalizeText } from "./text";
 
 export type Db = Database.Database;
 
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 /** Hash fijo de "demo1234": evita ejecutar scrypt al sembrar la base. */
 export const DEMO_PASSWORD_HASH =
@@ -978,6 +979,21 @@ function migrateToV26(db: Db) {
 }
 
 /**
+ * v27: una categoría fuera del catálogo actual deja el libro invisible en todos
+ * los filtros. Las bases migradas desde v20 podían conservar textos heredados.
+ */
+function migrateToV27(db: Db) {
+  const allowed = CATEGORIES.map((category) => `'${category.replace(/'/g, "''")}'`).join(", ");
+  const { changes } = db
+    .prepare(`UPDATE books SET category = ? WHERE category NOT IN (${allowed})`)
+    .run(CATEGORIES[CATEGORIES.length - 1]);
+  if (changes > 0) {
+    console.warn(`[db] ${changes} libros con categoría desconocida normalizados`);
+  }
+  db.pragma("user_version = 27");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1083,6 +1099,7 @@ function migrate(db: Db) {
   if (userVersion(db) < 24) migrateToV24(db);
   if (userVersion(db) < 25) migrateToV25(db);
   if (userVersion(db) < 26) migrateToV26(db);
+  if (userVersion(db) < 27) migrateToV27(db);
 
   backfillSearchKeys(db);
 }

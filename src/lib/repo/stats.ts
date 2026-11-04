@@ -8,8 +8,9 @@ export function listActivity(limit = 8, city: string | null = null): ActivityVie
        FROM events e
        JOIN users u ON u.id = e.actor_id
        JOIN listings l ON l.id = e.listing_id
+       JOIN users owner ON owner.id = l.owner_id
        JOIN books b ON b.id = l.book_id
-       WHERE l.status <> 'removed' AND u.is_suspended = 0
+       WHERE l.status <> 'removed' AND u.is_suspended = 0 AND owner.is_suspended = 0
          AND (@city IS NULL OR l.city = @city)
        ORDER BY e.created_at DESC, e.rowid DESC
        LIMIT @take`,
@@ -43,13 +44,24 @@ export function getStats(): StatsView {
        WHERE l.status = 'available' AND u.is_suspended = 0`,
     ),
     members: one("SELECT COUNT(*) AS value FROM users WHERE is_suspended = 0"),
-    completed: one("SELECT COUNT(*) AS value FROM requests WHERE status = 'completed'"),
+    // Solo intercambios entre cuentas que siguen activas: si una se borra, su
+    // historial no infla las cifras públicas.
+    completed: one(
+      `SELECT COUNT(*) AS value FROM requests r
+         JOIN users owner ON owner.id = r.owner_id
+         JOIN users requester ON requester.id = r.requester_id
+        WHERE r.status = 'completed'
+          AND owner.is_suspended = 0 AND requester.is_suspended = 0`,
+    ),
     cities: one(
       `SELECT COUNT(DISTINCT l.city) AS value FROM listings l
        JOIN users u ON u.id = l.owner_id
        WHERE l.status <> 'removed' AND u.is_suspended = 0`,
     ),
-    clubs: one("SELECT COUNT(*) AS value FROM clubs WHERE status = 'visible'"),
+    clubs: one(
+      `SELECT COUNT(*) AS value FROM clubs c JOIN users u ON u.id = c.owner_id
+        WHERE c.status = 'visible' AND u.is_suspended = 0`,
+    ),
   };
 }
 

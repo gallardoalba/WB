@@ -49,7 +49,8 @@ export default async function Page({ params }: PageProps) {
   const listing = getListing(id, user?.id ?? null);
   if (!listing) notFound();
 
-  const comments = countBookComments(listing.bookId);
+  // Mismo filtro que el hilo de la obra: sin bloqueos ni cuentas suspendidas.
+  const comments = countBookComments(listing.bookId, user?.id ?? null);
 
   return (
     <SiteShell user={user} section="obra" title={listing.title}>

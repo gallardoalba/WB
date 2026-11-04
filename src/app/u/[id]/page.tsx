@@ -94,7 +94,11 @@ export default async function Page({ params, searchParams }: PageProps) {
   }).format(new Date(profile.memberSince));
 
   const REVIEW_PAGE = 10;
-  const reviews = listReviews(profile.user.id, showAllReviews ? 100 : REVIEW_PAGE + 1);
+  const reviews = listReviews(
+    profile.user.id,
+    showAllReviews ? 100 : REVIEW_PAGE + 1,
+    viewer?.id ?? null,
+  );
   const hasMoreReviews = !showAllReviews && reviews.length > REVIEW_PAGE;
   const visibleReviews = showAllReviews ? reviews : reviews.slice(0, REVIEW_PAGE);
 

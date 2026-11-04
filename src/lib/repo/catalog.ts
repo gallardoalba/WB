@@ -452,21 +452,50 @@ export function getBook(bookId: string): BookView | null {
 }
 
 /** Copias disponibles de una obra, ordenadas por cercanía y estado. */
-export function listingsForBook(bookId: string, viewerId: string | null): ListingView[] {
+export function listingsForBook(
+  bookId: string,
+  viewerId: string | null,
+  options: { city?: string; availableOnly?: boolean; limit?: number } = {},
+): ListingView[] {
   const distance = distanceParts(viewerId);
+  // Los filtros van en SQL: filtrar después del LIMIT dejaba fuera ejemplares
+  // de la ciudad del club si las primeras copias eran de otro sitio.
+  const filters = [
+    "l.book_id = @bookId",
+    VISIBILITY,
+    OWNER_ACTIVE,
+    BLOCK_FILTER,
+    options.city ? "l.city = @city" : "",
+    options.availableOnly ? "l.status = 'available'" : "",
+  ]
+    .filter(Boolean)
+    .join(" AND ");
   const rows = getDb()
     .prepare(
       `${listingSelect(distance.expression)} ${distance.join}
-       WHERE l.book_id = @bookId AND ${VISIBILITY} AND ${OWNER_ACTIVE} AND ${BLOCK_FILTER}
+       WHERE ${filters}
        ORDER BY (l.status = 'available') DESC, distance_km IS NULL, distance_km ASC, l.created_at DESC
-       LIMIT 12`,
+       LIMIT @limit`,
     )
     .all({
       bookId,
       userId: viewerId ?? "",
       fromCity: distance.fromCity,
+      limit: options.limit ?? 50,
+      ...(options.city ? { city: options.city } : {}),
     }) as ListingRow[];
   return rows.map(toListingView);
+}
+
+/** Ejemplares visibles de una obra, sin el tope de la lista: da la cifra real. */
+export function countListingsForBook(bookId: string, viewerId: string | null): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS value FROM listings l
+        WHERE l.book_id = @bookId AND ${VISIBILITY} AND ${OWNER_ACTIVE} AND ${BLOCK_FILTER}`,
+    )
+    .get({ bookId, userId: viewerId ?? "" }) as { value: number };
+  return row.value;
 }
 
 export function listSitemapEntries() {

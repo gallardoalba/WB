@@ -201,14 +201,35 @@ export function getCommentBody(commentId: string, viewerId: string | null): stri
 }
 
 /** Mensajes visibles de una obra (raíces y respuestas). */
-export function countBookComments(bookId: string): number {
+/**
+ * Comentarios visibles de una obra (raíces y respuestas), con la misma regla
+ * que `listBookComments`: sin cuentas suspendidas, sin ocultos ajenos y sin
+ * bloqueos entre quien mira y quien escribió.
+ */
+export function countBookComments(bookId: string, viewerId: string | null = null): number {
   const row = getDb()
     .prepare(
       `SELECT COUNT(*) AS value FROM book_comments c
        JOIN users u ON u.id = c.author_id
-       WHERE c.book_id = ? AND c.status = 'visible' AND u.is_suspended = 0`,
+       WHERE c.book_id = @bookId AND c.status <> 'deleted' AND ${COMMENT_FILTER}`,
     )
-    .get(bookId) as { value: number };
+    .get({ bookId, viewerId: viewerId ?? "" }) as { value: number };
+  return row.value;
+}
+
+/**
+ * Comentarios raíz que esa persona suma en su perfil. Usa exactamente el
+ * filtro de `listAuthorComments` para que el número de la cabecera y la lista
+ * no diverjan.
+ */
+export function countAuthorComments(authorId: string, viewer: CommentViewer): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS value
+         FROM book_comments c JOIN users u ON u.id = c.author_id
+        WHERE c.parent_id IS NULL AND c.author_id = @authorId AND ${COMMENT_FILTER}`,
+    )
+    .get({ authorId, viewerId: viewer?.id ?? "" }) as { value: number };
   return row.value;
 }
 

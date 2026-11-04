@@ -44,7 +44,7 @@ export default async function Page({ searchParams }: PageProps) {
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
   // El directorio publica nombre, ciudad y biografía: se limita el raspado.
-  const allowed = await allowPageView(240, 60_000);
+  const allowed = await allowPageView(240, 60_000, viewer?.id ?? null);
   if (!allowed) {
     return (
       <main className="page-shell">
