@@ -5,6 +5,35 @@ async function waitForHydration(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("data-theme", /light|dark/);
 }
 
+/** Entra con la cuenta de demostración y deja la portada cargada. */
+async function loginAsDemo(page: Page) {
+  await page.goto("/");
+  await waitForHydration(page);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="password"]').fill("demo1234");
+  await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
+}
+
+test("el menú de cuenta se opera con el teclado", async ({ page }) => {
+  await loginAsDemo(page);
+  const trigger = page.getByRole("button", { name: "Abrir menú de cuenta" });
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown");
+
+  await expect(page.getByRole("menuitem", { name: "Mi perfil" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Cuenta y ciudad" })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByRole("menuitem", { name: "Mi perfil" })).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test("el catálogo carga y permite buscar", async ({ page }) => {
   await page.goto("/?view=discover");
   await expect(page).toHaveTitle(/Wanderbibliothek/);

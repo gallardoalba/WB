@@ -166,11 +166,10 @@ export function AuthDialog({
       icon={<ShieldCheck size={20} />}
     >
       {mode !== "forgot" && mode !== "totp" && (
-      <div className="auth-tabs" role="tablist" aria-label={t("Acceso o registro")}>
+      <div className="auth-tabs" role="group" aria-label={t("Acceso o registro")}>
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === "login"}
+          aria-pressed={mode === "login"}
           className={mode === "login" ? "auth-tab selected" : "auth-tab"}
           onClick={() => {
             setMode("login");
@@ -181,8 +180,7 @@ export function AuthDialog({
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === "register"}
+          aria-pressed={mode === "register"}
           className={mode === "register" ? "auth-tab selected" : "auth-tab"}
           onClick={() => {
             setMode("register");

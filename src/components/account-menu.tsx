@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -48,7 +49,16 @@ export function AccountMenu({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const authHref = `/?auth=1&next=${encodeURIComponent(pathname || "/")}`;
+
+  // Al abrir, el foco entra en el primer elemento: el menú es operable con
+  // teclado y los lectores de pantalla anuncian el rol correcto.
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +66,9 @@ export function AccountMenu({
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
     }
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -65,6 +77,33 @@ export function AccountMenu({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(
+      panelRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+    );
+    if (items.length === 0) return;
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    const focusAt = (position: number) =>
+      items[(position + items.length) % items.length]?.focus();
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusAt(current + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusAt(current < 0 ? items.length - 1 : current - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusAt(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusAt(items.length - 1);
+    } else if (event.key === "Tab") {
+      // Un menú no se recorre con Tab: se cierra y el foco sigue su camino.
+      setOpen(false);
+    }
+  }
 
   async function logout() {
     setPending(true);
@@ -126,6 +165,7 @@ export function AccountMenu({
   return (
     <div className="account-menu" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={triggerClass}
         aria-haspopup="menu"
@@ -134,6 +174,12 @@ export function AccountMenu({
         onClick={() => {
           setError("");
           setOpen((value) => !value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            setOpen(true);
+          }
         }}
       >
         <span className={`avatar tone-${toneForId(user.id)}`}>{initialsOf(user.name)}</span>
@@ -147,7 +193,13 @@ export function AccountMenu({
       </button>
 
       {open && (
-        <div className="account-menu-panel" role="menu" aria-label={t("Cuenta")}>
+        <div
+          ref={panelRef}
+          className="account-menu-panel"
+          role="menu"
+          aria-label={t("Cuenta")}
+          onKeyDown={handleMenuKeyDown}
+        >
           <Link
             className="account-menu-item"
             role="menuitem"

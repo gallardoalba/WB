@@ -737,6 +737,7 @@ const DE: Dictionary = {
   "Tu cuenta ya tiene otra clave (por ejemplo, de otro dispositivo). Si la sustituyes, ese dispositivo dejará de leer los mensajes nuevos.": "Dein Konto hat bereits einen anderen Schlüssel (zum Beispiel von einem anderen Gerät). Wenn du ihn ersetzt, kann dieses Gerät neue Nachrichten nicht mehr lesen.",
   "Activar en este navegador": "In diesem Browser aktivieren",
   "Último cambio de clave: {date}": "Letzter Schlüsselwechsel: {date}",
+  "{name} ha enviado un mensaje.": "{name} hat eine Nachricht gesendet.",
   "No se pudo activar el cifrado.": "Die Verschlüsselung konnte nicht aktiviert werden.",
   "Confirma tu contraseña para cambiar la clave de cifrado.": "Bestätige dein Passwort, um den Verschlüsselungsschlüssel zu ändern.",
   "Cifrado de extremo a extremo · Huella de": "Ende-zu-Ende-verschlüsselt · Fingerabdruck von",

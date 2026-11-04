@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Lock, MapPin, MessageCircle, Send, Star, TriangleAlert } from "lucide-react";
 import { Dialog } from "../dialog";
 import { HandoverCode } from "../handover-code";
@@ -93,6 +93,8 @@ export function ExchangeDialog({
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const lastSeenMessage = useRef<string | null>(null);
   const requestId = request?.id ?? null;
 
   // Oficinas de Deutsche Post cercanas a las dos partes. El punto de entrega
@@ -211,6 +213,22 @@ export function ExchangeDialog({
         if (cancelled) return;
         setThread({ requestId, messages: data.messages, ...prepared });
         setHasOlder(data.hasMore);
+
+        // Solo se anuncia lo que llega de la otra parte (no el historial):
+        // la región viva dedicada evita re-leer todo el hilo.
+        const newest = data.messages[data.messages.length - 1];
+        if (newest) {
+          if (lastSeenMessage.current === null) {
+            lastSeenMessage.current = newest.id;
+          } else if (newest.id !== lastSeenMessage.current) {
+            lastSeenMessage.current = newest.id;
+            if (newest.sender.id !== data.keys.me.id) {
+              setAnnouncement(
+                t("{name} ha enviado un mensaje.", { name: newest.sender.name }),
+              );
+            }
+          }
+        }
         // Marcar como leída es una mutación explícita (ya no ocurre en el GET).
         void api(`/api/requests/${requestId}/read`, { method: "POST" })
           .then(() => onChanged())
@@ -486,8 +504,8 @@ export function ExchangeDialog({
       )}
 
       {confirmStatus && (
-        <div className="exchange-confirm" role="alertdialog" aria-live="assertive">
-          <p>{t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}</p>
+        <div className="exchange-confirm" role="group" aria-label={t("CONFIRMAR ACCIÓN")}>
+          <p role="alert">{t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}</p>
           <div className="dialog-actions">
             <button
               type="button"
@@ -644,7 +662,13 @@ export function ExchangeDialog({
         </div>
       )}
 
-      <div className="message-thread" aria-live="polite">
+      {/* Solo se anuncia el mensaje nuevo: el hilo entero como región viva
+          re-leía todo el historial en cada actualización. */}
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
+
+      <div className="message-thread">
         {loading && <p className="empty-note">{t("Cargando conversación…")}</p>}
         {hasOlder && !loading && (
           <button
