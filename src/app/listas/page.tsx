@@ -107,7 +107,7 @@ export default async function Page({ searchParams }: PageProps) {
               "Las listas se crean desde la ficha de una obra o desde tu perfil y quedan visibles para toda la comunidad.",
             )}
           </p>
-          <Link href="/?view=discover" className="secondary-button small">
+          <Link href="/descubrir" className="secondary-button small">
             {t("Explorar el catálogo")}
           </Link>
         </div>

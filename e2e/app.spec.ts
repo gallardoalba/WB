@@ -37,12 +37,12 @@ test("el menú de cuenta se opera con el teclado", async ({ page }) => {
 test("el catálogo carga y permite buscar", async ({ page }) => {
   await page.goto("/?view=discover");
   await expect(page).toHaveTitle(/Wanderbibliothek/);
-  await expect(page.locator(".book-card").first()).toBeVisible();
+  await expect(page.locator(".book-card:visible").first()).toBeVisible();
 
   await waitForHydration(page);
-  await page.locator("#catalog-search").fill("junco");
-  await expect(page.locator(".book-card")).toHaveCount(1, { timeout: 10_000 });
-  await expect(page.locator(".book-card")).toContainText("El infinito en un junco");
+  await page.locator("#catalog-search:visible").fill("junco");
+  await expect(page.locator(".book-card:visible")).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator(".book-card:visible")).toContainText("El infinito en un junco");
 });
 
 test("el tema claro/oscuro se conmuta y persiste", async ({ page }) => {  await page.goto("/");
@@ -129,7 +129,7 @@ test("guardar un libro no roba el foco del teclado", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
 
   await page.goto("/?view=discover");
-  const favorite = page.locator(".favorite-button").first();
+  const favorite = page.locator(".favorite-button:visible").first();
   await expect(favorite).toBeVisible();
   const pressed = await favorite.getAttribute("aria-pressed");
 
@@ -175,12 +175,12 @@ test("el panel de comunidad carga cada pestaña por separado", async ({ page }) 
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
 
   await page.goto("/?view=community&tab=readers");
-  await expect(page.locator(".reader-card").first()).toBeVisible();
+  await expect(page.locator(".reader-card:visible").first()).toBeVisible();
   // El snapshot ya solo trae la pestaña pedida: ni clubes ni listas.
-  await expect(page.locator(".club-card")).toHaveCount(0);
+  await expect(page.locator(".club-card:visible")).toHaveCount(0);
 
   await page.goto("/?view=community&tab=clubs");
-  await expect(page.locator(".reader-card")).toHaveCount(0);
+  await expect(page.locator(".reader-card:visible")).toHaveCount(0);
 });
 
 test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", async ({ page }) => {  // Calienta la ruta de ficha antes de medir el retorno del login: en un
@@ -188,7 +188,7 @@ test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", asy
   await page.goto("/libro/lst_1");
   await page.goto("/");
   await waitForHydration(page);
-  await page.locator(".book-card .request-button").first().evaluate((element) =>
+  await page.locator(".book-card:visible .request-button").first().evaluate((element) =>
     (element as HTMLElement).click(),
   );
   const preview = page.getByRole("dialog");

@@ -1,8 +1,7 @@
-import { redirect } from "next/navigation";
+import { renderAppView, type AppViewPageProps } from "../app-view";
 
 export const instant = false;
 
-// El hub de comunidad vive en el catálogo; /comunidad ya no es el directorio.
-export default function Page() {
-  redirect("/?view=community");
+export default async function Page({ searchParams }: AppViewPageProps) {
+  return renderAppView("community", await searchParams, "/comunidad");
 }

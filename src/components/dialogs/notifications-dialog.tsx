@@ -116,7 +116,7 @@ export function NotificationsDialog({
                 </Link>
               )}
               {!item.link && item.requestId && (
-                <Link className="inline-link" href="/?view=exchanges" onClick={onClose}>
+                <Link className="inline-link" href="/intercambios" onClick={onClose}>
                   {t("Ver intercambio")} <ArrowRight size={14} />
                 </Link>
               )}

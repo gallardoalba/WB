@@ -25,13 +25,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireUser();
+    // Se valida **antes** de gastar cuota: un cuerpo inválido no es un
+    // intento de publicar y no debe consumir el límite diario (si no, unos
+    // cuantos formularios mal enviados dejan la cuenta sin poder publicar el
+    // resto del día). El rechazo es una respuesta 422 barata y sin escrituras.
+    const input = listingSchema.parse(await readJson(request));
     guard(request, {
       bucket: "listing:create",
       key: user.id,
       limit: 10,
       windowMs: 24 * 60 * 60 * 1000,
     });
-    const input = listingSchema.parse(await readJson(request));
     const listing = createListing(user.id, input);
     invalidatePublicData();
     // La demanda se calcula después de publicar: si alguien buscaba la obra

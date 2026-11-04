@@ -81,23 +81,23 @@ export function SiteShell({
       </section>
 
       <nav className="mobile-bottom-nav" aria-label={t("Navegación móvil")}>
-        <Link href="/?view=discover">
+        <Link href="/descubrir">
           <Compass size={19} />
           <span>{t("Descubrir")}</span>
         </Link>
-        <Link href="/?view=shelf">
+        <Link href="/estanteria">
           <Heart size={19} />
           <span>{t("Estantería")}</span>
         </Link>
         <Link href="/?offer=1" className="mobile-add" aria-label={t("Ofrecer un libro")}>
           <Plus size={21} />
         </Link>
-        <Link href="/?view=exchanges">
+        <Link href="/intercambios">
           <ArrowDownUp size={19} />
           <span>{t("Intercambios")}</span>
         </Link>
         <Link
-          href="/?view=community"
+          href="/comunidad"
           className={
             section === "clubes" || section === "lectores" || section === "listas"
               ? "mobile-active"

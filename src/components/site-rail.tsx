@@ -32,15 +32,15 @@ export function SiteRail({ user, section }: { user: SessionUser | null; section:
 
       <div className="nav-label">{t("TU ESPACIO")}</div>
       <nav className="primary-nav" aria-label={t("Navegación principal")}>
-        <Link className={itemClass(false)} href="/?view=discover">
+        <Link className={itemClass(false)} href="/descubrir">
           <Compass size={18} />
           <span>{t("Descubrir")}</span>
         </Link>
-        <Link className={itemClass(false)} href="/?view=shelf">
+        <Link className={itemClass(false)} href="/estanteria">
           {user ? <Heart size={18} /> : <Lock size={18} />}
           <span>{t("Mi estantería")}</span>
         </Link>
-        <Link className={itemClass(false)} href="/?view=exchanges">
+        <Link className={itemClass(false)} href="/intercambios">
           {user ? <ArrowDownUp size={18} /> : <Lock size={18} />}
           <span>{t("Intercambios")}</span>
         </Link>
@@ -51,7 +51,7 @@ export function SiteRail({ user, section }: { user: SessionUser | null; section:
           className={itemClass(
             section === "clubes" || section === "listas" || section === "lectores"
           )}
-          href="/?view=community"
+          href="/comunidad"
         >
           {user ? <Users size={18} /> : <Lock size={18} />}
           <span>{t("Comunidad")}</span>

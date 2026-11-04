@@ -103,7 +103,7 @@ export function ListingActions({
     setError("");
     try {
       await api(`/api/listings/${listingId}`, { method: "DELETE" });
-      router.push("/?view=shelf");
+      router.push("/estanteria");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo retirar la publicación."));
       setPending(false);

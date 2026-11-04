@@ -59,6 +59,7 @@ import {
   CATEGORIES,
   CATEGORY_DESCRIPTIONS,
   SORTS,
+  VIEW_PATHS,
   type ActivityView,
   type AppSnapshot,
   type CommunityTab,
@@ -252,7 +253,6 @@ export default function Book2PeerApp({
         ...patch,
       };
       const params = new URLSearchParams();
-      if (next.view && next.view !== "home") params.set("view", String(next.view));
       if (next.q) params.set("q", String(next.q));
       if (next.category && next.category !== "Todos") params.set("category", String(next.category));
       if (next.language && next.language !== "Todos") params.set("language", String(next.language));
@@ -265,8 +265,10 @@ export default function Book2PeerApp({
       if (next.scope && next.scope !== "region") params.set("scope", String(next.scope));
       if (Number(next.page) > 1) params.set("page", String(next.page));
       const query = params.toString();
+      // Cada vista tiene su ruta: la URL queda compartible (`/estanteria?page=2`).
+      const target = VIEW_PATHS[next.view as View] ?? pathname;
       startTransition(() => {
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+        router.replace(query ? `${target}?${query}` : target, { scroll: false });
       });
     },
     [filters.category, filters.feed, filters.language, filters.q, filters.radius, filters.shelf, filters.sort, filters.tag, filters.tab, filters.scope, page, pathname, router, view],

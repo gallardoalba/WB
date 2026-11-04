@@ -359,6 +359,15 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
 export const VIEWS = ["home", "discover", "shelf", "community", "exchanges"] as const;
 export type View = (typeof VIEWS)[number];
 
+/** Ruta canónica de cada vista del shell. */
+export const VIEW_PATHS: Record<View, string> = {
+  home: "/",
+  discover: "/descubrir",
+  shelf: "/estanteria",
+  exchanges: "/intercambios",
+  community: "/comunidad",
+};
+
 export const SORTS = ["near", "recent", "title"] as const;
 export type SortMode = (typeof SORTS)[number];
 
