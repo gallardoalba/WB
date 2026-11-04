@@ -33,19 +33,6 @@ export const CATALOG_LANGUAGES = ["Todos", ...BOOK_LANGUAGES] as const;
 export const READING_STATES = ["reading", "read"] as const;
 export type ReadingStatus = (typeof READING_STATES)[number];
 
-/** Qué entra en cada categoría; se muestra como ayuda en el filtro. */
-export const CATEGORY_DESCRIPTIONS: Record<Category, MessageKey> = {
-  Humanidades:
-    "Filosofía, historia, arte, música, literatura, lenguas, religión y mitología.",
-  "Ciencias y técnica":
-    "Física, química, biología, astronomía, matemáticas, medicina e informática.",
-  "Sociedad y política":
-    "Sociología, economía, política, derecho, psicología y educación.",
-  "Biografías": "Autobiografías, memorias, diarios y cartas.",
-  "Ficción":
-    "Novelas, cuentos, clásicos, crimen y thriller, ciencia ficción y fantasía, poesía, teatro y cómics.",
-};
-
 /**
  * Etiquetas curadas: la comunidad es pequeña y una lista cerrada evita
  * sinónimos duplicados y spam en el filtro.

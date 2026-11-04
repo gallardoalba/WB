@@ -53,7 +53,6 @@ export function AppSidebar({
         </span>
       </Link>
 
-      <div className="nav-label">{t("TU ESPACIO")}</div>
       <nav className="primary-nav" aria-label={t("Navegación principal")}>
         <button
           className={

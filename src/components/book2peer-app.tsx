@@ -57,7 +57,6 @@ const NotificationsDialog = dynamic(() =>
 import {
   CATALOG_LANGUAGES,
   CATEGORIES,
-  CATEGORY_DESCRIPTIONS,
   SORTS,
   VIEW_PATHS,
   type ActivityView,
@@ -276,12 +275,6 @@ export default function Book2PeerApp({
 
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
-  const hasFilters =
-    Boolean(filters.q) ||
-    Boolean(filters.tag) ||
-    filters.category !== "Todos" ||
-    filters.language !== "Todos" ||
-    filters.radius > 0;
 
   function clearFilters() {
     setSearch("");
@@ -945,27 +938,12 @@ export default function Book2PeerApp({
                       className={
                         filters.category === category ? "category-tab selected" : "category-tab"
                       }
-                      title={
-                        category === "Todos"
-                          ? undefined
-                          : t(CATEGORY_DESCRIPTIONS[category as (typeof CATEGORIES)[number]])
-                      }
                       onClick={() => navigate({ category, page: 1 })}
                     >
                       {t(category)}
                     </button>
                   ))}
                 </div>
-                {filters.category !== "Todos" && (
-                  <p className="category-note">
-                    {t(CATEGORY_DESCRIPTIONS[filters.category as (typeof CATEGORIES)[number]])}
-                    {hasFilters && !filters.q && !filters.tag && (
-                      <button type="button" className="inline-link" onClick={clearFilters}>
-                        {t("Limpiar filtros")}
-                      </button>
-                    )}
-                  </p>
-                )}
                 <div className="filter-toolbar">
                   <div className="search-field">
                     <Search size={15} aria-hidden="true" />

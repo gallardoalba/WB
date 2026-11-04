@@ -184,18 +184,12 @@
   color: var(--muted-2);
 }
 
-.nav-label,
 .overline,
 .aside-kicker {
   color: var(--muted-2);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
-}
-
-.nav-label {
-  padding: 0 10px;
-  margin-bottom: 10px;
 }
 
 .primary-nav {
@@ -649,11 +643,6 @@
 .crumb-home:hover {
   color: var(--green-strong);
   text-decoration: underline;
-}
-
-/* La navegación de comunidad va en su propio grupo, con aire arriba. */
-.primary-nav + .nav-label {
-  margin-top: 18px;
 }
 
 /* Comunidad comparte la lista con el resto de secciones, sin rótulo propio. */

@@ -30,7 +30,6 @@ export function SiteRail({ user, section }: { user: SessionUser | null; section:
         </span>
       </Link>
 
-      <div className="nav-label">{t("TU ESPACIO")}</div>
       <nav className="primary-nav" aria-label={t("Navegación principal")}>
         <Link className={itemClass(false)} href="/descubrir">
           <Compass size={18} />
