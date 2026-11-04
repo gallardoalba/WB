@@ -17,10 +17,10 @@
  * precio de que nadie más pueda leerlos).
  */
 
-const DB_NAME = "book2peer-e2e";
+const DB_NAME = "wanderbibliothek-e2e";
 const STORE = "identity";
 const RECORD_KEY = "identity-v1";
-const HKDF_SALT = "book2peer:v1";
+const HKDF_SALT = "wanderbibliothek:v1";
 
 export type Identity = {
   version: 1;
@@ -124,7 +124,7 @@ export function messageAad(
   senderId: string,
   keyId: string,
 ): string {
-  return `book2peer:v1|request:${requestId}|sender:${senderId}|key:${keyId}`;
+  return `wanderbibliothek:v1|request:${requestId}|sender:${senderId}|key:${keyId}`;
 }
 
 /** Identidad guardada en este navegador, si existe. */
@@ -186,7 +186,7 @@ export async function deriveConversationKey(
       name: "HKDF",
       hash: "SHA-256",
       salt: encoder.encode(HKDF_SALT),
-      info: encoder.encode(`book2peer:request:${requestId}`),
+      info: encoder.encode(`wanderbibliothek:request:${requestId}`),
     },
     hkdfKey,
     { name: "AES-GCM", length: 256 },

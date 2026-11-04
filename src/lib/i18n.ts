@@ -798,7 +798,7 @@ const DE = {
   "Código de 6 dígitos": "6-stelliger Code",
   "Código de verificación": "Bestätigungscode",
   "Cómo te llamas": "Wie heißt du",
-  "Demo: ana@book2peer.test con la contraseña demo1234.": "Demo: ana@book2peer.test mit dem Passwort demo1234.",
+  "Demo: ana@wanderbibliothek.test con la contraseña demo1234.": "Demo: ana@wanderbibliothek.test mit dem Passwort demo1234.",
   "Denuncia enviada, gracias": "Meldung gesendet, danke",
   "Denuncia enviada. Gracias.": "Meldung gesendet. Danke.",
   "Denuncia registrada. Gracias por avisar.": "Meldung erfasst. Danke für den Hinweis.",

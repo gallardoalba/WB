@@ -1,0 +1,15 @@
+[Unit]
+Description=Wanderbibliothek · copia de seguridad de la base
+Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+
+[Service]
+Type=oneshot
+User=wanderbibliothek
+Group=wanderbibliothek
+WorkingDirectory=/srv/wanderbibliothek/current
+EnvironmentFile=/etc/wanderbibliothek/env
+# `tsx` es dependencia de desarrollo: si instalas con `--omit=dev`, este
+# servicio no arranca. Ver «Instalación de dependencias» en deploy/README.md.
+ExecStart=/usr/bin/node --import tsx /srv/wanderbibliothek/current/scripts/backup.ts
+Nice=10
+IOSchedulingClass=idle

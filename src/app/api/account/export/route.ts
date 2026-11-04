@@ -11,7 +11,7 @@ export async function GET() {
     return new Response(JSON.stringify(data, null, 2), {
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "content-disposition": `attachment; filename="book2peer-${user.id}.json"`,
+        "content-disposition": `attachment; filename="wanderbibliothek-${user.id}.json"`,
         "cache-control": "no-store",
         "x-robots-tag": "noindex",
       },

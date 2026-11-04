@@ -1,13 +1,13 @@
 [Unit]
 Description=Wanderbibliothek · mantenimiento (caducidades, purgas, correo)
-Documentation=file:/srv/book2peer/current/deploy/README.md
-After=book2peer.service
+Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+After=wanderbibliothek.service
 
 [Service]
 Type=oneshot
-User=book2peer
-Group=book2peer
-EnvironmentFile=/etc/book2peer/env
+User=wanderbibliothek
+Group=wanderbibliothek
+EnvironmentFile=/etc/wanderbibliothek/env
 # El token viaja por la cabecera Authorization; el endpoint responde 404 si
 # MAINTENANCE_TOKEN no está definido.
 ExecStart=/bin/sh -c 'curl -fsS -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" http://127.0.0.1:3000/api/cron/maintenance'

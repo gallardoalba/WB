@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+# El token del workflow solo necesita leer el repositorio. Cualquier permiso de
+# escritura (comentarios, releases) se declara en el job que lo use.
+permissions:
+  contents: read
+
+# Un push nuevo sobre la misma rama cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest

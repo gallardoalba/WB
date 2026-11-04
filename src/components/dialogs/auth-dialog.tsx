@@ -332,7 +332,7 @@ export function AuthDialog({
 
       {process.env.NODE_ENV !== "production" && (
         <p className="form-hint">
-          {t("Demo: ana@book2peer.test con la contraseña demo1234.")}
+          {t("Demo: ana@wanderbibliothek.test con la contraseña demo1234.")}
         </p>
       )}
     </Dialog>

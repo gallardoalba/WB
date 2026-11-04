@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-process.env.BOOK2PEER_DB = ":memory:";
+process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type ThrottleModule = typeof import("../src/lib/throttle.ts");
 
@@ -81,8 +81,8 @@ test("con TRUST_PROXY acepta el host reenviado por el proxy", () => {
     throttle.assertSameOrigin(
       post({
         host: "interno:3000",
-        origin: "https://book2peer.app",
-        "x-forwarded-host": "book2peer.app",
+        origin: "https://wanderbibliothek.app",
+        "x-forwarded-host": "wanderbibliothek.app",
       }),
     ),
   );
@@ -93,8 +93,8 @@ test("con TRUST_PROXY acepta el host reenviado por el proxy", () => {
       throttle.assertSameOrigin(
         post({
           host: "interno:3000",
-          origin: "https://book2peer.app",
-          "x-forwarded-host": "book2peer.app",
+          origin: "https://wanderbibliothek.app",
+          "x-forwarded-host": "wanderbibliothek.app",
         }),
       ),
     (error: unknown) => error instanceof Error && "status" in error && error.status === 403,

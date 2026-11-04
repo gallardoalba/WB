@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-process.env.BOOK2PEER_DB = ":memory:";
+process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
 type DbModule = typeof import("../src/lib/db.ts");
@@ -239,7 +239,7 @@ test("el secreto TOTP se guarda cifrado y sigue funcionando", async () => {
 test("borrar la cuenta limpia clave, TOTP, alertas y correo pendiente", () => {
   const user = repo.createUser({
     name: "Cuenta temporal",
-    email: "temporal@book2peer.test",
+    email: "temporal@wanderbibliothek.test",
     passwordHash: "scrypt$00$00",
     city: "Stuttgart",
   });
@@ -248,7 +248,7 @@ test("borrar la cuenta limpia clave, TOTP, alertas y correo pendiente", () => {
   repo.notify({ userId: user.id, type: "message", title: "Aviso", body: "Texto" });
   assert.equal(
     (dbModule.getDb().prepare("SELECT COUNT(*) AS count FROM mail_outbox WHERE to_email = ?").get(
-      "temporal@book2peer.test",
+      "temporal@wanderbibliothek.test",
     ) as { count: number }).count,
     1,
   );

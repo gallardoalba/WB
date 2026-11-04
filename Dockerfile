@@ -2,7 +2,7 @@
 #
 # Imagen de producción de Wanderbibliothek.
 #
-#   docker build -t book2peer .
+#   docker build -t wanderbibliothek .
 #   docker compose up -d          (ver docker-compose.yml)
 #
 # Tres etapas para que la imagen final no lleve ni TypeScript ni las
@@ -37,8 +37,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    BOOK2PEER_DB=/data/book2peer.db \
-    BOOK2PEER_BACKUP_DIR=/backups
+    WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db \
+    WANDERBIBLIOTHEK_BACKUP_DIR=/backups
 
 # `curl` es útil para diagnosticar desde dentro del contenedor.
 RUN apt-get update \

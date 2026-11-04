@@ -1,7 +1,7 @@
 /**
  * Copia de seguridad consistente de la base SQLite.
  *
- *   npm run db:backup            → .data/backups/book2peer-<fecha>.db
+ *   npm run db:backup            → .data/backups/wanderbibliothek-<fecha>.db
  *
  * Usa la API `.backup()` de SQLite: no copia el fichero en caliente (con WAL eso
  * puede dar una instantánea incoherente).
@@ -13,9 +13,9 @@ import path from "node:path";
 import { encryptBackup } from "./backup-crypto";
 
 async function main() {
-  const source = process.env.BOOK2PEER_DB ?? path.join(process.cwd(), ".data", "book2peer.db");
+  const source = process.env.WANDERBIBLIOTHEK_DB ?? path.join(process.cwd(), ".data", "wanderbibliothek.db");
   const targetDir =
-    process.env.BOOK2PEER_BACKUP_DIR ?? path.join(process.cwd(), ".data", "backups");
+    process.env.WANDERBIBLIOTHEK_BACKUP_DIR ?? path.join(process.cwd(), ".data", "backups");
 
   try {
     statSync(source);
@@ -26,7 +26,7 @@ async function main() {
 
   mkdirSync(targetDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const target = path.join(targetDir, `book2peer-${stamp}.db`);
+  const target = path.join(targetDir, `wanderbibliothek-${stamp}.db`);
 
   const db = new Database(source, { readonly: true });
   await db.backup(target);
@@ -50,7 +50,7 @@ async function main() {
 
   // Si hay clave, la copia se guarda cifrada y el .db plano se elimina.
   let finalFile = target;
-  if (process.env.BOOK2PEER_BACKUP_KEY) {
+  if (process.env.WANDERBIBLIOTHEK_BACKUP_KEY) {
     finalFile = `${target}.enc`;
     encryptBackup(target, finalFile);
     unlinkSync(target);
@@ -58,9 +58,9 @@ async function main() {
   }
 
   // Rotación: se conservan las N copias más recientes.
-  const keep = Math.max(1, Number(process.env.BOOK2PEER_BACKUP_KEEP ?? 14) || 14);
+  const keep = Math.max(1, Number(process.env.WANDERBIBLIOTHEK_BACKUP_KEEP ?? 14) || 14);
   const backups = readdirSync(targetDir)
-    .filter((name) => /^book2peer-.*\.db(\.enc)?$/.test(name))
+    .filter((name) => /^wanderbibliothek-.*\.db(\.enc)?$/.test(name))
     .sort()
     .reverse();
   for (const old of backups.slice(keep)) {
@@ -73,7 +73,7 @@ async function main() {
   }
 
   // Gancho opcional para copia externa (rsync, rclone, S3…).
-  const hook = process.env.BOOK2PEER_BACKUP_HOOK;
+  const hook = process.env.WANDERBIBLIOTHEK_BACKUP_HOOK;
   if (hook) {
     try {
       execFileSync("sh", ["-c", hook], {

@@ -5,7 +5,7 @@ Description=Wanderbibliothek · mantenimiento cada 15 minutos
 OnCalendar=*:0/15
 # Si el servidor estaba apagado, se recupera la pasada perdida una sola vez.
 Persistent=false
-Unit=book2peer-maintenance.service
+Unit=wanderbibliothek-maintenance.service
 
 [Install]
 WantedBy=timers.target

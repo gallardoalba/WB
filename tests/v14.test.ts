@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-process.env.BOOK2PEER_DB = ":memory:";
+process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
 type ApiModule = typeof import("../src/lib/api.ts");
@@ -133,7 +133,7 @@ test("la moderación cancela el intercambio aceptado y no se puede completar", (
 test("borrar la cuenta elimina clubs, avisos y bloqueos", () => {
   const user = repo.createUser({
     name: "Lectora Temporal",
-    email: "temporal@book2peer.test",
+    email: "temporal@wanderbibliothek.test",
     passwordHash: "x",
     city: "Ulm",
   });
@@ -154,14 +154,14 @@ test("borrar la cuenta elimina clubs, avisos y bloqueos", () => {
 
 test("los nombres del equipo están reservados", () => {
   assert.throws(
-    () => repo.updateProfile("usr_ana", { name: "Book2Peer Soporte", bio: "", city: "Stuttgart" }),
+    () => repo.updateProfile("usr_ana", { name: "Wanderbibliothek Soporte", bio: "", city: "Stuttgart" }),
     (error: unknown) => error instanceof Error && error.message.includes("reservado"),
   );
   assert.throws(
     () =>
       repo.createUser({
         name: "Moderación",
-        email: "falsa@book2peer.test",
+        email: "falsa@wanderbibliothek.test",
         passwordHash: "x",
         city: "Stuttgart",
       }),

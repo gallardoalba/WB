@@ -32,7 +32,7 @@ export function HandoverCode({
     let active = true;
     void import("qrcode")
       .then((module) =>
-        module.default.toDataURL(`book2peer:handover:${requestId}:${code}`, {
+        module.default.toDataURL(`wanderbibliothek:handover:${requestId}:${code}`, {
           width: 180,
           margin: 1,
           color: { dark: "#2f5741", light: "#ffffff" },

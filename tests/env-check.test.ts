@@ -13,7 +13,7 @@ const complete = (patch: EnvLike = {}): EnvLike => ({
   MAINTENANCE_TOKEN: "token-largo",
   TRUST_PROXY: "1",
   ERROR_WEBHOOK_URL: "https://errors.example/hook",
-  BOOK2PEER_DB: "/var/lib/book2peer/book2peer.db",
+  WANDERBIBLIOTHEK_DB: "/var/lib/wanderbibliothek/wanderbibliothek.db",
   ...patch,
 });
 
@@ -38,7 +38,7 @@ test("en producción faltan el correo, la URL y la clave de cifrado", () => {
   // El resto son avisos: la app arranca, pero el operador debe saberlo.
   assert.ok(keys(issues, "warn").includes("MAINTENANCE_TOKEN"));
   assert.ok(keys(issues, "warn").includes("TRUST_PROXY"));
-  assert.ok(keys(issues, "warn").includes("BOOK2PEER_DB"));
+  assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_DB"));
 });
 
 test("una URL sin https es un error: la cookie __Host- no sobrevive", () => {
@@ -59,7 +59,7 @@ test("la clave de cifrado admite hex y base64 de 32 bytes, y nada más", () => {
 });
 
 test("los avisos no bloquean el arranque y los errores sí", () => {
-  const warningsOnly = complete({ MAINTENANCE_TOKEN: "", TRUST_PROXY: "", BOOK2PEER_DB: "" });
+  const warningsOnly = complete({ MAINTENANCE_TOKEN: "", TRUST_PROXY: "", WANDERBIBLIOTHEK_DB: "" });
   assert.deepEqual(
     assertEnv(warningsOnly, () => {}).filter((issue) => issue.severity === "error"),
     [],
@@ -72,7 +72,7 @@ test("los avisos no bloquean el arranque y los errores sí", () => {
 });
 
 test("la comprobación se puede saltar a propósito", () => {
-  assert.deepEqual(checkEnv({ NODE_ENV: "production", BOOK2PEER_SKIP_ENV_CHECK: "1" }), []);
+  assert.deepEqual(checkEnv({ NODE_ENV: "production", WANDERBIBLIOTHEK_SKIP_ENV_CHECK: "1" }), []);
 });
 
 test("los mensajes dicen qué se rompe, no solo qué variable falta", () => {

@@ -174,10 +174,10 @@ DROP TABLE requests;
 ALTER TABLE requests_v2 RENAME TO requests;
 `;
 
-const globalForDb = globalThis as unknown as { __book2peerDb?: Db };
+const globalForDb = globalThis as unknown as { __wanderbibliothekDb?: Db };
 
 function databaseFile(): string {
-  return process.env.BOOK2PEER_DB ?? path.join(process.cwd(), ".data", "book2peer.db");
+  return process.env.WANDERBIBLIOTHEK_DB ?? path.join(process.cwd(), ".data", "wanderbibliothek.db");
 }
 
 function userVersion(db: Db): number {
@@ -1164,12 +1164,12 @@ type SeedBook = {
 };
 
 const SEED_USERS = [
-  { id: "usr_ana", name: "Ana Martínez", email: "ana@book2peer.test", city: "Stuttgart", bio: "Lectora curiosa de narrativa y ensayo." },
-  { id: "usr_clara", name: "Clara Montes", email: "clara@book2peer.test", city: "Stuttgart", bio: "Comparto lo que termino." },
-  { id: "usr_diego", name: "Diego Ríos", email: "diego@book2peer.test", city: "Mannheim", bio: "Ensayo, historia y libros subrayados." },
-  { id: "usr_lucia", name: "Lucía Prieto", email: "lucia@book2peer.test", city: "Karlsruhe", bio: "Novela contemporánea." },
-  { id: "usr_marcos", name: "Marcos Gil", email: "marcos@book2peer.test", city: "Freiburg im Breisgau", bio: "Memorias y biografías." },
-  { id: "usr_admin", name: "Equipo Wanderbibliothek", email: "admin@book2peer.test", city: "Stuttgart", bio: "Moderación de la comunidad.", isAdmin: true },
+  { id: "usr_ana", name: "Ana Martínez", email: "ana@wanderbibliothek.test", city: "Stuttgart", bio: "Lectora curiosa de narrativa y ensayo." },
+  { id: "usr_clara", name: "Clara Montes", email: "clara@wanderbibliothek.test", city: "Stuttgart", bio: "Comparto lo que termino." },
+  { id: "usr_diego", name: "Diego Ríos", email: "diego@wanderbibliothek.test", city: "Mannheim", bio: "Ensayo, historia y libros subrayados." },
+  { id: "usr_lucia", name: "Lucía Prieto", email: "lucia@wanderbibliothek.test", city: "Karlsruhe", bio: "Novela contemporánea." },
+  { id: "usr_marcos", name: "Marcos Gil", email: "marcos@wanderbibliothek.test", city: "Freiburg im Breisgau", bio: "Memorias y biografías." },
+  { id: "usr_admin", name: "Equipo Wanderbibliothek", email: "admin@wanderbibliothek.test", city: "Stuttgart", bio: "Moderación de la comunidad.", isAdmin: true },
 ];
 
 const SEED_BOOKS: SeedBook[] = [
@@ -1386,7 +1386,7 @@ function seed(db: Db) {
 }
 
 export function getDb(): Db {
-  if (!globalForDb.__book2peerDb) {
+  if (!globalForDb.__wanderbibliothekDb) {
     const file = databaseFile();
     if (file !== ":memory:") {
       const dir = path.dirname(file);
@@ -1404,9 +1404,9 @@ export function getDb(): Db {
     migrate(db);
     if (shouldSeedDemo()) seed(db);
     ensureInitialAdmin(db);
-    globalForDb.__book2peerDb = db;
+    globalForDb.__wanderbibliothekDb = db;
   }
-  return globalForDb.__book2peerDb;
+  return globalForDb.__wanderbibliothekDb;
 }
 
 function restrictPermissions(target: string, mode: number) {
@@ -1419,6 +1419,6 @@ function restrictPermissions(target: string, mode: number) {
 
 /** Solo para pruebas: permite reiniciar la conexión en memoria. */
 export function resetDbForTests() {
-  globalForDb.__book2peerDb?.close();
-  globalForDb.__book2peerDb = undefined;
+  globalForDb.__wanderbibliothekDb?.close();
+  globalForDb.__wanderbibliothekDb = undefined;
 }

@@ -13,7 +13,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-La base SQLite se crea sola en `.data/book2peer.db` y se siembra con datos de demostración la primera vez.
+La base SQLite se crea sola en `.data/wanderbibliothek.db` y se siembra con datos de demostración la primera vez.
 
 ```bash
 npm run lint       # ESLint
@@ -26,19 +26,19 @@ npm run db:reset   # borra la base local (se vuelve a sembrar al arrancar)
 
 | Variable | Por defecto | Uso |
 | --- | --- | --- |
-| `BOOK2PEER_DB` | `.data/book2peer.db` | Ruta del archivo SQLite (`:memory:` para pruebas) |
+| `WANDERBIBLIOTHEK_DB` | `.data/wanderbibliothek.db` | Ruta del archivo SQLite (`:memory:` para pruebas) |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Base para `sitemap.xml` y `robots.txt` |
 | `TRUST_PROXY` | sin definir | `1` solo si hay un proxy propio delante: autoriza leer `X-Forwarded-For`/`X-Forwarded-Host` y activa las cuotas por IP. Sin él se aplican solo las cuotas globales y por cuenta (más altas), para que todas las personas no compartan un mismo cubo |
 | `MAINTENANCE_TOKEN` | sin definir | Token del cron: `POST /api/cron/maintenance` con `Authorization: Bearer <token>`. Sin él el endpoint responde 404 |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | sin definir | Crean el primer administrador si no existe ninguna cuenta admin (contraseña de 12+ caracteres) |
 | `MAIL_WEBHOOK_URL` | sin definir | Endpoint que recibe `{to, subject, text}` para enviar los correos de verificación, recuperación y avisos. Los envíos pasan por `mail_outbox` con reintentos. Admite `MAIL_WEBHOOK_TOKEN` para autenticarse con `Bearer` |
 | `APP_ENCRYPTION_KEY` | sin definir | 32 bytes en hex o base64 para cifrar secretos reversibles (TOTP). Obligatoria en producción |
-| `BOOK2PEER_BACKUP_KEY` | sin definir | 32 bytes en hex o base64. Si está definida, `db:backup` guarda la copia cifrada con AES-256-GCM (`db:decrypt` para restaurarla) |
+| `WANDERBIBLIOTHEK_BACKUP_KEY` | sin definir | 32 bytes en hex o base64. Si está definida, `db:backup` guarda la copia cifrada con AES-256-GCM (`db:decrypt` para restaurarla) |
 | `REQUIRE_EMAIL_VERIFICATION` | sin definir | `1` exige el correo confirmado para publicar, solicitar, comentar y escribir mensajes |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | sin definir | Activan Cloudflare Turnstile en el registro. Sin ellas se usa honeypot + tiempo mínimo |
 | `ERROR_WEBHOOK_URL` / `ERROR_WEBHOOK_TOKEN` | sin definir | Reciben los errores 500 en JSON (Sentry, Logtail o webhook propio) |
-| `BOOK2PEER_BACKUP_KEEP` | `14` | Copias de seguridad que se conservan al rotar |
-| `BOOK2PEER_BACKUP_HOOK` | sin definir | Comando que recibe `BACKUP_FILE` para copia externa (rsync, rclone…) |
+| `WANDERBIBLIOTHEK_BACKUP_KEEP` | `14` | Copias de seguridad que se conservan al rotar |
+| `WANDERBIBLIOTHEK_BACKUP_HOOK` | sin definir | Comando que recibe `BACKUP_FILE` para copia externa (rsync, rclone…) |
 | `AUDIT_RETENTION_DAYS` | `0` | Días que se conserva `admin_audit` en el mantenimiento (0 = para siempre) |
 | `SEED_DEMO` | `1` fuera de producción | Sembrar los datos de demostración. En producción nunca ocurre salvo que se ponga `1` a propósito |
 
@@ -50,31 +50,31 @@ Solo existen en desarrollo (`NODE_ENV !== "production"`) o con `SEED_DEMO=1`. Co
 
 | Correo | Nombre | Ciudad | Rol |
 | --- | --- | --- | --- |
-| `ana@book2peer.test` | Ana Martínez | Stuttgart | lectora |
-| `clara@book2peer.test` | Clara Montes | Stuttgart | lectora |
-| `diego@book2peer.test` | Diego Ríos | Mannheim | lector |
-| `lucia@book2peer.test` | Lucía Prieto | Karlsruhe | lectora |
-| `marcos@book2peer.test` | Marcos Gil | Freiburg im Breisgau | lector |
-| `admin@book2peer.test` | Equipo Wanderbibliothek | Stuttgart | **administración** (`/admin`) |
+| `ana@wanderbibliothek.test` | Ana Martínez | Stuttgart | lectora |
+| `clara@wanderbibliothek.test` | Clara Montes | Stuttgart | lectora |
+| `diego@wanderbibliothek.test` | Diego Ríos | Mannheim | lector |
+| `lucia@wanderbibliothek.test` | Lucía Prieto | Karlsruhe | lectora |
+| `marcos@wanderbibliothek.test` | Marcos Gil | Freiburg im Breisgau | lector |
+| `admin@wanderbibliothek.test` | Equipo Wanderbibliothek | Stuttgart | **administración** (`/admin`) |
 
 En un despliegue real: define `ADMIN_EMAIL`/`ADMIN_PASSWORD` o ejecuta
 `npm run admin:create -- tu@correo 'contraseña-larga'`.
 
 ## Rutas
 
-Sin sesión solo se puede ver la portada (`/`), el catálogo completo (`/?view=discover`) y los flujos de cuenta que necesitan enlace propio (`/restablecer`, `/verificar`). El resto de páginas redirigen al acceso (`/?auth=1&next=…`); el `sitemap.xml` anuncia únicamente la portada.
+Sin sesión solo se puede ver la portada (`/`), el catálogo completo (`/descubrir`) y los flujos de cuenta que necesitan enlace propio (`/restablecer`, `/verificar`). El resto de páginas redirigen al acceso (`/?auth=1&next=…`); el `sitemap.xml` anuncia únicamente la portada.
 
 | Ruta | Contenido |
 | --- | --- |
-| `/` | Portada: hero, tres cifras y **una sola fila de libros**; es la vista pública por defecto. |
-| `/?view=discover` | Catálogo completo con búsqueda, categorías, orden, filtros y paginación en la URL (`?q`, `?category`, `?sort`, `?tag`, `?page`). |
-| `/?view=shelf`, `/?view=exchanges`, `/?view=community` | Secciones privadas de la app; sin sesión redirigen al acceso. |
-| `/?offer=1` | Abre el formulario de publicación (si no hay sesión, primero el acceso). |
-| `/?profile=1`, `/?notifications=1` | Abren el diálogo de cuenta o de avisos en la portada. |
+| `/` | Portada: hero, tres cifras y **una sola fila de libros**; es la vista pública por defecto. Acepta `?view=` por compatibilidad con enlaces antiguos. |
+| `/descubrir` | Catálogo completo con búsqueda, categorías, orden, filtros y paginación en la URL (`?q`, `?category`, `?sort`, `?tag`, `?page`). |
+| `/estanteria`, `/intercambios`, `/comunidad` | Secciones privadas de la app; sin sesión redirigen al acceso conservando el destino en `?next=`. |
+| `/cuenta` | Ajustes de la cuenta: perfil y ciudad, avisos, contraseña, cifrado de mensajes, verificación en dos pasos, descarga de datos y borrado. |
+| `/?notifications=1` | Abre la bandeja de avisos sobre la portada (`?profile=1` redirige a `/cuenta`). |
 | `/libro/[id]` | Ficha: estado, ISBN, notas del ejemplar, dueño, solicitud, guardar, denunciar, datos estructurados `Book`/`Offer` |
 | `/u/[id]` | Perfil: biografía, métricas, valoración media, **reseñas**, estantería, bloquear/denunciar |
 | `/lectores` | Directorio de lectores con búsqueda, ciudad y orden por cercanía o actividad |
-| `/comunidad` | Redirige al hub de comunidad del catálogo (`/?view=community`) |
+| `/comunidad` | Hub de comunidad: conversaciones, actividad, clubes, lectores y listas, con el ámbito (región/ciudad) en `?scope=`. |
 | `/listas` | Listas de lectura públicas de la comunidad |
 | `/clubes` | Clubs de lectura por ciudad: crear, unirse, lectura en curso y día de encuentro |
 | `/clubes/[clubId]` | Detalle del club: lectura, asistencia, miembros y ajustes para quien lo creó (editar, ceder, cerrar) |
@@ -83,6 +83,14 @@ Sin sesión solo se puede ver la portada (`/`), el catálogo completo (`/?view=d
 | `/admin` | Solo administración: denuncias paginadas, incidencias de intercambio, cuentas suspendidas, comentarios ocultos, auditoría y métricas de producto |
 | `/?auth=1` | Abre el diálogo de acceso |
 | `/api/health` | Estado del servicio y de la base de datos |
+| `/api/account/keys` | `GET` estado e historial de la clave de cifrado · `PUT` publica la de este navegador (rotar exige contraseña) |
+| `/api/account/verify-email` | `POST` reenvía el enlace de confirmación |
+| `/api/account/delete`, `/api/account/export` | `POST` borra la cuenta con contraseña · `GET` descarga todos los datos en JSON |
+| `/api/auth/me`, `/api/auth/logout` | Sesión actual · cierre de sesión |
+| `/api/listings`, `/api/listings/[id]` | `POST` publica un ejemplar · `PATCH`/`DELETE` lo editan o retiran · `…/favorite` guarda o quita de la estantería |
+| `/api/blocks` | `POST` bloquea o desbloquea a otra cuenta |
+| `/api/requests/[requestId]/events` | Canal en vivo (SSE) de la conversación: avisa de mensajes nuevos sin enviar contenido |
+| `/api/admin/reports`, `/api/admin/reports/[id]` | Bandeja de denuncias e incidencias, con resolución por id |
 | `/manifest.webmanifest`, `/sw.js` | Manifest e instalación como aplicación (service worker mínimo, sin caché de datos) |
 | `/api/cron/maintenance` | Tareas programadas (caducidad y purgas) con `MAINTENANCE_TOKEN` |
 | `/api/account/profile` | `PATCH`: nombre, ciudad, biografía y preferencia de correo del propio perfil |
@@ -110,6 +118,10 @@ Sin sesión solo se puede ver la portada (`/`), el catálogo completo (`/?view=d
 | `/api/admin/moderation` | Acciones directas: retirar/restablecer ejemplar, suspender/reactivar cuenta, ocultar/restablecer comentario o club |
 | `/sitemap.xml`, `/robots.txt` | Indexación (el sitemap solo publica la portada) |
 
+Es una selección: hay **56 endpoints** en `src/app/api`. Los que no figuran siguen
+el mismo patrón (`guard()` de origen y cuota, esquema Zod y `handleApiError()`), y
+`tests/contracts.test.ts` comprueba que ninguna mutación se salte `guard()`.
+
 ## Arquitectura
 
 Monolito modular con Next.js 16 (App Router, Cache Components), TypeScript y SQLite.
@@ -122,7 +134,7 @@ src/
     libro/[id]/page.tsx       Ficha con metadatos y JSON-LD
     obra/[bookId]/page.tsx    Obra canónica: conversación del título y ejemplares
     u/[id]/page.tsx           Perfil público (oculto si la cuenta está suspendida)
-    comunidad/page.tsx        Redirige al hub de comunidad (`/?view=community`)
+    comunidad/page.tsx        Hub de comunidad (conversaciones, actividad, clubes, lectores, listas)
     lectores/page.tsx         Directorio de lectores con filtros
     clubes/ page.tsx y [clubId]/ Detalle de club con miembros y ajustes
     listas/[listId]/page.tsx  Lista de lectura pública
@@ -132,7 +144,7 @@ src/
     proxy.ts                  CSP con nonce y cabeceras de seguridad (convención `proxy`)
     styles/                   tokens · tipografía · estructura · portada · tarjetas · comunidad · diálogos · fichas · responsive · comentarios · grafo social · descubrimiento · clubs
   components/
-    book2peer-app.tsx         Shell cliente con estado en la URL y pestañas de comunidad
+    wanderbibliothek-app.tsx         Shell cliente con estado en la URL y pestañas de comunidad
     site-shell.tsx            Shell de páginas internas + PageHeader
     site-rail.tsx             Barra lateral de páginas internas
     app-sidebar.tsx           Barra lateral del catálogo (navegación y menú de cuenta)
@@ -198,10 +210,16 @@ src/
     e2e.ts                    Cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)
     post-offices.ts           Oficinas de Deutsche Post para el punto de entrega
 tests/
-  text, request-flow, repo, security, contracts y suites v4–v27 (24 ficheros)
+  text, request-flow, repo, security, contracts, env-check y suites v4–v32
+  (31 ficheros, 188 pruebas)
 e2e/
-  app.spec.ts               Playwright: catálogo/búsqueda, tema, acceso, vista previa, guards y SEO
-playwright.config.ts        Servidor propio en localhost:3100
+  app.spec.ts               Playwright: catálogo/búsqueda, tema, acceso, cuenta,
+                            vista previa, guards y SEO
+  api.spec.ts               Playwright contra los route handlers (415, CSRF, 401,
+                            403, 422 con formato de errores)
+playwright.config.ts        Servidor propio en localhost:3100 (o PLAYWRIGHT_BASE_URL)
+deploy/                     systemd, nginx, plantilla de entorno y guía de despliegue
+Dockerfile, docker-compose.yml
 ```
 
 ### Datos
@@ -209,7 +227,7 @@ playwright.config.ts        Servidor propio en localhost:3100
 - `books` (edición, ISBN único) separado de `listings` (ejemplar concreto).
 - Estados de ejemplar: `available`, `reserved`, `given`, `paused`, `removed`.
 - Estados de solicitud: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.
-- **Migraciones versionadas** con `PRAGMA user_version` (actual: v25); las bases creadas con un esquema anterior se actualizan conservando los datos. La v12 permite una valoración por persona e intercambio (antes solo la primera parte podía valorar) y guarda el estado previo de un ejemplar retirado por moderación; la v13 añade el secreto TOTP y el último paso consumido para la verificación en dos pasos; la v14 añade el **punto de entrega** en una oficina de Deutsche Post (`requests.handover_office_id`) y el **sobre cifrado** de los mensajes (`messages.ciphertext`, `iv`, `encrypted`) junto con la clave pública de cada cuenta (`users.public_key`); la v15 añade `availability_alerts` para los avisos de novedad por ciudad; la v16 añade `users.public_key_id` (huella SHA-256 de la clave), `messages.key_id` y la bandeja `mail_outbox`; la v17 añade `users.email_notifications` para la preferencia de avisos por correo; la v18 añade `requests.owner_confirmed_at` y `requests.requester_confirmed_at` para el **cierre bilateral** del intercambio; la v19 añade a los clubs el **próximo encuentro** (`meets_at`), el estado de moderación, la política de entrada, el progreso de lectura, la asistencia (`club_attendance`), las solicitudes pendientes (`club_members.status`) y la tabla de métricas `product_events`; la v20 añade `users.locale` y sustituye las ciudades de Baden-Württemberg por las **123 ciudades de toda Alemania**, recalculando la matriz de distancias; la v21 reduce los géneros antiguos a las **cinco categorías principales** actuales; la v22 añade `book_wants` para los avisos por obra y ciudad; la v23 añade `books.language`, `reading_states` y `requests.handover_code`; la v24 completa el idioma de las ediciones de demostración; la v25 añade `club_loans` para la rotación de ejemplares dentro de un club.
+- **Migraciones versionadas** con `PRAGMA user_version` (actual: v28); las bases creadas con un esquema anterior se actualizan conservando los datos. La v12 permite una valoración por persona e intercambio (antes solo la primera parte podía valorar) y guarda el estado previo de un ejemplar retirado por moderación; la v13 añade el secreto TOTP y el último paso consumido para la verificación en dos pasos; la v14 añade el **punto de entrega** en una oficina de Deutsche Post (`requests.handover_office_id`) y el **sobre cifrado** de los mensajes (`messages.ciphertext`, `iv`, `encrypted`) junto con la clave pública de cada cuenta (`users.public_key`); la v15 añade `availability_alerts` para los avisos de novedad por ciudad; la v16 añade `users.public_key_id` (huella SHA-256 de la clave), `messages.key_id` y la bandeja `mail_outbox`; la v17 añade `users.email_notifications` para la preferencia de avisos por correo; la v18 añade `requests.owner_confirmed_at` y `requests.requester_confirmed_at` para el **cierre bilateral** del intercambio; la v19 añade a los clubs el **próximo encuentro** (`meets_at`), el estado de moderación, la política de entrada, el progreso de lectura, la asistencia (`club_attendance`), las solicitudes pendientes (`club_members.status`) y la tabla de métricas `product_events`; la v20 añade `users.locale` y sustituye las ciudades de Baden-Württemberg por las **123 ciudades de toda Alemania**, recalculando la matriz de distancias; la v21 reduce los géneros antiguos a las **cinco categorías principales** actuales; la v22 añade `book_wants` para los avisos por obra y ciudad; la v23 añade `books.language`, `reading_states` y `requests.handover_code`; la v24 completa el idioma de las ediciones de demostración; la v25 añade `club_loans` para la rotación de ejemplares dentro de un club; la v26 añade índices para las consultas más frecuentes (ejemplares por obra, correo pendiente, auditoría por objetivo, denuncias y mensajes por remitente); la v27 normaliza a las cinco categorías actuales los libros que conservaban un género heredado; la v28 añade `public_key_history` para auditar los cambios de clave de cifrado.
 - **Punto de entrega público**: `src/lib/post-offices.json` contiene 90 oficinas y sucursales asociadas reales de Deutsche Post en Baden-Württemberg (consulta Overpass de OpenStreetMap, `amenity=post_office`, noviembre de 2026; atribución ODbL). Al aceptar un intercambio se propone la oficina más cercana a quien entrega el libro y cualquiera de las dos partes puede cambiarla; el servidor solo acepta identificadores de esa lista, así que el campo no sirve para colar una dirección privada. **La cobertura de oficinas es todavía la de Baden-Württemberg**; fuera de esa zona la interfaz propone entrega en mano y el punto exacto se acuerda en la conversación. La plataforma sigue sin guardar direcciones de personas.
 - Búsqueda con **FTS5** (`listings_fts`, contenido externo sobre `listings.search_key`): los disparadores la mantienen al día y admite prefijos y acentos.
 - `request_reads` guarda hasta cuándo ha leído cada persona su conversación, para el contador de mensajes sin leer.
@@ -242,7 +260,7 @@ Privacidad: `GET /api/account/export` incluye comentarios, reacciones, seguidore
 
 El servidor **no puede leer las conversaciones** nuevas: no guarda la clave privada ni el texto plano.
 
-1. Al iniciar sesión, el navegador genera un par **ECDH P-256**. La clave privada se guarda como `CryptoKey` **no extraíble** en IndexedDB (`book2peer-e2e`); solo la mitad pública se envía a `PUT /api/account/keys` junto con su huella SHA-256 (`keyId`). El servidor valida que sea un punto real de P-256.
+1. Al iniciar sesión, el navegador genera un par **ECDH P-256**. La clave privada se guarda como `CryptoKey` **no extraíble** en IndexedDB (`wanderbibliothek-e2e`); solo la mitad pública se envía a `PUT /api/account/keys` junto con su huella SHA-256 (`keyId`). El servidor valida que sea un punto real de P-256.
 2. Para cada conversación se deriva una clave **AES-GCM-256** con ECDH + HKDF-SHA256, usando el identificador de la solicitud como `info` (dos hilos nunca comparten clave).
 3. El mensaje se cifra en el cliente con **AAD** `requestId + remitente + keyId` y se envía como `{ ciphertext, iv, keyId }`; el servidor guarda el sobre y la huella. Un mensaje no se puede mover a otro hilo, remitente o clave.
 4. La primera huella de la otra persona se recuerda (TOFU). Si cambia, la interfaz muestra la huella nueva y **bloquea el envío** hasta confirmarla; la cuenta recibe además un aviso interno de cambio de clave.
@@ -311,7 +329,7 @@ CI (`.github/workflows/ci.yml`) ejecuta `lint`, `test`, `build`, `npm audit --om
 
 ## Operación
 
-- **Copia de seguridad**: `npm run db:backup` (usa la API `.backup()` de SQLite, ejecuta `integrity_check`, rota las N copias de `BOOK2PEER_BACKUP_KEEP`, cifra con AES-256-GCM si existe `BOOK2PEER_BACKUP_KEY` y lanza `BOOK2PEER_BACKUP_HOOK`; `npm run db:decrypt -- copia.db.enc salida.db` restaura; nunca copies el fichero en caliente con WAL activo).
+- **Copia de seguridad**: `npm run db:backup` (usa la API `.backup()` de SQLite, ejecuta `integrity_check`, rota las N copias de `WANDERBIBLIOTHEK_BACKUP_KEEP`, cifra con AES-256-GCM si existe `WANDERBIBLIOTHEK_BACKUP_KEY` y lanza `WANDERBIBLIOTHEK_BACKUP_HOOK`; `npm run db:decrypt -- copia.db.enc salida.db` restaura; nunca copies el fichero en caliente con WAL activo).
 - **Verificar un correo a mano**: `npm run user:verify -- correo@ejemplo.com` (con `--unverify` para lo contrario). Es la salida de emergencia cuando el proveedor de correo falla y alguien no puede publicar.
 - **Cron**: `curl -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" https://tu-dominio/api/cron/maintenance` desde un `systemd timer` o el cron del sistema, una vez al día.
 - **Mantenimiento** (cron horario o diario): `curl -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" https://tu-dominio/api/cron/maintenance`. Caduca solicitudes de más de 14 días, borra sesiones expiradas, purga avisos leídos de más de 90 días, actividad de más de 180, los contadores de cuotas, deja a `NULL` el `book_id` de los avisos cuyo libro ya no existe (para no servir enlaces roscos) y envía el recordatorio de los encuentros de club que ocurren en las próximas 24 horas (una vez por reunión).
@@ -325,11 +343,11 @@ CI (`.github/workflows/ci.yml`) ejecuta `lint`, `test`, `build`, `npm audit --om
 
 La guía completa (usuario de sistema, systemd, nginx, TLS, timers de cron y copia, actualización y restauración) está en [`deploy/README.md`](deploy/README.md). Resumen:
 
-- **Servicio**: `deploy/book2peer.service` + `deploy/nginx.conf` + `deploy/env.example`. La app escucha en `127.0.0.1:3000` y nginx pone el TLS; `/api/requests/` va sin buffering (SSE).
-- **Tareas**: `deploy/book2peer-maintenance.timer` (cada 15 min) y `deploy/book2peer-backup.timer` (diario).
-- **Comprobación de entorno al arrancar** (`src/instrumentation.ts` + `src/lib/env-check.ts`): en producción el proceso revisa la configuración y deja en el log `[env] ERROR …` / `[env] AVISO …`. Si falta algo grave —`NEXT_PUBLIC_SITE_URL` en https, `MAIL_WEBHOOK_URL` o `APP_ENCRYPTION_KEY`— el proceso arranca pero responde **500** a todo, con el motivo en el log, en lugar de parecer que funciona y rechazar a la gente. `BOOK2PEER_SKIP_ENV_CHECK=1` lo salta a propósito.
+- **Servicio**: `deploy/wanderbibliothek.service` + `deploy/nginx.conf` + `deploy/env.example`. La app escucha en `127.0.0.1:3000` y nginx pone el TLS; `/api/requests/` va sin buffering (SSE).
+- **Tareas**: `deploy/wanderbibliothek-maintenance.timer` (cada 15 min) y `deploy/wanderbibliothek-backup.timer` (diario).
+- **Comprobación de entorno al arrancar** (`src/instrumentation.ts` + `src/lib/env-check.ts`): en producción el proceso revisa la configuración y deja en el log `[env] ERROR …` / `[env] AVISO …`. Si falta algo grave —`NEXT_PUBLIC_SITE_URL` en https, `MAIL_WEBHOOK_URL` o `APP_ENCRYPTION_KEY`— el proceso arranca pero responde **500** a todo, con el motivo en el log, en lugar de parecer que funciona y rechazar a la gente. `WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1` lo salta a propósito.
 - **Una sola instancia**: SQLite (un escritor) y el bus de avisos en memoria no admiten réplicas; escalar exige PostgreSQL y Redis/pubsub.
-- **Dos rutas**: host con systemd (`deploy/book2peer.service`) o contenedor (`Dockerfile` + `docker-compose.yml`, multi-etapa con solo dependencias de producción). El build de la imagen se valida en CI.
+- **Dos rutas**: host con systemd (`deploy/wanderbibliothek.service`) o contenedor (`Dockerfile` + `docker-compose.yml`, multi-etapa con solo dependencias de producción). El build de la imagen se valida en CI.
 - **`tsx` es dependencia de producción** (no de desarrollo): lo usan `admin:create`, `db:backup`, `user:verify` y `smoke`, también dentro de la imagen con `npm ci --omit=dev`.
 
 ## Sistema visual
@@ -341,10 +359,10 @@ La guía completa (usuario de sistema, systemd, nginx, TLS, timers de cron y cop
 - **Color contenido**: papel cálido y tinta, verde como único acento y coral solo para marca y acciones destructivas. Avatares y portadas sin imagen usan dos tonos (`sage`/`ochre`), con variante oscura.
 - **Portada editorial**: el hero es una superficie plana con titular, un CTA y tres cifras en una banda a todo el ancho, separadas por reglas; sin foto, sin cristal y sin botón melocotón. Debajo se muestra **una única fila de libros** (1 en móvil estrecho, 2 hasta 999 px, 3 hasta 1399, 4 hasta 1799 y 5 en pantallas mayores), sin filtros ni paginación.
 - **Aplicación instalable**: `src/app/manifest.ts` publica nombre, colores, `start_url` y los iconos de `public/icons/` (192, 512 y variante *maskable*); `public/sw.js` es un service worker mínimo sin caché para no servir libros obsoletos y solo se registra en producción. El escaneo de ISBN usa la cámara cuando el navegador soporta `BarcodeDetector`; si no, el campo sigue siendo manual.
-- **Descubrir el catálogo completo**: el botón del hero, el CTA bajo la fila y la entrada «Descubrir» del menú abren `?view=discover`, la sección con todas las filas, búsqueda, categorías, orden y paginación. La portada (`/`) y el catálogo (`/?view=discover`) son vistas distintas de la misma app.
+- **Descubrir el catálogo completo**: el botón del hero, el CTA bajo la fila y la entrada «Descubrir» del menú abren `/descubrir`, la sección con todas las filas, búsqueda, categorías, orden y paginación. La portada (`/`) y el catálogo (`/descubrir`) son vistas distintas de la misma app.
 - **Catálogo**: las cinco categorías amplias comparten una fila de pestañas con subrayado (scroll horizontal en móvil); debajo, una barra única con búsqueda, contador (`aria-live`), orden y chips de filtros activos. Mientras se resuelve un filtro, la rejilla muestra tarjetas esqueleto y conserva la altura para evitar saltos.
 - **Tarjetas**: portada de 210 px, categoría truncada en una línea, título serif a dos líneas y CTA de texto al pie; en móvil la portada baja a 165–200 px y el botón conserva 44 px de alto.
-- **Navegación**: “Tu espacio” agrupa Descubrir, Estantería e Intercambios; Comunidad es un único acceso y Clubes/Listas/Lectores viven dentro de sus pestañas. La ciudad y los avisos de novedades ya no ocupan la barra lateral: se gestionan desde el menú de cuenta, que reúne perfil, ajustes/ciudad, avisos, moderación (solo admin) y cierre de sesión tanto en la app como en las páginas internas. La barra inferior móvil apunta siempre al catálogo completo (`?view=discover`) y el botón central abre la oferta (`?offer=1`).
+- **Navegación**: la barra lateral agrupa Descubrir, Estantería e Intercambios, con Comunidad como acceso único; Clubes, Lectores y Listas viven dentro de sus pestañas. La ciudad y los avisos de novedades se gestionan desde el menú de cuenta, que reúne perfil, **Cuenta** (`/cuenta`), avisos, moderación (solo admin) y cierre de sesión tanto en la app como en las páginas internas. La barra inferior móvil apunta al catálogo completo (`/descubrir`) y el botón central abre la oferta (`?offer=1`).
 - **Comunidad**: una sola fila de pestañas, filtro de ámbito (región/ciudad), búsqueda contextual para clubes, lectores y listas, y “Crear club” dentro de su propia pestaña. Se eliminaron los enlaces duplicados de Clubes/Lectores/Listas de la cabecera y de la columna lateral.
 - **Móvil**: hero compacto (cifras en tres columnas, texto recortado a tres líneas), primera tarjeta al borde del primer viewport y barra de filtros en dos filas (búsqueda a lo ancho, contador + orden debajo).
 - **Modo oscuro**: el hero y los tonos pastel usan tokens, no colores fijos. El conmutador de tema vive en el topbar, junto al idioma, y ya no flota sobre el contenido.
@@ -373,6 +391,30 @@ La guía completa (usuario de sistema, systemd, nginx, TLS, timers de cron y cop
 2. Fotos reales del ejemplar (requiere almacenamiento de objetos y moderación de imágenes).
 3. Geolocalización aproximada por ciudad (nunca direcciones exactas).
 4. Clubs grandes con varios organizadores y reparto por capítulos (hoy el tope de 200 y una sola persona al frente resuelven el caso real).
-5. Historial de claves públicas y varias dispositivos, además de passkeys y códigos de recuperación de la 2FA.
+5. Passkeys y códigos de recuperación de la 2FA (el historial de claves públicas ya existe desde la v28), además de varias claves activas por cuenta.
 6. Paginación del listado de intercambios (hoy devuelve los últimos 500) y copia de seguridad automática antes de migrar.
 7. Observabilidad real (OpenTelemetry, informes CSP) y copia de la clave de mensajería entre dispositivos.
+
+## Seguridad
+
+Para reportar una vulnerabilidad usa la pestaña **Security → Report a
+vulnerability** del repositorio (aviso privado de GitHub; no abras un issue
+público). Alcance, plazos de respuesta y buenas prácticas de autohospedaje:
+[`SECURITY.md`](SECURITY.md).
+
+El proyecto pasa `npm audit --omit=dev` sin avisos. Los avisos que muestra
+`npm audit` completo son de la cadena de ESLint (desarrollo) y se actualizan con
+Dependabot cuando hay versión compatible.
+
+## Contribuir
+
+Entorno, comandos de calidad, convenciones de commits, obligación de traducir al
+alemán y reglas de migración: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Licencia y atribuciones
+
+Código bajo licencia **MIT** — ver [`LICENSE`](LICENSE).
+
+Los datos de oficinas de Deutsche Post de `src/lib/post-offices.json` derivan de
+OpenStreetMap y se publican bajo **ODbL 1.0**, fuera de la licencia MIT; la
+atribución y el resto de componentes de terceros están en [`NOTICE`](NOTICE).

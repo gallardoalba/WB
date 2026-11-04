@@ -16,21 +16,21 @@ instancia de Node con SQLite: **no** se puede replicar horizontalmente (ver
 ## 2. Usuario y directorios
 
 ```bash
-sudo useradd --system --home /srv/book2peer --shell /usr/sbin/nologin book2peer
-sudo mkdir -p /srv/book2peer/releases /var/lib/book2peer /var/backups/book2peer
-sudo chown -R book2peer:book2peer /srv/book2peer /var/lib/book2peer /var/backups/book2peer
+sudo useradd --system --home /srv/wanderbibliothek --shell /usr/sbin/nologin wanderbibliothek
+sudo mkdir -p /srv/wanderbibliothek/releases /var/lib/wanderbibliothek /var/backups/wanderbibliothek
+sudo chown -R wanderbibliothek:wanderbibliothek /srv/wanderbibliothek /var/lib/wanderbibliothek /var/backups/wanderbibliothek
 ```
 
-- `/srv/book2peer/releases/<fecha>/` — cada versión desplegada.
-- `/srv/book2peer/current` — enlace simbólico a la versión activa.
-- `/var/lib/book2peer/book2peer.db` — la base (fuera de la aplicación).
-- `/var/backups/book2peer/` — copias.
-- `/etc/book2peer/env` — variables de entorno del servicio (solo root).
+- `/srv/wanderbibliothek/releases/<fecha>/` — cada versión desplegada.
+- `/srv/wanderbibliothek/current` — enlace simbólico a la versión activa.
+- `/var/lib/wanderbibliothek/wanderbibliothek.db` — la base (fuera de la aplicación).
+- `/var/backups/wanderbibliothek/` — copias.
+- `/etc/wanderbibliothek/env` — variables de entorno del servicio (solo root).
 
 ## 3. Instalación de dependencias
 
 ```bash
-cd /srv/book2peer/releases/2026-11-04
+cd /srv/wanderbibliothek/releases/2026-11-04
 npm ci
 npm run build
 ```
@@ -47,9 +47,9 @@ en CI y desplegar el artefacto.
 ## 4. Entorno
 
 ```bash
-sudo mkdir -p /etc/book2peer
-sudo install -m 600 -o root -g root deploy/env.example /etc/book2peer/env
-sudo -e /etc/book2peer/env          # rellena URL, correo y secretos
+sudo mkdir -p /etc/wanderbibliothek
+sudo install -m 600 -o root -g root deploy/env.example /etc/wanderbibliothek/env
+sudo -e /etc/wanderbibliothek/env          # rellena URL, correo y secretos
 ```
 
 Genera los secretos con `openssl rand -hex 32`. Las variables obligatorias y sus
@@ -62,27 +62,27 @@ consecuencias están comentadas en el propio fichero; el resumen:
 | `APP_ENCRYPTION_KEY` | No se puede guardar el secreto TOTP ⇒ sin 2FA la administración responde 403 |
 | `MAINTENANCE_TOKEN` | El cron responde 404: sin purgas, sin reintentos de correo, sin recordatorios de club |
 | `TRUST_PROXY=1` | Todas las peticiones comparten la cuota global: un cliente puede agotar el login del sitio |
-| `BOOK2PEER_DB` | La base se crea dentro de la release y se pierde en el siguiente despliegue |
+| `WANDERBIBLIOTHEK_DB` | La base se crea dentro de la release y se pierde en el siguiente despliegue |
 
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se **incrusta en el bundle
 del cliente**: si lo activas, tiene que existir en el momento del `build`, no
 solo en el entorno del servicio.
 
 > **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
-> abajo: el mismo entorno sirve, con `BOOK2PEER_DB=/data/book2peer.db`.
+> abajo: el mismo entorno sirve, con `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
 
 ## 5. Servicio, proxy y tareas programadas
 
 ```bash
-sudo cp deploy/book2peer.service deploy/book2peer-maintenance.service \
-        deploy/book2peer-maintenance.timer deploy/book2peer-backup.service \
-        deploy/book2peer-backup.timer /etc/systemd/system/
-sudo ln -sfn /srv/book2peer/releases/2026-11-04 /srv/book2peer/current
+sudo cp deploy/wanderbibliothek.service deploy/wanderbibliothek-maintenance.service \
+        deploy/wanderbibliothek-maintenance.timer deploy/wanderbibliothek-backup.service \
+        deploy/wanderbibliothek-backup.timer /etc/systemd/system/
+sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current
 sudo systemctl daemon-reload
-sudo systemctl enable --now book2peer book2peer-maintenance.timer book2peer-backup.timer
+sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer wanderbibliothek-backup.timer
 
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/book2peer
-sudo ln -s /etc/nginx/sites-available/book2peer /etc/nginx/sites-enabled/
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
+sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
 sudo certbot --nginx -d biblioteca.example.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -94,8 +94,8 @@ mensajería en vivo (SSE).
 ## 6. Primer arranque
 
 ```bash
-sudo systemctl start book2peer
-sudo journalctl -u book2peer -f          # busca líneas [env]
+sudo systemctl start wanderbibliothek
+sudo journalctl -u wanderbibliothek -f          # busca líneas [env]
 curl -fsS https://biblioteca.example.com/api/health
 ```
 
@@ -110,43 +110,43 @@ sin entrar en un bucle de reinicios.
 Administración:
 
 ```bash
-sudo -u book2peer ADMIN_PASSWORD='contraseña-larga' \
-  npm --prefix /srv/book2peer/current run admin:create -- admin@biblioteca.example.com
+sudo -u wanderbibliothek ADMIN_PASSWORD='contraseña-larga' \
+  npm --prefix /srv/wanderbibliothek/current run admin:create -- admin@biblioteca.example.com
 ```
 
 Entra en `/cuenta`, activa la verificación en dos pasos (obligatoria para
 moderar en producción) y después **borra `ADMIN_PASSWORD`** del entorno:
 
 ```bash
-sudo -e /etc/book2peer/env      # elimina ADMIN_EMAIL y ADMIN_PASSWORD
-sudo systemctl restart book2peer
+sudo -e /etc/wanderbibliothek/env      # elimina ADMIN_EMAIL y ADMIN_PASSWORD
+sudo systemctl restart wanderbibliothek
 ```
 
 Comprobación final:
 
 ```bash
-BASE_URL=https://biblioteca.example.com npm --prefix /srv/book2peer/current run smoke
+BASE_URL=https://biblioteca.example.com npm --prefix /srv/wanderbibliothek/current run smoke
 ```
 
 ## 7. Despliegue de una versión nueva
 
 ```bash
 # 1) Copia antes de tocar nada (las migraciones no se deshacen solas)
-sudo systemctl start book2peer-backup.service
+sudo systemctl start wanderbibliothek-backup.service
 
 # 2) Nueva release y build (puede hacerse en CI y copiarse)
-cd /srv/book2peer/releases && git clone --depth 1 … 2026-11-20
+cd /srv/wanderbibliothek/releases && git clone --depth 1 … 2026-11-20
 cd 2026-11-20 && npm ci && npm run build
 
 # 3) Cambiar el enlace y reiniciar
-sudo ln -sfn /srv/book2peer/releases/2026-11-20 /srv/book2peer/current
-sudo systemctl restart book2peer
+sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-20 /srv/wanderbibliothek/current
+sudo systemctl restart wanderbibliothek
 
 # 4) Comprobar y, si algo va mal, volver atrás
 curl -fsS https://biblioteca.example.com/api/health
-BASE_URL=https://biblioteca.example.com npm --prefix /srv/book2peer/current run smoke
+BASE_URL=https://biblioteca.example.com npm --prefix /srv/wanderbibliothek/current run smoke
 # vuelta atrás:
-# sudo ln -sfn /srv/book2peer/releases/2026-11-04 /srv/book2peer/current && sudo systemctl restart book2peer
+# sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current && sudo systemctl restart wanderbibliothek
 ```
 
 Las releases antiguas se pueden borrar cuando la copia de seguridad de esa fecha
@@ -154,22 +154,22 @@ ya esté fuera del servidor.
 
 ## 8. Copias de seguridad y restauración
 
-- Diaria a las 03:20 (`book2peer-backup.timer`), con `integrity_check` y rotación
+- Diaria a las 03:20 (`wanderbibliothek-backup.timer`), con `integrity_check` y rotación
   de 14 copias.
-- Con `BOOK2PEER_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
+- Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
   se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
   sirven.
-- `BOOK2PEER_BACKUP_HOOK` permite enviarlas fuera (`rsync`, `rclone`, S3).
+- `WANDERBIBLIOTHEK_BACKUP_HOOK` permite enviarlas fuera (`rsync`, `rclone`, S3).
 
 Restauración (ensáyala antes de necesitarla):
 
 ```bash
-sudo systemctl stop book2peer
-sudo -u book2peer node --import tsx /srv/book2peer/current/scripts/decrypt-backup.ts \
-  /var/backups/book2peer/book2peer-2026-11-04T03-20-00-000Z.db.enc /tmp/restore.db
-sudo install -m 600 -o book2peer -g book2peer /tmp/restore.db /var/lib/book2peer/book2peer.db
-sudo rm -f /var/lib/book2peer/book2peer.db-wal /var/lib/book2peer/book2peer.db-shm
-sudo systemctl start book2peer
+sudo systemctl stop wanderbibliothek
+sudo -u wanderbibliothek node --import tsx /srv/wanderbibliothek/current/scripts/decrypt-backup.ts \
+  /var/backups/wanderbibliothek/wanderbibliothek-2026-11-04T03-20-00-000Z.db.enc /tmp/restore.db
+sudo install -m 600 -o wanderbibliothek -g wanderbibliothek /tmp/restore.db /var/lib/wanderbibliothek/wanderbibliothek.db
+sudo rm -f /var/lib/wanderbibliothek/wanderbibliothek.db-wal /var/lib/wanderbibliothek/wanderbibliothek.db-shm
+sudo systemctl start wanderbibliothek
 curl -fsS https://biblioteca.example.com/api/health
 ```
 
@@ -195,7 +195,7 @@ curl -fsS https://biblioteca.example.com/api/health
   `npm ci --omit=dev` y dentro de la imagen.
 - **La base no se migra hacia atrás**: ante un despliegue que cambie el esquema,
   la copia previa es la vuelta atrás.
-- **Los registros van a journald** (`journalctl -u book2peer`) en host, y a
+- **Los registros van a journald** (`journalctl -u wanderbibliothek`) en host, y a
   `docker compose logs` en contenedor. Con `ERROR_WEBHOOK_URL` se reenvían además
   los errores a un servicio externo.
 
@@ -215,8 +215,8 @@ curl -fsS http://127.0.0.1:3000/api/health
 En el `.env` cambia solo las rutas de datos:
 
 ```
-BOOK2PEER_DB=/data/book2peer.db
-BOOK2PEER_BACKUP_DIR=/backups
+WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db
+WANDERBIBLIOTHEK_BACKUP_DIR=/backups
 ```
 
 (el `docker-compose.yml` ya las fija, así que no hace falta tocar nada si
@@ -244,7 +244,7 @@ Programa desde el **host** (systemd timer o cron), no dentro del contenedor:
 
 ```cron
 */15 * * * *  curl -fsS -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" http://127.0.0.1:3000/api/cron/maintenance
-20 3 * * *    cd /srv/book2peer && docker compose exec -T app node --import tsx scripts/backup.ts
+20 3 * * *    cd /srv/wanderbibliothek && docker compose exec -T app node --import tsx scripts/backup.ts
 ```
 
 Notas:

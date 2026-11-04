@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-process.env.BOOK2PEER_DB = ":memory:";
+process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
 
@@ -131,7 +131,7 @@ test("seguidores y seguidos se listan con la misma ficha que el directorio", () 
 test("el directorio incluye a quien participa aunque no tenga ejemplares", () => {
   const nuevo = repo.createUser({
     name: "Nueva Lectora",
-    email: "nueva@book2peer.test",
+    email: "nueva@wanderbibliothek.test",
     passwordHash: "x",
     city: "Ulm",
   });

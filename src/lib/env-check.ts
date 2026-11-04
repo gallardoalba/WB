@@ -33,12 +33,12 @@ function isValidEncryptionKey(value: string): boolean {
 }
 
 /**
- * Devuelve los problemas del entorno. Con `BOOK2PEER_SKIP_ENV_CHECK=1` no se
+ * Devuelve los problemas del entorno. Con `WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1` no se
  * comprueba nada: sirve para un entorno de pruebas donde se asume la carencia.
  */
 export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
   if (env.NODE_ENV !== "production") return [];
-  if (env.BOOK2PEER_SKIP_ENV_CHECK === "1") return [];
+  if (env.WANDERBIBLIOTHEK_SKIP_ENV_CHECK === "1") return [];
 
   const issues: EnvIssue[] = [];
   const error = (key: string, message: string) => issues.push({ key, severity: "error", message });
@@ -120,9 +120,9 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     );
   }
 
-  if (!has(env, "BOOK2PEER_DB")) {
+  if (!has(env, "WANDERBIBLIOTHEK_DB")) {
     warn(
-      "BOOK2PEER_DB",
+      "WANDERBIBLIOTHEK_DB",
       "La base quedará dentro del directorio de la aplicación (.data/): un despliegue nuevo se la lleva por delante.",
     );
   }
@@ -153,7 +153,7 @@ export function assertEnv(
   if (errors.length > 0) {
     throw new Error(
       `Entorno de producción incompleto (${errors.map((issue) => issue.key).join(", ")}). ` +
-        "Revisa deploy/README.md; para arrancar igualmente define BOOK2PEER_SKIP_ENV_CHECK=1.",
+        "Revisa deploy/README.md; para arrancar igualmente define WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1.",
     );
   }
   return issues;

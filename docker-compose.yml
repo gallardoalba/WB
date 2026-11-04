@@ -12,21 +12,21 @@
 services:
   app:
     build: .
-    image: book2peer:latest
+    image: wanderbibliothek:latest
     restart: unless-stopped
     env_file:
       - .env
     environment:
       # Sobrescriben lo que venga en .env: dentro del contenedor las rutas son
       # estas, y las carpetas son volúmenes.
-      BOOK2PEER_DB: /data/book2peer.db
-      BOOK2PEER_BACKUP_DIR: /backups
+      WANDERBIBLIOTHEK_DB: /data/wanderbibliothek.db
+      WANDERBIBLIOTHEK_BACKUP_DIR: /backups
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - book2peer-data:/data
-      - book2peer-backups:/backups
+      - wanderbibliothek-data:/data
+      - wanderbibliothek-backups:/backups
     healthcheck:
       test:
         - CMD
@@ -44,5 +44,5 @@ services:
         max-file: "3"
 
 volumes:
-  book2peer-data:
-  book2peer-backups:
+  wanderbibliothek-data:
+  wanderbibliothek-backups:

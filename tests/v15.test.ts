@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-process.env.BOOK2PEER_DB = ":memory:";
+process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
 type TotpModule = typeof import("../src/lib/totp.ts");

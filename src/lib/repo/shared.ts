@@ -19,7 +19,7 @@ export function isConstraintError(error: unknown): boolean {
  * por soporte o moderación desde el perfil.
  */
 const RESERVED_NAMES = new Set([
-  "book2peer",
+  "wanderbibliothek",
   "book 2 peer",
   "wanderbibliothek",
   "wander bibliothek",
@@ -28,9 +28,9 @@ const RESERVED_NAMES = new Set([
   "admin",
   "administracion",
   "moderacion",
-  "equipo book2peer",
-  "book2peer equipo",
-  "book2peer soporte",
+  "equipo wanderbibliothek",
+  "wanderbibliothek equipo",
+  "wanderbibliothek soporte",
   "equipo wanderbibliothek",
   "wanderbibliothek equipo",
   "wanderbibliothek soporte",

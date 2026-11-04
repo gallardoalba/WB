@@ -11,7 +11,7 @@ async function loginAsDemo(page: Page) {
   await waitForHydration(page);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
@@ -65,7 +65,7 @@ test("una cuenta demo puede iniciar sesión", async ({ page }) => {
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
 
-  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
 
@@ -120,7 +120,7 @@ test("guardar un libro no roba el foco del teclado", async ({ page }) => {
   await waitForHydration(page);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
@@ -151,13 +151,15 @@ test("el panel de administración abre con sus secciones", async ({ page }) => {
   await waitForHydration(page);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.locator('input[name="email"]').fill("admin@book2peer.test");
+  await dialog.locator('input[name="email"]').fill("admin@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
 
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "Denuncias abiertas" })).toBeVisible();
+  // `exact` porque el estado vacío («Sin denuncias abiertas») también es un
+  // encabezado y coincidía con el nombre parcial.
+  await expect(page.getByRole("heading", { name: "Denuncias abiertas", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Últimas acciones" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cuentas suspendidas" })).toBeVisible();
 });
@@ -166,7 +168,7 @@ test("el panel de comunidad carga cada pestaña por separado", async ({ page }) 
   await waitForHydration(page);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
@@ -194,7 +196,7 @@ test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", asy
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
 

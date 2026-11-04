@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import Book2PeerApp from "@/components/book2peer-app";
+import WanderbibliothekApp from "@/components/wanderbibliothek-app";
 import { getSessionUser } from "@/lib/auth";
 import { VIEWS, type View } from "@/lib/domain";
 import { publicActivity, publicStats } from "@/lib/public-data";
@@ -74,7 +74,7 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
       : null;
 
   return (
-    <Book2PeerApp
+    <WanderbibliothekApp
       snapshot={snapshot}
       openAuth={raw.auth === "1"}
       openNotifications={raw.notifications === "1"}

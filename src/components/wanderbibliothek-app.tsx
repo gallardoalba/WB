@@ -111,7 +111,7 @@ const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
 
 const COMMUNITY_TABS_ORDER = Object.keys(COMMUNITY_TAB_LABELS) as CommunityTab[];
 
-export default function Book2PeerApp({
+export default function WanderbibliothekApp({
   snapshot,
   openAuth = false,
   openNotifications = false,

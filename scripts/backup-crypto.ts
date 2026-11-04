@@ -4,10 +4,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 const MAGIC = Buffer.from("B2PBK1");
 
 function keyFromEnv(): Buffer {
-  const raw = process.env.BOOK2PEER_BACKUP_KEY?.trim();
-  if (!raw) throw new Error("Falta BOOK2PEER_BACKUP_KEY.");
+  const raw = process.env.WANDERBIBLIOTHEK_BACKUP_KEY?.trim();
+  if (!raw) throw new Error("Falta WANDERBIBLIOTHEK_BACKUP_KEY.");
   const key = /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
-  if (key.length !== 32) throw new Error("BOOK2PEER_BACKUP_KEY debe tener 32 bytes.");
+  if (key.length !== 32) throw new Error("WANDERBIBLIOTHEK_BACKUP_KEY debe tener 32 bytes.");
   return key;
 }
 

@@ -1,0 +1,33 @@
+# Atribuciones y datos de terceros
+
+Este repositorio combina código propio (licencia MIT, ver `LICENSE`) con datos y
+componentes de terceros que mantienen su propia licencia.
+
+## Oficinas de entrega (OpenStreetMap, ODbL 1.0)
+
+`src/lib/post-offices.json` es una base de datos derivada de OpenStreetMap
+(consulta Overpass sobre `amenity=post_office`, noviembre de 2026) y se publica
+bajo la **Open Data Commons Open Database License (ODbL) 1.0**.
+
+- © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
+- Texto de la licencia: https://opendatacommons.org/licenses/odbl/1-0/
+
+Esa obligación afecta **solo a ese fichero** (y a cualquier obra derivada de él),
+no al resto del código. Si redistribuyes el proyecto, conserva esta atribución y
+la licencia de los datos.
+
+## Portadas de libros
+
+Las imágenes se enlazan desde Open Library / Internet Archive; el proyecto no
+aloja ni redistribuye portadas.
+
+## Iconografía
+
+Iconos de [lucide](https://lucide.dev) (licencia ISC), como dependencia
+(`lucide-react`).
+
+## Dependencias
+
+El resto de dependencias (Next.js, React, better-sqlite3, zod, qrcode…) se
+distribuyen con sus licencias dentro de `node_modules`; los textos completos se
+pueden generar con `npx license-checker --summary`.

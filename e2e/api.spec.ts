@@ -7,12 +7,12 @@ import { expect, test } from "@playwright/test";
  * petición de verdad.
  */
 
-const DEMO = { email: "ana@book2peer.test", password: "demo1234" };
+const DEMO = { email: "ana@wanderbibliothek.test", password: "demo1234" };
 
 test("las mutaciones exigen JSON", async ({ request }) => {
   const response = await request.post("/api/auth/login", {
     headers: { "content-type": "text/plain" },
-    data: "email=ana@book2peer.test&password=demo1234",
+    data: "email=ana@wanderbibliothek.test&password=demo1234",
   });
   expect(response.status()).toBe(415);
 });

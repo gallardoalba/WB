@@ -1,0 +1,38 @@
+# Actualizaciones de dependencias y de las propias acciones del CI.
+#
+# Los avisos de `npm audit` de la cadena de ESLint son de desarrollo: producción
+# está a cero (`npm audit --omit=dev`). Aun así se vigilan aquí para subirlos
+# cuando haya versión compatible.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    groups:
+      # Un solo PR para las herramientas de desarrollo: no cambian el runtime.
+      herramientas:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+      produccion:
+        dependency-type: production
+        update-types: ["patch"]
+    ignore:
+      # `eslint-config-next` va atado a la versión de Next: se sube a la vez.
+      - dependency-name: eslint-config-next
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2

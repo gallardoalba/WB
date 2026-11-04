@@ -9,7 +9,7 @@ import { getUserById } from "./users";
 export function deleteAccount(userId: string): void {
   const db = getDb();
   const account = getUserById(userId);
-  const anonymousEmail = `deleted-${randomUUID()}@book2peer.invalid`;
+  const anonymousEmail = `deleted-${randomUUID()}@wanderbibliothek.invalid`;
 
   db.transaction(() => {
     db.prepare("UPDATE listings SET status = 'removed' WHERE owner_id = ?").run(userId);

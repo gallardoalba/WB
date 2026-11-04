@@ -1,6 +1,6 @@
 /**
  * Restaura una copia cifrada:
- *   BOOK2PEER_BACKUP_KEY=... npm run db:decrypt -- copia.db.enc copia.db
+ *   WANDERBIBLIOTHEK_BACKUP_KEY=... npm run db:decrypt -- copia.db.enc copia.db
  */
 import { decryptBackup } from "./backup-crypto";
 

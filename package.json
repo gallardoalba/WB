@@ -1,7 +1,25 @@
 {
-  "name": "book2peer",
+  "name": "wanderbibliothek",
   "version": "0.1.0",
   "private": true,
+  "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad, mensajería cifrada de extremo a extremo y clubes de lectura.",
+  "license": "MIT",
+  "author": "gallardoalba",
+  "homepage": "https://github.com/gallardoalba/wanderbibliothek",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gallardoalba/wanderbibliothek.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gallardoalba/wanderbibliothek/issues"
+  },
+  "keywords": [
+    "books",
+    "book-exchange",
+    "nextjs",
+    "sqlite",
+    "self-hosted"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,7 +27,7 @@
     "lint": "eslint",
     "test": "node --import tsx --test \"tests/*.test.ts\"",
     "typecheck": "next typegen && tsc --noEmit",
-    "db:reset": "rm -f .data/book2peer.db .data/book2peer.db-wal .data/book2peer.db-shm",
+    "db:reset": "rm -f .data/wanderbibliothek.db .data/wanderbibliothek.db-wal .data/wanderbibliothek.db-shm",
     "db:backup": "node --import tsx scripts/backup.ts",
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
     "admin:create": "node --import tsx scripts/create-admin.ts",
