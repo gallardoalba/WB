@@ -36,6 +36,8 @@
 .sidebar .brand {
   gap: 8px;
   font-size: clamp(15px, 1.15vw, 18px);
+  /* Sin el rótulo «Tu espacio» el menú necesita su propio aire. */
+  margin-bottom: 26px;
 }
 
 .brand > span:last-child > span,

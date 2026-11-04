@@ -45,9 +45,6 @@ import { AuthDialog } from "./dialogs/auth-dialog";
 const ExchangeDialog = dynamic(() =>
   import("./dialogs/exchange-dialog").then((module) => module.ExchangeDialog),
 );
-const ProfileDialog = dynamic(() =>
-  import("./dialogs/profile-dialog").then((module) => module.ProfileDialog),
-);
 const OfferDialog = dynamic(() =>
   import("./dialogs/offer-dialog").then((module) => module.OfferDialog),
 );
@@ -117,19 +114,17 @@ const COMMUNITY_TABS_ORDER = Object.keys(COMMUNITY_TAB_LABELS) as CommunityTab[]
 export default function Book2PeerApp({
   snapshot,
   openAuth = false,
-  openProfile = false,
   openNotifications = false,
   initialOfferOpen = false,
   nextPath = null,
 }: {
   snapshot: AppSnapshot;
   openAuth?: boolean;
-  openProfile?: boolean;
   openNotifications?: boolean;
   initialOfferOpen?: boolean;
   nextPath?: string | null;
 }) {
-  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, myPublished, availabilityAlerts } = snapshot;
+  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, myPublished } = snapshot;
   const { t, locale } = useI18n();
   const REGION = regionName(locale);
   const router = useRouter();
@@ -150,7 +145,6 @@ export default function Book2PeerApp({
   const [previewListing, setPreviewListing] = useState<ListingView | null>(null);
   const [offerOpen, setOfferOpen] = useState(initialOfferOpen && Boolean(user));
   const [notificationsOpen, setNotificationsOpen] = useState(openNotifications);
-  const [profileOpen, setProfileOpen] = useState(openProfile);
   const [exchangeId, setExchangeId] = useState<string | null>(null);
   const [favoriteOverrides, setFavoriteOverrides] = useState<Record<string, boolean>>({});
   const [busyFavorite, setBusyFavorite] = useState<string | null>(null);
@@ -317,25 +311,6 @@ export default function Book2PeerApp({
   }, [user, setAuthOpen]);
 
   const exchangeRequest = exchangeId ? requests.find((item) => item.id === exchangeId) ?? null : null;
-  const alertsOn = Boolean(user && availabilityAlerts.includes(user.city));
-
-  async function toggleAvailabilityAlert() {
-    if (!requireAuth() || !user) return;
-    try {
-      await api("/api/alerts/availability", {
-        method: "POST",
-        body: { city: user.city, enabled: !alertsOn },
-      });
-      refresh();
-      notify(
-        alertsOn
-          ? t("Ya no recibirás avisos de novedades en {city}.", { city: user.city })
-          : t("Te avisaremos cuando se publique algo nuevo en {city}.", { city: user.city }),
-      );
-    } catch (error) {
-      notify(error instanceof Error ? error.message : t("No se pudo guardar el aviso."), "error");
-    }
-  }
 
   const isFavorite = (id: string, fallback: boolean) => favoriteOverrides[id] ?? fallback;
 
@@ -393,7 +368,6 @@ export default function Book2PeerApp({
         activeRequests={activeRequests}
         onNavigate={(next) => navigate({ view: next, page: 1 })}
         onOpenAuth={() => setAuthOpen(true)}
-        onOpenProfile={() => setProfileOpen(true)}
         onOpenNotifications={() => setNotificationsOpen(true)}
         onLoggedOut={() => {
           refresh();
@@ -453,7 +427,6 @@ export default function Book2PeerApp({
               variant="topbar"
               unreadNotifications={unreadNotifications}
               onOpenAuth={() => setAuthOpen(true)}
-              onOpenProfile={() => setProfileOpen(true)}
               onOpenNotifications={() => setNotificationsOpen(true)}
               onLoggedOut={() => {
                 refresh();
@@ -511,7 +484,7 @@ export default function Book2PeerApp({
           {(view === "home" || view === "discover") && user && myPublished === 0 && (
             <OnboardingCard
               userId={user.id}
-              onOpenProfile={() => setProfileOpen(true)}
+              onOpenProfile={() => router.push("/cuenta")}
               onOpenOffer={openOffer}
               onOpenCommunity={() => navigate({ view: "community", page: 1 })}
             />
@@ -1359,25 +1332,6 @@ export default function Book2PeerApp({
           onClose={() => setExchangeId(null)}
           request={exchangeRequest}
           onChanged={refresh}
-        />
-      )}
-
-      {profileOpen && user && (
-        <ProfileDialog
-          open
-        onClose={() => {
-          setProfileOpen(false);
-          clearQueryParams("profile");
-        }}
-        user={user}
-        requests={requests}
-        publishedCount={myPublished}
-        alertsOn={alertsOn}
-        onToggleAlert={toggleAvailabilityAlert}
-        onLoggedOut={() => {
-          refresh();
-          notify(t("Has cerrado sesión."));
-        }}
         />
       )}
     </main>

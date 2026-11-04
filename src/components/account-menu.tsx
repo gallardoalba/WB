@@ -9,7 +9,7 @@ import {
   ChevronDown,
   LogIn,
   LogOut,
-  MapPin,
+  Settings,
   ShieldCheck,
   User,
 } from "lucide-react";
@@ -21,7 +21,6 @@ import { useI18n } from "./i18n-provider";
 type Props = {
   user: SessionUser | null;
   unreadNotifications?: number;
-  onOpenProfile?: () => void;
   onOpenNotifications?: () => void;
   onOpenAuth?: () => void;
   onLoggedOut?: () => void;
@@ -29,14 +28,12 @@ type Props = {
 };
 
 /**
- * Punto único de cuenta: perfil, ciudad/ajustes, avisos, administración y
- * salida. En la app abre los diálogos existentes; en las páginas internas
- * enlaza a la portada con el diálogo solicitado.
+ * Punto único de cuenta: perfil, ajustes, avisos, administración y salida.
+ * La cuenta tiene página propia (`/cuenta`); aquí solo se enlaza.
  */
 export function AccountMenu({
   user,
   unreadNotifications = 0,
-  onOpenProfile,
   onOpenNotifications,
   onOpenAuth,
   onLoggedOut,
@@ -208,28 +205,14 @@ export function AccountMenu({
           >
             <User size={15} /> {t("Mi perfil")}
           </Link>
-          {onOpenProfile ? (
-            <button
-              type="button"
-              className="account-menu-item"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onOpenProfile();
-              }}
-            >
-              <MapPin size={15} /> {t("Cuenta y ciudad")}
-            </button>
-          ) : (
-            <Link
-              className="account-menu-item"
-              role="menuitem"
-              href="/?profile=1"
-              onClick={() => setOpen(false)}
-            >
-              <MapPin size={15} /> {t("Cuenta y ciudad")}
-            </Link>
-          )}
+          <Link
+            className="account-menu-item"
+            role="menuitem"
+            href="/cuenta"
+            onClick={() => setOpen(false)}
+          >
+            <Settings size={15} /> {t("Cuenta")}
+          </Link>
           {onOpenNotifications ? (
             <button
               type="button"

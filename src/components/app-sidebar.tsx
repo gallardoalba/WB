@@ -23,7 +23,6 @@ export function AppSidebar({
   activeRequests,
   onNavigate,
   onOpenAuth,
-  onOpenProfile,
   onOpenNotifications,
   onLoggedOut,
 }: {
@@ -34,7 +33,6 @@ export function AppSidebar({
   activeRequests: number;
   onNavigate: (view: View) => void;
   onOpenAuth: () => void;
-  onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onLoggedOut: () => void;
 }) {
@@ -111,7 +109,6 @@ export function AppSidebar({
         user={user}
         unreadNotifications={unreadNotifications}
         onOpenAuth={onOpenAuth}
-        onOpenProfile={onOpenProfile}
         onOpenNotifications={onOpenNotifications}
         onLoggedOut={onLoggedOut}
       />

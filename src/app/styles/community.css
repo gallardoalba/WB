@@ -348,3 +348,60 @@
   background: #6f8a68;
 }
 
+/* La cuenta es una página: los formularios se apilan con aire y sin el ancho
+   completo, que en pantallas grandes cansa la vista. */
+.account-settings {
+  display: grid;
+  gap: 16px;
+  max-width: 720px;
+}
+
+.account-settings-footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.account-settings summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.account-settings form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.account-settings form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.account-settings form input,
+.account-settings form select,
+.account-settings form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+/* Las casillas van en fila, no apiladas como el resto de campos. */
+.account-settings .checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.account-settings .checkbox-row input {
+  width: auto;
+  padding: 0;
+}
+
+

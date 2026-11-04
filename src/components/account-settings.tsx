@@ -2,36 +2,34 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Download, LogOut, User } from "lucide-react";
-import { Dialog } from "../dialog";
+import { Download, LogOut } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { ensureIdentity } from "@/lib/e2e";
-import { CityField } from "../city-field";
 import type { RequestView, SessionUser } from "@/lib/domain";
 import { formatWhen } from "@/lib/text";
-import { useI18n } from "../i18n-provider";
-import type { BaseDialogProps } from "./shared";
+import { CityField } from "./city-field";
+import { useI18n } from "./i18n-provider";
 
 type KeyHistory = { keyId: string; reason: string; createdAt: string; replacedAt: string | null };
 
-export function ProfileDialog({
-  open,
-  onClose,
+/**
+ * Ajustes de la cuenta. Vive en su propia página (`/cuenta`) en vez de en un
+ * diálogo: son formularios largos, con contraseñas y verificación en dos
+ * pasos, y así se pueden enlazar, recargar y leer con calma.
+ */
+export function AccountSettings({
   user,
   requests,
   publishedCount,
-  alertsOn = false,
-  onToggleAlert,
-  onLoggedOut,
-}: BaseDialogProps & {
-  user: SessionUser | null;
+  alertsOn,
+}: {
+  user: SessionUser;
   requests: RequestView[];
   publishedCount: number;
-  alertsOn?: boolean;
-  onToggleAlert?: () => void;
-  onLoggedOut: () => void;
+  alertsOn: boolean;
 }) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -40,7 +38,6 @@ export function ProfileDialog({
   const [accountError, setAccountError] = useState("");
   const [busyAccount, setBusyAccount] = useState(false);
 
-  const router = useRouter();
   const [verifyMsg, setVerifyMsg] = useState("");
   const [verifyBusy, setVerifyBusy] = useState(false);
 
@@ -61,8 +58,10 @@ export function ProfileDialog({
   const [keyMsg, setKeyMsg] = useState("");
   const [keyError, setKeyError] = useState("");
 
+  const [alertOn, setAlertOn] = useState(alertsOn);
+  const [alertBusy, setAlertBusy] = useState(false);
+
   useEffect(() => {
-    if (!open || !user) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -74,50 +73,44 @@ export function ProfileDialog({
         setKeys(stored);
         setLocalKeyId(identity.keyId);
       } catch {
-        if (!cancelled) setKeyError("No se pudo cargar el estado del cifrado.");
+        if (!cancelled) setKeyError(t("No se pudo cargar el estado del cifrado."));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, user]);
+  }, [t]);
 
   useEffect(() => {
-    if (!open || !user) return;
     let cancelled = false;
     api<{ enabled: boolean; pending: boolean }>("/api/account/totp")
       .then((state) => {
         if (!cancelled) setTotp(state);
       })
       .catch((caught: unknown) => {
-        // Antes se quedaba en «Cargando…» para siempre sin decir nada.
+        // Sin este aviso la sección se quedaba en «Cargando…» para siempre.
         if (!cancelled) {
           setTotpError(
             caught instanceof Error
               ? caught.message
-              : "No se pudo cargar la verificación en dos pasos.",
+              : t("No se pudo cargar la verificación en dos pasos."),
           );
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [open, user]);
+  }, [t]);
 
-  if (!user) return null;
-
-  const published = publishedCount;
   const completed = requests.filter((request) => request.status === "completed").length;
-  const active = requests.filter((request) =>
-    ["pending", "accepted"].includes(request.status),
-  ).length;
+  const active = requests.filter((request) => ["pending", "accepted"].includes(request.status)).length;
 
   async function logout() {
     setPending(true);
     try {
       await api("/api/auth/logout", { method: "POST" });
-      onLoggedOut();
-      onClose();
+      router.replace("/");
+      router.refresh();
     } finally {
       setPending(false);
     }
@@ -136,10 +129,7 @@ export function ProfileDialog({
     }
   }
 
-  /**
-   * Publica o sustituye la clave de este navegador. Si la cuenta ya tenía otra,
-   * el servidor exige la contraseña («rotationRequired»).
-   */
+  /** Publica o sustituye la clave de este navegador; rotar exige la contraseña. */
   async function activateKey() {
     setKeyBusy(true);
     setKeyMsg("");
@@ -168,8 +158,7 @@ export function ProfileDialog({
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const data = new FormData(event.currentTarget);
     setBusyAccount(true);
     setAccountError("");
     setAccountMsg("");
@@ -192,6 +181,29 @@ export function ProfileDialog({
     }
   }
 
+  async function toggleAlert() {
+    const next = !alertOn;
+    setAlertBusy(true);
+    try {
+      await api("/api/alerts/availability", {
+        method: "POST",
+        body: { city: user.city, enabled: next },
+      });
+      setAlertOn(next);
+      setAccountMsg(
+        next
+          ? t("Te avisaremos de los libros nuevos en {city}.", { city: user.city })
+          : t("Ya no te avisaremos de libros nuevos en {city}.", { city: user.city }),
+      );
+    } catch (caught) {
+      setAccountError(
+        caught instanceof Error ? caught.message : t("No se pudo guardar el aviso."),
+      );
+    } finally {
+      setAlertBusy(false);
+    }
+  }
+
   async function startTotp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTotpBusy(true);
@@ -200,10 +212,7 @@ export function ProfileDialog({
     try {
       const data = await api<{ secret: string; otpauthUrl: string; qrDataUrl: string }>(
         "/api/account/totp/setup",
-        {
-          method: "POST",
-          body: { password: totpPassword },
-        },
+        { method: "POST", body: { password: totpPassword } },
       );
       setTotpSecret(data.secret);
       setTotpUri(data.otpauthUrl);
@@ -287,8 +296,8 @@ export function ProfileDialog({
     setAccountError("");
     try {
       await api("/api/account/delete", { method: "POST", body: { password: deletePassword } });
-      onLoggedOut();
-      onClose();
+      router.replace("/");
+      router.refresh();
     } catch (caught) {
       setAccountError(caught instanceof Error ? caught.message : t("No se pudo eliminar la cuenta."));
       setBusyAccount(false);
@@ -296,14 +305,7 @@ export function ProfileDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={user.name}
-      description={user.bio || t("Sin biografía todavía.")}
-      overline={t("TU PERFIL")}
-      icon={<User size={20} />}
-    >
+    <div className="account-settings">
       <dl className="profile-facts">
         <div>
           <dt>{t("Correo")}</dt>
@@ -317,7 +319,7 @@ export function ProfileDialog({
 
       <div className="profile-stats">
         <div>
-          <strong>{published}</strong>
+          <strong>{publishedCount}</strong>
           <span>{t("publicados")}</span>
         </div>
         <div>
@@ -334,7 +336,8 @@ export function ProfileDialog({
         <div className="account-box verify-banner">
           <strong>{t("Confirma tu correo")}</strong>
           <p>
-            {t("Te enviamos un enlace a")} <b>{user.email}</b>. {t("Sin confirmarlo no podrás recuperar la cuenta si olvidas la contraseña.")}
+            {t("Te enviamos un enlace a")} <b>{user.email}</b>.{" "}
+            {t("Sin confirmarlo no podrás recuperar la cuenta si olvidas la contraseña.")}
           </p>
           {verifyMsg && (
             <p className="action-feedback" role="status">
@@ -352,13 +355,25 @@ export function ProfileDialog({
         </div>
       )}
 
+      {accountMsg && (
+        <p className="action-feedback" role="status">
+          {accountMsg}
+        </p>
+      )}
+      {accountError && (
+        <p className="form-error" id="account-error" role="alert">
+          {accountError}
+        </p>
+      )}
+
       <div className="account-box">
-        <details>
+        <details open>
           <summary>{t("Editar perfil")}</summary>
           <form onSubmit={saveProfile}>
             <label htmlFor="profile-name">{t("Nombre visible")}</label>
             <input
-              id="profile-name" aria-describedby={accountError ? "account-error" : undefined}
+              id="profile-name"
+              aria-describedby={accountError ? "account-error" : undefined}
               name="name"
               key={user.name}
               defaultValue={user.name}
@@ -378,7 +393,8 @@ export function ProfileDialog({
             />
             <label htmlFor="profile-bio">{t("Biografía (opcional)")}</label>
             <textarea
-              id="profile-bio" aria-describedby={accountError ? "account-error" : undefined}
+              id="profile-bio"
+              aria-describedby={accountError ? "account-error" : undefined}
               name="bio"
               key={user.bio}
               defaultValue={user.bio}
@@ -394,17 +410,16 @@ export function ProfileDialog({
               />
               {t("Recibir un correo cuando haya novedades importantes")}
             </label>
-            {onToggleAlert && (
-              <label className="checkbox-row" htmlFor="profile-city-alerts">
-                <input
-                  id="profile-city-alerts"
-                  type="checkbox"
-                  checked={alertsOn}
-                  onChange={onToggleAlert}
-                />
-                {t("Avisarme de nuevos libros en {city}", { city: user.city })}
-              </label>
-            )}
+            <label className="checkbox-row" htmlFor="profile-city-alerts">
+              <input
+                id="profile-city-alerts"
+                type="checkbox"
+                checked={alertOn}
+                onChange={() => void toggleAlert()}
+                disabled={alertBusy}
+              />
+              {t("Avisarme de nuevos libros en {city}", { city: user.city })}
+            </label>
             <button className="secondary-button small" type="submit" disabled={busyAccount}>
               {t("Guardar perfil")}
             </button>
@@ -416,7 +431,8 @@ export function ProfileDialog({
           <form onSubmit={changeOwnPassword}>
             <label htmlFor="current-password">{t("Contraseña actual")}</label>
             <input
-              id="current-password" aria-describedby={accountError ? "account-error" : undefined}
+              id="current-password"
+              aria-describedby={accountError ? "account-error" : undefined}
               type="password"
               autoComplete="current-password"
               value={currentPassword}
@@ -425,7 +441,8 @@ export function ProfileDialog({
             />
             <label htmlFor="new-password">{t("Nueva contraseña")}</label>
             <input
-              id="new-password" aria-describedby={accountError ? "account-error" : undefined}
+              id="new-password"
+              aria-describedby={accountError ? "account-error" : undefined}
               type="password"
               autoComplete="new-password"
               minLength={10}
@@ -519,9 +536,7 @@ export function ProfileDialog({
             </p>
           )}
           {totp === null ? (
-            <p className="form-hint">
-              {totpError ? t("No se pudo cargar el estado.") : t("Cargando…")}
-            </p>
+            <p className="form-hint">{totpError ? t("No se pudo cargar el estado.") : t("Cargando…")}</p>
           ) : totp.enabled ? (
             <form onSubmit={disableTotp}>
               <p className="form-hint">
@@ -558,7 +573,11 @@ export function ProfileDialog({
               </p>
               {totpQr && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img className="totp-qr" src={totpQr} alt={t("Código QR para configurar la verificación en dos pasos")} />
+                <img
+                  className="totp-qr"
+                  src={totpQr}
+                  alt={t("Código QR para configurar la verificación en dos pasos")}
+                />
               )}
               <p>
                 <code className="secret-code">{totpSecret}</code>
@@ -612,7 +631,8 @@ export function ProfileDialog({
             <p>{t("Se retirarán tus publicaciones y se cerrará la sesión.")}</p>
             <label htmlFor="delete-password">{t("Confirma con tu contraseña")}</label>
             <input
-              id="delete-password" aria-describedby={accountError ? "account-error" : undefined}
+              id="delete-password"
+              aria-describedby={accountError ? "account-error" : undefined}
               type="password"
               autoComplete="current-password"
               value={deletePassword}
@@ -626,26 +646,11 @@ export function ProfileDialog({
         </details>
       </div>
 
-      {accountMsg && (
-        <p className="action-feedback" role="status">
-          {accountMsg}
-        </p>
-      )}
-      {accountError && (
-        <p className="form-error" id="account-error" role="alert">
-          {accountError}
-        </p>
-      )}
-
-      <div className="dialog-actions">
+      <div className="account-settings-footer">
         <button type="button" className="secondary-button" onClick={logout} disabled={pending}>
           <LogOut size={15} /> {pending ? t("Saliendo…") : t("Cerrar sesión")}
         </button>
-        <button type="button" className="share-button" onClick={onClose}>
-          <Check size={15} /> {t("Volver")}
-        </button>
       </div>
-    </Dialog>
+    </div>
   );
 }
-

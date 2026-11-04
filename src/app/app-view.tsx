@@ -45,6 +45,10 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
     redirect(`/?auth=1&next=${encodeURIComponent(`${path}${query ? `?${query}` : ""}`)}`);
   }
 
+  // `?profile=1` era la forma antigua de abrir los ajustes en un diálogo:
+  // ahora la cuenta tiene página propia, así que los enlaces viejos se mueven.
+  if (raw.profile === "1") redirect("/cuenta");
+
   const [stats, activity] = await Promise.all([publicStats(), publicActivity()]);
   const snapshot = getSnapshot(user, params, { stats, activity });
 
@@ -73,7 +77,6 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
     <Book2PeerApp
       snapshot={snapshot}
       openAuth={raw.auth === "1"}
-      openProfile={raw.profile === "1"}
       openNotifications={raw.notifications === "1"}
       initialOfferOpen={raw.offer === "1"}
       nextPath={nextPath}

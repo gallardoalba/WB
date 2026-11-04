@@ -25,7 +25,7 @@ test("el menú de cuenta se opera con el teclado", async ({ page }) => {
 
   await expect(page.getByRole("menuitem", { name: "Mi perfil" })).toBeFocused();
   await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("menuitem", { name: "Cuenta y ciudad" })).toBeFocused();
+  await expect(page.getByRole("menuitem", { name: "Cuenta", exact: true })).toBeFocused();
   await page.keyboard.press("ArrowUp");
   await expect(page.getByRole("menuitem", { name: "Mi perfil" })).toBeFocused();
 
@@ -90,25 +90,22 @@ test("un diálogo deja el fondo inerte y lo libera al cerrar", async ({ page }) 
   await expect(page.locator("main.app-shell")).not.toHaveAttribute("inert", "");
 });
 
-test("el perfil explica el estado del cifrado de mensajes", async ({ page }) => {  await page.goto("/");
-  await waitForHydration(page);
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  const auth = page.getByRole("dialog");
-  await auth.locator('input[name="email"]').fill("ana@book2peer.test");
-  await auth.locator('input[name="password"]').fill("demo1234");
-  await auth.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
+test("la cuenta es una página con el estado del cifrado", async ({ page }) => {
+  await loginAsDemo(page);
 
-  // El menú y el resumen del diálogo viven en capas fijas: se pulsan por DOM.
+  // El menú y el resumen viven en capas fijas: se pulsa por DOM.
   await page
     .getByRole("button", { name: "Abrir menú de cuenta" })
     .evaluate((element) => (element as HTMLElement).click());
   await page
-    .getByRole("menuitem", { name: "Cuenta y ciudad" })
+    .getByRole("menuitem", { name: "Cuenta", exact: true })
     .evaluate((element) => (element as HTMLElement).click());
 
-  const profile = page.getByRole("dialog");
-  const encryption = profile.locator("details").filter({ hasText: "Cifrado de mensajes" }).first();
+  // Ya no hay diálogo: es la ruta /cuenta con su propio contenido.
+  await expect(page).toHaveURL(/\/cuenta$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  const encryption = page.locator("details").filter({ hasText: "Cifrado de mensajes" }).first();
   await expect(encryption).toBeVisible();
   await encryption.locator("summary").evaluate((element) => (element as HTMLElement).click());
   await expect(

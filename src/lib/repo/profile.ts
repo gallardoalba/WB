@@ -16,6 +16,15 @@ import { countAuthorComments } from "./comments";
 
 const PROFILE_PAGE_SIZE = 12;
 
+/** Ejemplares publicados por la cuenta (los retirados no cuentan). */
+export function countOwnListings(userId: string): number {
+  return (
+    getDb()
+      .prepare("SELECT COUNT(*) AS count FROM listings WHERE owner_id = ? AND status <> 'removed'")
+      .get(userId) as { count: number }
+  ).count;
+}
+
 export function getPublicProfile(
   userId: string,
   viewerId: string | null,
