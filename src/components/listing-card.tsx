@@ -1,0 +1,94 @@
+"use client";
+
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { ArrowRight, MapPin } from "lucide-react";
+import { BookCover } from "./book-cover";
+import type { ListingView } from "@/lib/domain";
+import { formatDistance, initialsOf, toneForId } from "@/lib/text";
+import { useI18n } from "./i18n-provider";
+
+const STATUS_RIBBON: Record<string, string> = {
+  reserved: "Reservado",
+  given: "Entregado",
+  paused: "Pausado",
+  removed: "Retirado",
+};
+
+export function ListingCard({
+  listing,
+  actions,
+  onPreview,
+}: {
+  listing: ListingView;
+  actions?: ReactNode;
+  onPreview?: () => void;
+}) {
+  const { t, locale } = useI18n();
+  const preview = (event: React.MouseEvent) => {
+    if (!onPreview) return;
+    event.preventDefault();
+    onPreview();
+  };
+  return (
+    <article className="book-card">
+      <div className={`cover-frame tone-${toneForId(listing.id)}`}>
+        <BookCover id={listing.id} title={listing.title} coverUrl={listing.coverUrl} />
+        <span className="condition-tag">{t(listing.condition)}</span>
+        {actions}
+        {listing.status !== "available" && (
+          <span className="status-ribbon">
+            {t(STATUS_RIBBON[listing.status] ?? listing.status)}
+          </span>
+        )}
+      </div>
+      <div className="book-details">
+        <span className="book-category">{t(listing.category)}</span>
+        {/* El hueco de etiquetas se reserva siempre: así los títulos, la persona
+            y el botón quedan a la misma altura en toda la fila del catálogo. */}
+        <div
+          className={
+            listing.tags.length > 0
+              ? "tag-row tag-row-cards"
+              : "tag-row tag-row-cards tag-row-empty"
+          }
+          title={listing.tags.length > 0 ? listing.tags.join(" · ") : undefined}
+        >
+          {listing.tags.slice(0, 2).map((tag) => (
+            <Link
+              key={tag}
+              href={`/?tag=${encodeURIComponent(tag)}`}
+              className="tag-chip"
+              title={t("Ver libros con la etiqueta {tag}", { tag: t(tag) })}
+            >
+              {t(tag)}
+            </Link>
+          ))}
+        </div>
+        <h3>
+          <Link href={`/libro/${listing.id}`} className="card-link" onClick={preview}>
+            {listing.title}
+          </Link>
+        </h3>
+        <p className="book-author">{listing.author}</p>
+        <div className="owner-row">
+          <span className={`avatar owner-avatar tone-${toneForId(listing.owner.id)}`}>
+            {initialsOf(listing.owner.name)}
+          </span>
+          <Link href={`/u/${listing.owner.id}`} className="owner-name">
+            {listing.isMine ? t("Tú") : listing.owner.name}
+          </Link>
+          <span className="distance">
+            <MapPin size={12} />
+            {listing.city}
+            {listing.distanceKm !== null && ` · ${formatDistance(listing.distanceKm, locale)}`}
+          </span>
+        </div>
+        <Link href={`/libro/${listing.id}`} className="request-button" onClick={preview}>
+          {onPreview ? t("Ver detalles") : t("Ver ficha y pedir")}
+          <ArrowRight size={15} />
+        </Link>
+      </div>
+    </article>
+  );
+}

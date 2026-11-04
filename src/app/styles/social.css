@@ -1,0 +1,186 @@
+/* ============================================================
+   Grafo social: pestañas de perfil, muro y directorio
+   ============================================================ */
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 4px;
+}
+
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.profile-tab:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.profile-tab.active {
+  border-color: var(--green);
+  background: var(--green-pale);
+  color: var(--green-strong);
+  font-weight: 600;
+}
+
+.feed-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.feed-switch-option {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.feed-switch-option.active {
+  background: var(--green-fill);
+  color: #fff;
+}
+
+.feed-switch-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.aside-link {
+  margin: 14px 0 4px;
+  justify-content: center;
+  width: 100%;
+}
+
+.secondary-button.following {
+  border-color: var(--green);
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.reader-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 20px;
+}
+
+.reader-filters input,
+.reader-filters select {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.reader-filters input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.reader-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 14px;
+}
+
+.reader-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.reader-avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.reader-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reader-name {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.reader-name:hover {
+  color: var(--green);
+}
+
+.reader-meta,
+.reader-books {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.reader-books {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.reader-bio {
+  margin: 2px 0 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+@media (max-width: 700px) {
+  .reader-list {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+

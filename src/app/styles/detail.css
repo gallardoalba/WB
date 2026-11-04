@@ -1,0 +1,470 @@
+/* ============================================================
+   Páginas de ficha y perfil
+   ============================================================ */
+.page-shell {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  padding: 24px clamp(18px, 4vw, 40px) 48px;
+}
+
+.page-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 30px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  background: var(--paper-sunk);
+}
+
+.book-detail {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 34px;
+  align-items: start;
+}
+
+.book-detail-cover {
+  position: relative;
+  height: 380px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.book-detail-cover .cover-fallback > span {
+  font-size: 52px;
+}
+
+.book-detail-info h1 {
+  margin: 8px 0 6px;
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 500;
+  line-height: 1.08;
+}
+
+.book-detail-author {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.detail-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px 18px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-lift);
+}
+
+.detail-facts dt {
+  color: var(--muted-2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-facts dd {
+  margin: 3px 0 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.owner-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.owner-badge:hover {
+  border-color: var(--green);
+  background: var(--paper-lift);
+}
+
+.owner-badge strong {
+  display: block;
+  font-size: 13px;
+}
+
+.owner-badge small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.detail-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
+}
+
+/* La acción principal ocupa todo el ancho, igual que el resto de paneles
+   de la ficha. */
+.detail-actions > .share-button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+
+.request-inline {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+}
+
+.secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.secondary-actions .favorite-inline,
+.secondary-actions .report-box > summary {
+  width: 100%;
+  justify-content: center;
+}
+
+.secondary-actions .report-box[open] {
+  grid-column: 1 / -1;
+}
+
+.favorite-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.favorite-inline:hover {
+  border-color: var(--green);
+  background: var(--paper-lift);
+}
+
+.favorite-inline.is-favorite {
+  border-color: #e7c6bd;
+  color: var(--coral);
+}
+
+.report-box {
+  display: grid;
+  gap: 8px;
+}
+
+.incident-box {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.report-box > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.report-box > summary:hover {
+  border-color: var(--coral);
+  background: var(--paper-lift);
+}
+
+.report-box > summary::-webkit-details-marker {
+  display: none;
+}
+
+.report-box[open] > summary {
+  color: var(--ink-soft);
+}
+
+.report-box form {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-lift);
+}
+
+.report-box label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.action-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #33553c;
+  font-size: 13px;
+}
+
+.unavailable-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 10px;
+}
+
+/* Los botones del propietario comparten altura con el desplegable de edición. */
+.owner-actions .secondary-button.small {
+  min-height: 44px;
+}
+
+.detail-footer {
+  margin: 30px 0 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.profile-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.profile-avatar {
+  width: 76px;
+  height: 76px;
+  font-size: 24px;
+}
+
+.profile-hero-copy h1 {
+  margin: 4px 0 6px;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.profile-hero-copy p {
+  max-width: 52ch;
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.profile-place {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.profile-metrics {
+  display: flex;
+  gap: 22px;
+  margin: 0;
+  text-align: center;
+}
+
+.profile-metrics dt {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.profile-metrics dd {
+  margin: 2px 0 0;
+  color: var(--green-strong);
+  font-family: var(--serif);
+  font-size: 24px;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Misma altura que el desplegable «Denunciar perfil». */
+.profile-actions .share-button.small,
+.profile-actions .secondary-button.small {
+  min-height: 44px;
+}
+
+.profile-actions .report-box[open] {
+  flex-basis: 100%;
+}
+
+.profile-shelf {
+  margin-top: 8px;
+}
+
+.shelf-count {
+  align-self: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.error-card {
+  width: min(460px, 100%);
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.error-card h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.error-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   Avisos, carga y navegación móvil
+   ============================================================ */
+.toast {
+  position: fixed;
+  z-index: 30;
+  right: 22px;
+  bottom: 22px;
+  max-width: min(420px, calc(100vw - 28px));
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  animation: toast-in 0.2s ease-out;
+}
+
+/* Un fallo no puede parecer una confirmación: ni color ni icono de éxito. */
+.toast-error {
+  border-color: var(--coral);
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.toast > svg {
+  flex: 0 0 auto;
+}
+
+.toast button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.loading-shell {
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.loading-card strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+

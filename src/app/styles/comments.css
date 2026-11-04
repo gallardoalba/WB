@@ -1,0 +1,451 @@
+/* ============================================================
+   Conversaciones de la comunidad
+   ============================================================ */
+
+.conversation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.conversation-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.conversation-copy p strong,
+.conversation-copy p b {
+  color: var(--ink-soft);
+}
+
+.conversation-excerpt {
+  margin-top: 4px !important;
+  color: var(--ink-soft) !important;
+  font-family: var(--serif);
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+.conversation-copy > span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.conversation-copy > span i {
+  padding: 0 3px;
+  font-style: normal;
+}
+
+.conversation-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--green);
+  background: var(--surface);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.conversation-open:hover {
+  border-color: var(--green);
+  background: var(--green-pale);
+}
+
+.feed-header-secondary {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+/* ============================================================
+   Ficha de la obra y hilo de comentarios
+   ============================================================ */
+
+.work-hero {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 26px;
+  align-items: start;
+  margin-bottom: 26px;
+}
+
+/* `BookCover` usa `Image fill`: el contenedor DEBE estar posicionado o la
+   portada se escapa al viewport y tapa toda la pantalla. */
+.work-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--cover-bg);
+}
+
+.work-info h1 {
+  margin: 6px 0 2px;
+  font-family: var(--serif);
+  font-size: clamp(24px, 3.4vw, 34px);
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.work-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.work-facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.work-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 14px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: var(--surface);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.work-link:hover {
+  border-color: var(--green);
+  background: var(--green-pale);
+}
+
+.comments {
+  margin: 0 0 30px;
+  padding: 20px clamp(16px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.comments-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.comments-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.comments-count {
+  color: var(--muted-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.comment-form {
+  margin: 16px 0 6px;
+}
+
+.comment-form textarea,
+.comment-reply textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.comment-form textarea:focus-visible,
+.comment-reply textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.comment-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 9px;
+}
+
+.comment-spoiler {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.comment-remaining {
+  margin-left: auto;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.comments-signin {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.comments-signin a {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.comment {
+  display: flex;
+  gap: 11px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.comment:last-child {
+  border-bottom: 0;
+}
+
+.comment-avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  font-size: 11px;
+}
+
+.comment-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.comment-author {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.comment-author:hover {
+  color: var(--green);
+}
+
+.comment-head > span {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.comment-text {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.comment-deleted {
+  margin: 6px 0 0;
+  color: var(--muted-2);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.comment-hidden {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--coral-soft);
+  color: var(--coral);
+  font-size: 12px;
+}
+
+.spoiler-cover {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.spoiler-cover:hover {
+  border-color: var(--coral);
+  color: var(--coral);
+}
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.comment-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--muted-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.comment-action:hover:not(:disabled) {
+  color: var(--green);
+}
+
+.comment-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.comment-action.liked {
+  color: var(--coral);
+}
+
+.comment-action.danger:hover:not(:disabled) {
+  color: var(--coral);
+}
+
+.comment-reply {
+  margin-top: 11px;
+}
+
+.comment-reply-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.comment-replies {
+  margin-top: 6px;
+  padding-left: 14px;
+  border-left: 2px solid var(--line-soft);
+}
+
+.comment-reply-item {
+  padding: 12px 0 4px;
+  border-bottom: 0;
+}
+
+.comment-reply-item .comment-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+}
+
+.work-copies {
+  margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+  .work-hero {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .comment-remaining {
+    margin-left: 0;
+  }
+
+  .comment-form-footer {
+    justify-content: space-between;
+  }
+}
+
+.comment-report {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-report form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.comment-report select,
+.comment-report input {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.comment-report input {
+  flex: 1;
+  min-width: 140px;
+}
+

@@ -1,0 +1,17 @@
+/* ============================================================
+   Jerarquía tipográfica
+   ============================================================ */
+h1,
+h2 {
+  font-family: var(--serif);
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+}
+
+h2 {
+  font-weight: 500;
+}
+
+p {
+  text-wrap: pretty;
+}

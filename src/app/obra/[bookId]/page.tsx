@@ -1,0 +1,210 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { MapPin, MessageCircle, Users } from "lucide-react";
+import { BookComments } from "@/components/book-comments";
+import { BookCover } from "@/components/book-cover";
+import { BookWantButton } from "@/components/book-want-button";
+import { ReadingStateButtons } from "@/components/reading-state-buttons";
+import { ListingCard } from "@/components/listing-card";
+import { SiteShell } from "@/components/site-shell";
+import { requirePageUser } from "@/lib/page-auth";
+import { translate } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
+import { regionName } from "@/lib/cities";
+import { ListPicker } from "@/components/list-picker";
+import {
+  countBookWants,
+  countReadingStates,
+  getBook,
+  getReadingState,
+  isBookWanted,
+  listBookComments,
+  listIdsContainingBook,
+  listReadingLists,
+  listingsForBook,
+  similarListings,
+} from "@/lib/repo";
+import { toneForId } from "@/lib/text";
+
+type PageProps = { params: Promise<{ bookId: string }> };
+
+export const instant = false;
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { bookId } = await params;
+  const locale = await getLocale();
+  const book = getBook(bookId);
+  if (!book) return { title: locale === "de" ? "Buch nicht gefunden" : "Libro no encontrado" };
+  return {
+    title: `${book.title} — ${book.author}`,
+    description:
+      locale === "de"
+        ? `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in Deutschland.`
+        : `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en Alemania.`,
+    alternates: { canonical: `/obra/${book.id}` },
+    openGraph: {
+      type: "book",
+      title: `${book.title} — ${book.author}`,
+      description:
+        locale === "de"
+          ? `Sprich über «${book.title}» und entdecke, wer es in deiner Nähe hat.`
+          : `Comenta «${book.title}» y descubre quién lo tiene cerca.`,
+      url: `/obra/${book.id}`,
+      images: book.coverUrl ? [book.coverUrl] : undefined,
+    },
+  };
+}
+
+export default async function Page({ params }: PageProps) {
+  const { bookId } = await params;
+  const locale = await getLocale();
+  const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
+  const viewer = await requirePageUser(`/obra/${bookId}`);
+  const book = getBook(bookId);
+  if (!book) notFound();
+
+  const commentViewer = viewer ? { id: viewer.id, isAdmin: viewer.isAdmin } : null;
+  const thread = listBookComments(book.id, commentViewer);
+  const copies = listingsForBook(book.id, viewer?.id ?? null);
+  const similar = similarListings(book.id, viewer?.id ?? null);
+  const myLists = viewer ? listReadingLists(viewer.id, viewer.id) : [];
+  const inLists = viewer ? listIdsContainingBook(viewer.id, book.id) : [];
+  const wanted = viewer ? isBookWanted(viewer.id, book.id) : false;
+  const wantCount = viewer ? countBookWants(book.id, viewer.city, viewer.id) : 0;
+  const readingStatus = viewer ? getReadingState(viewer.id, book.id) : null;
+  const readingCounts = countReadingStates(book.id);
+  // Las etiquetas son del ejemplar: se muestran las del primero disponible.
+  const tags = [...new Set(copies.flatMap((copy) => copy.tags))];
+
+  return (
+    <SiteShell user={viewer} section="obra" title={book.title}>
+      <article className="work-hero">
+        <div className={`work-cover tone-${toneForId(book.id)}`}>
+          <BookCover id={book.id} title={book.title} coverUrl={book.coverUrl} sizes="200px" />
+        </div>
+        <div className="work-info">
+          <span className="book-category">{t(book.category)}</span>
+          {tags.length > 0 && (
+            <div className="tag-row">
+              {tags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/?tag=${encodeURIComponent(tag)}`}
+                  className="tag-chip"
+                >
+                  {t(tag)}
+                </Link>
+              ))}
+            </div>
+          )}
+          <h1>{book.title}</h1>
+          <p className="book-detail-author">{book.author}</p>
+          <ul className="work-facts">
+            <li>
+              <Users size={14} />{" "}
+              {copies.length === 1 ? t("1 ejemplar") : t("{n} ejemplares", { n: copies.length })}
+            </li>
+            <li>
+              <MessageCircle size={14} />{" "}
+              {thread.total === 1 ? t("1 comentario") : t("{n} comentarios", { n: thread.total })}
+            </li>
+            {book.isbn && <li>ISBN {book.isbn}</li>}
+            {book.language && book.language !== "No especificado" && (
+              <li>{t(book.language)}</li>
+            )}
+            <li>
+              <MapPin size={14} /> {regionName(locale)}
+            </li>
+          </ul>
+        </div>
+      </article>
+
+      <div className="work-social">
+        <ListPicker
+          bookId={book.id}
+          lists={myLists}
+          isAuthenticated={Boolean(viewer)}
+          inLists={inLists}
+        />
+        <Link href={`/clubes?book=${book.id}`} className="work-link">
+          <Users size={15} /> {t("Crear un club con este libro")}
+        </Link>
+        {viewer && (
+          <BookWantButton
+            bookId={book.id}
+            initialWanted={wanted}
+            initialCount={wantCount}
+          />
+        )}
+        {viewer && (
+          <ReadingStateButtons
+            bookId={book.id}
+            initialStatus={readingStatus}
+            initialReading={readingCounts.reading}
+            initialRead={readingCounts.read}
+          />
+        )}
+      </div>
+
+      <BookComments
+        bookId={book.id}
+        initialComments={thread.comments}
+        initialHasMore={thread.hasMore}
+        total={thread.total}
+        isAuthenticated={Boolean(viewer)}
+      />
+
+      <section className="work-copies" aria-labelledby="copies-title">
+        <div className="feed-header">
+          <div>
+            <strong id="copies-title">{t("Ejemplares disponibles")}</strong>
+            <span>{t("Este mismo libro en manos de otras personas de la región")}</span>
+          </div>
+        </div>
+        {copies.length === 0 ? (
+          <p className="empty-note">
+            {t("Ahora mismo nadie ha publicado este título. Puedes ser la primera persona en compartirlo.")}
+          </p>
+        ) : (
+          <div className="book-grid">
+            {copies.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {similar.length > 0 && (
+        <section className="work-copies" aria-labelledby="similar-title">
+          <div className="feed-header">
+            <div>
+              <strong id="similar-title">{t("También te puede interesar")}</strong>
+              <span>{t("Otras lecturas de la misma categoría o con etiquetas en común.")}</span>
+            </div>
+          </div>
+          <div className="book-grid">
+            {similar.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Book",
+            name: book.title,
+            author: { "@type": "Person", name: book.author },
+            ...(book.isbn ? { isbn: book.isbn } : {}),
+            inLanguage: locale,
+            discussionUrl: `/obra/${book.id}#comentarios`,
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+    </SiteShell>
+  );
+}

@@ -1,0 +1,684 @@
+/* ============================================================
+   Etiquetas, listas de lectura y clubs
+   ============================================================ */
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+/* En las tarjetas del catálogo la fila de etiquetas ocupa siempre una sola
+   línea: así todas las tarjetas de la rejilla alinean título, persona y botón. */
+.tag-row-cards {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 22px;
+  overflow: hidden;
+}
+
+/* Hueco reservado para los libros sin etiquetas. */
+.tag-row-empty {
+  visibility: hidden;
+}
+
+.tag-row-cards .tag-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.tag-chip:hover {
+  border-color: var(--green);
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.tag-filter-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--green-pale);
+  color: var(--green-strong);
+  font-size: 13px;
+}
+
+.tag-filter-banner .inline-link {
+  border: 0;
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+  color: inherit;
+}
+
+.tag-field {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.tag-field legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tag-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.tag-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.work-social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+}
+
+/* Acciones secundarias: botón a su tamaño, no una barra de ancho completo. */
+.work-social .work-link {
+  width: auto;
+  margin-bottom: 0;
+}
+
+.book-want {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.book-want small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.book-want .book-want-on {
+  border-color: var(--green-fill);
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.book-want .form-error {
+  flex-basis: 100%;
+}
+
+.reading-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reading-state > span:first-child {
+  margin-right: 2px;
+  font-weight: 700;
+}
+
+.reading-state small {
+  color: var(--muted-2);
+}
+
+.reading-state .form-error {
+  flex-basis: 100%;
+}
+
+.list-picker {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.list-picker summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
+  cursor: pointer;
+  list-style: none;
+}
+
+.list-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.list-picker-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.list-picker-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.list-picker-form select,
+.list-picker-form input {
+  flex: 1;
+  min-width: 160px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 12.5px;
+}
+
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.list-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.list-card strong {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.list-card span {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.list-card p {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.list-card:hover {
+  border-color: var(--green);
+}
+
+.list-description {
+  margin: 6px 0 4px;
+  color: var(--ink-soft);
+}
+
+.list-meta {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.list-delete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.list-books {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.list-book {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.list-book:last-child {
+  border-bottom: 0;
+}
+
+.list-book-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.list-book-title:hover {
+  color: var(--green);
+}
+
+.list-book-author,
+.list-book-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.list-book-meta {
+  margin-left: auto;
+}
+
+.clubs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.club-cities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.club-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.club-form {
+  display: grid;
+  gap: 10px;
+  width: min(420px, 100%);
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.club-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.club-form input,
+.club-form select,
+.club-form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+.club-book-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.club-book-banner {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.club-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.club-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.club-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.club-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.club-city {
+  color: var(--muted-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.club-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* La descripción es contexto, no el reclamo: se recorta a tres líneas. */
+.club-card .club-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.club-reading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--green-pale);
+  color: var(--green);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.club-reading:hover {
+  text-decoration: underline;
+}
+
+.club-copies {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.club-copies strong {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.club-copies ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-copies li a {
+  display: inline-flex;
+  gap: 5px;
+  color: var(--green);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.club-copies li a:hover {
+  text-decoration: underline;
+}
+
+.club-loans {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.club-loans h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.club-loan-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-loan-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+}
+
+.club-loan-list li > span {
+  display: grid;
+  gap: 2px;
+}
+
+.club-loan-list small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.club-loan-form {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+}
+
+.club-loan-form > strong {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.club-loan-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.club-loan-form select,
+.club-loan-form input {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.club-loan-form .share-button {
+  justify-self: start;
+}
+
+.club-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.club-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-join {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.club-owner {
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+/* ============================================================
+   Recorrido del lector e insignias
+   ============================================================ */
+
+.profile-journey {
+  margin: 20px 0 6px;
+  padding: 18px clamp(16px, 3vw, 22px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.journey-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.journey-head h2 {
+  margin: 2px 0 0;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.journey-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.journey-stats dt {
+  color: var(--muted-2);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.journey-stats dd {
+  margin: 3px 0 0;
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted-2);
+  font-size: 12px;
+  max-width: 220px;
+}
+
+.badge:not(.earned) {
+  opacity: 0.75;
+}
+
+.badge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.badge-hint {
+  color: var(--muted-2);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.badge.earned {
+  border-color: var(--line);
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.badge.earned .badge-hint {
+  color: var(--green-strong);
+  opacity: 0.8;
+}
+

@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+/* Orden de importación = orden de cascada anterior. Los archivos de abajo
+   conservan los tokens y las reglas tal cual estaban en el monolito. */
+@import "./styles/tokens.css";
+@import "./styles/typography.css";
+@import "./styles/structure.css";
+@import "./styles/home.css";
+@import "./styles/cards.css";
+@import "./styles/community.css";
+@import "./styles/dialogs.css";
+@import "./styles/detail.css";
+@import "./styles/responsive.css";
+@import "./styles/comments.css";
+@import "./styles/social.css";
+@import "./styles/discovery.css";
+@import "./styles/club.css";

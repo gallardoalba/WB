@@ -1,0 +1,633 @@
+/* ============================================================
+   Detalle de club y herramientas de lista
+   ============================================================ */
+
+.list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.list-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.club-head h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.club-head h2 a:hover {
+  color: var(--green);
+}
+
+.club-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.club-panel {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.club-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.club-panel .detail-footer {
+  margin: 14px 0 0;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.club-members {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.club-member strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.club-member small {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-member:hover strong {
+  color: var(--green);
+}
+
+.club-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.club-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Pestañas del muro de la comunidad */
+.feed-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper-sunk);
+}
+
+.feed-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.feed-tab.active {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Panel de comunidad, tarjetas de club y herramientas nuevas
+   ============================================================ */
+
+.community-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.community-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.community-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 8px 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted-2);
+}
+
+.community-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+}
+
+.community-search input:focus-visible {
+  outline: none;
+}
+
+.community-search:focus-within {
+  border-color: var(--green-fill);
+}
+
+.community-clubs-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.feed-header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Cinco pestañas no caben en móvil: se reparten en dos filas. */
+.feed-tabs {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  scrollbar-width: thin;
+}
+
+.feed-tab {
+  white-space: nowrap;
+}
+
+.community-section {
+  padding: 16px 18px 18px;
+}
+
+.community-club-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.community-empty {
+  padding: 24px 6px;
+  text-align: center;
+}
+
+.community-empty h3 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.community-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.community-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--green);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.community-more:hover {
+  text-decoration: underline;
+}
+
+.community-readers {
+  padding: 0;
+  grid-template-columns: 1fr;
+}
+
+.community-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.community-list-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: inherit;
+  text-decoration: none;
+}
+
+.community-list-card:hover {
+  border-color: var(--green);
+}
+
+.community-list-card strong {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.community-list-card span {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.community-list-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.club-head h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.club-head h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.club-head h3 a:hover {
+  color: var(--green);
+}
+
+.club-signals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.club-avatars {
+  display: inline-flex;
+}
+
+.club-avatar {
+  width: 24px;
+  height: 24px;
+  margin-left: -6px;
+  border: 2px solid var(--surface);
+  font-size: 10px;
+}
+
+.club-avatars .club-avatar:first-child {
+  margin-left: 0;
+}
+
+.club-meeting {
+  color: var(--ink-soft);
+}
+
+.club-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.club-progress-bar {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--paper-sunk);
+}
+
+.club-progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.club-progress small {
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.club-pending {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.club-card.compact {
+  gap: 7px;
+  padding: 14px;
+}
+
+.club-share {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.club-share-actions,
+.club-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.club-invite label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.club-invite select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+.club-attendance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.club-requests ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-requests li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.club-requests small {
+  display: block;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-request-actions,
+.club-member-admin {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.club-members li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.club-member {
+  flex: 1;
+  min-width: 0;
+}
+
+.club-member-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.club-filters input,
+.club-filters select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+.club-mine {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.footer-links {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.footer-links a {
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--green);
+}
+
+.nav-item-link {
+  text-decoration: none;
+}
+
+.reader-affinity {
+  color: var(--green);
+}
+
+.reader-last-active {
+  display: block;
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.admin-metrics {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.list-index {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+/* Ajustes finos: iniciales legibles y enlaces del aside sin aspecto de botón. */
+.club-avatar {
+  width: 26px;
+  height: 26px;
+  margin-left: -3px;
+  font-size: 9.5px;
+}
+
+.community-aside .aside-link {
+  min-height: 0;
+  margin: 6px 0 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  justify-content: flex-start;
+  color: var(--green-strong);
+}
+
+.community-aside .aside-link:hover {
+  background: transparent;
+  color: var(--green-strong);
+  text-decoration: underline;
+}
+
+/* Compartir y denunciar conviven en una fila de herramientas, sin barras. */
+.club-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.club-tools .club-share {
+  flex: 1 1 420px;
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.club-tools .report-box {
+  flex: 0 0 auto;
+}
+
+.report-box > button,
+.report-box > summary {
+  justify-self: start;
+  min-height: 40px;
+}
+
+/* Enlaces de acción dentro de una ficha: a su ancho, no como barra. */
+.book-detail-info .work-link {
+  width: auto;
+  margin-bottom: 0;
+}
+
+/* Métricas de administración: una fila compacta, no una lista larga. */
+.admin-metrics .aside-stats {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 24px;
+}
+
+.admin-metrics .aside-stats div {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.admin-metrics .aside-stats dd {
+  font-size: 22px;
+}
+
+/* Los tonos de avatar y portada también se apagan en modo oscuro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tone-sage {
+    background: #26332a;
+    color: #bcd6c4;
+  }
+  :root:not([data-theme="light"]) .tone-ochre {
+    background: #332e22;
+    color: #ddcaa0;
+  }
+}
+
+:root[data-theme="dark"] .tone-sage {
+  background: #26332a;
+  color: #bcd6c4;
+}
+
+:root[data-theme="dark"] .tone-ochre {
+  background: #332e22;
+  color: #ddcaa0;
+}

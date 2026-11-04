@@ -1,0 +1,350 @@
+/* ============================================================
+   Comunidad e intercambios
+   ============================================================ */
+.community-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.8fr);
+  gap: 18px;
+}
+
+.activity-feed {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.feed-header strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.feed-header span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.feed-count {
+  color: var(--muted-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.activity-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 11px;
+}
+
+.activity-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.activity-copy p strong,
+.activity-copy p b {
+  color: var(--ink-soft);
+}
+
+.activity-copy > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.activity-copy > span i {
+  padding: 0 3px;
+  font-style: normal;
+}
+
+.community-prompt {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 14px;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+}
+
+.community-prompt > span {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green-pale);
+  color: var(--green);
+}
+
+.community-prompt div {
+  flex: 1;
+}
+
+.community-prompt strong {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.community-prompt p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.community-prompt button,
+.exchange-row > button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dde3d7;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--green);
+  cursor: pointer;
+}
+
+.community-aside {
+  padding: 20px;
+  border-radius: var(--radius);
+  background: #e8eee4;
+}
+
+.community-aside > strong {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.community-number {
+  margin-top: 20px;
+  color: var(--green-strong);
+  font-family: var(--serif);
+  font-size: 40px;
+  line-height: 1;
+}
+
+.community-number small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.community-divider {
+  height: 1px;
+  margin: 18px 0 14px;
+  background: #d3ddcf;
+}
+
+.aside-stats {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.aside-stats div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.aside-stats dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.aside-stats dd {
+  margin: 0;
+  color: var(--green-strong);
+  font-family: var(--serif);
+  font-size: 17px;
+}
+
+.exchange-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.exchange-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 86px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.exchange-row:last-child {
+  border-bottom: 0;
+}
+
+.mini-cover {
+  position: relative;
+  width: 46px;
+  height: 64px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: #e4e9dc;
+  color: #4b5f47;
+}
+
+.mini-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.exchange-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.exchange-info strong {
+  display: block;
+  overflow: hidden;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exchange-info span {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exchange-info span.exchange-next {
+  color: var(--green-strong);
+  font-weight: 700;
+}
+
+.status-chip {
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-chip.pending { background: #f8ecd4; color: #77521f; }
+.status-chip.accepted { background: #e2ecdf; color: #33533a; }
+.status-chip.completed { background: #e2eaee; color: #35505d; }
+.status-chip.declined,
+.status-chip.cancelled,
+.status-chip.expired { background: #f2e3df; color: #7f3f30; }
+
+.empty-state {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green-pale);
+  color: var(--green);
+}
+
+.empty-state h3 {
+  margin: 16px 0 4px;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.empty-state p {
+  max-width: 42ch;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.empty-note {
+  margin: 0;
+  padding: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.page-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 34px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.page-footer > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-dot {
+  width: 5px;
+  height: 5px;
+  background: #6f8a68;
+}
+

@@ -1,0 +1,798 @@
+import { randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { getDb } from "../db";
+import { ApiError } from "../errors";
+import type {
+  ListingStatus,
+  MessageView,
+  NotificationView,
+  RequestStatus,
+  RequestView,
+  ViewerRole,
+} from "../domain";
+import { publishRequestMessage } from "../live";
+import { findPostOffice, nearestPostOffice, type PostOffice } from "../post-offices";
+import { canTransition, listingStatusFor } from "../request-flow";
+import { areBlocked, nowIso } from "./shared";
+import { assertVerified, getPublicKey, getPublicKeyRecord, getUserById } from "./users";
+import { listingTitle, notify } from "./notifications";
+
+type RequestRow = {
+  id: string;
+  status: RequestStatus;
+  created_at: string;
+  updated_at: string;
+  listing_id: string;
+  title: string;
+  author: string;
+  cover_url: string | null;
+  listing_status: ListingStatus;
+  requester_id: string;
+  requester_name: string;
+  requester_city: string;
+  owner_id: string;
+  owner_name: string;
+  owner_city: string;
+  handover_office_id: string | null;
+  handover_set_at: string | null;
+  handover_code: string | null;
+  owner_confirmed_at: string | null;
+  requester_confirmed_at: string | null;
+  message_count: number;
+  last_message_at: string | null;
+  unread_messages: number;
+  reviewed: number;
+};
+
+const REQUEST_SELECT = `
+  SELECT r.id, r.status, r.created_at, r.updated_at, r.listing_id,
+         r.handover_office_id, r.handover_set_at, r.handover_code,
+         r.owner_confirmed_at, r.requester_confirmed_at,
+         b.title, b.author, b.cover_url, l.status AS listing_status,
+         req.id AS requester_id, req.name AS requester_name, req.city AS requester_city,
+         own.id AS owner_id, own.name AS owner_name, own.city AS owner_city,
+         (SELECT COUNT(*) FROM messages m WHERE m.request_id = r.id) AS message_count,
+         (SELECT MAX(m.created_at) FROM messages m WHERE m.request_id = r.id) AS last_message_at,
+         (SELECT COUNT(*) FROM messages m
+           WHERE m.request_id = r.id AND m.sender_id <> @viewerId
+             AND m.created_at > COALESCE(
+               (SELECT rr.read_at FROM request_reads rr
+                 WHERE rr.request_id = r.id AND rr.user_id = @viewerId), '')) AS unread_messages,
+         (SELECT COUNT(*) FROM reviews rv WHERE rv.request_id = r.id AND rv.author_id = @viewerId) AS reviewed
+  FROM requests r
+  JOIN listings l ON l.id = r.listing_id
+  JOIN books b ON b.id = l.book_id
+  JOIN users req ON req.id = r.requester_id
+  JOIN users own ON own.id = r.owner_id
+`;
+
+function toRequestView(row: RequestRow, viewerId: string): RequestView {
+  return {
+    id: row.id,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    role: row.requester_id === viewerId ? "requester" : "owner",
+    listing: {
+      id: row.listing_id,
+      title: row.title,
+      author: row.author,
+      coverUrl: row.cover_url,
+      status: row.listing_status,
+    },
+    requester: { id: row.requester_id, name: row.requester_name, city: row.requester_city },
+    owner: { id: row.owner_id, name: row.owner_name, city: row.owner_city },
+    messageCount: row.message_count,
+    lastMessageAt: row.last_message_at,
+    unreadMessages: row.unread_messages,
+    reviewed: row.reviewed > 0,
+    confirmedByMe: Boolean(
+      row.requester_id === viewerId ? row.requester_confirmed_at : row.owner_confirmed_at,
+    ),
+    confirmedByOther: Boolean(
+      row.requester_id === viewerId ? row.owner_confirmed_at : row.requester_confirmed_at,
+    ),
+    handoverCode: row.owner_id === viewerId ? row.handover_code : null,
+    handoverCodeRequired:
+      row.requester_id === viewerId && row.status === "accepted" && Boolean(row.handover_code),
+    delivery: toDeliveryView(row.handover_office_id),
+  };
+}
+
+/** El punto de entrega siempre es un local público, nunca una dirección privada. */
+function toDeliveryView(officeId: string | null): RequestView["delivery"] {
+  const office = findPostOffice(officeId);
+  if (!office) return { method: "hand", pickupPoint: null };
+  return {
+    method: "pickup",
+    pickupPoint: {
+      id: office.id,
+      name: office.name,
+      street: office.street,
+      postalCode: office.postalCode,
+      city: office.locality || office.city,
+    },
+  };
+}
+
+/** Marca la conversación como leída hasta ahora para esa persona. */
+export function markRequestRead(userId: string, requestId: string): void {
+  // Sin esta comprobación cualquier cuenta podía escribir filas de lectura
+  // para solicitudes ajenas (basura en la tabla, sin filtrar contenido).
+  assertParticipant(requestId, userId);
+  getDb()
+    .prepare(
+      `INSERT INTO request_reads (request_id, user_id, read_at) VALUES (?, ?, ?)
+       ON CONFLICT(request_id, user_id) DO UPDATE SET read_at = excluded.read_at`,
+    )
+    .run(requestId, userId, nowIso());
+}
+
+/**
+ * Intercambios abiertos de una cuenta. Se usa para el contador del menú: es
+ * una consulta barata y evita cargar la lista completa en cada vista.
+ */
+export function countActiveRequests(userId: string): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS count FROM requests
+        WHERE (owner_id = ? OR requester_id = ?) AND status IN ('pending','accepted')`,
+    )
+    .get(userId, userId) as { count: number };
+  return row.count;
+}
+
+/** Total de mensajes sin leer en todas las conversaciones. */
+export function countUnreadMessages(userId: string): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS count FROM messages m
+       JOIN requests r ON r.id = m.request_id
+       WHERE (r.requester_id = ? OR r.owner_id = ?) AND m.sender_id <> ?
+         AND m.created_at > COALESCE(
+           (SELECT rr.read_at FROM request_reads rr
+             WHERE rr.request_id = m.request_id AND rr.user_id = ?), '')`,
+    )
+    .get(userId, userId, userId, userId) as { count: number };
+  return row.count;
+}
+
+export function listRequests(userId: string): RequestView[] {
+  const rows = getDb()
+    .prepare(
+      `${REQUEST_SELECT} WHERE r.requester_id = @userId OR r.owner_id = @userId
+        ORDER BY r.updated_at DESC LIMIT 500`,
+    )
+    .all({ userId, viewerId: userId }) as RequestRow[];
+  return rows.map((row) => toRequestView(row, userId));
+}
+
+export function createRequest(
+  requesterId: string,
+  listingId: string,
+  // Compatibilidad con llamadas antiguas: el mensaje inicial ya no se guarda.
+  _message = "",
+): RequestView {
+  void _message;
+  assertVerified(requesterId);
+  const db = getDb();
+  const listing = db
+    .prepare(
+      `SELECT l.id, l.owner_id, l.status, u.is_suspended AS owner_suspended
+       FROM listings l JOIN users u ON u.id = l.owner_id WHERE l.id = ?`,
+    )
+    .get(listingId) as
+    | { id: string; owner_id: string; status: ListingStatus; owner_suspended: number }
+    | undefined;
+
+  // Misma visibilidad que el catálogo: un ejemplar de una cuenta suspendida no
+  // se puede solicitar aunque alguien conozca su identificador.
+  if (!listing || listing.status === "removed" || listing.owner_suspended) {
+    throw new ApiError(404, "El ejemplar ya no existe.");
+  }
+  if (listing.owner_id === requesterId) {
+    throw new ApiError(409, "No puedes solicitar tu propio ejemplar.");
+  }
+  if (listing.status !== "available") {
+    throw new ApiError(409, "Este ejemplar ya no está disponible.");
+  }
+  if (areBlocked(requesterId, listing.owner_id)) {
+    throw new ApiError(409, "No puedes contactar con esta persona.");
+  }
+
+  const duplicate = db
+    .prepare(
+      "SELECT 1 FROM requests WHERE listing_id = ? AND requester_id = ? AND status = 'pending'",
+    )
+    .get(listingId, requesterId);
+  if (duplicate) {
+    throw new ApiError(409, "Ya has enviado una solicitud para este ejemplar.");
+  }
+
+  const id = `req_${randomUUID()}`;
+  const now = nowIso();
+
+  try {
+    db.transaction(() => {
+      db.prepare(
+        "INSERT INTO requests (id, listing_id, requester_id, owner_id, message, status, created_at, updated_at) VALUES (?, ?, ?, ?, '', 'pending', ?, ?)",
+      ).run(id, listingId, requesterId, listing.owner_id, now, now);
+      db.prepare(
+        "INSERT INTO events (id, type, actor_id, listing_id, request_id, created_at) VALUES (?, 'requested', ?, ?, ?, ?)",
+      ).run(`evt_${randomUUID()}`, requesterId, listingId, id, now);
+      const requester = getUserById(requesterId);
+      notify({
+        userId: listing.owner_id,
+        type: "request",
+        title: "Nueva solicitud de intercambio",
+        body: `${requester?.name ?? "Alguien"} quiere leer «${listingTitle(listingId)}».`,
+        listingId,
+        requestId: id,
+      });
+    })();
+  } catch (error) {
+    if (error instanceof Error && "code" in error && String(error.code).startsWith("SQLITE_CONSTRAINT")) {
+      throw new ApiError(409, "Ya has enviado una solicitud para este ejemplar.");
+    }
+    throw error;
+  }
+
+  const row = db.prepare(`${REQUEST_SELECT} WHERE r.id = @id`).get({ id, viewerId: requesterId }) as RequestRow;
+  return toRequestView(row, requesterId);
+}
+
+/**
+ * Resuelve la oficina del punto de entrega: la que elige quien acepta o, si no
+ * indica ninguna, la más cercana a su ciudad. `null` explícito significa
+ * entrega en mano, sin oficina.
+ */
+function resolveHandoverOffice(
+  ownerId: string,
+  options: { officeId?: string | null },
+): PostOffice | null {
+  if (options.officeId === null) return null;
+  if (options.officeId !== undefined) {
+    const office = findPostOffice(options.officeId);
+    if (!office) throw new ApiError(400, "Ese punto de entrega no existe.");
+    return office;
+  }
+  const owner = getUserById(ownerId);
+  return owner ? nearestPostOffice(owner.city) : null;
+}
+
+const REQUEST_ERRORS: Record<string, string> = {
+  accepted: "Solo la persona que ofrece el libro puede aceptar la solicitud.",
+  declined: "Solo la persona que ofrece el libro puede rechazar la solicitud.",
+  cancelled: "Este cambio no está permitido en el estado actual.",
+  completed: "Solo un intercambio aceptado puede marcarse como completado.",
+};
+
+/** El estado cambió entre la lectura y la escritura (otra pestaña, otra persona). */
+const STALE_REQUEST = "El intercambio ha cambiado mientras lo mirabas. Recarga e inténtalo de nuevo.";
+
+/** Comparación en tiempo constante para el código de entrega. */
+function sameCode(given: string, expected: string): boolean {
+  const left = Buffer.from(given, "utf8");
+  const right = Buffer.from(expected, "utf8");
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}
+
+export function updateRequestStatus(
+  requestId: string,
+  userId: string,
+  target: RequestStatus,
+  options: { officeId?: string | null; handoverCode?: string } = {},
+): RequestView {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT id, listing_id, requester_id, owner_id, status, handover_code FROM requests WHERE id = ?")
+    .get(requestId) as
+    | {
+        id: string;
+        listing_id: string;
+        requester_id: string;
+        owner_id: string;
+        status: RequestStatus;
+        handover_code: string | null;
+      }
+    | undefined;
+
+  if (!row) throw new ApiError(404, "La solicitud no existe.");
+  if (row.requester_id !== userId && row.owner_id !== userId) {
+    throw new ApiError(404, "La solicitud no existe.");
+  }
+  const role: ViewerRole = row.requester_id === userId ? "requester" : "owner";
+  if (!canTransition(role, row.status, target)) {
+    throw new ApiError(409, REQUEST_ERRORS[target] ?? "Ese cambio de estado no es válido.");
+  }
+  // El código de entrega lo muestra quien entrega y lo introduce quien
+  // recibe; así la confirmación no se puede hacer a distancia sin el libro.
+  if (target === "completed" && role === "requester" && row.handover_code) {
+    if (!options.handoverCode || !sameCode(options.handoverCode, row.handover_code)) {
+      throw new ApiError(409, "Introduce el código de entrega que te muestra la otra persona.");
+    }
+  }
+
+  const now = nowIso();
+  // Al aceptar se propone la oficina de Deutsche Post más cercana a quien
+  // entrega el libro; la otra persona puede cambiarla después.
+  const handover = target === "accepted" ? resolveHandoverOffice(row.owner_id, options) : null;
+  const handoverCode =
+    target === "accepted" ? String(randomInt(0, 1_000_000)).padStart(6, "0") : null;
+
+  db.transaction(() => {
+    if (target === "completed") {
+      // Cierre bilateral: cada parte confirma la entrega por su lado. El
+      // intercambio solo pasa a `completed` cuando ambas han confirmado.
+      const column = role === "owner" ? "owner_confirmed_at" : "requester_confirmed_at";
+      // La escritura se limita al estado leído: si la otra parte canceló entre
+      // el SELECT y este punto, la transacción se deshace en vez de resucitar
+      // una solicitud cerrada.
+      const confirmed = db
+        .prepare(
+          `UPDATE requests SET ${column} = COALESCE(${column}, ?), updated_at = ?
+            WHERE id = ? AND status = ?`,
+        )
+        .run(now, now, requestId, row.status);
+      if (confirmed.changes !== 1) {
+        throw new ApiError(409, STALE_REQUEST);
+      }
+      const confirmations = db
+        .prepare(
+          "SELECT owner_confirmed_at, requester_confirmed_at FROM requests WHERE id = ?",
+        )
+        .get(requestId) as {
+        owner_confirmed_at: string | null;
+        requester_confirmed_at: string | null;
+      };
+      const otherId = row.requester_id === userId ? row.owner_id : row.requester_id;
+
+      if (confirmations.owner_confirmed_at && confirmations.requester_confirmed_at) {
+        db.prepare(
+          "UPDATE requests SET status = 'completed', updated_at = ? WHERE id = ? AND status = 'accepted'",
+        ).run(now, requestId);
+        // Un ejemplar retirado por moderación no puede «resucitar» al completar.
+        db.prepare("UPDATE listings SET status = 'given' WHERE id = ? AND status <> 'removed'").run(
+          row.listing_id,
+        );
+        db.prepare(
+          "INSERT INTO events (id, type, actor_id, listing_id, request_id, created_at) VALUES (?, 'completed', ?, ?, ?, ?)",
+        ).run(`evt_${randomUUID()}`, userId, row.listing_id, requestId, now);
+        notify({
+          userId: otherId,
+          type: "completed",
+          title: "Intercambio completado",
+          body: `«${listingTitle(row.listing_id)}»`,
+          listingId: row.listing_id,
+          requestId,
+        });
+      } else {
+        notify({
+          userId: otherId,
+          type: "accepted",
+          title: "Confirma la entrega",
+          body: `«${listingTitle(row.listing_id)}» · La otra parte ya ha confirmado. Cuando lo recibas, confírmalo también.`,
+          listingId: row.listing_id,
+          requestId,
+        });
+      }
+      return;
+    }
+
+    if (target === "accepted") {
+      // Invariante: un ejemplar solo puede reservarse si sigue disponible.
+      const reserved = db
+        .prepare("UPDATE listings SET status = 'reserved' WHERE id = ? AND status = 'available'")
+        .run(row.listing_id);
+      if (reserved.changes !== 1) {
+        throw new ApiError(409, "Este ejemplar ya está reservado o entregado.");
+      }
+      // Las demás solicitudes pendientes dejan de tener sentido.
+      db.prepare(
+        "UPDATE requests SET status = 'expired', updated_at = ? WHERE listing_id = ? AND status = 'pending' AND id <> ?",
+      ).run(now, row.listing_id, requestId);
+    }
+
+    if (target === "accepted") {
+      const updated = db
+        .prepare(
+          `UPDATE requests SET status = ?, updated_at = ?, handover_office_id = ?, handover_set_at = ?, handover_code = ?
+           WHERE id = ? AND status = ?`,
+        )
+        .run(target, now, handover?.id ?? null, now, handoverCode, requestId, row.status);
+      if (updated.changes !== 1) {
+        throw new ApiError(409, STALE_REQUEST);
+      }
+    } else {
+      const updated = db
+        .prepare("UPDATE requests SET status = ?, updated_at = ? WHERE id = ? AND status = ?")
+        .run(target, now, requestId, row.status);
+      if (updated.changes !== 1) {
+        throw new ApiError(409, STALE_REQUEST);
+      }
+    }
+
+    if (target === "declined" || target === "cancelled") {
+      const otherAccepted = db
+        .prepare("SELECT 1 FROM requests WHERE listing_id = ? AND status = 'accepted' AND id <> ?")
+        .get(row.listing_id, requestId);
+      if (!otherAccepted) {
+        const listing = db
+          .prepare("SELECT status FROM listings WHERE id = ?")
+          .get(row.listing_id) as { status: ListingStatus };
+        db.prepare("UPDATE listings SET status = ? WHERE id = ?").run(
+          listingStatusFor(listing.status, target),
+          row.listing_id,
+        );
+      }
+    }
+
+    if (target === "accepted") {
+      db.prepare(
+        "INSERT INTO events (id, type, actor_id, listing_id, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).run(`evt_${randomUUID()}`, target, userId, row.listing_id, requestId, now);
+    }
+
+    const otherId = row.requester_id === userId ? row.owner_id : row.requester_id;
+    const titles: Record<string, string> = {
+      accepted: "Han aceptado tu solicitud",
+      declined: "Han rechazado tu solicitud",
+      cancelled: "Intercambio cancelado",
+    };
+    const place = handover ? ` · Punto de entrega: ${handover.name}, ${handover.street}` : "";
+    notify({
+      userId: otherId,
+      type: target as NotificationView["type"],
+      title: titles[target] ?? "Intercambio actualizado",
+      body: `«${listingTitle(row.listing_id)}»${target === "accepted" ? place : ""}`,
+      listingId: row.listing_id,
+      requestId,
+    });
+  })();
+
+  const updated = db.prepare(`${REQUEST_SELECT} WHERE r.id = @id`).get({ id: requestId, viewerId: userId }) as RequestRow;
+  return toRequestView(updated, userId);
+}
+
+/**
+ * Cancela los intercambios abiertos de una cuenta y devuelve los ejemplares a
+ * su estado disponible.
+ *
+ * Lo usa `deleteAccount`: una baja no puede dejar el libro de otra persona
+ * bloqueado en `reserved` para siempre (sin UI que lo libere). No avisa a
+ * nadie porque la cuenta está desapareciendo.
+ */
+export function cancelExchangesForAccount(userId: string): number {
+  const db = getDb();
+  const now = nowIso();
+  const open = db
+    .prepare(
+      `SELECT id, listing_id FROM requests
+        WHERE (owner_id = ? OR requester_id = ?) AND status IN ('pending','accepted')`,
+    )
+    .all(userId, userId) as { id: string; listing_id: string }[];
+  if (open.length === 0) return 0;
+
+  const cancel = db.prepare("UPDATE requests SET status = 'cancelled', updated_at = ? WHERE id = ?");
+  const otherAccepted = db.prepare(
+    "SELECT 1 FROM requests WHERE listing_id = ? AND status = 'accepted' AND id <> ?",
+  );
+  const readListing = db.prepare("SELECT status FROM listings WHERE id = ?");
+  const release = db.prepare("UPDATE listings SET status = ? WHERE id = ? AND status = 'reserved'");
+
+  db.transaction(() => {
+    for (const row of open) {
+      cancel.run(now, row.id);
+      // Si otra solicitud sigue aceptada, el ejemplar pertenece a ese cierre.
+      if (otherAccepted.get(row.listing_id, row.id)) continue;
+      const listing = readListing.get(row.listing_id) as { status: ListingStatus } | undefined;
+      if (!listing || listing.status !== "reserved") continue;
+      release.run(listingStatusFor(listing.status, "cancelled"), row.listing_id);
+    }
+  })();
+  return open.length;
+}
+
+/**
+ * Cambia el punto de entrega de un intercambio ya aceptado. Cualquiera de las
+ * dos partes puede proponer otra oficina de Deutsche Post; nunca se acepta
+ * texto libre, así que no hay forma de colar una dirección privada.
+ */
+export function setHandoverOffice(
+  requestId: string,
+  userId: string,
+  officeId: string | null,
+): RequestView {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?")
+    .get(requestId) as
+    | {
+        id: string;
+        listing_id: string;
+        requester_id: string;
+        owner_id: string;
+        status: RequestStatus;
+      }
+    | undefined;
+  if (!row || (row.requester_id !== userId && row.owner_id !== userId)) {
+    throw new ApiError(404, "La solicitud no existe.");
+  }
+  if (row.status !== "accepted" && row.status !== "completed") {
+    throw new ApiError(409, "El punto de entrega se elige al aceptar el intercambio.");
+  }
+  const office = officeId === null ? null : findPostOffice(officeId);
+  if (officeId !== null && !office) {
+    throw new ApiError(400, "Ese punto de entrega no existe.");
+  }
+
+  const now = nowIso();
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE requests SET handover_office_id = ?, handover_set_at = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(office?.id ?? null, now, now, requestId);
+    const otherId = row.requester_id === userId ? row.owner_id : row.requester_id;
+    notify({
+      userId: otherId,
+      type: "accepted",
+      title: "Punto de entrega actualizado",
+      body: office
+        ? `«${listingTitle(row.listing_id)}» · ${office.name}, ${office.street}`
+        : `«${listingTitle(row.listing_id)}» · Entrega en mano`,
+      listingId: row.listing_id,
+      requestId,
+    });
+  })();
+
+  const updated = db
+    .prepare(`${REQUEST_SELECT} WHERE r.id = @id`)
+    .get({ id: requestId, viewerId: userId }) as RequestRow;
+  return toRequestView(updated, userId);
+}
+
+/* -------------------------------- mensajes -------------------------------- */
+
+function assertParticipant(requestId: string, userId: string) {
+  const request = getDb()
+    .prepare("SELECT requester_id, owner_id FROM requests WHERE id = ?")
+    .get(requestId) as { requester_id: string; owner_id: string } | undefined;
+  if (!request || (request.requester_id !== userId && request.owner_id !== userId)) {
+    throw new ApiError(404, "La solicitud no existe.");
+  }
+  return request;
+}
+
+/** Huella del último mensaje: permite detectar novedades sin enviar el contenido. */
+export function requestMessageStamp(
+  requestId: string,
+  userId: string,
+): { count: number; lastId: string | null } {
+  assertParticipant(requestId, userId);
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS count,
+              (SELECT id FROM messages WHERE request_id = ? ORDER BY rowid DESC LIMIT 1) AS last_id
+         FROM messages WHERE request_id = ?`,
+    )
+    .get(requestId, requestId) as { count: number; last_id: string | null };
+  return { count: row.count, lastId: row.last_id };
+}
+
+export function listMessages(
+  requestId: string,
+  userId: string,
+  options: { limit?: number; beforeId?: string | null } = {},
+): { messages: MessageView[]; hasMore: boolean } {
+  assertParticipant(requestId, userId);
+  const limit = options.limit ?? 50;
+  const beforeId = options.beforeId ?? null;
+
+  // El cursor es el `rowid` (orden de inserción): dos mensajes del mismo
+  // milisegundo no se pierden como pasaria comparando fechas.
+  const rows = getDb()
+    .prepare(
+      `SELECT m.id, m.body, m.ciphertext, m.iv, m.key_id, m.encrypted, m.created_at,
+              u.id AS sender_id, u.name AS sender_name
+       FROM messages m JOIN users u ON u.id = m.sender_id
+       WHERE m.request_id = @requestId
+         AND (@beforeId IS NULL OR m.rowid < (SELECT rowid FROM messages WHERE id = @beforeId))
+       ORDER BY m.rowid DESC
+       LIMIT @limit`,
+    )
+    .all({ requestId, beforeId, limit: limit + 1 }) as {
+    id: string;
+    body: string;
+    ciphertext: string | null;
+    iv: string | null;
+    key_id: string | null;
+    encrypted: number;
+    created_at: string;
+    sender_id: string;
+    sender_name: string;
+  }[];
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+
+  return {
+    messages: page.reverse().map((row) => ({
+      id: row.id,
+      body: row.encrypted ? "" : row.body,
+      ciphertext: row.ciphertext,
+      iv: row.iv,
+      keyId: row.key_id,
+      encrypted: Boolean(row.encrypted),
+      createdAt: row.created_at,
+      sender: { id: row.sender_id, name: row.sender_name },
+      isMine: row.sender_id === userId,
+    })),
+    hasMore,
+  };
+}
+
+function otherParticipant(
+  request: { requester_id: string; owner_id: string },
+  userId: string,
+): string {
+  return request.requester_id === userId ? request.owner_id : request.requester_id;
+}
+
+function assertCanMessage(
+  requestId: string,
+  userId: string,
+): { requester_id: string; owner_id: string } {
+  assertVerified(userId);
+  const request = assertParticipant(requestId, userId);
+  if (areBlocked(userId, otherParticipant(request, userId))) {
+    throw new ApiError(409, "No puedes enviar mensajes a esta persona.");
+  }
+  return request;
+}
+
+function storeMessage(input: {
+  requestId: string;
+  userId: string;
+  otherId: string;
+  body: string;
+  ciphertext: string | null;
+  iv: string | null;
+  keyId: string | null;
+}): MessageView {
+  const db = getDb();
+  const id = `msg_${randomUUID()}`;
+  const now = nowIso();
+  const user = getUserById(input.userId);
+  if (!user) throw new ApiError(401, "Necesitas iniciar sesión.");
+
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO messages (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      input.requestId,
+      input.userId,
+      input.body,
+      input.ciphertext,
+      input.iv,
+      input.keyId,
+      input.ciphertext ? 1 : 0,
+      now,
+    );
+    db.prepare("UPDATE requests SET updated_at = ? WHERE id = ?").run(now, input.requestId);
+
+    // El aviso nunca incluye el contenido: ni la bandeja ni la base de datos
+    // deben permitir leer una conversación cifrada.
+    notify({
+      userId: input.otherId,
+      type: "message",
+      title: "Nuevo mensaje en tu intercambio",
+      body: `${user.name} te ha escrito. Abre la conversación para leerlo.`,
+      requestId: input.requestId,
+    });
+  })();
+
+  // Aviso inmediato a las conexiones SSE de este proceso.
+  publishRequestMessage(input.requestId);
+
+  return {
+    id,
+    body: input.body,
+    ciphertext: input.ciphertext,
+    iv: input.iv,
+    keyId: input.keyId,
+    encrypted: Boolean(input.ciphertext),
+    createdAt: now,
+    sender: { id: user.id, name: user.name },
+    isMine: true,
+  };
+}
+
+/**
+ * Mensaje en claro. Solo se admite mientras la conversación no esté cifrada:
+ * en cuanto ambas cuentas publican su clave pública, el servidor rechaza el
+ * texto plano para que no quede contenido legible en la base de datos.
+ */
+export function addMessage(requestId: string, userId: string, body: string): MessageView {
+  const request = assertCanMessage(requestId, userId);
+  const otherId = otherParticipant(request, userId);
+  // Basta con que una de las dos partes tenga clave publicada para que el
+  // servidor deje de aceptar texto plano: así nadie puede degradar el cifrado.
+  if (getPublicKey(userId) || getPublicKey(otherId)) {
+    throw new ApiError(
+      409,
+      "Esta conversación está cifrada: el mensaje debe enviarse cifrado.",
+    );
+  }
+  return storeMessage({
+    requestId,
+    userId,
+    otherId,
+    body,
+    ciphertext: null,
+    iv: null,
+    keyId: null,
+  });
+}
+
+/** Mensaje cifrado de extremo a extremo: el servidor solo guarda el sobre. */
+export function addEncryptedMessage(
+  requestId: string,
+  userId: string,
+  ciphertext: string,
+  iv: string,
+  keyId: string,
+): MessageView {
+  const request = assertCanMessage(requestId, userId);
+  const otherId = otherParticipant(request, userId);
+  const senderKey = getPublicKeyRecord(userId);
+  if (!senderKey) {
+    throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
+  }
+  if (senderKey.keyId !== keyId) {
+    throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
+  }
+  if (!getPublicKeyRecord(otherId)) {
+    throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
+  }
+  return storeMessage({
+    requestId,
+    userId,
+    otherId,
+    body: "",
+    ciphertext,
+    iv,
+    keyId,
+  });
+}
+
+/**
+ * Claves públicas de las dos partes de una conversación. Son datos públicos por
+ * diseño: sin la privada (que nunca sale del navegador) no permiten descifrar.
+ */
+export function conversationKeys(
+  requestId: string,
+  userId: string,
+): {
+  me: { id: string; name: string; publicJwk: JsonWebKey | null; keyId: string | null };
+  peer: { id: string; name: string; publicJwk: JsonWebKey | null; keyId: string | null };
+} {
+  const request = assertParticipant(requestId, userId);
+  const peerId = otherParticipant(request, userId);
+  const me = getUserById(userId);
+  const peer = getUserById(peerId);
+  if (!me || !peer) throw new ApiError(404, "La solicitud no existe.");
+  const myKey = getPublicKeyRecord(me.id);
+  const peerKey = getPublicKeyRecord(peer.id);
+  return {
+    me: { id: me.id, name: me.name, publicJwk: myKey?.jwk ?? null, keyId: myKey?.keyId ?? null },
+    peer: {
+      id: peer.id,
+      name: peer.name,
+      publicJwk: peerKey?.jwk ?? null,
+      keyId: peerKey?.keyId ?? null,
+    },
+  };
+}
+
