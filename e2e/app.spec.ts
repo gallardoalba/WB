@@ -61,8 +61,7 @@ test("un diálogo deja el fondo inerte y lo libera al cerrar", async ({ page }) 
   await expect(page.locator("main.app-shell")).not.toHaveAttribute("inert", "");
 });
 
-test("el perfil explica el estado del cifrado de mensajes", async ({ page }) => {
-  await page.goto("/");
+test("el perfil explica el estado del cifrado de mensajes", async ({ page }) => {  await page.goto("/");
   await waitForHydration(page);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   const auth = page.getByRole("dialog");
@@ -88,6 +87,37 @@ test("el perfil explica el estado del cifrado de mensajes", async ({ page }) => 
   ).toBeVisible();
   // Un solo control según el estado: activo (huella), publicar o pedir contraseña.
   await expect(encryption.locator("button, input[type='password']").first()).toBeVisible();
+});
+
+test("guardar un libro no roba el foco del teclado", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.locator('input[name="email"]').fill("ana@book2peer.test");
+  await dialog.locator('input[name="password"]').fill("demo1234");
+  await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
+
+  await page.goto("/?view=discover");
+  const favorite = page.locator(".favorite-button").first();
+  await expect(favorite).toBeVisible();
+  const pressed = await favorite.getAttribute("aria-pressed");
+
+  await favorite.evaluate((element) => (element as HTMLElement).focus());
+  await favorite.evaluate((element) => (element as HTMLElement).click());
+
+  // El refresco ya no desmonta la cuadrícula: el foco sigue en el corazón.
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.className ?? ""))
+    .toContain("favorite-button");
+  await expect.poll(async () => favorite.getAttribute("aria-pressed")).not.toBe(pressed);
+
+  // Espera a que el guardado termine (el botón deja de estar ocupado) y
+  // devuelve la estantería de la cuenta demo a su estado inicial.
+  await expect.poll(async () => favorite.getAttribute("aria-disabled")).toBeNull();
+  await favorite.evaluate((element) => (element as HTMLElement).click());
+  await expect.poll(async () => favorite.getAttribute("aria-pressed")).toBe(pressed);
 });
 
 test("el panel de comunidad carga cada pestaña por separado", async ({ page }) => {  await page.goto("/");

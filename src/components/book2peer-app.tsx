@@ -1077,6 +1077,7 @@ export default function Book2PeerApp({
                 aria-busy={isPending || undefined}
               >
                 {isPending &&
+                  listings.length === 0 &&
                   Array.from({ length: 8 }, (_, index) => (
                     <div className="skeleton-card" key={index} aria-hidden="true">
                       <div className="skeleton-cover" />
@@ -1105,8 +1106,13 @@ export default function Book2PeerApp({
                               ? t("Quitar {title} de mi estantería", { title: listing.title })
                               : t("Guardar {title} en mi estantería", { title: listing.title })
                           }
-                          disabled={busyFavorite === listing.id}
-                          onClick={() => toggleFavorite(listing.id, favorite)}
+                          // `disabled` quitaría el foco al botón mientras se
+                          // guarda; se marca como ocupado y se ignora el clic.
+                          aria-disabled={busyFavorite === listing.id || undefined}
+                          onClick={() => {
+                            if (busyFavorite === listing.id) return;
+                            toggleFavorite(listing.id, favorite);
+                          }}
                         >
                           <Heart size={17} fill={favorite ? "currentColor" : "none"} />
                         </button>

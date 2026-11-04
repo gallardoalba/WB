@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import type { Metadata } from "next";
 import { BookOpen, CalendarClock, Users } from "lucide-react";
 import {
@@ -67,7 +68,21 @@ export default async function Page({ params, searchParams }: PageProps) {
   const club = getClub(clubId, viewer?.id ?? null);
   if (!club) notFound();
 
-  recordClubView(club.id, viewer?.id ?? null);
+  // La visita es una escritura: se registra después de responder. En dev se
+  // deja en el render porque `after()` dispara un diagnóstico de Next.
+  if (viewer) {
+    if (process.env.NODE_ENV === "production") {
+      after(() => {
+        try {
+          recordClubView(club.id, viewer.id);
+        } catch (error) {
+          console.error("[clubs] no se pudo registrar la visita", error);
+        }
+      });
+    } else {
+      recordClubView(club.id, viewer.id);
+    }
+  }
 
   const members = listClubMembers(club.id, { page: membersPage, pageSize: 24 });
   const books = club.isMine && viewer ? listOwnerBooks(viewer.id) : [];

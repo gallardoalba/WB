@@ -13,7 +13,10 @@
 }
 
 .book-grid-content.is-pending {
-  display: none;
+  /* Las tarjetas se quedan montadas: si se desmontan, el foco del teclado
+     (una ♥, un enlace) se pierde en cada guardado. */
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .skeleton-card {

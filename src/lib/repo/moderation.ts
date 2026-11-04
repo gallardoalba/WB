@@ -426,17 +426,19 @@ export function resolveReport(adminId: string, reportId: string, action: AdminAc
     | undefined;
 
   if (!report) throw new ApiError(404, "La denuncia no existe.");
-  if (report.status !== "open") throw new ApiError(409, "La denuncia ya está resuelta.");
 
   db.transaction(() => {
+    // Se toma la denuncia de forma atómica: si otra persona la resolvió entre
+    // la lectura y la escritura, esta acción no se aplica dos veces.
+    const claimed = db
+      .prepare("UPDATE reports SET status = ? WHERE id = ? AND status = 'open'")
+      .run(action === "dismiss" ? "dismissed" : "reviewed", reportId);
+    if (claimed.changes !== 1) throw new ApiError(409, "La denuncia ya está resuelta.");
+
     if (action !== "dismiss") {
       applyModeration(db, action, report.target_type, report.target_id);
     }
 
-    db.prepare("UPDATE reports SET status = ? WHERE id = ?").run(
-      action === "dismiss" ? "dismissed" : "reviewed",
-      reportId,
-    );
     writeAudit(
       db,
       adminId,

@@ -566,29 +566,33 @@ export function setClubMembership(
     throw new ApiError(409, "Quien creó el club no puede salir de él.");
   }
 
-  let status: ClubMembershipResult["status"] = "none";
+  const membership: { status: ClubMembershipResult["status"] } = { status: "none" };
 
   if (joined) {
-    const already = db
-      .prepare("SELECT status FROM club_members WHERE club_id = ? AND user_id = ?")
-      .get(clubId, userId) as { status: string } | undefined;
-    if (already) {
-      status = already.status === "member" ? "member" : "pending";
-    } else {
+    // Dentro de una transacción: dos altas simultáneas no pueden saltarse el
+    // tope de miembros ni chocar contra la clave primaria.
+    db.transaction(() => {
+      const already = db
+        .prepare("SELECT status FROM club_members WHERE club_id = ? AND user_id = ?")
+        .get(clubId, userId) as { status: string } | undefined;
+      if (already) {
+        membership.status = already.status === "member" ? "member" : "pending";
+        return;
+      }
       const total = membershipCounts(db, clubId).members;
       if (total >= MAX_CLUB_MEMBERS) {
         throw new ApiError(409, `Este club ya tiene ${MAX_CLUB_MEMBERS} miembros, el máximo.`);
       }
       const needsApproval = club.join_policy === "approval" && club.owner_id !== userId;
-      status = needsApproval ? "pending" : "member";
+      membership.status = needsApproval ? "pending" : "member";
       db.prepare(
         "INSERT INTO club_members (club_id, user_id, joined_at, status) VALUES (?, ?, ?, ?)",
-      ).run(clubId, userId, nowIso(), status);
+      ).run(clubId, userId, nowIso(), membership.status);
 
       const joiner = db.prepare("SELECT name FROM users WHERE id = ?").get(userId) as
         | { name: string }
         | undefined;
-      if (status === "member") {
+      if (membership.status === "member") {
         recordProductEvent(db, "club_join", userId, clubId);
         notify({
           userId: club.owner_id,
@@ -606,13 +610,13 @@ export function setClubMembership(
           link: clubLink(clubId),
         });
       }
-    }
+    })();
   } else {
     db.prepare("DELETE FROM club_members WHERE club_id = ? AND user_id = ?").run(clubId, userId);
   }
 
   const counts = membershipCounts(db, clubId);
-  return { member: status === "member", status, ...counts };
+  return { member: membership.status === "member", status: membership.status, ...counts };
 }
 
 /** Quien creó el club aprueba o rechaza una solicitud de entrada. */
@@ -631,37 +635,46 @@ export function decideClubMembership(
     throw new ApiError(403, "Solo quien creó el club decide quién entra.");
   }
 
-  const pending = db
-    .prepare("SELECT 1 FROM club_members WHERE club_id = ? AND user_id = ? AND status = 'pending'")
-    .get(clubId, userId);
-  if (!pending) throw new ApiError(404, "Esa solicitud ya no existe.");
+  // Todo dentro de una transacción y con escrituras condicionales: si dos
+  // peticiones deciden a la vez, solo una cambia el estado.
+  db.transaction(() => {
+    const pending = db
+      .prepare("SELECT status FROM club_members WHERE club_id = ? AND user_id = ?")
+      .get(clubId, userId) as { status: string } | undefined;
+    if (pending?.status !== "pending") throw new ApiError(404, "Esa solicitud ya no existe.");
 
-  if (approve) {
-    if (membershipCounts(db, clubId).members >= MAX_CLUB_MEMBERS) {
-      throw new ApiError(409, `Este club ya tiene ${MAX_CLUB_MEMBERS} miembros, el máximo.`);
+    if (approve) {
+      if (membershipCounts(db, clubId).members >= MAX_CLUB_MEMBERS) {
+        throw new ApiError(409, `Este club ya tiene ${MAX_CLUB_MEMBERS} miembros, el máximo.`);
+      }
+      const updated = db
+        .prepare(
+          "UPDATE club_members SET status = 'member' WHERE club_id = ? AND user_id = ? AND status = 'pending'",
+        )
+        .run(clubId, userId);
+      if (updated.changes !== 1) throw new ApiError(404, "Esa solicitud ya no existe.");
+      recordProductEvent(db, "club_join", userId, clubId);
+      notify({
+        userId,
+        type: "club",
+        title: "Te han aceptado en el club",
+        body: `Ya formas parte de «${club.name}». La conversación está en el hilo del libro.`,
+        link: clubLink(clubId),
+      });
+    } else {
+      const deleted = db
+        .prepare("DELETE FROM club_members WHERE club_id = ? AND user_id = ? AND status = 'pending'")
+        .run(clubId, userId);
+      if (deleted.changes !== 1) throw new ApiError(404, "Esa solicitud ya no existe.");
+      notify({
+        userId,
+        type: "club",
+        title: "Solicitud no aceptada",
+        body: `El club «${club.name}» no ha aceptado tu entrada por ahora.`,
+        link: clubLink(clubId),
+      });
     }
-    db.prepare("UPDATE club_members SET status = 'member' WHERE club_id = ? AND user_id = ?").run(
-      clubId,
-      userId,
-    );
-    recordProductEvent(db, "club_join", userId, clubId);
-    notify({
-      userId,
-      type: "club",
-      title: "Te han aceptado en el club",
-      body: `Ya formas parte de «${club.name}». La conversación está en el hilo del libro.`,
-      link: clubLink(clubId),
-    });
-  } else {
-    db.prepare("DELETE FROM club_members WHERE club_id = ? AND user_id = ?").run(clubId, userId);
-    notify({
-      userId,
-      type: "club",
-      title: "Solicitud no aceptada",
-      body: `El club «${club.name}» no ha aceptado tu entrada por ahora.`,
-      link: clubLink(clubId),
-    });
-  }
+  })();
 
   return membershipCounts(db, clubId);
 }
@@ -701,25 +714,46 @@ export function transferClub(ownerId: string, clubId: string, userId: string): v
   if (club.owner_id !== ownerId) {
     throw new ApiError(403, "Solo quien creó el club puede cederlo.");
   }
-  const member = db
-    .prepare("SELECT 1 FROM club_members WHERE club_id = ? AND user_id = ? AND status = 'member'")
-    .get(clubId, userId);
-  if (!member) throw new ApiError(409, "Solo puedes ceder el club a alguien que ya sea miembro.");
-  db.prepare("UPDATE clubs SET owner_id = ? WHERE id = ?").run(userId, clubId);
-  notify({
-    userId,
-    type: "club",
-    title: "Ahora llevas un club",
-    body: `Te han cedido «${club.name}». Ya puedes cambiar la lectura y los encuentros.`,
-    link: clubLink(clubId),
-  });
-  notify({
-    userId: ownerId,
-    type: "club",
-    title: "Has cedido un club",
-    body: `«${club.name}» ya tiene otra persona al frente.`,
-    link: clubLink(clubId),
-  });
+  // Ceder a una cuenta suspendida dejaría el club invisible y sin nadie que
+  // pudiera devolverlo.
+  const target = db.prepare("SELECT is_suspended FROM users WHERE id = ?").get(userId) as
+    | { is_suspended: number }
+    | undefined;
+  if (!target || target.is_suspended) {
+    throw new ApiError(404, "La persona ya no está disponible.");
+  }
+  if (isBlocked(ownerId, userId) || isBlocked(userId, ownerId)) {
+    throw new ApiError(409, "No puedes ceder el club a esa persona.");
+  }
+
+  db.transaction(() => {
+    const member = db
+      .prepare("SELECT 1 FROM club_members WHERE club_id = ? AND user_id = ? AND status = 'member'")
+      .get(clubId, userId);
+    if (!member) {
+      throw new ApiError(409, "Solo puedes ceder el club a alguien que ya sea miembro.");
+    }
+    const moved = db
+      .prepare("UPDATE clubs SET owner_id = ? WHERE id = ? AND owner_id = ?")
+      .run(userId, clubId, ownerId);
+    if (moved.changes !== 1) {
+      throw new ApiError(409, "El club ha cambiado de manos mientras lo mirabas.");
+    }
+    notify({
+      userId,
+      type: "club",
+      title: "Ahora llevas un club",
+      body: `Te han cedido «${club.name}». Ya puedes cambiar la lectura y los encuentros.`,
+      link: clubLink(clubId),
+    });
+    notify({
+      userId: ownerId,
+      type: "club",
+      title: "Has cedido un club",
+      body: `«${club.name}» ya tiene otra persona al frente.`,
+      link: clubLink(clubId),
+    });
+  })();
 }
 
 /** Asistencia al encuentro actual (la clave es la fecha o la etiqueta). */
