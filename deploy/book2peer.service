@@ -1,0 +1,40 @@
+[Unit]
+Description=Wanderbibliothek (book2peer)
+Documentation=file:/srv/book2peer/current/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=book2peer
+Group=book2peer
+# El enlace `current` apunta a la release activa: cambiarlo y reiniciar es el
+# despliegue completo.
+WorkingDirectory=/srv/book2peer/current
+EnvironmentFile=/etc/book2peer/env
+Environment=NODE_ENV=production
+
+# Solo escucha en loopback: el TLS y el tráfico público los pone nginx.
+ExecStart=/usr/bin/node /srv/book2peer/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+
+Restart=always
+RestartSec=3
+# Deja terminar las conexiones SSE y el checkpoint del WAL.
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# Endurecimiento básico. `ProtectSystem=full` (en vez de strict) porque Next
+# escribe su caché de datos en `.next/cache` dentro de la release.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+ReadWritePaths=/var/lib/book2peer /var/backups/book2peer
+
+[Install]
+WantedBy=multi-user.target

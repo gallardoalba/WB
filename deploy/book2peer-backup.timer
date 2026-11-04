@@ -1,0 +1,12 @@
+[Unit]
+Description=Wanderbibliothek · copia de seguridad diaria
+
+[Timer]
+# 03:20 con retardo aleatorio para no coincidir con otros servicios del host.
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=book2peer-backup.service
+
+[Install]
+WantedBy=timers.target

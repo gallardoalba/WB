@@ -104,6 +104,19 @@ export function runMaintenance(): MaintenanceReport {
 
   const clubReminders = notifyUpcomingMeetings();
 
+  // SQLite no devuelve el espacio al sistema al borrar filas y el WAL crece
+  // hasta el siguiente checkpoint: sin esto, la base solo engorda. `optimize`
+  // es barato (recalcula estadísticas cuando toca) y el checkpoint trunca el
+  // WAL, que es lo que ocupa disco entre reinicios.
+  try {
+    db.pragma("optimize");
+    db.pragma("wal_checkpoint(TRUNCATE)");
+  } catch (error) {
+    // Un checkpoint fallido (otra conexión leyendo, por ejemplo) no debe
+    // invalidar el resto del mantenimiento.
+    console.warn("[maintenance] no se pudo compactar la base", error);
+  }
+
   return {
     expiredRequests,
     sessions,

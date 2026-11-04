@@ -1,0 +1,15 @@
+[Unit]
+Description=Wanderbibliothek · copia de seguridad de la base
+Documentation=file:/srv/book2peer/current/deploy/README.md
+
+[Service]
+Type=oneshot
+User=book2peer
+Group=book2peer
+WorkingDirectory=/srv/book2peer/current
+EnvironmentFile=/etc/book2peer/env
+# `tsx` es dependencia de desarrollo: si instalas con `--omit=dev`, este
+# servicio no arranca. Ver «Instalación de dependencias» en deploy/README.md.
+ExecStart=/usr/bin/node --import tsx /srv/book2peer/current/scripts/backup.ts
+Nice=10
+IOSchedulingClass=idle

@@ -14,6 +14,7 @@
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
     "admin:create": "node --import tsx scripts/create-admin.ts",
     "admin:2fa-off": "node --import tsx scripts/disable-2fa.ts",
+    "user:verify": "node --import tsx scripts/verify-user.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
     "test:e2e": "playwright test"
   },
