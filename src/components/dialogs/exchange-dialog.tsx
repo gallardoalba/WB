@@ -22,13 +22,14 @@ import {
 } from "@/lib/e2e";
 import { officesForCity } from "@/lib/post-offices";
 import { allowedTargets } from "@/lib/request-flow";
+import type { MessageKey } from "@/lib/i18n";
 import { formatWhen } from "@/lib/text";
 import { useI18n } from "../i18n-provider";
 import { ACTION_LABELS, type BaseDialogProps } from "./shared";
 
 const EXCHANGE_STEPS = ["Solicitado", "Aceptado", "Entrega", "Valoración"] as const;
 
-const CONFIRM_STATUS_TEXT: Record<string, string> = {
+const CONFIRM_STATUS_TEXT: Record<string, MessageKey> = {
   accepted: "Al aceptar se reserva el ejemplar y se cierran las demás solicitudes pendientes.",
   declined: "Se rechaza esta solicitud. La persona podrá volver a pedir otro ejemplar.",
   cancelled: "Se cancela el intercambio y el ejemplar vuelve a estar disponible.",

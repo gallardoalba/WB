@@ -77,8 +77,11 @@ test("los mapas *_COPY se traducen aunque la llamada sea dinámica", () => {
 test("el diccionario no tiene textos vacíos ni duplicados", () => {
   const source = readFileSync(DICTIONARY, "utf8");
   const start = source.indexOf("const DE");
-  const end = source.indexOf("\n};", start);
-  const block = source.slice(start, end);
+  // El diccionario cierra con `} satisfies Dictionary;`: se busca ese cierre
+  // real (y no un `};` cualquiera) para no analizar el resto del archivo.
+  const close = /\n\}(?: satisfies [\w<>, ]+)?;/.exec(source.slice(start));
+  assert.ok(close, "no se encontró el cierre del diccionario DE");
+  const block = source.slice(start, start + close!.index);
   const seen = new Set<string>();
   for (const line of block.split("\n")) {
     const match = /^\s*(?:"((?:[^"\\]|\\.)*)"|([A-Za-z_$][\w$]*))\s*:\s*(.*)$/.exec(line);

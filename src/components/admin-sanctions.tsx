@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, History, Eye, EyeOff, UserCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
+import type { MessageKey } from "@/lib/i18n";
 import type { AuditView, HiddenClubView, HiddenCommentView, SuspendedUserView } from "@/lib/repo";
 import { formatWhen } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
@@ -60,7 +61,7 @@ function ListPager({
   );
 }
 
-const ACTION_LABELS: Record<string, string> = {
+const ACTION_LABELS: Record<string, MessageKey> = {
   suspend_user: "Cuenta suspendida",
   unsuspend_user: "Cuenta reactivada",
   hide_listing: "Ejemplar retirado",

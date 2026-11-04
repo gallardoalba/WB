@@ -5,10 +5,11 @@ import type { ReactNode } from "react";
 import { ArrowRight, MapPin } from "lucide-react";
 import { BookCover } from "./book-cover";
 import type { ListingView } from "@/lib/domain";
+import type { MessageKey } from "@/lib/i18n";
 import { formatDistance, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 
-const STATUS_RIBBON: Record<string, string> = {
+const STATUS_RIBBON: Record<string, MessageKey> = {
   reserved: "Reservado",
   given: "Entregado",
   paused: "Pausado",

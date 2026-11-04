@@ -14,7 +14,12 @@ export function normalizeLocale(value: string | null | undefined): Locale {
 
 type Dictionary = Record<string, string>;
 
-const DE: Dictionary = {
+/**
+ * Diccionario alemán. La clave es el texto español, así que el propio literal
+ * sirve de catálogo: `MessageKey` enumera los textos traducidos y el editor
+ * autocompleta al escribir `t("…")`.
+ */
+const DE = {
   // Marca y navegación
   "Saltar al contenido": "Zum Inhalt springen",
   Inicio: "Start",
@@ -201,6 +206,7 @@ const DE: Dictionary = {
   "Confirma tu correo para publicar y pedir libros.": "Bestätige deine E-Mail, um Bücher einzustellen und anzufragen.",
   "Confirmar": "Bestätigen",
   "Código QR para configurar la verificación en dos pasos": "QR-Code zur Einrichtung der Zwei-Faktor-Authentifizierung",
+  "Denuncia descartada": "Meldung verworfen",
   "Denuncia descartada.": "Meldung verworfen.",
   "Deshacer": "Rückgängig",
   "Elige una puntuación": "Wähle eine Bewertung",
@@ -746,12 +752,16 @@ const DE: Dictionary = {
   "Confirma tu contraseña para cambiar la clave de cifrado.": "Bestätige dein Passwort, um den Verschlüsselungsschlüssel zu ändern.",
   "Cifrado de extremo a extremo · Huella de": "Ende-zu-Ende-verschlüsselt · Fingerabdruck von",
   "Club": "Club",
+  "Club oculto": "Club verborgen",
+  "Club restablecido": "Club wiederhergestellt",
   "Clubes ocultos": "Verborgene Clubs",
   "Comentario": "Kommentar",
   "Comentario (opcional)": "Kommentar (optional)",
   "Comentario borrado.": "Kommentar gelöscht.",
   "Comentario eliminado por quien lo escribió.": "Kommentar von der Verfasserin oder dem Verfasser gelöscht.",
   "Comentario publicado.": "Kommentar veröffentlicht.",
+  "Comentario oculto": "Kommentar verborgen",
+  "Comentario restablecido": "Kommentar wiederhergestellt",
   "Comentarios ocultos": "Verborgene Kommentare",
   "Comparte un libro": "Teile ein Buch",
   "Con actividad en su 2.ª semana": "Aktiv in der 2. Woche",
@@ -781,6 +791,8 @@ const DE: Dictionary = {
   "Crear": "Erstellen",
   "Crear cuenta": "Konto erstellen",
   "Cuando solicites un libro, podrás seguir aquí cada paso.": "Wenn du ein Buch anfragst, kannst du hier jeden Schritt verfolgen.",
+  "Cuenta suspendida": "Konto gesperrt",
+  "Cuenta reactivada": "Konto wieder aktiviert",
   "Cuentas suspendidas": "Gesperrte Konten",
   "Cuéntale a la comunidad qué historia estás listo para pasar.": "Erzähl der Gemeinschaft, welche Geschichte du weitergeben möchtest.",
   "Cuéntale dónde te vendría bien quedar.": "Schreib, wo du dich treffen könntest.",
@@ -811,6 +823,8 @@ const DE: Dictionary = {
   "Editar perfil": "Profil bearbeiten",
   "Ej. El guardián entre el centeno": "z. B. Der Fänger im Roggen",
   "Ejemplar": "Exemplar",
+  "Ejemplar retirado": "Exemplar entfernt",
+  "Ejemplar restablecido": "Exemplar wiederhergestellt",
   "El club vuelve a estar visible.": "Der Club ist wieder sichtbar.",
   "El comentario vuelve a estar visible.": "Der Kommentar ist wieder sichtbar.",
   "Elige una contraseña nueva": "Wähle ein neues Passwort",
@@ -1036,9 +1050,24 @@ const DE: Dictionary = {
   "¿Lo has leído? Cuenta qué te pareció, sin destripar el final.": "Schon gelesen? Erzähl, wie es dir gefiel – ohne das Ende zu verraten.",
   "¿Qué ocurre? (opcional)": "Was ist los? (optional)",
   "¿Qué ocurre? La moderación no puede leer los mensajes cifrados.": "Was ist los? Die Moderation kann verschlüsselte Nachrichten nicht lesen.",
+  "¿Retirar este ejemplar?": "Dieses Exemplar zurückziehen?",
+  "¿Suspender esta cuenta?": "Dieses Konto sperren?",
+  "¿Ocultar este comentario?": "Diesen Kommentar verbergen?",
+  "¿Ocultar este club?": "Diesen Club verbergen?",
+  "Dejará de aparecer en el catálogo y se cancelarán los intercambios aceptados.": "Es verschwindet aus dem Katalog und angenommene Tauschvorgänge werden storniert.",
+  "La persona no podrá entrar ni publicar hasta que se reactive.": "Die Person kann sich nicht anmelden und nichts einstellen, bis das Konto wieder aktiv ist.",
+  "Solo su autor podrá verlo.": "Nur der Verfasser kann ihn noch sehen.",
+  "Desaparecerá del directorio y del perfil de sus miembros.": "Es verschwindet aus dem Verzeichnis und aus den Profilen der Mitglieder.",
   "¿Te gustaría leerlo?": "Möchtest du es lesen?",
+  "Al aceptar se reserva el ejemplar y se cierran las demás solicitudes pendientes.": "Mit der Annahme wird das Exemplar reserviert und alle anderen offenen Anfragen werden geschlossen.",
+  "Se rechaza esta solicitud. La persona podrá volver a pedir otro ejemplar.": "Diese Anfrage wird abgelehnt. Die Person kann später ein anderes Exemplar anfragen.",
+  "Se cancela el intercambio y el ejemplar vuelve a estar disponible.": "Der Tausch wird storniert und das Exemplar ist wieder verfügbar.",
+  "Confirmas que la entrega se ha hecho. Si la otra parte ya confirmó, el intercambio se cierra.": "Du bestätigst die Übergabe. Hat die andere Seite schon bestätigt, wird der Tausch abgeschlossen.",
   "Últimas acciones": "Letzte Aktionen",
-};
+} satisfies Dictionary;
+
+/** Textos con traducción alemana (las claves del diccionario). */
+export type MessageKey = keyof typeof DE;
 
 const DICTIONARIES: Record<Locale, Dictionary> = { es: {}, de: DE };
 

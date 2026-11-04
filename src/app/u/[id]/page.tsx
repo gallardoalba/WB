@@ -16,6 +16,7 @@ import { SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
 import { translate, formatNumber } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import type { MessageKey } from "@/lib/i18n";
 import { ReaderCard } from "@/components/reader-card";
 import {
   getPublicProfile,
@@ -35,7 +36,7 @@ type PageProps = {
 
 export const instant = false;
 
-const ACTIVITY_COPY: Record<string, string> = {
+const ACTIVITY_COPY: Record<string, MessageKey> = {
   published: "ha compartido",
   requested: "ha solicitado",
   accepted: "ha aceptado un intercambio de",

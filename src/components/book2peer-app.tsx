@@ -69,19 +69,19 @@ import {
 } from "@/lib/domain";
 import { api } from "@/lib/client-api";
 import { ensureIdentity } from "@/lib/e2e";
-import { formatNumber } from "@/lib/i18n";
+import { formatNumber, type MessageKey } from "@/lib/i18n";
 import { regionName } from "@/lib/cities";
 import { formatWhen, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 
-const ACTIVITY_COPY: Record<ActivityView["type"], string> = {
+const ACTIVITY_COPY: Record<ActivityView["type"], MessageKey> = {
   published: "ha compartido",
   requested: "ha solicitado",
   accepted: "ha aceptado un intercambio de",
   completed: "ha completado un intercambio de",
 };
 
-const SORT_LABELS: Record<SortMode, string> = {
+const SORT_LABELS: Record<SortMode, MessageKey> = {
   near: "Más cercanos",
   recent: "Más recientes",
   title: "Título A–Z",
@@ -89,23 +89,23 @@ const SORT_LABELS: Record<SortMode, string> = {
 
 const RADIUS_OPTIONS = [0, 10, 25, 50, 100] as const;
 
-const VIEW_LABELS: Record<View, string> = {
+const VIEW_LABELS = {
   home: "Inicio",
   discover: "Descubrir",
   shelf: "Mi estantería",
   community: "Comunidad",
   exchanges: "Intercambios",
-};
+} satisfies Record<View, MessageKey>;
 
-const VIEW_TITLES: Record<View, string> = {
+const VIEW_TITLES = {
   home: "Libros que buscan lector",
   discover: "Encuentra tu próxima historia",
   shelf: "Tu estantería guardada",
   community: "La lectura se comparte",
   exchanges: "Tus intercambios",
-};
+} satisfies Record<View, MessageKey>;
 
-const COMMUNITY_TAB_LABELS: Record<CommunityTab, string> = {
+const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
   conversations: "Conversaciones",
   activity: "Actividad",
   clubs: "Clubes",

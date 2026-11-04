@@ -1,3 +1,5 @@
+import type { MessageKey } from "./i18n";
+
 /**
  * Categorías principales (una por ejemplar). Son deliberadamente amplias para
  * que el filtro del catálogo siga siendo útil con un catálogo pequeño; el
@@ -32,7 +34,7 @@ export const READING_STATES = ["reading", "read"] as const;
 export type ReadingStatus = (typeof READING_STATES)[number];
 
 /** Qué entra en cada categoría; se muestra como ayuda en el filtro. */
-export const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
+export const CATEGORY_DESCRIPTIONS: Record<Category, MessageKey> = {
   Humanidades:
     "Filosofía, historia, arte, música, literatura, lenguas, religión y mitología.",
   "Ciencias y técnica":
@@ -347,14 +349,14 @@ export type PublicKeyView = {
   keyId: string | null;
 };
 
-export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
+export const REQUEST_STATUS_LABELS = {
   pending: "Pendiente",
   accepted: "Aceptado",
   declined: "Rechazado",
   cancelled: "Cancelado",
   completed: "Completado",
   expired: "Expirada",
-};
+} satisfies Record<RequestStatus, MessageKey>;
 
 export const VIEWS = ["home", "discover", "shelf", "community", "exchanges"] as const;
 export type View = (typeof VIEWS)[number];

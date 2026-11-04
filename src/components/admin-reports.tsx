@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EyeOff, ShieldOff, Check, X } from "lucide-react";
 import { api } from "@/lib/client-api";
 import type { AdminReportView } from "@/lib/domain";
+import type { MessageKey } from "@/lib/i18n";
 import { formatWhen } from "@/lib/text";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useI18n } from "./i18n-provider";
@@ -18,14 +19,14 @@ const UNDO: Partial<Record<Action, string>> = {
   hide_club: "restore_club",
 };
 
-const CONFIRM_TITLE: Partial<Record<Action, string>> = {
+const CONFIRM_TITLE: Partial<Record<Action, MessageKey>> = {
   hide_listing: "¿Retirar este ejemplar?",
   suspend_user: "¿Suspender esta cuenta?",
   hide_comment: "¿Ocultar este comentario?",
   hide_club: "¿Ocultar este club?",
 };
 
-const CONFIRM_TEXT: Partial<Record<Action, string>> = {
+const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
   hide_listing: "Dejará de aparecer en el catálogo y se cancelarán los intercambios aceptados.",
   suspend_user: "La persona no podrá entrar ni publicar hasta que se reactive.",
   hide_comment: "Solo su autor podrá verlo.",
