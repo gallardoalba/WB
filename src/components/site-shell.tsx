@@ -92,9 +92,13 @@ export async function SiteShell({
               <Link href="/lectores">{t("Lectores")}</Link>
               <Link href="/listas">{t("Listas")}</Link>
             </nav>
-            <nav className="footer-links legal-links" aria-label={t("Información legal")}>
+            <nav
+              className="footer-links legal-links"
+              aria-label={t("Información y documentación")}
+            >
               <Link href="/privacidad">{t("Privacidad")}</Link>
               <Link href="/aviso-legal">{t("Aviso legal")}</Link>
+              <Link href="/documentacion">{t("Documentación")}</Link>
             </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {regionName(locale)}

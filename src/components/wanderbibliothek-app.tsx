@@ -1200,10 +1200,15 @@ export default function WanderbibliothekApp({
               </nav>
             )}
             {/* Sin sesión también: la política de privacidad hay que poder
-                leerla antes de crear la cuenta. */}
-            <nav className="footer-links legal-links" aria-label={t("Información legal")}>
+                leerla antes de crear la cuenta, y la documentación técnica
+                antes de desplegar la instancia. */}
+            <nav
+              className="footer-links legal-links"
+              aria-label={t("Información y documentación")}
+            >
               <Link href="/privacidad">{t("Privacidad")}</Link>
               <Link href="/aviso-legal">{t("Aviso legal")}</Link>
+              <Link href="/documentacion">{t("Documentación")}</Link>
             </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {stats.cities}{" "}

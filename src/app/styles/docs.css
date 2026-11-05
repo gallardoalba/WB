@@ -1,0 +1,245 @@
+/* ============================================================
+   Documentación técnica (/documentacion)
+   ============================================================ */
+
+/* Más ancha que las páginas legales: aquí hay tablas de rutas y variables. */
+.doc-shell {
+  width: min(1180px, 100%);
+}
+
+.doc-layout {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.doc-toc {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: var(--space-3) var(--space-4);
+}
+
+.doc-toc-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.doc-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-4);
+}
+
+.doc-toc a {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  font-weight: 500;
+  /* En móvil el índice se envuelve en varias líneas: cada enlace necesita su
+     propio alto de toque. */
+  display: inline-block;
+  padding: 5px 0;
+}
+
+.doc-toc a:hover {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.tech-doc {
+  min-width: 0;
+  max-width: 82ch;
+}
+
+.tech-doc h1 {
+  font-family: var(--serif);
+  font-size: clamp(26px, 3.4vw, 34px);
+  margin-bottom: var(--space-2);
+}
+
+.tech-doc h2 {
+  font-family: var(--serif);
+  font-size: 20px;
+  margin: var(--space-6) 0 var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.tech-doc section {
+  /* Las anclas del índice no deben quedar pegadas al borde superior. */
+  scroll-margin-top: var(--space-5);
+}
+
+.tech-doc p,
+.tech-doc li {
+  color: var(--ink-soft);
+  font-size: var(--text-base);
+  line-height: 1.65;
+}
+
+.tech-doc p {
+  margin-bottom: var(--space-3);
+}
+
+.tech-doc p.doc-lead {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.tech-doc ul {
+  margin: 0 0 var(--space-3);
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.tech-doc ul li::marker {
+  color: var(--faint);
+}
+
+.doc-updated {
+  color: var(--muted-2);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+/* Fragmentos de código dentro del texto: rutas, ficheros, variables. */
+.tech-doc code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: var(--green-pale);
+  color: var(--ink);
+  /* Nombres como `WANDERBIBLIOTHEK_ALLOW_PLAINTEXT` no deben romper la línea
+     por cualquier letra. */
+  overflow-wrap: anywhere;
+}
+
+.doc-code {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.doc-code code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.doc-table {
+  margin: 0 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow-x: auto;
+}
+
+.doc-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.doc-table th {
+  text-align: left;
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  font-weight: 600;
+  padding: 10px var(--space-3);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.doc-table td {
+  padding: 10px var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-soft);
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+/* Nombres como `WANDERBIBLIOTHEK_ALLOW_PLAINTEXT` se parten por cualquier
+   letra si se dejan envolver: aquí solo se permite cortar entre las palabras
+   (las parejas van separadas por «/»), nunca dentro del identificador. */
+.doc-table td code {
+  overflow-wrap: normal;
+}
+
+.doc-table tr:last-child td {
+  border-bottom: none;
+}
+
+.doc-table td:first-child {
+  color: var(--ink);
+  min-width: 15ch;
+}
+
+.doc-links {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.doc-links li {
+  display: grid;
+  gap: 2px;
+}
+
+.doc-links a {
+  color: var(--green);
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+.doc-links a:hover {
+  color: var(--green-strong);
+}
+
+.doc-links span {
+  color: var(--muted-2);
+  font-size: var(--text-sm);
+}
+
+/* Con sitio, el índice se queda a la izquierda y acompaña al desplazar. */
+@media (min-width: 1120px) {
+  .doc-layout {
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .doc-aside {
+    position: sticky;
+    top: var(--space-5);
+  }
+
+  .doc-toc ol {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .doc-toc a {
+    display: block;
+    padding: 3px 0;
+  }
+}
