@@ -10,6 +10,7 @@ import {
   normalizeText,
   toneForId,
 } from "../src/lib/text.ts";
+import { normalizeLocale } from "../src/lib/locale.ts";
 
 test("normalizeText elimina acentos, mayúsculas y signos", () => {
   assert.equal(normalizeText("  Martínez, Lucía  "), "martinez lucia");
@@ -47,10 +48,22 @@ test("normaliza y valida ISBN", () => {
   assert.equal(coverFromIsbn(null), null);
 });
 
-test("formatDistance usa coma decimal y valor por defecto", () => {
+test("formatDistance usa coma decimal y el idioma por defecto", () => {
   assert.equal(formatDistance(1.2), "1,2 km");
-  // Sin ciudad conocida no se presume cercanía.
-  assert.equal(formatDistance(null), "Sin distancia");
+  // Sin ciudad conocida no se presume cercanía. El idioma base es el alemán.
+  assert.equal(formatDistance(null), "Ohne Angabe");
+  assert.equal(formatDistance(null, "es"), "Sin distancia");
+});
+
+test("sin preferencia guardada la interfaz habla alemán", () => {
+  assert.equal(normalizeLocale(undefined), "de");
+  assert.equal(normalizeLocale(null), "de");
+  assert.equal(normalizeLocale(""), "de");
+  assert.equal(normalizeLocale("fr"), "de");
+  assert.equal(normalizeLocale("es"), "es");
+  // Una cabecera regional también se reconoce.
+  assert.equal(normalizeLocale("es-ES"), "es");
+  assert.equal(normalizeLocale("DE-de"), "de");
 });
 
 test("toneForId es determinista", () => {

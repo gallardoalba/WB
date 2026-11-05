@@ -153,7 +153,7 @@ export function ensureInitialAdmin(db: Db) {
     ts: string;
   }).ts;
   db.prepare(
-    "INSERT INTO users (id, name, email, password_hash, city, bio, is_admin, created_at, email_verified_at) VALUES (?, ?, ?, ?, ?, '', 1, ?, ?)",
+    "INSERT INTO users (id, name, email, password_hash, city, bio, is_admin, created_at, email_verified_at, locale) VALUES (?, ?, ?, ?, ?, '', 1, ?, ?, 'de')",
   ).run(
     `usr_${randomUUID()}`,
     "Administración",
@@ -180,9 +180,11 @@ export function seed(db: Db) {
   const password = DEMO_PASSWORD_HASH;
 
   db.transaction(() => {
-    // Las cuentas de demostración nacen con el correo ya confirmado.
+    // Las cuentas de demostración nacen con el correo ya confirmado y con el
+    // idioma de los datos de ejemplo fijado en castellano: el contenido que se
+    // siembra está escrito así y las pruebas comparan sus avisos.
     const insertUser = db.prepare(
-      "INSERT INTO users (id, name, email, password_hash, city, bio, is_admin, created_at, email_verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO users (id, name, email, password_hash, city, bio, is_admin, created_at, email_verified_at, locale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'es')",
     );
     for (const user of SEED_USERS) {
       const createdAt = isoAgo(60 * 24 * 30);

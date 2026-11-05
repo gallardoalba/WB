@@ -81,8 +81,8 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP, envíos)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 327 pruebas unitarias y de integración (45 ficheros)",
-            "e2e/                   34 pruebas de navegador con Playwright",
+            "tests/                 329 pruebas unitarias y de integración (45 ficheros)",
+            "e2e/                   36 pruebas de navegador con Playwright",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
         },
@@ -263,7 +263,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 327 pruebas unitarias y de integración en 45 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 34 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 329 pruebas unitarias y de integración en 45 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -344,6 +344,7 @@ const ES: TechnicalDocument = {
             "Cuatro breakpoints (480, 768, 1120 y 1400/1800 px), escala de espacio de 4 a 48 px y controles de 40 px, 44 en móvil.",
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
             "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado.",
+            "La interfaz es bilingüe y el alemán es el idioma por defecto: el castellano se elige con el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo.",
           ],
         },
       ],
@@ -438,8 +439,8 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP, Versand)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 327 Unit- und Integrationstests (45 Dateien)",
-            "e2e/                   34 Browser-Tests mit Playwright",
+            "tests/                 329 Unit- und Integrationstests (45 Dateien)",
+            "e2e/                   36 Browser-Tests mit Playwright",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
         },
@@ -620,7 +621,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 327 Unit- und Integrationstests in 45 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 34 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 329 Unit- und Integrationstests in 45 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
@@ -701,6 +702,7 @@ const DE: TechnicalDocument = {
             "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
             "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert.",
+            "Die Oberfläche ist zweisprachig mit Deutsch als Standard: Spanisch kommt über den Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert.",
           ],
         },
       ],

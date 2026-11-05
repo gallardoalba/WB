@@ -129,7 +129,8 @@ export function userForToken(token: string | undefined): SessionUser | null {
     isSuspended: Boolean(row.is_suspended),
     emailVerified: Boolean(row.email_verified_at),
     emailNotifications: row.email_notifications !== 0,
-    locale: row.locale === "de" ? "de" : "es",
+    // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
+    locale: row.locale === "es" ? "es" : "de",
   };
 }
 

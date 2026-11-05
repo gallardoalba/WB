@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { NotificationView } from "../domain";
-import { translate, type Locale } from "../i18n";
+import { DEFAULT_LOCALE, translate, type Locale } from "../i18n";
 import { localizeNotification } from "../notification-locale";
 import { enqueueMail } from "../outbox";
 import { siteUrl } from "../site";
@@ -33,12 +33,12 @@ export function notify(input: {
   bookId?: string | null;
   link?: string | null;
 }): void {
-  let locale: Locale = "es";
+  let locale: Locale = DEFAULT_LOCALE;
   try {
     const row = getDb()
       .prepare("SELECT locale FROM users WHERE id = ?")
       .get(input.userId) as { locale: string } | undefined;
-    if (row?.locale === "de") locale = "de";
+    if (row?.locale === "es") locale = "es";
   } catch {
     // Si falla la lectura, el aviso se guarda en el idioma base.
   }

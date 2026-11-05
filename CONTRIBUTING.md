@@ -43,14 +43,15 @@ directorio).
   ```
 
 - **Idioma de la interfaz**: los textos se escriben en español y el diccionario
-  alemán de `src/lib/i18n.ts` usa ese texto como clave. `tests/i18n.test.ts`
-  falla si una cadena usada con `t()` no tiene traducción: añade siempre la
-  entrada alemana. Si el texto depende de un mapa de etiquetas, tipa el mapa con
-  `MessageKey` (`satisfies Record<…, MessageKey>`) para que el compilador lo
-  detecte.
+  alemán de `src/lib/i18n.ts` usa ese texto como clave. La interfaz arranca en
+  alemán (`DEFAULT_LOCALE` en `src/lib/locale.ts`) y el castellano se elige con
+  el selector. `tests/i18n.test.ts` falla si una cadena usada con `t()` no tiene
+  traducción: añade siempre la entrada alemana. Si el texto depende de un mapa de
+  etiquetas, tipa el mapa con `MessageKey` (`satisfies Record<…, MessageKey>`)
+  para que el compilador lo detecte.
 - **Base de datos**: cualquier cambio de esquema es una migración nueva en
-  `src/lib/db.ts` (`SCHEMA_VERSION` + `migrateToVNN`) y un test que la ejercite.
-  Nunca se edita una migración ya publicada.
+  `src/lib/db/migrations.ts` (`SCHEMA_VERSION` + `migrateToVNN`) y un test que la
+  ejercite. Nunca se edita una migración ya publicada.
 - **Fechas**: no leas el reloj en el render; usa `strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   de SQLite (Next trata `Date.now()` como valor inestable al prerenderizar).
 - **Seguridad por defecto**: toda mutación de `src/app/api` pasa por `guard()`

@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import type { Locale } from "@/lib/locale";
 import type { MessageKey } from "@/lib/i18n";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/locale";
 
 /**
  * Traducción en el cliente.
@@ -27,7 +27,7 @@ type I18nValue = {
   t: (text: Translatable, vars?: Record<string, string | number>) => string;
 };
 
-const I18nContext = createContext<I18nValue>({ locale: "es", t: (text) => text });
+const I18nContext = createContext<I18nValue>({ locale: DEFAULT_LOCALE, t: (text) => text });
 
 /** Misma interpolación que `translate()` en el servidor: `{nombre}`. */
 function interpolate(template: string, vars?: Record<string, string | number>): string {

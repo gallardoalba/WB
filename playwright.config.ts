@@ -5,6 +5,8 @@ const PORT = 3100;
 // ejemplo el `next dev` de :3000 que estés usando) en vez de levantar otro:
 // Next no permite dos instancias de desarrollo en el mismo directorio.
 const EXTERNAL_SERVER = process.env.PLAYWRIGHT_BASE_URL;
+const BASE_URL = EXTERNAL_SERVER ?? `http://localhost:${PORT}`;
+const BASE_HOST = new URL(BASE_URL).hostname;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -18,8 +20,26 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     // Next dev bloquea HMR para orígenes distintos de su host de arranque.
-    baseURL: EXTERNAL_SERVER ?? `http://localhost:${PORT}`,
+    baseURL: BASE_URL,
     trace: "on-first-retry",
+    // La plataforma llega en alemán a quien no ha elegido idioma. Las pruebas
+    // están escritas en castellano, así que fijan la cookie del selector; la
+    // prueba del idioma por defecto navega sin ella.
+    storageState: {
+      cookies: [
+        {
+          name: "wanderbibliothek-locale",
+          value: "es",
+          domain: BASE_HOST,
+          path: "/",
+          expires: -1,
+          httpOnly: false,
+          secure: false,
+          sameSite: "Lax",
+        },
+      ],
+      origins: [],
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: EXTERNAL_SERVER

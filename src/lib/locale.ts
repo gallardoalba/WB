@@ -8,10 +8,17 @@
 
 export const LOCALES = ["es", "de"] as const;
 export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = "es";
+/** Idioma de la interfaz cuando nadie ha elegido: el alemán. */
+export const DEFAULT_LOCALE: Locale = "de";
 export const LOCALE_COOKIE = "wanderbibliothek-locale";
 
-/** Cualquier valor de cookie o cabecera se reduce a un idioma soportado. */
+/**
+ * Cualquier valor de cookie o cabecera se reduce a un idioma soportado. Se
+ * acepta la forma regional (`de-DE`, `es-ES`), porque una cabecera
+ * `Accept-Language` también acaba aquí; lo que no se reconoce cae al idioma por
+ * defecto, nunca a una clave técnica.
+ */
 export function normalizeLocale(value: string | null | undefined): Locale {
-  return value === "de" ? "de" : DEFAULT_LOCALE;
+  const base = (value ?? "").trim().toLowerCase().split("-")[0];
+  return base === "es" || base === "de" ? base : DEFAULT_LOCALE;
 }

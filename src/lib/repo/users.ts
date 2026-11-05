@@ -3,6 +3,7 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { SessionUser } from "../domain";
 import { keyIdFromJwk } from "../key-id";
+import { DEFAULT_LOCALE, type Locale } from "../locale";
 import { verifyPassword } from "../password";
 import { assertPublicName, isConstraintError, nowIso } from "./shared";
 
@@ -47,7 +48,8 @@ function toSessionUser(row: UserRow): SessionUser {
     isSuspended: Boolean(row.is_suspended),
     emailVerified: Boolean(row.email_verified_at),
     emailNotifications: row.email_notifications !== 0,
-    locale: row.locale === "de" ? "de" : "es",
+    // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
+    locale: row.locale === "es" ? "es" : "de",
   };
 }
 
@@ -82,6 +84,8 @@ export function createUser(input: {
   email: string;
   passwordHash: string;
   city: string;
+  /** Idioma de la cuenta; si no se indica, el de la plataforma (alemán). */
+  locale?: Locale;
 }): SessionUser {
   const db = getDb();
   assertPublicName(input.name);
@@ -93,8 +97,16 @@ export function createUser(input: {
   const id = `usr_${randomUUID()}`;
   try {
     db.prepare(
-      "INSERT INTO users (id, name, email, password_hash, city, bio, created_at) VALUES (?, ?, ?, ?, ?, '', ?)",
-    ).run(id, input.name, input.email, input.passwordHash, input.city, nowIso());
+      "INSERT INTO users (id, name, email, password_hash, city, bio, created_at, locale) VALUES (?, ?, ?, ?, ?, '', ?, ?)",
+    ).run(
+      id,
+      input.name,
+      input.email,
+      input.passwordHash,
+      input.city,
+      nowIso(),
+      input.locale ?? DEFAULT_LOCALE,
+    );
   } catch (error) {
     // Dos registros simultáneos con el mismo correo: el segundo recibe 409.
     if (isConstraintError(error)) {

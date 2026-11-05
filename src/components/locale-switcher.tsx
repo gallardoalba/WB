@@ -60,8 +60,8 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
         disabled={pending}
         onChange={(event) => switchTo(event.target.value as Locale)}
       >
-        <option value="es">ES</option>
         <option value="de">DE</option>
+        <option value="es">ES</option>
       </select>
     </div>
   );

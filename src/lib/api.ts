@@ -1,6 +1,6 @@
 import { ZodError } from "zod";
 import { ApiError } from "./errors";
-import { translate, type Locale } from "./i18n";
+import { DEFAULT_LOCALE, translate, type Locale } from "./i18n";
 import { getLocale } from "./i18n-server";
 import { reportError, requestIdFrom } from "./observability";
 
@@ -82,7 +82,7 @@ export async function handleApiError(
   // propagarse: tragárselos dejaría la ruta marcada como estática o rota.
   if (isNextControlError(error)) throw error;
 
-  let locale: Locale = "es";
+  let locale: Locale = DEFAULT_LOCALE;
   try {
     locale = await getLocale();
   } catch {

@@ -6,6 +6,7 @@ import { processOutbox } from "@/lib/outbox";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { assertHuman } from "@/lib/captcha";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+import { getLocale } from "@/lib/i18n-server";
 import { hashPassword } from "@/lib/password";
 import { createUser } from "@/lib/repo";
 import { clientIp, clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
       email: input.email,
       city: input.city,
       passwordHash: await hashPassword(input.password),
+      // La cuenta arranca en el idioma en que se está viendo la plataforma: es
+      // la única pista fiable de lo que entiende quien se registra.
+      locale: await getLocale(),
     });
     const token = createSession(user.id);
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());

@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE } from "./locale";
+
 const TONES = ["sage", "ochre"] as const;
 
 /** Lowercases and strips diacritics so "Martínez" matches "martinez". */
@@ -92,13 +94,16 @@ const DATE_FORMATTERS = {
 } as const;
 
 /** Deterministic date label so server and client render the same text. */
-export function formatWhen(isoDate: string, locale: "es" | "de" = "es"): string {
+export function formatWhen(isoDate: string, locale: "es" | "de" = DEFAULT_LOCALE): string {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return "";
   return DATE_FORMATTERS[locale].format(date);
 }
 
-export function formatDistance(distanceKm: number | null, locale: "es" | "de" = "es"): string {
+export function formatDistance(
+  distanceKm: number | null,
+  locale: "es" | "de" = DEFAULT_LOCALE,
+): string {
   // Sin ciudad conocida no se inventa una distancia.
   if (distanceKm === null) return locale === "de" ? "Ohne Angabe" : "Sin distancia";
   return `${distanceKm.toFixed(1).replace(".", ",")} km`;
@@ -127,7 +132,11 @@ const MEETING_FORMATTERS = {
  * Etiqueta del encuentro: la fecha concreta manda; si no hay, se muestra la
  * cadencia libre que escribió el club («último martes, 19:00»).
  */
-export function formatMeeting(meetsAt: string, meetsOn: string, locale: "es" | "de" = "es"): string {
+export function formatMeeting(
+  meetsAt: string,
+  meetsOn: string,
+  locale: "es" | "de" = DEFAULT_LOCALE,
+): string {
   if (meetsAt) {
     const date = new Date(meetsAt);
     if (!Number.isNaN(date.getTime())) return MEETING_FORMATTERS[locale].format(date);

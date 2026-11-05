@@ -41,7 +41,7 @@ if (existing) {
     db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now') AS ts").get() as { ts: string }
   ).ts;
   db.prepare(
-    "INSERT INTO users (id, name, email, password_hash, city, bio, is_admin, created_at) VALUES (?, ?, ?, ?, ?, '', 1, ?)",
+    "INSERT INTO users (id, name, email, password_hash, city, bio, is_admin, created_at, locale) VALUES (?, ?, ?, ?, ?, '', 1, ?, 'de')",
   ).run(`usr_${randomUUID()}`, "Administración", email, hashPasswordSync(password), "Stuttgart", now);
   console.log(`Cuenta de administración creada para ${email}.`);
 }

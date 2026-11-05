@@ -230,6 +230,26 @@ test("una cuenta suspendida deja de exponer perfil y ejemplares", () => {
   assert.equal(catalog.items.some((item) => item.owner.id === "usr_diego"), false);
 });
 
+test("una cuenta nueva sin idioma elegido recibe sus avisos en alemán", () => {
+  const user = repo.createUser({
+    name: "Idioma por defecto",
+    email: "idioma-por-defecto@wanderbibliothek.test",
+    city: "Stuttgart",
+    passwordHash: "scrypt$00$00",
+  });
+  assert.equal(user.locale, "de");
+
+  repo.notify({ userId: user.id, type: "request", title: "Nueva solicitud de intercambio" });
+  const [notification] = repo.listNotifications(user.id);
+  assert.equal(notification?.title, "Neue Tauschanfrage");
+
+  // Quien elige castellano lo conserva también en la campana.
+  repo.setUserLocale(user.id, "es");
+  repo.notify({ userId: user.id, type: "request", title: "Nueva solicitud de intercambio" });
+  const [second] = repo.listNotifications(user.id);
+  assert.equal(second?.title, "Nueva solicitud de intercambio");
+});
+
 test("al eliminar la cuenta se borran las notas personales de sus ejemplares", () => {
   const db = dbModule.getDb();
   const user = repo.createUser({
