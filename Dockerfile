@@ -12,8 +12,8 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 
-# better-sqlite3 trae binarios precompilados para amd64; si no hubiera, estas
-# herramientas permiten compilarlo desde el código fuente.
+# `better-sqlite3` se compila con node-gyp al instalarlo (no trae binarios para
+# todas las plataformas): estas herramientas son obligatorias en esta etapa.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
   && rm -rf /var/lib/apt/lists/*
@@ -57,8 +57,15 @@ RUN apt-get update \
 
 # Solo dependencias de ejecución (tsx va en dependencies: lo usan los scripts
 # de administración, copia y verificación).
-COPY --chown=node:node package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+#
+# `better-sqlite3` 13 no publica binarios para todas las plataformas: npm lo
+# compila con node-gyp al instalarlo. Por eso aquí no se vuelve a instalar —
+# haría falta python3, make y g++ también en la imagen final—, sino que se
+# reutiliza el `node_modules` ya compilado en la etapa `deps` y se quitan las
+# devDependencies.
+COPY package.json package-lock.json ./
+COPY --from=deps /app/node_modules ./node_modules
+RUN npm prune --omit=dev && npm cache clean --force
 
 COPY --from=builder --chown=node:node /app/.next ./.next
 COPY --from=builder --chown=node:node /app/public ./public
