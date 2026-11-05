@@ -691,6 +691,21 @@
   background: var(--paper-sunk);
 }
 
+/* Enlace al repositorio: comparte el alto de toque de los demás controles de la
+   cabecera y no se subraya, como el resto de enlaces de la plataforma. */
+.repository-link {
+  color: var(--ink-soft);
+}
+
+.repository-link svg {
+  display: block;
+}
+
+.repository-link:hover {
+  color: var(--green);
+  text-decoration: none;
+}
+
 .notification-button i {
   position: absolute;
   top: 9px;

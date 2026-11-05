@@ -11,10 +11,8 @@
  * las dos versiones.
  */
 
+import { REPOSITORY } from "./brand";
 import type { Locale } from "./i18n";
-
-/** Dónde vive el código: el README, CONTRIBUTING y las notas de despliegue. */
-export const REPOSITORY = "https://github.com/gallardoalba/wanderbibliothek";
 
 export type DocBlock =
   | { kind: "p"; text: string }
@@ -360,6 +358,11 @@ const ES: TechnicalDocument = {
               label: "Repositorio",
               href: REPOSITORY,
               note: "Código fuente, historial y avisos privados de vulnerabilidad.",
+            },
+            {
+              label: "DOCUMENTATION.md",
+              href: `${REPOSITORY}/blob/main/DOCUMENTATION.md`,
+              note: "Esta misma página en inglés, dentro del repositorio.",
             },
             {
               label: "CONTRIBUTING.md",
@@ -718,6 +721,11 @@ const DE: TechnicalDocument = {
               label: "Repository",
               href: REPOSITORY,
               note: "Quellcode, Verlauf und private Meldungen zu Sicherheitslücken.",
+            },
+            {
+              label: "DOCUMENTATION.md",
+              href: `${REPOSITORY}/blob/main/DOCUMENTATION.md`,
+              note: "Dieselbe Seite auf Englisch, im Repository.",
             },
             {
               label: "CONTRIBUTING.md",

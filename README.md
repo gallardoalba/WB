@@ -53,7 +53,7 @@ An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run
 Architecture, routes, data model, security, environment variables and operations have moved out of this README:
 
 - **Inside the application** at `/documentacion`.
-- **In the repository**: [`CONTRIBUTING.md`](CONTRIBUTING.md) (environment, quality commands, commit conventions, migration rules), [`deploy/README.md`](deploy/README.md) (operations) and [`SECURITY.md`](SECURITY.md) (how to report a vulnerability).
+- **In the repository**: [`DOCUMENTATION.md`](DOCUMENTATION.md) (the same content in English), [`CONTRIBUTING.md`](CONTRIBUTING.md) (environment, quality commands, commit conventions, migration rules), [`deploy/README.md`](deploy/README.md) (operations) and [`SECURITY.md`](SECURITY.md) (how to report a vulnerability).
 
 Lint, type checking, more than 320 automated tests, browser tests, a production build and an image build run on every push in CI; `npm audit --omit=dev` currently reports no open issues.
 

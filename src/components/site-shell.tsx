@@ -12,6 +12,7 @@ import { SiteSearch } from "./site-search";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleSwitcher } from "./locale-switcher";
+import { RepositoryLink } from "./repository-link";
 import { VerifyEmailBanner } from "./verify-email-banner";
 
 /**
@@ -75,6 +76,7 @@ export async function SiteShell({
               desde cualquier página. */}
           <SiteSearch locale={locale} />
           <div className="topbar-actions">
+            <RepositoryLink label={t("Código en GitHub")} />
             <LocaleSwitcher locale={locale} />
             <ThemeToggle />
             <AccountMenu user={user} variant="topbar" />

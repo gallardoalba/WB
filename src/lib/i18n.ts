@@ -31,6 +31,7 @@ export const DE = {
   "Hecho para que las historias sigan viajando.": "Damit Geschichten weiterreisen.",
   "Secciones de la comunidad": "Bereiche der Gemeinschaft",
   "Información y documentación": "Rechtliches und Dokumentation",
+  "Código en GitHub": "Code auf GitHub",
   Privacidad: "Datenschutz",
   "Aviso legal": "Impressum",
   "Documentación": "Dokumentation",

@@ -53,3 +53,7 @@ next-env.d.ts
 # artefactos de Playwright
 test-results/
 playwright-report/
+
+# `next dev` regenera este fichero con instrucciones para agentes: se queda
+# fuera del repositorio a propósito (no se puede desactivar desde la config).
+AGENTS.md

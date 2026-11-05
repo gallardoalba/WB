@@ -36,6 +36,7 @@ import { ClubCard } from "./club-card";
 import { ClubCreate } from "./club-board";
 import { ReaderCard } from "./reader-card";
 import { LocaleSwitcher } from "./locale-switcher";
+import { RepositoryLink } from "./repository-link";
 import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
@@ -453,6 +454,7 @@ export default function WanderbibliothekApp({
               lectores y listas desde cualquier vista. */}
           <SiteSearch locale={locale} />
           <div className="topbar-actions">
+            <RepositoryLink label={t("Código en GitHub")} />
             <LocaleSwitcher locale={locale} />
             <ThemeToggle />
             {user && (

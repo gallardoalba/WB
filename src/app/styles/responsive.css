@@ -890,3 +890,20 @@
     font-size: 22px;
   }
 }
+
+/* -------------------- Cabecera muy estrecha ------------------------------ */
+/* Por debajo de 420 px no cabe un control más: el enlace al repositorio se
+   retira (la documentación sigue en el pie de página) y a 320 px se aprietan
+   los cuatro píxeles laterales para que la cabecera no desborde. */
+@media (max-width: 419px) {
+  .repository-link {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar {
+    gap: 8px;
+    padding: 0 var(--space-2);
+  }
+}
