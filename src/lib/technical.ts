@@ -79,7 +79,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP, envíos)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 329 pruebas unitarias y de integración (45 ficheros)",
+            "tests/                 331 pruebas unitarias y de integración (45 ficheros)",
             "e2e/                   36 pruebas de navegador con Playwright",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -90,7 +90,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "El diccionario alemán no viaja al navegador: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente los textos del idioma activo, no el diccionario entero.",
+          text: "El diccionario alemán no viaja al navegador: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente los textos del idioma activo, no el diccionario entero. Además van indexados por un identificador de 32 bits (`messageId`) en vez de por el texto origen: la clave ocupa diez dígitos y el texto castellano no viaja, lo que deja el HTML en alemán en 182 KB en lugar de 236.",
         },
         {
           kind: "p",
@@ -261,7 +261,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 329 pruebas unitarias y de integración en 45 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 331 pruebas unitarias y de integración en 45 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -442,7 +442,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP, Versand)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 329 Unit- und Integrationstests (45 Dateien)",
+            "tests/                 331 Unit- und Integrationstests (45 Dateien)",
             "e2e/                   36 Browser-Tests mit Playwright",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -453,7 +453,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Das deutsche Wörterbuch geht nicht an den Browser: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache, nicht das ganze Wörterbuch.",
+          text: "Das deutsche Wörterbuch geht nicht an den Browser: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache, nicht das ganze Wörterbuch. Sie sind außerdem über eine 32-Bit-Kennung (`messageId`) adressiert statt über den Quelltext: der Schlüssel ist zehn Ziffern lang und der spanische Text reist nicht mit, was das deutsche HTML von 236 auf 182 KB bringt.",
         },
         {
           kind: "p",
@@ -624,7 +624,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 329 Unit- und Integrationstests in 45 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 331 Unit- und Integrationstests in 45 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

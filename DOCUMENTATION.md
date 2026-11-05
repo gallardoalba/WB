@@ -28,14 +28,14 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP, shipping)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 329 unit and integration tests (45 files)
+tests/                 331 unit and integration tests (45 files)
 e2e/                   36 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
 
 **Rendering.** The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, header, footer and mobile navigation arrive already rendered, and only the interactive islands hydrate (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`, `repository-link` is a plain link).
 
-**Interface language.** The German dictionary never ships to the browser: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, not the dictionary. German is the default; Spanish is chosen with the switcher.
+**Interface language.** The German dictionary never ships wholesale: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. German is the default; Spanish is chosen with the switcher. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
 
 **Data access.** `getDb()` hooks `prepare` to reuse compiled statements (FIFO cache of 400 per connection). Public aggregates are served through `use cache` with the `public-data` tag, invalidated by the routes that mutate.
 
@@ -146,7 +146,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 329 unit and integration tests in 45 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 331 unit and integration tests in 45 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

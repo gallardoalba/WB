@@ -4,6 +4,12 @@ import { ApiError } from "@/lib/errors";
 import { bookByIsbn } from "@/lib/repo";
 import { normalizeIsbn } from "@/lib/text";
 import { clientKey, hasClientIp, hit } from "@/lib/throttle";
+import { createHash } from "node:crypto";
+
+/** ETag del contenido: las portadas son inmutables por ISBN. */
+function coverTag(data: Buffer): string {
+  return `"${createHash("sha1").update(data).digest("base64url")}"`;
+}
 
 /**
  * Portada de un ISBN, servida desde la propia aplicación.
@@ -40,11 +46,24 @@ export async function GET(
       });
     }
 
+    const etag = coverTag(cover.data);
+    const inm = request.headers.get("if-none-match");
+    if (inm && inm.split(",").some((value) => value.trim() === etag)) {
+      return new Response(null, {
+        status: 304,
+        headers: { etag, "cache-control": "public, max-age=604800" },
+      });
+    }
+
     return new Response(new Uint8Array(cover.data), {
       headers: {
         "content-type": cover.contentType,
         // Una portada no cambia: se puede cachear en el navegador una semana.
         "cache-control": "public, max-age=604800, stale-while-revalidate=86400",
+        // Con `etag`, una revalidación cuesta una respuesta vacía en vez de
+        // volver a bajar la imagen; el hash se calcula sobre los bytes que ya
+        // están en memoria (la caché de disco los ha leído igualmente).
+        etag: coverTag(cover.data),
         "x-content-type-options": "nosniff",
       },
     });

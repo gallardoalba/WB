@@ -5,10 +5,17 @@ import { I18nProvider } from "@/components/i18n-provider";
 import { PwaRegister } from "@/components/pwa-register";
 import { DE } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { messagesById } from "@/lib/message-id";
 import { BRAND } from "@/lib/brand";
 import { siteUrl } from "@/lib/site";
 
 export const viewport: Viewport = { themeColor: "#2f5741" };
+
+/**
+ * Diccionario alemán indexado por identificador: se calcula una vez por proceso
+ * y es lo que viaja al navegador. Ver `src/lib/message-id.ts`.
+ */
+const DE_MESSAGES = messagesById(DE);
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -73,7 +80,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
-        <I18nProvider locale={locale} messages={locale === "de" ? DE : {}}>
+        <I18nProvider locale={locale} messages={locale === "de" ? DE_MESSAGES : {}}>
           <PwaRegister />
           {children}
         </I18nProvider>

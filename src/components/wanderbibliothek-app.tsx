@@ -28,16 +28,12 @@ import {
 } from "lucide-react";
 import { ListingCard } from "./listing-card";
 import { EmptyState } from "./empty-state";
-import { ExchangesList } from "./exchanges-list";
 import { AppSidebar } from "./app-sidebar";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
-import { ClubCard } from "./club-card";
-import { ClubCreate } from "./club-board";
 import { ReaderCard } from "./reader-card";
 import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
-import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { AuthDialog } from "./dialogs/auth-dialog";
@@ -53,6 +49,19 @@ const OfferForm = dynamic(() => import("./offer-form").then((module) => module.O
 });
 const NotificationsDialog = dynamic(() =>
   import("./dialogs/notifications-dialog").then((module) => module.NotificationsDialog),
+);
+/**
+ * Estas piezas solo las pinta una vista concreta (comunidad, intercambios o la
+ * previsualización de un ejemplar), así que se descargan cuando de verdad se
+ * usan: antes viajaban en el paquete inicial de la portada sin pintarse nunca.
+ */
+const ExchangesList = dynamic(() =>
+  import("./exchanges-list").then((module) => module.ExchangesList),
+);
+const ClubBoard = dynamic(() => import("./club-board").then((module) => module.ClubCreate));
+const ClubCard = dynamic(() => import("./club-card").then((module) => module.ClubCard));
+const ListingPreview = dynamic(() =>
+  import("./listing-preview").then((module) => module.ListingPreview),
 );
 import {
   CATALOG_LANGUAGES,
@@ -763,7 +772,7 @@ export default function WanderbibliothekApp({
                   <div className="community-section">
                     {user && (
                       <div className="community-clubs-tools">
-                        <ClubCreate defaultCity={user.city} />
+                        <ClubBoard defaultCity={user.city} />
                       </div>
                     )}
                     {clubs.length === 0 ? (

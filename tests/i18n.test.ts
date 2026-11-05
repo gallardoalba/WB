@@ -112,3 +112,33 @@ test("el diccionario no tiene textos vacíos ni duplicados", () => {
   }
   assert.ok(seen.size > 900, `el diccionario parece incompleto (${seen.size} claves)`);
 });
+
+test("los identificadores de mensaje no chocan dentro del diccionario", async () => {
+  // El cliente recibe las traducciones indexadas por `messageId`: si dos textos
+  // compartieran identificador, uno de los dos mostraría la traducción del otro
+  // y nadie se enteraría. Con 1 257 entradas y 32 bits, un choque es posible
+  // (probabilidad ~0,02 % por par): esta prueba es la que lo detecta.
+  const { messageId } = await import("../src/lib/message-id.ts");
+  const { DE } = await import("../src/lib/i18n.ts");
+  const byId = new Map<number, string>();
+  const collisions: string[] = [];
+  for (const text of Object.keys(DE)) {
+    const id = messageId(text);
+    const previous = byId.get(id);
+    if (previous !== undefined) collisions.push(`${previous} ↔ ${text}`);
+    byId.set(id, text);
+  }
+  assert.deepEqual(collisions, [], `hay ${collisions.length} identificadores repetidos`);
+});
+
+test("el diccionario por identificador devuelve las mismas traducciones", async () => {
+  const { messageId, messagesById } = await import("../src/lib/message-id.ts");
+  const { DE } = await import("../src/lib/i18n.ts");
+  const byId = messagesById(DE);
+  const wrong: string[] = [];
+  for (const [text, value] of Object.entries(DE)) {
+    if (byId[messageId(text)] !== value) wrong.push(text);
+  }
+  assert.deepEqual(wrong, [], `hay ${wrong.length} traducciones mal indexadas`);
+  assert.equal(Object.keys(byId).length, Object.keys(DE).length);
+});

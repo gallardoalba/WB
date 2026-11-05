@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import type { MessageKey } from "@/lib/i18n";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/locale";
+import { messageId } from "@/lib/message-id";
 
 /**
  * Traducción en el cliente.
@@ -20,7 +21,12 @@ import { DEFAULT_LOCALE, type Locale } from "@/lib/locale";
  */
 type Translatable = MessageKey | (string & {});
 
-export type Messages = Record<string, string>;
+/**
+ * Traducciones del idioma activo, indexadas por el identificador del texto
+ * origen (`messageId`) y no por el texto: así la clave viaja en diez dígitos en
+ * lugar de en otra frase entera. En castellano llega vacío.
+ */
+export type Messages = Record<number, string>;
 
 type I18nValue = {
   locale: Locale;
@@ -43,13 +49,13 @@ export function I18nProvider({
   children,
 }: {
   locale: Locale;
-  /** Textos del idioma activo; en español llega vacío. */
+  /** Textos del idioma activo, por identificador; en español llega vacío. */
   messages: Messages;
   children: ReactNode;
 }) {
   const t = useCallback(
     (text: Translatable, vars?: Record<string, string | number>) =>
-      interpolate(messages[text] ?? text, vars),
+      interpolate(messages[messageId(text)] ?? text, vars),
     [messages],
   );
   const value = useMemo(() => ({ locale, t }), [locale, t]);
