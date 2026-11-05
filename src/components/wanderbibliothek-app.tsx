@@ -34,6 +34,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { ReaderCard } from "./reader-card";
 import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
+import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { AuthDialog } from "./dialogs/auth-dialog";
@@ -51,18 +52,17 @@ const NotificationsDialog = dynamic(() =>
   import("./dialogs/notifications-dialog").then((module) => module.NotificationsDialog),
 );
 /**
- * Estas piezas solo las pinta una vista concreta (comunidad, intercambios o la
- * previsualización de un ejemplar), así que se descargan cuando de verdad se
- * usan: antes viajaban en el paquete inicial de la portada sin pintarse nunca.
+ * Estas piezas solo las pinta una vista concreta (comunidad o intercambios),
+ * así que se descargan cuando de verdad se usan: antes viajaban en el paquete
+ * inicial de la portada sin pintarse nunca. La previsualización del ejemplar se
+ * queda estática a propósito: está montada siempre, así que su trozo llegaría a
+ * la hidratación inicial y solo añadiría una espera.
  */
 const ExchangesList = dynamic(() =>
   import("./exchanges-list").then((module) => module.ExchangesList),
 );
 const ClubBoard = dynamic(() => import("./club-board").then((module) => module.ClubCreate));
 const ClubCard = dynamic(() => import("./club-card").then((module) => module.ClubCard));
-const ListingPreview = dynamic(() =>
-  import("./listing-preview").then((module) => module.ListingPreview),
-);
 import {
   CATALOG_LANGUAGES,
   CATEGORIES,
