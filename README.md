@@ -2,9 +2,9 @@
 
 **Books that keep travelling.**
 
-Wanderbibliothek brings together people who don't want the books they have read to gather dust on a shelf. Publish a book and it becomes findable for readers nearby; look for one and you ask for it, and the two of you agree on the hand-over. No price, no commission, no shopping cart – just a book, a conversation and whoever reads it next.
+Wanderbibliothek brings together people who don't want the books they have read to gather dust on a shelf. Publish a book and it becomes findable for readers nearby; look for one and you ask for it, and the two of you agree on the hand-over.
 
-The platform is deliberately built as a counter-model to commercial marketplaces: it sells nothing, runs no ads, tracks nobody and rewards nobody for being active. It assumes that people share when it is made easy for them and they are not distrusted – and that a community can negotiate its own rules.
+The platform is deliberately built as a counter-model to commercial marketplaces: it sells nothing, runs no ads, tracks nobody and rewards nobody for being active. It assumes that people share when it is made easy for them and they are not distrusted, and that a community can negotiate its own rules.
 
 ## What the platform does
 
@@ -14,13 +14,13 @@ The platform is deliberately built as a counter-model to commercial marketplaces
 - **Works rather than listings.** Every edition of a title shares one page: the conversation, the available copies, recommendations, and who in your city is looking for exactly that book.
 - **Reading circles.** Organised by city, with a current read, meetings, an attendance list, a vote on the next book and a forum only members can read.
 - **Lists, directory, activity.** Reading lists as public curation, a directory of readers sorted by distance, and a stream of what is happening around you.
-- **Self-hosted.** One instance runs on a small server with SQLite, without third-party services. Without an account you can read the home page, the legal pages and the technical documentation.
+- **Self-hosted.** One instance runs on a small server with SQLite, without third-party services.
 
 ## Principles
 
-**Reciprocity.** Whoever gives a book away gets one back. There is no currency, no balance and no points pushing anyone to trade more – only the expectation that you give too.
+**Reciprocity.** Whoever gives a book away gets one back. There is no currency, no balance and no points pushing anyone to trade more, only the expectation that you give too.
 
-**Free of charge.** No fees, no premium tier, no advertising, no handing data to third parties. What the platform does not cost it does not need to earn – and what it does not earn it cannot sell.
+**Free of charge.** No fees, no premium tier, no advertising, no handing data to third parties. What the platform does not cost it does not need to earn, and what it does not earn it cannot sell.
 
 **Books as commons.** A book that has been read is not dead stock; it is something that wants to be passed on. So the platform manages hand-overs rather than property: giving a copy away does not lose it, it puts it into circulation.
 
