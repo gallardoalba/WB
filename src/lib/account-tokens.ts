@@ -70,7 +70,9 @@ export function consumeAccountToken(raw: string, purpose: TokenPurpose): string 
 /** Encola el enlace de verificación; el outbox lo entrega con reintentos. */
 export async function sendVerificationEmail(userId: string, email: string): Promise<void> {
   const token = issueAccountToken(userId, "verify_email");
-  const link = `${siteUrl()}/verificar?token=${token}`;
+  // El token va en el fragmento: el navegador no lo envía al servidor, así que
+  // no queda en los registros de accesos ni en los proxies.
+  const link = `${siteUrl()}/verificar#token=${token}`;
   enqueueMail({
     to: email,
     subject: "Confirma tu correo en Wanderbibliothek",
@@ -81,7 +83,7 @@ export async function sendVerificationEmail(userId: string, email: string): Prom
 /** Encola el enlace de recuperación. No revela si el correo existe. */
 export async function sendPasswordResetEmail(userId: string, email: string): Promise<void> {
   const token = issueAccountToken(userId, "reset_password");
-  const link = `${siteUrl()}/restablecer?token=${token}`;
+  const link = `${siteUrl()}/restablecer#token=${token}`;
   enqueueMail({
     to: email,
     subject: "Restablece tu contraseña de Wanderbibliothek",

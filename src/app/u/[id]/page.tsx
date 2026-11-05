@@ -14,7 +14,7 @@ import { ProfileActions } from "@/components/profile-actions";
 import { ReviewList } from "@/components/review-list";
 import { SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
-import { translate, formatNumber } from "@/lib/i18n";
+import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import type { MessageKey } from "@/lib/i18n";
 import { ReaderCard } from "@/components/reader-card";
@@ -26,8 +26,9 @@ import {
   listReadingLists,
   listReviews,
   listUserActivity,
+  mutualFollow,
 } from "@/lib/repo";
-import { formatWhen, initialsOf, toneForId } from "@/lib/text";
+import { formatNumber, formatWhen, initialsOf, toneForId } from "@/lib/text";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -88,6 +89,10 @@ export default async function Page({ params, searchParams }: PageProps) {
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
   const profile = getPublicProfile(id, viewer?.id ?? null, { page });
   if (!profile) notFound();
+  // Mensajería directa solo entre seguidores mutuos (y sin bloqueos).
+  const canMessage =
+    Boolean(viewer) && !profile.isMe && mutualFollow(viewer!.id, profile.user.id);
+  const openMessages = firstValue(raw.dm) === "1";
 
   const memberSince = new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "es-ES", {
     month: "long",
@@ -170,6 +175,8 @@ export default async function Page({ params, searchParams }: PageProps) {
         followers={profile.followers}
         isAuthenticated={Boolean(viewer) && !profile.isMe}
         canFollow={Boolean(viewer) && !profile.isMe && !profile.isBlocked}
+        canMessage={canMessage}
+        openMessages={openMessages}
       />
 
       <section className="profile-journey" aria-labelledby="journey-title">
@@ -199,16 +206,25 @@ export default async function Page({ params, searchParams }: PageProps) {
             <dd>{journey.cities}</dd>
           </div>
         </dl>
-        <ul className="badge-list">
-          {journey.badges.map((badge) => (
-            <li key={badge.id} className={badge.earned ? "badge earned" : "badge"}>
-              <span className="badge-label">
-                <Award size={14} /> {t(badge.label)}
-              </span>
-              <small className="badge-hint">{t(badge.hint)}</small>
-            </li>
-          ))}
-        </ul>
+        {/* Solo las conseguidas: las pendientes eran ruido y desvelaban
+            los objetivos vacíos del perfil. El contador de arriba mantiene la
+            cuenta («2 de 7 insignias»). */}
+        {earned.length > 0 ? (
+          <ul className="badge-list">
+            {earned.map((badge) => (
+              <li key={badge.id} className="badge earned">
+                <span className="badge-label">
+                  <Award size={14} /> {t(badge.label)}
+                </span>
+                <small className="badge-hint">{t(badge.hint)}</small>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="badge-empty">
+            {t("Todavía no hay insignias: se consiguen intercambiando y participando en la comunidad.")}
+          </p>
+        )}
       </section>
 
       <nav className="profile-tabs" aria-label={t("Secciones del perfil")}>

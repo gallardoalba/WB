@@ -9,14 +9,22 @@ import type { MessageKey } from "@/lib/i18n";
 import { formatWhen } from "@/lib/text";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useI18n } from "./i18n-provider";
+import { EmptyState } from "./empty-state";
 
-type Action = "dismiss" | "hide_listing" | "suspend_user" | "hide_comment" | "hide_club";
+type Action =
+  | "dismiss"
+  | "hide_listing"
+  | "suspend_user"
+  | "hide_comment"
+  | "hide_club"
+  | "hide_club_post";
 
 const UNDO: Partial<Record<Action, string>> = {
   hide_listing: "restore_listing",
   suspend_user: "unsuspend_user",
   hide_comment: "restore_comment",
   hide_club: "restore_club",
+  hide_club_post: "restore_club_post",
 };
 
 const CONFIRM_TITLE: Partial<Record<Action, MessageKey>> = {
@@ -24,6 +32,7 @@ const CONFIRM_TITLE: Partial<Record<Action, MessageKey>> = {
   suspend_user: "¿Suspender esta cuenta?",
   hide_comment: "¿Ocultar este comentario?",
   hide_club: "¿Ocultar este club?",
+  hide_club_post: "¿Ocultar este mensaje del foro?",
 };
 
 const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
@@ -31,6 +40,7 @@ const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
   suspend_user: "La persona no podrá entrar ni publicar hasta que se reactive.",
   hide_comment: "Solo su autor podrá verlo.",
   hide_club: "Desaparecerá del directorio y del perfil de sus miembros.",
+  hide_club_post: "Dejará de verse en el foro del club; solo su autor lo verá.",
 };
 
 export function AdminReports({ reports }: { reports: AdminReportView[] }) {
@@ -95,13 +105,11 @@ export function AdminReports({ reports }: { reports: AdminReportView[] }) {
 
   if (reports.length === 0) {
     return (
-      <div className="empty-state">
-        <span className="empty-icon">
-          <Check size={22} />
-        </span>
-        <h3>{t("Sin denuncias abiertas")}</h3>
-        <p>{t("Todo revisado por ahora.")}</p>
-      </div>
+      <EmptyState
+        icon={<Check size={22} />}
+        title={t("Sin denuncias abiertas")}
+        hint={t("Todo revisado por ahora.")}
+      />
     );
   }
 
@@ -192,6 +200,16 @@ export function AdminReports({ reports }: { reports: AdminReportView[] }) {
                 onClick={() => requestAction(report, "hide_club")}
               >
                 <EyeOff size={14} /> {t("Ocultar club")}
+              </button>
+            )}
+            {report.targetType === "club_post" && (
+              <button
+                type="button"
+                className="secondary-button small danger"
+                disabled={busyId === report.id}
+                onClick={() => requestAction(report, "hide_club_post")}
+              >
+                <EyeOff size={14} /> {t("Ocultar mensaje")}
               </button>
             )}
           </div>

@@ -74,6 +74,25 @@ test("los mapas *_COPY se traducen aunque la llamada sea dinámica", () => {
   assert.deepEqual(missing, [], `faltan ${missing.length} textos de mapas *_COPY`);
 });
 
+test("el diccionario no guarda traducciones que ya no usa nadie", () => {
+  // Sin esta comprobación las traducciones se acumulan: al retirar el escáner
+  // de ISBN quedaron seis claves huérfanas que solo se vieron a mano.
+  //
+  // No basta con buscar `t("…")`: muchas cadenas llegan a `t()` desde una
+  // constante (categorías, etiquetas, idiomas, ciudades). Por eso se comprueba
+  // si el texto aparece como literal en algún sitio del código.
+  const keys = dictionaryKeys(readFileSync(DICTIONARY, "utf8"));
+  const sources = walk(ROOT).map((file) => readFileSync(file, "utf8"));
+  const dead = [...keys].filter(
+    (key) => !sources.some((source) => source.includes(`"${key}"`) || source.includes(`'${key}'`)),
+  );
+  assert.deepEqual(
+    dead.slice(0, 20),
+    [],
+    `hay ${dead.length} traducciones que ningún texto del código usa; bórralas de i18n.ts`,
+  );
+});
+
 test("el diccionario no tiene textos vacíos ni duplicados", () => {
   const source = readFileSync(DICTIONARY, "utf8");
   const start = source.indexOf("const DE");

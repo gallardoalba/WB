@@ -52,7 +52,7 @@
   place-items: center;
   border-radius: 11px 11px 11px 3px;
   background: var(--green-fill);
-  color: #fff;
+  color: var(--on-fill);
 }
 
 .city-picker {
@@ -137,8 +137,9 @@
 .theme-toggle {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  /* 44 px: el mínimo cómodo para el pulgar (antes 36). */
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
@@ -299,6 +300,7 @@
   margin-top: auto;
 }
 
+
 .account-menu .profile-row {
   width: 100%;
   margin-top: 0;
@@ -366,7 +368,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: var(--coral);
-  color: #fff;
+  color: var(--on-fill);
   font-size: 10px;
   font-weight: 800;
 }
@@ -410,8 +412,8 @@
 }
 
 .avatar-you {
-  background: #f0d7c6;
-  color: #7a5039;
+  background: var(--tone-self-bg);
+  color: var(--tone-self-ink);
 }
 
 .profile-copy {
@@ -441,13 +443,16 @@
   color: var(--muted-2);
 }
 
-/* Tonos accesibles para avatares y portadas de reserva */
-.tone-sage { background: #dfe7d7; color: #3d5137; }
-.tone-ochre { background: #ece1c7; color: #5c4a26; }
-.tone-rose { background: #ead6d1; color: #653f38; }
-.tone-blue { background: #d5e1e1; color: #355050; }
-.tone-plum { background: #e1dbe8; color: #4a3d5a; }
-.tone-terracotta { background: #e9d7cc; color: #5f4133; }
+/* Tonos accesibles para avatares y portadas de reserva. Los pares fondo/tinta
+   salen de tokens, así que los seis tienen variante oscura (antes solo sage y
+   ochre la tenían, y en club.css: una portada clara brillaba en modo oscuro).
+   Contraste de cada pareja: 6,48–7,36:1 en claro y 8,28–9,09:1 en oscuro. */
+.tone-sage { background: var(--tone-sage-bg); color: var(--tone-sage-ink); }
+.tone-ochre { background: var(--tone-ochre-bg); color: var(--tone-ochre-ink); }
+.tone-rose { background: var(--tone-rose-bg); color: var(--tone-rose-ink); }
+.tone-blue { background: var(--tone-blue-bg); color: var(--tone-blue-ink); }
+.tone-plum { background: var(--tone-plum-bg); color: var(--tone-plum-ink); }
+.tone-terracotta { background: var(--tone-terracotta-bg); color: var(--tone-terracotta-ink); }
 
 .main-panel {
   flex: 1;
@@ -485,7 +490,7 @@
 }
 
 .crumb-slash {
-  color: #b7b9ae;
+  color: var(--faint);
 }
 
 .topbar-actions {
@@ -493,6 +498,151 @@
   align-items: center;
   flex-shrink: 0;
   gap: 18px;
+}
+
+/* --- Buscador global de la cabecera ------------------------------------- */
+.site-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 240px;
+  max-width: 360px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.site-search:focus-within {
+  border-color: color-mix(in srgb, var(--green) 55%, var(--line));
+}
+
+.site-search-icon {
+  flex: none;
+  color: var(--muted-2);
+}
+
+.site-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.site-search input:focus-visible {
+  outline: none;
+}
+
+.site-search-submit {
+  flex: none;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--green);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.site-search-submit:hover {
+  background: var(--green-pale);
+}
+
+/* --- Resultados de la búsqueda ------------------------------------------ */
+.search-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-inline input {
+  min-width: 0;
+  flex: 1 1 200px;
+  padding: 0 12px;
+  min-height: 36px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.search-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 16px;
+}
+
+.search-group {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.search-group h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.search-group ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-group a {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.search-group a:hover {
+  background: var(--paper-sunk);
+}
+
+.search-group strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.search-group span {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.search-more {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--green);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.search-more:hover {
+  color: var(--green-strong);
 }
 
 .mobile-brand {
@@ -513,7 +663,7 @@
   height: 30px;
   border-radius: 9px 9px 9px 3px;
   background: var(--green-fill);
-  color: #fff;
+  color: var(--on-fill);
 }
 
 .mobile-brand b {
@@ -563,7 +713,7 @@
   padding: 0 4px;
   border: 2px solid var(--paper);
   border-radius: 999px;
-  color: #fff;
+  color: var(--on-fill);
   font-size: 9px;
   font-style: normal;
   font-weight: 800;
@@ -571,11 +721,15 @@
 }
 
 .top-avatar {
-  width: 36px;
-  height: 36px;
+  /* El círculo sigue siendo pequeño, pero el botón que lo envuelve es la zona
+     que se pulsa: 44 px. */
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
   border-radius: 50%;
-  background: #f0d7c6;
-  color: #7a5039;
+  background: var(--tone-self-bg);
+  color: var(--tone-self-ink);
   font-size: 12px;
   font-weight: 800;
 }
@@ -644,7 +798,7 @@
 
 .crumb-home:hover {
   color: var(--green-strong);
-  text-decoration: underline;
+  font-weight: 700;
 }
 
 /* Comunidad comparte la lista con el resto de secciones, sin rótulo propio. */
@@ -737,13 +891,13 @@
   opacity: 0.6;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   .topbar .locale-option span {
     display: none;
   }
 }
 
-@media (max-width: 360px) {
+@media (max-width: 480px) {
   .breadcrumb > span:first-child,
   .breadcrumb .crumb-slash {
     display: none;
@@ -758,7 +912,7 @@
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
@@ -771,6 +925,10 @@
 
   .mobile-brand {
     display: inline-flex;
+    /* La marca sola (sin texto) seguía siendo un objetivo de 32 px: se le da
+       el ancho mínimo cómodo. */
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .topbar > .breadcrumb {
@@ -778,7 +936,7 @@
   }
 }
 
-@media (max-width: 430px) {
+@media (max-width: 480px) {
   .mobile-brand > span:last-child {
     display: none;
   }
@@ -894,7 +1052,7 @@
 .exchange-step.done i {
   border-color: var(--green-fill);
   background: var(--green-fill);
-  color: #fff;
+  color: var(--on-fill);
 }
 
 .exchange-step.current {
@@ -935,92 +1093,212 @@
   line-height: 1.55;
 }
 
-@media (max-width: 460px) {
+@media (max-width: 480px) {
   .listing-preview {
     grid-template-columns: 84px minmax(0, 1fr);
   }
 }
 
-/* Primeros pasos del catálogo. */
-.onboarding-card {
-  position: relative;
+/* ============================================================
+   Esqueleto de carga (loading.tsx)
+   ============================================================ */
+.page-skeleton {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+}
+
+.skeleton-block {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    var(--paper-sunk) 30%,
+    var(--line-soft) 45%,
+    var(--paper-sunk) 60%
+  );
+  background-size: 260% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-title {
+  width: min(320px, 60%);
+  height: 28px;
+}
+
+.skeleton-subtitle {
+  width: min(220px, 40%);
+  height: 14px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.skeleton-card {
+  height: 210px;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* Quien pidió menos movimiento no debe ver un parpadeo constante. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block {
+    animation: none;
+    background: var(--paper-sunk);
+  }
+}
+
+/* Esqueleto del armazón: la barra lateral y el panel aparecen con su forma
+   definitiva para que la llegada del contenido no mueva nada. */
+.rail-skeleton {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 248px;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 248px;
+  padding: var(--space-5) var(--space-4);
+  border-right: 1px solid var(--line);
+}
+
+.rail-skeleton-brand {
+  height: 34px;
+  margin-bottom: var(--space-4);
+}
+
+.rail-skeleton-item {
+  height: 38px;
+}
+
+.rail-skeleton-user {
+  height: 52px;
+  margin-top: auto;
+}
+
+@media (max-width: 1120px) {
+  .rail-skeleton {
+    display: none;
+  }
+}
+
+/* Estado vacío compartido (`EmptyState` / `EmptyNote`): la misma forma en el
+   catálogo, la estantería, intercambios, listas, clubes y moderación. */
+.empty-state {
+  /* Dentro de la rejilla del catálogo ocupa toda la fila. */
+  grid-column: 1 / -1;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px 24px;
-  margin: 18px 0 6px;
-  padding: 18px 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
 }
 
-.onboarding-copy {
-  flex: 1 1 320px;
+.empty-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green-pale);
+  color: var(--green);
 }
 
-.onboarding-copy h2 {
-  margin: 2px 0 4px;
+.empty-state h3 {
+  margin: var(--space-4) 0 var(--space-1);
   font-family: var(--serif);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 500;
 }
 
-.onboarding-copy p {
-  margin: 0;
-  max-width: 56ch;
+.empty-state p {
+  max-width: 42ch;
+  margin: 0 0 var(--space-4);
   color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1.5;
+  font-size: var(--text-sm);
 }
 
-.onboarding-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.empty-note {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding: 18px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-align: center;
 }
 
-.onboarding-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--paper-sunk);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 650;
-  cursor: pointer;
+/* Puerta del panel de moderación: cabecera con escudo, pasos numerados y aviso
+   a la izquierda. Así no se confunde con la página de cuenta. */
+.admin-gate-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.onboarding-step:hover {
-  border-color: var(--green-fill);
-  color: var(--ink);
-}
-
-.onboarding-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 36px;
-  height: 36px;
+.admin-gate-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
+  border-radius: 12px;
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.admin-gate-head h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.admin-gate-head p {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.admin-gate h3 {
+  margin: 0 0 8px;
   color: var(--muted-2);
-  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.onboarding-close:hover {
-  background: var(--paper-sunk);
-  color: var(--ink);
+.admin-gate ol {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  list-style: decimal;
 }
 
+.admin-gate-note {
+  margin: 0 0 14px;
+  color: var(--muted-2);
+  font-size: 12.5px;
+}
+
+/* Títulos que reciben el foco al cambiar de vista: no deben mostrar el anillo
+   (el foco es programático, no del teclado). `:focus-visible` sigue pintándolo
+   si alguien llega con Tab. */
+h1[tabindex="-1"]:focus:not(:focus-visible) {
+  outline: none;
+}

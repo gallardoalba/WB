@@ -1,7 +1,7 @@
 /* ============================================================
    Responsive
    ============================================================ */
-@media (max-width: 1199px) {
+@media (max-width: 1120px) {
   .sidebar {
     flex-basis: 220px;
     width: 220px;
@@ -10,7 +10,7 @@
   }
 }
 
-@media (max-width: 999px) {
+@media (max-width: 1120px) {
   .book-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -21,7 +21,7 @@
   }
 }
 
-@media (max-width: 1049px) {
+@media (max-width: 1120px) {
   .hero-banner {
     grid-template-columns: 1fr;
     align-items: start;
@@ -29,16 +29,7 @@
   }
 
   .hero-stats {
-    flex-wrap: wrap;
-    gap: 16px 22px;
-  }
-
-  .hero-stats div + div {
-    padding-left: 22px;
-  }
-
-  .community-layout {
-    grid-template-columns: 1fr;
+    row-gap: 10px;
   }
 
   .book-detail {
@@ -56,7 +47,7 @@
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .app-shell {
     display: block;
   }
@@ -78,13 +69,31 @@
     gap: 8px;
   }
 
+  /* En el móvil el buscador ocupa el hueco de la miga de pan: llegar a buscar
+     no debería costar dos toques. */
+  .topbar .breadcrumb {
+    display: none;
+  }
+
+  .site-search {
+    flex: 1 1 auto;
+    max-width: none;
+    padding: 0 10px;
+  }
+
+  .site-search-submit {
+    display: none;
+  }
+
   .content-wrap {
     min-height: calc(100vh - 60px);
     padding: 16px 16px calc(120px + env(safe-area-inset-bottom));
   }
 
   .hero-banner {
-    padding: 18px 16px;
+    --hero-pad-x: 16px;
+    --hero-pad-bottom: 14px;
+    padding: 18px var(--hero-pad-x) var(--hero-pad-bottom);
     gap: 12px;
   }
 
@@ -113,32 +122,31 @@
     margin-top: 10px;
   }
 
+  /* Cuatro cifras en dos filas cuando la columna se estrecha: la regla pasa a
+     separar solo las dos columnas de cada fila. */
   .hero-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+    margin-top: 14px;
     padding-top: 12px;
   }
 
-  .hero-stats div {
-    padding: 0 10px;
+  .hero-stat {
+    align-items: flex-start;
   }
 
-  .hero-stats div:first-child {
+  .hero-stat + .hero-stat {
+    border-left: 0;
     padding-left: 0;
   }
 
-  .hero-stats div + div {
-    padding-left: 10px;
+  .hero-stat:nth-child(2n) {
+    border-left: 1px solid var(--line);
+    padding-left: 14px;
   }
 
-  .hero-stats strong {
-    font-size: 21px;
-  }
-
-  .hero-stats span {
-    font-size: 10.5px;
-    line-height: 1.25;
+  .hero-stat strong {
+    font-size: 24px;
   }
 
   .section-heading {
@@ -276,23 +284,33 @@
     height: 64px;
     padding: 4px 6px max(4px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
-    background: rgba(255, 254, 250, 0.97);
+    background: var(--glass);
     backdrop-filter: blur(10px);
   }
 
   .mobile-bottom-nav button,
   .mobile-bottom-nav a {
-    min-width: 56px;
+    /* Reparto a partes iguales: con `min-width` fijo, «Estantería» e
+       «Intercambios» se tocaban en pantallas de 390 px. */
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 48px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
+    padding: 0 2px;
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10.5px;
+    line-height: 1.15;
+    text-align: center;
+    /* Si una etiqueta no cabe, ocupa dos líneas antes que cortarse con puntos
+       suspensivos o partir una palabra por la mitad. */
+    white-space: normal;
+    overflow-wrap: normal;
     text-decoration: none;
     cursor: pointer;
   }
@@ -303,23 +321,49 @@
     font-weight: 800;
   }
 
+  /* La etiqueta ya puede partirse en dos líneas, así que no hace falta
+     reducir la letra: 9,5 px era ilegible y solo tapaba el problema. */
+  .mobile-bottom-nav a > span,
+  .mobile-bottom-nav button > span {
+    max-width: 100%;
+  }
+
   .mobile-bottom-nav .mobile-add {
-    width: 46px;
-    min-width: 46px;
-    height: 46px;
-    min-height: 46px;
-    margin-top: -18px;
-    border: 4px solid var(--paper);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    /* El botón central conserva su círculo, pero ahora también dice qué hace:
+       sin etiqueta, lo único que ofrecía la portada en móvil era un «+». */
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--green-strong);
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+
+  .mobile-bottom-nav .mobile-add-icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: var(--green-fill);
-    color: #fff;
+    color: var(--on-fill);
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 480px) {
   .content-wrap {
     padding-right: 12px;
     padding-left: 12px;
+  }
+
+  /* Cinco destinos en 320–380 px: la barra reduce separación, no la letra. */
+  .mobile-bottom-nav a,
+  .mobile-bottom-nav button {
+    padding: 0;
   }
 
   .book-grid {
@@ -406,9 +450,8 @@
   color: var(--green-strong);
   font: inherit;
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
   cursor: pointer;
+  transition: color 0.15s;
 }
 
 .text-link:hover,
@@ -442,7 +485,7 @@
 .review-form input {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   font: inherit;
@@ -608,13 +651,13 @@
 .edit-box textarea {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   font: inherit;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .shelf-tabs .category-tab,
   .edit-box summary,
   .admin-actions .secondary-button {
@@ -630,7 +673,7 @@
 
 .nav-count.unread {
   background: var(--coral);
-  color: #fff;
+  color: var(--on-fill);
 }
 
 .exchange-open {
@@ -661,8 +704,8 @@
   color: var(--muted);
   font: inherit;
   font-size: 12px;
-  text-decoration: underline;
   cursor: pointer;
+  transition: color 0.15s;
 }
 
 .message-report:hover {
@@ -722,7 +765,7 @@
   font-size: 12px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .message-report {
     min-height: 44px;
     padding: 6px 8px;
@@ -826,3 +869,24 @@
   color: var(--coral);
 }
 
+
+/* -------------------- Ajustes de la franja estrecha ---------------------- */
+@media (max-width: 480px) {
+  /* Título de sección y su acción: alineados por el centro y sin partir el
+     titular en dos líneas contra el botón. */
+  .section-heading {
+    align-items: center;
+    gap: 10px;
+    margin: 24px 0 14px;
+  }
+
+  .section-heading h2,
+  .section-heading h1 {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .hero-stat strong {
+    font-size: 22px;
+  }
+}

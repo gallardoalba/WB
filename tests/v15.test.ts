@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
+// El secreto TOTP se guarda cifrado: sin clave no se puede guardar nada.
+process.env.APP_ENCRYPTION_KEY = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
 type TotpModule = typeof import("../src/lib/totp.ts");
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 
 let repo: RepoModule;
 let totp: TotpModule;
@@ -14,7 +16,7 @@ let dbModule: DbModule;
 before(async () => {
   repo = await import("../src/lib/repo.ts");
   totp = await import("../src/lib/totp.ts");
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
 });
 
 test("el algoritmo TOTP coincide con el vector de la RFC 6238", () => {

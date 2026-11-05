@@ -51,10 +51,6 @@
   border-radius: var(--radius);
 }
 
-.book-detail-cover .cover-fallback > span {
-  font-size: 52px;
-}
-
 .book-detail-info h1 {
   margin: 8px 0 6px;
   font-family: var(--serif);
@@ -69,28 +65,36 @@
   font-size: 16px;
 }
 
+/* Datos del ejemplar: una lista de filas en vez de una rejilla de tarjetas.
+   La rejilla de 2 columnas dejaba un hueco al quinto dato y pesaba tanto como
+   la portada; en filas se lee de arriba abajo y el último dato no deja agujero. */
 .detail-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px 18px;
+  gap: 0;
   margin: 0 0 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--paper-lift);
+  padding: 0;
+  border-top: 1px solid var(--line-soft);
+  background: none;
+}
+
+.detail-facts > div {
+  display: grid;
+  grid-template-columns: minmax(88px, max-content) 1fr;
+  align-items: baseline;
+  gap: 14px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .detail-facts dt {
   color: var(--muted-2);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--text-xs);
 }
 
 .detail-facts dd {
-  margin: 3px 0 0;
+  margin: 0;
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
@@ -132,6 +136,14 @@
   display: grid;
   gap: 10px;
   justify-items: stretch;
+}
+
+/* El enlace a la conversación va a su ancho, no como barra, y con aire
+   respecto a la ficha de quien publica: son dos bloques distintos y pegados
+   parecían una sola lista de enlaces. */
+.book-detail-info .work-link {
+  width: auto;
+  margin-bottom: var(--space-5);
 }
 
 /* La acción principal ocupa todo el ancho, igual que el resto de paneles
@@ -187,7 +199,7 @@
 }
 
 .favorite-inline.is-favorite {
-  border-color: #e7c6bd;
+  border-color: var(--coral);
   color: var(--coral);
 }
 
@@ -251,7 +263,8 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: #33553c;
+  /* Con un verde fijo, en modo oscuro el aviso se quedaba ilegible. */
+  color: var(--green);
   font-size: 13px;
 }
 
@@ -324,7 +337,11 @@
 
 .profile-metrics {
   display: flex;
-  gap: 22px;
+  /* Sin `wrap`, seis métricas en fila suman ~518 px de min-content y la rejilla
+     del perfil no puede encoger: la página entera se desplazaba 163 px en un
+     móvil de 390. */
+  flex-wrap: wrap;
+  gap: 8px 22px;
   margin: 0;
   text-align: center;
 }
@@ -344,15 +361,28 @@
 .profile-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: start;
+  align-items: center;
   gap: 10px;
   margin-top: 14px;
 }
 
-/* Misma altura que el desplegable «Denunciar perfil». */
+/*
+ * Todo lo que va en esta fila comparte altura y alineación: los botones
+ * (Siguiendo · Mensaje · Bloquear) y el desplegable «Denunciar perfil», que es
+ * un `<details>` y no un botón. Sin esto el resumen del desplegable quedaba
+ * unos píxeles más bajo y la fila parecía descuadrada.
+ */
 .profile-actions .share-button.small,
-.profile-actions .secondary-button.small {
+.profile-actions .secondary-button.small,
+.profile-actions .report-box > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 44px;
   min-height: 44px;
+  padding: 0 14px;
+  line-height: 1.2;
 }
 
 .profile-actions .report-box[open] {
@@ -468,3 +498,96 @@
   display: none;
 }
 
+
+/* ============================================================
+   Páginas legales (privacidad y aviso legal)
+   ============================================================ */
+.legal-doc {
+  max-width: 74ch;
+  margin: 0 auto;
+}
+
+.legal-doc h1 {
+  font-family: var(--serif);
+  font-size: clamp(26px, 3.4vw, 34px);
+  margin-bottom: var(--space-2);
+}
+
+.legal-doc h2 {
+  font-family: var(--serif);
+  font-size: 19px;
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.legal-doc p {
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin-bottom: var(--space-2);
+  /* Las direcciones del responsable llegan con saltos de línea. */
+  white-space: pre-line;
+}
+
+.legal-updated {
+  color: var(--muted-2);
+  font-size: 13px;
+  margin-bottom: var(--space-4);
+}
+
+.legal-warning {
+  border: 1px solid var(--coral);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--coral-soft);
+  color: var(--ink);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* Portada subida por quien publica: botones discretos bajo la imagen. */
+.cover-upload {
+  /* Va en la columna de la portada, no al lado del título. */
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  .cover-upload {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+.cover-upload .message-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.cover-upload .message-report:hover {
+  border-color: var(--green);
+}
+
+.cover-upload .message-report:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cover-upload-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}

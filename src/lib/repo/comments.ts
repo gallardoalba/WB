@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { BookCommentView, ConversationView } from "../domain";
-import { blockPair, isBlocked, nowIso } from "./shared";
+import { blockPair, isBlocked, nowIso, workBookIds, workIdsClause } from "./shared";
 import { assertVerified, getUserById } from "./users";
 import { notify } from "./notifications";
 import { writeAudit } from "./moderation";
@@ -104,13 +104,18 @@ export function listBookComments(
     throw new ApiError(404, "Ese libro no existe.");
   }
 
+  // El hilo es de la **obra**: las ediciones hermanas comparten conversación,
+  // igual que comparten ejemplares.
+  const scope = workIdsClause("c.book_id", workBookIds(bookId));
+
   let cursor = Number.MAX_SAFE_INTEGER;
   if (options.beforeId) {
+    const anchorScope = workIdsClause("book_id", workBookIds(bookId));
     const anchor = db
       .prepare(
-        "SELECT rowid AS rid FROM book_comments WHERE id = ? AND book_id = ? AND parent_id IS NULL",
+        `SELECT rowid AS rid FROM book_comments WHERE id = ? AND ${anchorScope.clause} AND parent_id IS NULL`,
       )
-      .get(options.beforeId, bookId) as { rid: number } | undefined;
+      .get(options.beforeId, anchorScope.params) as { rid: number } | undefined;
     if (!anchor) throw new ApiError(404, "El comentario ya no está disponible.");
     cursor = anchor.rid;
   }
@@ -118,12 +123,12 @@ export function listBookComments(
   const rows = db
     .prepare(
       `${COMMENT_SELECT}
-       WHERE c.book_id = @bookId AND c.parent_id IS NULL AND c.rowid < @cursor
+       WHERE ${scope.clause} AND c.parent_id IS NULL AND c.rowid < @cursor
          AND ${COMMENT_FILTER}
        ORDER BY c.created_at DESC, c.rowid DESC
        LIMIT @take`,
     )
-    .all({ bookId, cursor, viewerId, take: limit + 1 }) as CommentRow[];
+    .all({ ...scope.params, cursor, viewerId, take: limit + 1 }) as CommentRow[];
 
   const page = rows.slice(0, limit);
   const repliesByRoot = new Map<string, BookCommentView[]>();
@@ -161,11 +166,11 @@ export function listBookComments(
       .prepare(
         `SELECT COUNT(*) AS value FROM book_comments c
          JOIN users u ON u.id = c.author_id
-         WHERE c.book_id = @bookId
+         WHERE ${scope.clause}
            AND c.status = 'visible' AND u.is_suspended = 0
            AND ${blockPair("@viewerId", "c.author_id")}`,
       )
-      .get({ bookId, viewerId }) as { value: number }
+      .get({ ...scope.params, viewerId }) as { value: number }
   ).value;
 
   return {
@@ -207,13 +212,14 @@ export function getCommentBody(commentId: string, viewerId: string | null): stri
  * bloqueos entre quien mira y quien escribió.
  */
 export function countBookComments(bookId: string, viewerId: string | null = null): number {
+  const scope = workIdsClause("c.book_id", workBookIds(bookId));
   const row = getDb()
     .prepare(
       `SELECT COUNT(*) AS value FROM book_comments c
        JOIN users u ON u.id = c.author_id
-       WHERE c.book_id = @bookId AND c.status <> 'deleted' AND ${COMMENT_FILTER}`,
+       WHERE ${scope.clause} AND c.status <> 'deleted' AND ${COMMENT_FILTER}`,
     )
-    .get({ bookId, viewerId: viewerId ?? "" }) as { value: number };
+    .get({ ...scope.params, viewerId: viewerId ?? "" }) as { value: number };
   return row.value;
 }
 

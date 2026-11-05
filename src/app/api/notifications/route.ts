@@ -1,14 +1,19 @@
-import { handleApiError, json } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json } from "@/lib/api";
 import { listNotifications } from "@/lib/repo";
-import { hit } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
 const PAGE = 25;
 
-export async function GET(request: Request) {
-  try {
-    const user = await requireUser();
-    hit({ bucket: "notifications:list", key: user.id, limit: 240, windowMs: 60 * 60 * 1000 });
+export const GET = route(
+  {
+    limit: {
+      bucket: "notifications:list",
+      limit: 240,
+      windowMs: 60 * 60 * 1000,
+      mode: "hit",
+    },
+  },
+  ({ request, user }) => {
     const offset = Number(new URL(request.url).searchParams.get("offset") ?? 0);
     const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
 
@@ -19,7 +24,5 @@ export async function GET(request: Request) {
       hasMore: rows.length > PAGE,
       offset: safeOffset,
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

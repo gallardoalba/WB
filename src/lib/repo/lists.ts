@@ -99,8 +99,8 @@ export function listPublicReadingLists(options: {
   const where = `
     u.is_suspended = 0
     AND u.email NOT LIKE 'deleted-%'
-    AND (@like = '%%' OR rl.title LIKE @like COLLATE NOCASE
-         OR rl.description LIKE @like COLLATE NOCASE)
+    AND (@like = '%%' OR unaccent(rl.title) LIKE unaccent(@like)
+         OR unaccent(rl.description) LIKE unaccent(@like))
     AND ${blockPair("@viewerId", "rl.owner_id")}
   `;
 

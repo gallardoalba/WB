@@ -34,25 +34,95 @@ export const READING_STATES = ["reading", "read"] as const;
 export type ReadingStatus = (typeof READING_STATES)[number];
 
 /**
- * Etiquetas curadas: la comunidad es pequeña y una lista cerrada evita
- * sinónimos duplicados y spam en el filtro.
+ * Etiquetas temáticas: describen el área de conocimiento del libro, no su
+ * campaña de venta. «Novela negra», «Romántica», «Firmado» o «Primera edición»
+ * no ayudan a encontrar un libro por lo que trata y se retiraron. La lista es
+ * cerrada: evita sinónimos duplicados y spam en el filtro.
  */
 export const TAGS = [
-  "Novela negra",
-  "Ciencia ficción",
-  "Clásicos",
-  "Romántica",
-  "Biografía",
-  "Viajes",
   "Historia",
   "Filosofía",
-  "Autoayuda",
-  "Juvenil",
-  "Firmado",
-  "Primera edición",
+  "Ensayo",
+  "Literatura",
+  "Lengua",
+  "Arte",
+  "Música",
+  "Religión",
+  "Poesía",
+  "Teatro",
+  "Clásicos",
+  "Narrativa",
+  "Divulgación",
+  "Física",
+  "Química",
+  "Biología",
+  "Matemáticas",
+  "Astronomía",
+  "Medicina",
+  "Informática",
+  "Ingeniería",
+  "Sociología",
+  "Política",
+  "Economía",
+  "Derecho",
+  "Antropología",
+  "Psicología",
+  "Educación",
 ] as const;
 
 export type Tag = (typeof TAGS)[number];
+
+/**
+ * Qué etiquetas se proponen según el género elegido.
+ *
+ * No es una restricción: `TAGS` sigue siendo la lista completa que valida el
+ * servidor y la que se puede usar para filtrar. Esto hace que quien publica un
+ * ensayo vea «Sociología» o «Economía» y quien publica una novela, «Narrativa».
+ */
+export const TAGS_BY_CATEGORY: Record<Category, readonly Tag[]> = {
+  Humanidades: [
+    "Historia",
+    "Filosofía",
+    "Literatura",
+    "Lengua",
+    "Arte",
+    "Música",
+    "Religión",
+    "Poesía",
+    "Teatro",
+    "Clásicos",
+    "Ensayo",
+  ],
+  "Ciencias y técnica": [
+    "Divulgación",
+    "Física",
+    "Química",
+    "Biología",
+    "Matemáticas",
+    "Astronomía",
+    "Medicina",
+    "Informática",
+    "Ingeniería",
+  ],
+  "Sociedad y política": [
+    "Sociología",
+    "Política",
+    "Economía",
+    "Derecho",
+    "Antropología",
+    "Psicología",
+    "Educación",
+    "Ensayo",
+    "Historia",
+  ],
+  Biografías: ["Historia", "Política", "Arte", "Literatura", "Música"],
+  Ficción: ["Narrativa", "Clásicos", "Poesía", "Teatro"],
+};
+
+/** Etiquetas que se ofrecen para un género. */
+export function tagsForCategory(category: string): readonly Tag[] {
+  return TAGS_BY_CATEGORY[category as Category] ?? [];
+}
 
 export const CONDITIONS = [
   "Como nuevo",
@@ -151,18 +221,36 @@ export type RequestView = {
   delivery: DeliveryView;
 };
 
-export type PickupPointView = {
-  id: string;
-  name: string;
+/** Cómo se entrega el libro: en mano o por correo. */
+export type HandoverMethod = "in_person" | "post";
+
+/** Destino del envío: una taquilla de DHL o la dirección de quien lo recibe. */
+export type ShippingKind = "packstation" | "address";
+
+/**
+ * Datos del envío, **siempre cifrados en la base de datos**.
+ *
+ * Quien recibe elige: una Packstation (número de cliente de DHL + taquilla) o su
+ * propia dirección. Los dos casos se tratan igual: solo los ve la persona que
+ * envía el libro, y se guardan con `APP_ENCRYPTION_KEY`.
+ */
+export type ShippingView = {
+  kind: ShippingKind;
+  /** Número de cliente de DHL (solo Packstation). */
+  postNumber: string;
+  /** «Packstation 123» (solo Packstation). */
+  station: string;
+  /** Calle y número (solo dirección). */
   street: string;
   postalCode: string;
   city: string;
-  distanceKm: number | null;
+  setAt: string;
 };
 
 export type DeliveryView = {
-  method: "hand" | "pickup";
-  pickupPoint: Omit<PickupPointView, "distanceKm"> | null;
+  method: HandoverMethod;
+  /** Relleno solo cuando el método es `post` y ya hay datos de envío. */
+  shipping: ShippingView | null;
 };
 
 export type ActivityType = "published" | "requested" | "accepted" | "completed";
@@ -182,6 +270,12 @@ export type StatsView = {
   completed: number;
   cities: number;
   clubs: number;
+  /** Obras distintas con algún ejemplar en circulación. */
+  titles: number;
+  /** Kilómetros sumados por los intercambios ya cerrados. */
+  km: number;
+  /** Clubes con un encuentro futuro a la vista. */
+  clubsUpcoming: number;
 };
 
 export const NOTIFICATION_TYPES = [
@@ -200,9 +294,39 @@ export const NOTIFICATION_TYPES = [
   "want",
   "security",
   "club",
+  "direct",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+/** Mensaje directo entre dos personas (siempre cifrado de extremo a extremo). */
+export type DirectMessageView = {
+  id: string;
+  senderId: string;
+  isMine: boolean;
+  ciphertext: string | null;
+  iv: string | null;
+  /** Huella de la clave con la que se cifró. */
+  keyId: string | null;
+  encrypted: boolean;
+  createdAt: string;
+};
+
+/** Hilo directo con otra persona y el motivo por el que se puede (o no) escribir. */
+export type DirectThreadView = {
+  id: string;
+  peer: {
+    id: string;
+    name: string;
+    city: string;
+    keyId: string | null;
+    keyJwk: JsonWebKey | null;
+  };
+  me: { id: string; name: string; keyId: string | null; keyJwk: JsonWebKey | null };
+  canMessage: boolean;
+  reason: "ok" | "mutual" | "blocked" | "no-key";
+  messages: DirectMessageView[];
+};
 
 export type NotificationView = {
   id: string;
@@ -345,7 +469,7 @@ export const REQUEST_STATUS_LABELS = {
   expired: "Expirada",
 } satisfies Record<RequestStatus, MessageKey>;
 
-export const VIEWS = ["home", "discover", "shelf", "community", "exchanges"] as const;
+export const VIEWS = ["home", "discover", "shelf", "community", "exchanges", "offer"] as const;
 export type View = (typeof VIEWS)[number];
 
 /** Ruta canónica de cada vista del shell. */
@@ -355,6 +479,7 @@ export const VIEW_PATHS: Record<View, string> = {
   shelf: "/estanteria",
   exchanges: "/intercambios",
   community: "/comunidad",
+  offer: "/ofrecer",
 };
 
 export const SORTS = ["near", "recent", "title"] as const;
@@ -419,6 +544,10 @@ export type ClubView = {
   meetsOn: string;
   /** Próximo encuentro concreto (ISO) para ordenar y recordar. */
   meetsAt: string;
+  /** Dónde se ve el club (una sala, una cafetería, una dirección). */
+  meetsPlace: string;
+  /** Enlace del encuentro (videollamada); solo `http(s)`. */
+  meetsLink: string;
   createdAt: string;
   book: { id: string; title: string; author: string } | null;
   members: number;
@@ -428,6 +557,8 @@ export type ClubView = {
   joinPolicy: "open" | "approval";
   /** Relación de quien mira con el club. */
   myStatus: "none" | "member" | "pending";
+  /** Ayuda a llevar el club: ve solicitudes y retira mensajes del foro. */
+  isModerator: boolean;
   memberPreview: { id: string; name: string }[];
   /** Progreso de la lectura en curso (0-100). */
   progress: number;
@@ -442,6 +573,55 @@ export type ClubView = {
 export type ClubRequestView = {
   user: { id: string; name: string; city: string };
   createdAt: string;
+};
+
+/**
+ * Denuncia abierta sobre un mensaje del foro, con lo justo para decidir: qué
+ * dice, quién lo escribió y quién lo denunció.
+ */
+export type ClubPostReportView = {
+  id: string;
+  reason: string;
+  details: string;
+  createdAt: string;
+  reporter: { id: string; name: string };
+  post: { id: string; body: string; author: string; status: string };
+};
+
+/**
+ * Mensaje del foro de un club. Solo lo ven sus miembros; `deleted` conserva el
+ * hueco del hilo cuando ya hay respuestas y `hidden` es la marca de moderación.
+ */
+export type ClubPostView = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string; city: string };
+  likes: number;
+  likedByMe: boolean;
+  isMine: boolean;
+  canDelete: boolean;
+  deleted: boolean;
+  hidden: boolean;
+  replies: ClubPostView[];
+};
+
+/**
+ * Votación de la próxima lectura. Una por club y a la vez: `closed` marca la que
+ * ya terminó (o se cerró a mano) y `votedOptionId` es lo que eligió quien mira.
+ */
+export type ClubPollView = {
+  id: string;
+  question: string;
+  closed: boolean;
+  totalVotes: number;
+  votedOptionId: string | null;
+  options: {
+    id: string;
+    book: { id: string; title: string; author: string };
+    votes: number;
+    voters: string[];
+  }[];
 };
 
 export type ReaderBadge = { id: string; label: string; hint: string; earned: boolean };
@@ -494,7 +674,16 @@ export type CommunityMetrics = {
   activeUsers30d: number;
 };
 
-export const REPORT_TARGETS = ["listing", "user", "message", "review", "comment", "club", "request"] as const;
+export const REPORT_TARGETS = [
+  "listing",
+  "user",
+  "message",
+  "review",
+  "comment",
+  "club",
+  "club_post",
+  "request",
+] as const;
 export type ReportTarget = (typeof REPORT_TARGETS)[number];
 
 export const REPORT_REASONS = [

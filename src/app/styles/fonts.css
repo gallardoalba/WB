@@ -1,0 +1,35 @@
+/* ============================================================
+   Tipografía de las portadas de reserva
+   ============================================================ */
+
+/* Tangerine: caligrafía de pluma inglesa del XVII dibujada por Toshi Omagari
+   (SIL OFL 1.1; licencia en `public/fonts/OFL-Tangerine.txt`). Solo se
+   descarga cuando una portada no tiene imagen, así que no pesa en la visita
+   normal.
+
+   Cada archivo va recortado a los caracteres que puede llevar un título o un
+   nombre (latín básico, latino-1 completo, comillas y guiones tipográficos),
+   de 23 KB a 13 KB. Se sirven los dos pesos: la mano que escribe el título
+   aprieta más que la que firma.
+
+   Ojo con las medidas: la caja de minúsculas de Tangerine mide 0,256 em (una
+   serif corriente ronda 0,46), mientras que las mayúsculas sí son de altura
+   normal (0,68 em). Por eso hay que componerla con un cuerpo bastante mayor
+   del habitual para que se lea; los tamaños están en `cards.css`. */
+@font-face {
+  font-family: "Tangerine";
+  src: url("/fonts/tangerine-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  /* Sin `unicode-range` recortado: si un título lleva un carácter de fuera del
+     rango, el navegador cae a la cursiva del sistema en vez de dejar un hueco. */
+}
+
+@font-face {
+  font-family: "Tangerine";
+  src: url("/fonts/tangerine-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

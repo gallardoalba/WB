@@ -34,7 +34,12 @@ export function ListingPreview({
     >
       <div className="listing-preview">
         <div className="preview-cover">
-          <BookCover id={listing.id} title={listing.title} coverUrl={listing.coverUrl} />
+          <BookCover
+            id={listing.id}
+            title={listing.title}
+            author={listing.author}
+            coverUrl={listing.coverUrl}
+          />
         </div>
         <div className="preview-copy">
           <span className="condition-tag">{t(listing.condition)}</span>

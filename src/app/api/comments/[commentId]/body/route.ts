@@ -1,7 +1,7 @@
 import { handleApiError, json } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { getCommentBody } from "@/lib/repo";
-import { clientIp, hasClientIp, hit } from "@/lib/throttle";
+import { clientKey, hasClientIp, hit } from "@/lib/throttle";
 
 /** Solo el texto de un comentario con spoiler, pedido al pulsar «leerlo». */
 export async function GET(
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     if (hasClientIp()) {
-      hit({ bucket: "comment:body:ip", key: clientIp(request), limit: 240, windowMs: 60_000 });
+      hit({ bucket: "comment:body:ip", key: clientKey(request), limit: 240, windowMs: 60_000 });
     } else {
       hit({ bucket: "comment:body", key: "all", limit: 900, windowMs: 60_000 });
     }

@@ -44,6 +44,8 @@ type DialogProps = {
   overline?: string;
   icon?: ReactNode;
   wide?: boolean;
+  /** Clase extra para dar a un diálogo concreto su propio ancho. */
+  className?: string;
   children: ReactNode;
 };
 
@@ -54,6 +56,7 @@ export function Dialog({
   description,
   icon,
   wide = false,
+  className,
   children,
 }: DialogProps) {
   const { t } = useI18n();
@@ -86,6 +89,10 @@ export function Dialog({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        // Con un autocompletado abierto (ciudad, sugerencias) Escape cierra la
+        // lista, no el diálogo: si no, se pierde lo que se llevaba escrito.
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('[role="combobox"][aria-expanded="true"]')) return;
         event.preventDefault();
         event.stopPropagation();
         onCloseRef.current();
@@ -144,7 +151,9 @@ export function Dialog({
     >
       <div
         ref={panelRef}
-        className={wide ? "dialog add-dialog" : "dialog"}
+        className={["dialog", wide ? "add-dialog" : "", className ?? ""]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

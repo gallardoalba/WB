@@ -1,12 +1,6 @@
 /* ============================================================
    Comunidad e intercambios
    ============================================================ */
-.community-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.8fr);
-  gap: 18px;
-}
-
 .activity-feed {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -130,49 +124,11 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border: 1px solid #dde3d7;
+  border: 1px solid var(--line-strong);
   border-radius: 50%;
   background: var(--surface);
   color: var(--green);
   cursor: pointer;
-}
-
-.community-aside {
-  padding: 20px;
-  border-radius: var(--radius);
-  background: #e8eee4;
-}
-
-.community-aside > strong {
-  display: block;
-  margin-top: 10px;
-  font-family: var(--serif);
-  font-size: 24px;
-  font-weight: 500;
-  line-height: 1.1;
-}
-
-.community-number {
-  margin-top: 20px;
-  color: var(--green-strong);
-  font-family: var(--serif);
-  font-size: 40px;
-  line-height: 1;
-}
-
-.community-number small {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.community-divider {
-  height: 1px;
-  margin: 18px 0 14px;
-  background: #d3ddcf;
 }
 
 .aside-stats {
@@ -228,8 +184,8 @@
   place-items: center;
   overflow: hidden;
   border-radius: var(--radius-xs);
-  background: #e4e9dc;
-  color: #4b5f47;
+  background: var(--green-pale);
+  color: var(--green);
 }
 
 .mini-cover img {
@@ -276,54 +232,12 @@
   white-space: nowrap;
 }
 
-.status-chip.pending { background: #f8ecd4; color: #77521f; }
-.status-chip.accepted { background: #e2ecdf; color: #33533a; }
-.status-chip.completed { background: #e2eaee; color: #35505d; }
+.status-chip.pending { background: var(--status-pending-bg); color: var(--status-pending-ink); }
+.status-chip.accepted { background: var(--status-accepted-bg); color: var(--status-accepted-ink); }
+.status-chip.completed { background: var(--status-completed-bg); color: var(--status-completed-ink); }
 .status-chip.declined,
 .status-chip.cancelled,
-.status-chip.expired { background: #f2e3df; color: #7f3f30; }
-
-.empty-state {
-  min-height: 280px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  text-align: center;
-}
-
-.empty-icon {
-  width: 54px;
-  height: 54px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--green-pale);
-  color: var(--green);
-}
-
-.empty-state h3 {
-  margin: 16px 0 4px;
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 500;
-}
-
-.empty-state p {
-  max-width: 42ch;
-  margin: 0 0 16px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.empty-note {
-  margin: 0;
-  padding: 18px;
-  color: var(--muted);
-  font-size: 13px;
-  text-align: center;
-}
+.status-chip.expired { background: var(--status-expired-bg); color: var(--status-expired-ink); }
 
 .page-footer {
   display: flex;
@@ -345,7 +259,7 @@
 .footer-dot {
   width: 5px;
   height: 5px;
-  background: #6f8a68;
+  background: var(--green);
 }
 
 /* La cuenta es una página: los formularios se apilan con aire y sin el ancho
@@ -384,10 +298,120 @@
 .account-settings form select,
 .account-settings form textarea {
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
   font-size: 13px;
+}
+
+/* ---------------------- Cifrado de mensajes ----------------------------- */
+/* Estado primero (activo o no), huella a la vista y qué ve el servidor debajo.
+   Antes era un párrafo y un botón: no se sabía si el cifrado estaba en marcha
+   ni por qué a veces pedía la contraseña. */
+.account-settings .crypto-section summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crypto-badge {
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.crypto-badge.is-on {
+  border-color: transparent;
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.crypto-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.crypto-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--muted);
+}
+
+.crypto-icon.is-on {
+  border-color: transparent;
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+.crypto-status strong {
+  font-size: 14px;
+}
+
+.crypto-status p {
+  max-width: 58ch;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.crypto-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 18px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.crypto-facts dt {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.crypto-facts dd {
+  margin: 3px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.crypto-facts .secret-code {
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+/* El preflight de Tailwind quita las viñetas de todo `ul`: hay que devolverlas. */
+.crypto-list {
+  list-style: disc;
+  margin: 14px 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.crypto-list li + li {
+  margin-top: 6px;
+}
+
+.crypto-list li::marker {
+  color: var(--green-strong);
 }
 
 /* Las casillas van en fila, no apiladas como el resto de campos. */
@@ -404,4 +428,48 @@
   padding: 0;
 }
 
+
+
+/* ============================================================
+   Jerarquía del hub: secciones arriba y cifras en banda
+   ============================================================ */
+
+/* Las pestañas son la navegación del hub: van antes que el muro y con peso
+   propio, no como un adorno dentro de la tarjeta. */
+.community-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.community-tabs .feed-tab {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.community-tabs .feed-tab.active {
+  border-color: var(--green-fill);
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+/* Descripción y filtros del muro, encima de la lista y fuera de su tarjeta:
+   describen la sección que se está viendo, no el contenido de una fila. */
+.community-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.community-toolbar-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
 

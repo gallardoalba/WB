@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LOCALE_COOKIE, translate, type Locale } from "@/lib/i18n";
+import { LOCALE_COOKIE, type Locale } from "@/lib/locale";
+import { useI18n } from "./i18n-provider";
 
 /** Banderas dibujadas en SVG: no dependen de la fuente de emojis del sistema. */
 function FlagES() {
@@ -29,12 +30,16 @@ function FlagDE() {
  * sesión, también se guarda en la cuenta para los correos.
  */
 export function LocaleSwitcher({ locale }: { locale: Locale }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function switchTo(next: Locale) {
     if (next === locale) return;
-    document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
+    // `Secure` cuando hay TLS, como la cookie de sesión: es una preferencia,
+    // pero no hay razón para que viaje en claro.
+    const secure = window.location.protocol === "https:" ? "; secure" : "";
+    document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax${secure}`;
     void fetch("/api/account/locale", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -51,7 +56,7 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
       <select
         className="locale-select"
         value={locale}
-        aria-label={translate(locale, "Idioma")}
+        aria-label={t("Idioma")}
         disabled={pending}
         onChange={(event) => switchTo(event.target.value as Locale)}
       >

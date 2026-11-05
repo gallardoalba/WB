@@ -28,6 +28,29 @@ const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
 });
 
 test("el catálogo filtra por idioma del libro", () => {
+  // La muestra de partida es alemana; se añaden ejemplares en otros idiomas para
+  // comprobar que el filtro no se queda con la muestra entera.
+  repo.createListing("usr_ana", {
+    title: "El infinito en un junco",
+    author: "Irene Vallejo",
+    category: "Humanidades",
+    condition: "Buen estado",
+    isbn: "9788417860790",
+    city: "Stuttgart",
+    language: "Español",
+    tags: [],
+  });
+  repo.createListing("usr_ana", {
+    title: "The Midnight Library",
+    author: "Matt Haig",
+    category: "Ficción",
+    condition: "Buen estado",
+    isbn: "9781786892737",
+    city: "Stuttgart",
+    language: "Inglés",
+    tags: [],
+  });
+
   const spanish = repo.catalogPage("usr_ana", params({ language: "Español" }));
   assert.ok(spanish.total > 0);
   for (const listing of spanish.items) assert.equal(listing.language, "Español");
@@ -35,6 +58,10 @@ test("el catálogo filtra por idioma del libro", () => {
   const english = repo.catalogPage("usr_ana", params({ language: "Inglés" }));
   assert.ok(english.total > 0);
   for (const listing of english.items) assert.equal(listing.language, "Inglés");
+
+  const german = repo.catalogPage("usr_ana", params({ language: "Alemán" }));
+  assert.ok(german.total > 0);
+  for (const listing of german.items) assert.equal(listing.language, "Alemán");
 });
 
 test("los estados de lectura se guardan, cambian y se borran", () => {
@@ -54,9 +81,7 @@ test("los estados de lectura se guardan, cambian y se borran", () => {
 });
 
 test("el código de entrega lo ve quien entrega y lo exige quien recibe", () => {
-  const accepted = repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted", {
-    officeId: null,
-  });
+  const accepted = repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted");
   assert.equal(accepted.status, "accepted");
 
   const ownerView = repo.listRequests("usr_clara").find((request) => request.id === "req_seed_2");

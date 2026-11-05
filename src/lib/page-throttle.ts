@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { connection } from "next/server";
 import { headers } from "next/headers";
-import { clientIpFrom, hit } from "./throttle";
+import { clientKeyFrom, hit } from "./throttle";
 
 /**
  * Límite de ritmo para páginas con datos de muchas personas (directorio, clubs
@@ -21,7 +21,8 @@ export async function allowPageView(
   await connection();
 
   const store = await headers();
-  const ip = clientIpFrom((name) => store.get(name));
+  // Pseudónimo, no la IP: la tabla `throttle` no debe guardar direcciones.
+  const ip = clientKeyFrom((name) => store.get(name));
   const key =
     ip !== "direct"
       ? `ip:${ip}`

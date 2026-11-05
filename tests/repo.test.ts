@@ -3,7 +3,7 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type RepoModule = typeof import("../src/lib/repo.ts");
 type ThrottleModule = typeof import("../src/lib/throttle.ts");
 
@@ -12,7 +12,7 @@ let repo: RepoModule;
 let throttle: ThrottleModule;
 
 before(async () => {
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   repo = await import("../src/lib/repo.ts");
   throttle = await import("../src/lib/throttle.ts");
 });
@@ -34,14 +34,18 @@ const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
 });
 
 test("la búsqueda ignora acentos y filtra por género", () => {
-  const found = repo.catalogPage(null, params({ q: "educacion" }));
+  // «Anarchie» y «antiquiert» no llevan acentos, pero «Günther» sí: se busca por
+  // apellido y por palabra del título. «Gott und der Staat» ya se entregó, así
+  // que solo queda un Bakunin en el catálogo.
+  const found = repo.catalogPage(null, params({ q: "bakunin" }));
   assert.equal(found.total, 1);
-  assert.equal(found.items[0]?.title, "Una educación");
 
   const essays = repo.catalogPage(null, params({ category: "Humanidades" }));
-  assert.equal(essays.total, 1);
-  const biographies = repo.catalogPage(null, params({ category: "Biografías" }));
-  assert.equal(biographies.total, 1);
+  assert.equal(essays.total, 2);
+  const politics = repo.catalogPage(null, params({ category: "Sociedad y política" }));
+  assert.equal(politics.total, 3);
+  const fiction = repo.catalogPage(null, params({ category: "Ficción" }));
+  assert.equal(fiction.total, 0);
 });
 
 test("aceptar una solicitud reserva el ejemplar y expira a los rivales", () => {
@@ -224,4 +228,38 @@ test("una cuenta suspendida deja de exponer perfil y ejemplares", () => {
   assert.equal(repo.getListing("lst_2", null), null);
   const catalog = repo.catalogPage(null, params());
   assert.equal(catalog.items.some((item) => item.owner.id === "usr_diego"), false);
+});
+
+test("al eliminar la cuenta se borran las notas personales de sus ejemplares", () => {
+  const db = dbModule.getDb();
+  const user = repo.createUser({
+    name: "Notas privadas",
+    email: "notas-privadas@wanderbibliothek.test",
+    city: "Stuttgart",
+    passwordHash: "scrypt$00$00",
+  });
+  const listing = repo.createListing(user.id, {
+    title: "Libro con nota privada",
+    author: "Autora anónima",
+    category: "Ficción",
+    condition: "Buen estado",
+    isbn: "9788417860790",
+    city: "Stuttgart",
+    tags: [],
+  });
+  repo.editListing(user.id, listing.id, {
+    condition: "Buen estado",
+    city: "Stuttgart",
+    notes: "Lo dejé a nombre de mi madre.",
+    tags: [],
+  });
+  assert.equal(repo.getListing(listing.id, user.id)?.notes, "Lo dejé a nombre de mi madre.");
+
+  repo.deleteAccount(user.id);
+  // El ejemplar se conserva (lo referencian solicitudes ajenas), pero sus notas
+  // son texto libre de la persona y no sobreviven al borrado de la cuenta.
+  const row = db
+    .prepare("SELECT COUNT(*) AS value FROM listings WHERE owner_id = ? AND notes <> ''")
+    .get(user.id) as { value: number };
+  assert.equal(row.value, 0);
 });

@@ -1,22 +1,9 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json } from "@/lib/api";
 import { setFollow } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { DIA, route } from "@/lib/route";
 import { followSchema } from "@/lib/validation";
 
-export async function POST(request: Request, { params }: { params: Promise<{ userId: string }> }) {
-  try {
-    const user = await requireUser();
-    guard(request, {
-      bucket: "follow:toggle",
-      key: user.id,
-      limit: 300,
-      windowMs: 24 * 60 * 60 * 1000,
-    });
-    const { userId } = await params;
-    const { follow } = followSchema.parse(await readJson(request));
-    return json(setFollow(user.id, userId, follow));
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+export const POST = route<typeof followSchema, "user", { userId: string }>(
+  { body: followSchema, limit: { bucket: "follow:toggle", limit: 300, windowMs: DIA } },
+  ({ user, body, params }) => json(setFollow(user.id, params.userId, body.follow)),
+);

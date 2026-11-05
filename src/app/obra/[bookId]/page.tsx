@@ -25,6 +25,7 @@ import {
   listReadingLists,
   listingsForBook,
   similarListings,
+  workBooks,
 } from "@/lib/repo";
 import { toneForId } from "@/lib/text";
 
@@ -37,13 +38,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const locale = await getLocale();
   const book = getBook(bookId);
   if (!book) return { title: locale === "de" ? "Buch nicht gefunden" : "Libro no encontrado" };
+  // Las ediciones comparten obra: la canónica es la primera, para no repartir
+  // el posicionamiento entre varias URL del mismo libro.
+  const canonicalId = workBooks(book.id)[0]?.id ?? book.id;
   return {
     title: `${book.title} — ${book.author}`,
     description:
       locale === "de"
-        ? `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in Deutschland.`
-        : `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en Alemania.`,
-    alternates: { canonical: `/obra/${book.id}` },
+        ? `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in ganz Deutschland.`
+        : `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en toda Alemania.`,
+    alternates: { canonical: `/obra/${canonicalId}` },
     openGraph: {
       type: "book",
       title: `${book.title} — ${book.author}`,
@@ -64,6 +68,11 @@ export default async function Page({ params }: PageProps) {
   const viewer = await requirePageUser(`/obra/${bookId}`);
   const book = getBook(bookId);
   if (!book) notFound();
+  // Todas las ediciones de la obra: la primera es la canónica (la URL buena) y
+  // el resto se enseñan como «otras ediciones».
+  const versions = workBooks(book.id);
+  const primary = versions[0] ?? book;
+  const otherVersions = versions.filter((version) => version.id !== primary.id);
 
   const commentViewer = viewer ? { id: viewer.id, isAdmin: viewer.isAdmin } : null;
   const thread = listBookComments(book.id, commentViewer);
@@ -83,7 +92,13 @@ export default async function Page({ params }: PageProps) {
     <SiteShell user={viewer} section="obra" title={book.title}>
       <article className="work-hero">
         <div className={`work-cover tone-${toneForId(book.id)}`}>
-          <BookCover id={book.id} title={book.title} coverUrl={book.coverUrl} sizes="200px" />
+          <BookCover
+            id={book.id}
+            title={book.title}
+            author={book.author}
+            coverUrl={book.coverUrl}
+            sizes="200px"
+          />
         </div>
         <div className="work-info">
           <span className="book-category">{t(book.category)}</span>
@@ -112,6 +127,13 @@ export default async function Page({ params }: PageProps) {
               {thread.total === 1 ? t("1 comentario") : t("{n} comentarios", { n: thread.total })}
             </li>
             {book.isbn && <li>ISBN {book.isbn}</li>}
+            {otherVersions.length > 0 && (
+              <li>
+                {otherVersions.length === 1
+                  ? t("1 edición más")
+                  : t("{n} ediciones más", { n: otherVersions.length })}
+              </li>
+            )}
             {book.language && book.language !== "No especificado" && (
               <li>{t(book.language)}</li>
             )}
@@ -161,7 +183,7 @@ export default async function Page({ params }: PageProps) {
         <div className="feed-header">
           <div>
             <strong id="copies-title">{t("Ejemplares disponibles")}</strong>
-            <span>{t("Este mismo libro en manos de otras personas de la región")}</span>
+            <span>{t("Este mismo libro en manos de otras personas de toda Alemania")}</span>
           </div>
         </div>
         {copies.length === 0 ? (
@@ -176,6 +198,33 @@ export default async function Page({ params }: PageProps) {
           </div>
         )}
       </section>
+
+      {otherVersions.length > 0 && (
+        <section className="work-copies" aria-labelledby="editions-title">
+          <div className="feed-header">
+            <div>
+              <strong id="editions-title">{t("Otras ediciones de esta obra")}</strong>
+              <span>{t("Mismo libro, distinto ISBN: los ejemplares y la conversación son los mismos.")}</span>
+            </div>
+          </div>
+          <ul className="edition-list">
+            {otherVersions.map((edition) => (
+              <li key={edition.id}>
+                <Link href={`/obra/${edition.id}`}>
+                  <strong>{edition.title}</strong>
+                </Link>
+                <span>
+                  {edition.author}
+                  {edition.isbn ? ` · ISBN ${edition.isbn}` : ""}
+                  {edition.language && edition.language !== "No especificado"
+                    ? ` · ${t(edition.language)}`
+                    : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {similar.length > 0 && (
         <section className="work-copies" aria-labelledby="similar-title">

@@ -12,12 +12,13 @@ import {
   recordAuthFailure,
   verifyUserTotp,
 } from "@/lib/repo";
-import { clientIp, guard, hasClientIp, hit } from "@/lib/throttle";
+import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { loginSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
-    const ip = clientIp(request);
+    // Pseudónimo diario de la IP: el limitador no guarda direcciones en claro.
+    const ip = clientKey(request);
     // Tres capas: proceso (global), origen (IP, solo con proxy propio) y cuenta
     // concreta. La de cuenta frena los ataques distribuidos que rotan IPs.
     // Válvula de seguridad global: alta a propósito. Las cuotas reales son por

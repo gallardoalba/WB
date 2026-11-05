@@ -153,7 +153,7 @@ export function listReaders(options: {
       OR EXISTS (SELECT 1 FROM club_members m WHERE m.user_id = u.id AND m.status = 'member')
     )
     AND (@city IS NULL OR u.city = @city)
-    AND (@like = '%%' OR u.name LIKE @like COLLATE NOCASE)
+    AND (@like = '%%' OR unaccent(u.name) LIKE unaccent(@like))
     AND NOT EXISTS (
       SELECT 1 FROM blocks bl
       WHERE (bl.blocker_id = @viewerId AND bl.blocked_id = u.id)

@@ -8,6 +8,10 @@ const EXTERNAL_SERVER = process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Vacía la tabla de cuotas antes de cada pasada: la suite hace muchos accesos
+  // con las cuentas de demostración y dos ejecuciones seguidas agotaban el
+  // límite (20 por cuenta cada 15 min) y fallaban con un 429 ajeno a la prueba.
+  globalSetup: "./e2e/global-setup.ts",
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

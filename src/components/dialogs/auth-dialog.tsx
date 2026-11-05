@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Dialog } from "../dialog";
 import { api, ClientApiError } from "@/lib/client-api";
@@ -111,6 +112,9 @@ export function AuthDialog({
             ? {
                 name: form.get("name"),
                 city: form.get("city"),
+                // El consentimiento viaja como booleano, no como el "on" del
+                // formulario: el servidor exige que sea explícito.
+                ageConfirmed: form.get("ageConfirmed") === "on",
                 website: form.get("website") ?? "",
                 startedAt: startedAt.current,
                 turnstileToken: form.get("cf-turnstile-response") ?? undefined,
@@ -213,15 +217,25 @@ export function AuthDialog({
                 <input name="website" tabIndex={-1} autoComplete="off" />
               </label>
             </div>
-            <label>
-              {t("Ciudad")}
+            <div className="field">
+              <label htmlFor="auth-city">{t("Ciudad")}</label>
               <CityField
+                id="auth-city"
                 name="city"
                 required
                 ariaInvalid={Boolean(error)}
                 ariaDescribedBy={error ? "auth-error" : undefined}
               />
-            </label>
+            </div>
+            <div className="consent-field">
+              <input id="age-confirmed" type="checkbox" name="ageConfirmed" required />
+              <label htmlFor="age-confirmed">
+                {t("Confirmo que tengo al menos 16 años.")}{" "}
+                <Link href="/privacidad" target="_blank" rel="noreferrer">
+                  {t("Política de privacidad")}
+                </Link>
+              </label>
+            </div>
           </>
         )}
         {mode === "totp" ? (
@@ -294,7 +308,7 @@ export function AuthDialog({
             : mode === "login"
               ? t("Entrar")
               : mode === "register"
-                ? t("Crear cuenta")
+                ? t("Crear mi cuenta")
                 : mode === "totp"
                   ? t("Verificar")
                   : t("Enviar enlace")}

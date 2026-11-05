@@ -1,4 +1,5 @@
 import { getDb } from "../db";
+import { pruneCoverCache } from "../covers";
 import { notifyUpcomingMeetings } from "./clubs";
 import { listingTitle, notify } from "./notifications";
 
@@ -65,6 +66,7 @@ export type MaintenanceReport = {
   events: number;
   audit: number;
   clubReminders: number;
+  covers: number;
 };
 
 /**
@@ -103,6 +105,9 @@ export function runMaintenance(): MaintenanceReport {
       : 0;
 
   const clubReminders = notifyUpcomingMeetings();
+  // Las portadas cacheadas se acumulan con cada ISBN visitado: se olvidan las
+  // que nadie ha pedido en medio año.
+  const covers = pruneCoverCache();
 
   // SQLite no devuelve el espacio al sistema al borrar filas y el WAL crece
   // hasta el siguiente checkpoint: sin esto, la base solo engorda. `optimize`
@@ -126,6 +131,7 @@ export function runMaintenance(): MaintenanceReport {
     events,
     audit,
     clubReminders,
+    covers,
   };
 }
 

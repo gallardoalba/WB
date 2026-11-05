@@ -39,9 +39,11 @@ test("initialsOf usa como máximo dos iniciales", () => {
 
 test("normaliza y valida ISBN", () => {
   assert.equal(normalizeIsbn("978-84-13-5283-8"), "978841352838");
-  assert.equal(isValidIsbn("9788413528388"), true);
+  assert.equal(isValidIsbn("9788413528380"), true);
   assert.equal(isValidIsbn("123"), false);
-  assert.equal(coverFromIsbn("9788413528388"), "https://covers.openlibrary.org/b/isbn/9788413528388-L.jpg");
+  // Un dígito cambiado en el ISBN real (el 8 final no cuadra) se detecta.
+  assert.equal(isValidIsbn("9788413528388"), false);
+  assert.equal(coverFromIsbn("9788413528380"), "/api/cover/9788413528380");
   assert.equal(coverFromIsbn(null), null);
 });
 

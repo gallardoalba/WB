@@ -16,12 +16,16 @@ const TITLES: Record<string, string> = {
   "Te han invitado a un club": "Du wurdest in einen Club eingeladen",
   "Nuevo encuentro del club": "Neues Treffen des Clubs",
   "Cambio de lectura en el club": "Neue Lektüre im Club",
+  "Nueva conversación en tu club": "Neues Gespräch in deinem Club",
+  "Votación de la próxima lectura": "Abstimmung über die nächste Lektüre",
   "El club avanza": "Der Club kommt voran",
   "Mañana es el encuentro del club": "Morgen ist das Treffen des Clubs",
   "Tu solicitud ha expirado": "Deine Anfrage ist abgelaufen",
   "Un club tuyo se ha ocultado": "Einer deiner Clubs wurde verborgen",
   "Tu club vuelve a estar visible": "Dein Club ist wieder sichtbar",
   "Un comentario tuyo se ha ocultado": "Einer deiner Kommentare wurde verborgen",
+  "Un mensaje tuyo del foro se ha ocultado": "Eine deiner Forumsnachrichten wurde verborgen",
+  "Tu mensaje del foro vuelve a estar visible": "Deine Forumsnachricht ist wieder sichtbar",
   "Tu comentario vuelve a estar visible": "Dein Kommentar ist wieder sichtbar",
   "Intercambio cancelado por moderación": "Tausch von der Moderation storniert",
   "Solicitud cerrada por moderación": "Anfrage von der Moderation geschlossen",
@@ -37,6 +41,7 @@ const TITLES: Record<string, string> = {
   "Intercambio actualizado": "Tausch aktualisiert",
   "Punto de entrega actualizado": "Übergabeort aktualisiert",
   "Nuevo mensaje en tu intercambio": "Neue Nachricht in deinem Tausch",
+  "Nuevo mensaje directo": "Neue Direktnachricht",
   "Nueva valoración": "Neue Bewertung",
   "Un libro que buscas ya está disponible": "Ein gesuchtes Buch ist jetzt verfügbar",
   "Préstamo de club": "Club-Ausleihe",
@@ -48,6 +53,7 @@ const TITLES: Record<string, string> = {
 /** Cuerpos con partes variables: se traducen conservando los datos. */
 const BODY_RULES: Array<[RegExp, string]> = [
   [/^Novedades en (.+)$/, "Neuigkeiten in $1"],
+  [/^(.+) te ha escrito\.$/, "$1 hat dir geschrieben."],
   [/^«(.+)» vuelve a estar disponible en el club\.$/, "„$1“ ist im Club wieder verfügbar."],
   [/^«(.+)» te lo presta (.+)\.$/, "„$1“ wird dir von $2 geliehen."],
   [/^Has prestado «(.+)» a (.+)\.$/, "Du hast „$1“ an $2 verliehen."],
@@ -77,6 +83,8 @@ const BODY_RULES: Array<[RegExp, string]> = [
   [/^«(.+)» se reúne el (.+)\.$/, "„$1“ trifft sich am $2."],
   [/^(.+) empezó a seguirte$/, "$1 folgt dir jetzt"],
   [/^(.+) respondió a tu comentario$/, "$1 hat auf deinen Kommentar geantwortet"],
+  [/^(.+) respondió a tu mensaje$/, "$1 hat auf deine Nachricht geantwortet"],
+  [/^«(.+)» te pide que elijas entre (\d+) libros\.$/, "„$1“ bittet dich, aus $2 Büchern zu wählen."],
 ];
 
 const STATIC_BODIES: Record<string, string> = {

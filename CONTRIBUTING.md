@@ -67,6 +67,10 @@ directorio).
 - Ficheros de `.data/`, bases de datos, copias, `.env` reales, capturas con datos
   personales o tokens.
 - Cambios de dependencias sin justificación (el CI audita `npm audit --omit=dev`).
+- Borrar el bloque `overrides` de `package.json` sin comprobarlo antes: sube un
+  único `minimatch` (el de `@typescript-eslint/typescript-estree`) a la versión
+  corregida y es lo que mantiene `npm audit` en cero sin bajar de Next 16. Se
+  puede retirar en cuanto `typescript-eslint` dependa de un `minimatch` corregido.
 - Refactorizaciones amplias mezcladas con arreglos funcionales: mejor PRs
   pequeños.
 

@@ -38,24 +38,24 @@ test("las etiquetas se guardan, se reemplazan y filtran el catálogo", () => {
     condition: "Buen estado",
     isbn: null,
     city: "Stuttgart",
-    tags: ["Novela negra", "Clásicos"],
+    tags: ["Narrativa", "Clásicos"],
   });
-  assert.deepEqual([...listing.tags].sort(), ["Clásicos", "Novela negra"]);
+  assert.deepEqual([...listing.tags].sort(), ["Clásicos", "Narrativa"]);
 
-  const filtered = repo.catalogPage("usr_ana", params({ tag: "Novela negra" }));
+  const filtered = repo.catalogPage("usr_ana", params({ tag: "Narrativa" }));
   assert.ok(filtered.items.length >= 1);
-  assert.ok(filtered.items.every((item) => item.tags.includes("Novela negra")));
+  assert.ok(filtered.items.every((item) => item.tags.includes("Narrativa")));
   // Una etiqueta que nadie usa deja el catálogo vacío, no lo rompe.
-  assert.equal(repo.catalogPage("usr_ana", params({ tag: "Primera edición" })).total, 0);
+  assert.equal(repo.catalogPage("usr_ana", params({ tag: "Astronomía" })).total, 0);
 
   repo.editListing("usr_ana", listing.id, {
     condition: "Buen estado",
     city: "Stuttgart",
     notes: "",
-    tags: ["Firmado"],
+    tags: ["Teatro"],
   });
-  assert.deepEqual(repo.getListing(listing.id, "usr_ana")?.tags, ["Firmado"]);
-  assert.equal(repo.catalogPage("usr_ana", params({ tag: "Novela negra" })).total, 0);
+  assert.deepEqual(repo.getListing(listing.id, "usr_ana")?.tags, ["Teatro"]);
+  assert.equal(repo.catalogPage("usr_ana", params({ tag: "Narrativa" })).total, 0);
 });
 
 test("una lista de lectura agrupa obras y solo la edita quien la creó", () => {

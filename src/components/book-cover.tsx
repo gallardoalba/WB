@@ -8,39 +8,82 @@ import { useI18n } from "./i18n-provider";
 type BookCoverProps = {
   id: string;
   title: string;
+  /** Autoría: se imprime en la portada de reserva, como en una portadilla. */
+  author?: string;
   coverUrl: string | null;
   sizes?: string;
 };
 
-export function BookCover({ id, title, coverUrl, sizes = "(max-width: 700px) 44vw, 220px" }: BookCoverProps) {
+/**
+ * Portada de reserva con el título completo y la autoría.
+ *
+ * La tarjeta no tiene imagen para muchos ISBN, así que el hueco se resuelve
+ * como una portadilla escrita a mano: título entero —sin recortar— compuesto
+ * en caligrafía, un filete y la firma de quien lo escribió. El tamaño baja en
+ * tres pasos según lo largo que sea el título, que es más fiable que confiar en
+ * que quepa.
+ */
+function titleTier(title: string): string {
+  if (title.length > 72) return "is-xlong";
+  if (title.length > 44) return "is-long";
+  if (title.length > 26) return "is-medium";
+  return "";
+}
+
+export function BookCover({
+  id,
+  title,
+  author,
+  coverUrl,
+  sizes = "(max-width: 700px) 44vw, 220px",
+}: BookCoverProps) {
   const { t } = useI18n();
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  if (!coverUrl || failed) {
-    const words = title.trim().split(/\s+/).filter(Boolean);
-    const initials = `${words[0]?.charAt(0) ?? "L"}${words[1]?.charAt(0) ?? ""}`.toUpperCase();
-    return (
-      <div className={`cover-fallback tone-${toneForId(id)}`} aria-hidden="true">
-        <span>{initials}</span>
-        <small>{title}</small>
-      </div>
-    );
-  }
+  // La portada impresa se pinta SIEMPRE debajo de la imagen: así la tarjeta no
+  // enseña un hueco mientras la descarga va y, si el proveedor falla, el
+  // resultado ya está en su sitio. Va `aria-hidden` porque el título y la
+  // autoría ya se anuncian en la tarjeta; repetirlos aquí sería ruido.
+  const fallback = (
+    <div
+      className={`cover-fallback tone-${toneForId(id)} ${titleTier(title)}`}
+      aria-hidden="true"
+    >
+      <span className="cover-title">{title}</span>
+      <span className="cover-rule" />
+      {author && <span className="cover-author">{author}</span>}
+    </div>
+  );
+
+  // Sin imagen, o con una imagen que no vale: solo la portadilla.
+  if (!coverUrl || failed) return fallback;
 
   return (
-    <Image
+    <>
+      {/* La portadilla hace de hueco mientras la imagen llega; en cuanto la
+          imagen está puesta se retira, porque hay portadas con fondo
+          transparente y el texto se vería a través. */}
+      {!loaded && fallback}
+      <Image
       src={coverUrl}
       alt={t("Portada de {title}", { title })}
       fill
       sizes={sizes}
       unoptimized
+      // La portada la sirve la propia aplicación (`/api/cover/<isbn>`), que la
+      // descarga y la cachea en el servidor: el navegador no habla con ningún
+      // tercero y no revela el ISBN de lo que está mirando.
+      referrerPolicy="no-referrer"
       className="cover-image"
       onError={() => setFailed(true)}
       onLoad={(event) => {
-        // OpenLibrary responde 200 con una imagen 1×1 cuando no tiene portada.
+        // El proveedor responde 200 con una imagen 1×1 cuando no tiene portada.
         const image = event.currentTarget;
         if (image.naturalWidth < 20 || image.naturalHeight < 30) setFailed(true);
+        else setLoaded(true);
       }}
-    />
+      />
+    </>
   );
 }

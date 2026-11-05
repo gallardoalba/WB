@@ -4,14 +4,14 @@ import { before, test } from "node:test";
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 
 let repo: RepoModule;
 let db: DbModule;
 
 before(async () => {
   repo = await import("../src/lib/repo.ts");
-  db = await import("../src/lib/db.ts");
+  db = await import("../src/lib/db/index.ts");
 });
 
 const rejects = (pattern: RegExp) => (error: unknown) =>

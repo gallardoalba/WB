@@ -19,7 +19,7 @@ test("las recomendaciones comparten categoría y excluyen el libro actual", () =
   for (const listing of similar) {
     assert.notEqual(listing.bookId, "bok_1");
     assert.equal(listing.status, "available");
-    assert.equal(listing.category, "Ficción");
+    assert.equal(listing.category, "Sociedad y política");
   }
 });
 

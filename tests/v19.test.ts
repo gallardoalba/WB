@@ -4,7 +4,7 @@ import { before, test } from "node:test";
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 
 let repo: RepoModule;
 let dbModule: DbModule;
@@ -14,7 +14,7 @@ const fails = (fragment: string) => (error: unknown) =>
 
 before(async () => {
   repo = await import("../src/lib/repo.ts");
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
 });
 
 function makeClub(overrides: Partial<Parameters<RepoModule["createClub"]>[1]> = {}) {
@@ -33,7 +33,7 @@ function makeClub(overrides: Partial<Parameters<RepoModule["createClub"]>[1]> = 
 test("la v19 añade encuentros, política de entrada, progreso y asistencia", () => {
   const db = dbModule.getDb();
   assert.equal(db.pragma("user_version", { simple: true }), dbModule.SCHEMA_VERSION);
-  assert.equal(dbModule.SCHEMA_VERSION, 28);
+  assert.equal(dbModule.SCHEMA_VERSION, 38);
   const columns = (table: string) =>
     (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
   for (const column of ["meets_at", "status", "join_policy", "progress", "progress_note"]) {
@@ -83,7 +83,9 @@ test("un club con aprobación no admite a nadie hasta que el dueño decide", () 
 
   const pending = repo.listClubRequests(club.id, "usr_clara");
   assert.deepEqual(pending.map((entry) => entry.user.id), ["usr_diego"]);
-  assert.throws(() => repo.listClubRequests(club.id, "usr_ana"), fails("Solo quien creó"));
+  // Desde la v34 las solicitudes las ve «quien lleva el club»: su dueño o un
+  // moderador, nunca un miembro cualquiera.
+  assert.throws(() => repo.listClubRequests(club.id, "usr_ana"), fails("Solo quien lleva"));
 
   const after = repo.decideClubMembership("usr_clara", club.id, "usr_diego", true);
   assert.equal(after.members, 2);

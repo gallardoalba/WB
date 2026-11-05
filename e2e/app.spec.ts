@@ -1,20 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-
-/** Espera a que el layout cliente haya hidratado y aplicado el tema. */
-async function waitForHydration(page: Page) {
-  await expect(page.locator("html")).toHaveAttribute("data-theme", /light|dark/);
-}
+import { login, waitForHydration } from "./helpers";
 
 /** Entra con la cuenta de demostración y deja la portada cargada. */
 async function loginAsDemo(page: Page) {
-  await page.goto("/");
-  await waitForHydration(page);
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
-  await dialog.locator('input[name="password"]').fill("demo1234");
-  await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
+  await login(page, "ana@wanderbibliothek.test");
 }
 
 test("el menú de cuenta se opera con el teclado", async ({ page }) => {
@@ -35,14 +24,25 @@ test("el menú de cuenta se opera con el teclado", async ({ page }) => {
 });
 
 test("el catálogo carga y permite buscar", async ({ page }) => {
+  // El catálogo exige sesión: muestra nombre y ciudad de cada lector.
+  await loginAsDemo(page);
   await page.goto("/?view=discover");
   await expect(page).toHaveTitle(/Wanderbibliothek/);
   await expect(page.locator(".book-card:visible").first()).toBeVisible();
 
   await waitForHydration(page);
-  await page.locator("#catalog-search:visible").fill("junco");
+  // La muestra de demostración tiene un solo Bakunin a la venta: el otro ya
+  // encontró lector.
+  await page.locator("#catalog-search:visible").fill("Bakunin");
   await expect(page.locator(".book-card:visible")).toHaveCount(1, { timeout: 10_000 });
-  await expect(page.locator(".book-card:visible")).toContainText("El infinito en un junco");
+  await expect(page.locator(".book-card:visible")).toContainText(
+    "Staatlichkeit und Anarchie",
+  );
+});
+
+test("sin sesión el catálogo no se expone", async ({ page }) => {
+  await page.goto("/descubrir");
+  await expect(page).toHaveURL(/\/\?auth=1&next=/);
 });
 
 test("el tema claro/oscuro se conmuta y persiste", async ({ page }) => {  await page.goto("/");
@@ -108,11 +108,20 @@ test("la cuenta es una página con el estado del cifrado", async ({ page }) => {
   const encryption = page.locator("details").filter({ hasText: "Cifrado de mensajes" }).first();
   await expect(encryption).toBeVisible();
   await encryption.locator("summary").evaluate((element) => (element as HTMLElement).click());
+  // La sección enseña el estado con una insignia y un titular, no un párrafo
+  // suelto: o está activo en este navegador, o hay que publicar la clave.
+  await expect(encryption.locator(".crypto-badge")).toHaveText(/Activo|Sin activar/);
+  await expect(encryption.locator(".crypto-status strong")).toBeVisible();
+  // Y dice explícitamente hasta dónde llega la privacidad.
   await expect(
-    encryption.getByText("Los mensajes de tus intercambios se cifran en este navegador"),
+    encryption.getByText(/Ni quien administra la web puede leer el contenido/),
   ).toBeVisible();
-  // Un solo control según el estado: activo (huella), publicar o pedir contraseña.
-  await expect(encryption.locator("button, input[type='password']").first()).toBeVisible();
+  // Un solo estado según la clave del navegador: activo (con la huella), publicar
+  // o pedir contraseña. El orden depende de lo que tarde la petición, así que se
+  // aceptan los tres en vez de exigir un botón que puede no existir.
+  await expect(
+    encryption.locator("button, input[type='password'], code.secret-code").first(),
+  ).toBeVisible();
 });
 
 test("guardar un libro no roba el foco del teclado", async ({ page }) => {
@@ -157,11 +166,41 @@ test("el panel de administración abre con sus secciones", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Abrir menú de cuenta" })).toBeVisible();
 
   await page.goto("/admin");
+
+  // La administración ya tiene entrada propia en la barra lateral: /admin no
+  // se confunde con la página de cuenta.
+  await expect(
+    page.getByRole("navigation", { name: "Administración" }).getByRole("link", {
+      name: "Moderación",
+    }),
+  ).toHaveAttribute("href", "/admin");
+
+  // En producción el panel exige segundo factor. Sin TOTP ya no responde «Esta
+  // página no existe»: explica el requisito y ofrece el camino para activarlo.
+  const aviso = page.getByRole("heading", {
+    name: "Falta un paso: verificación en dos pasos",
+  });
   // `exact` porque el estado vacío («Sin denuncias abiertas») también es un
   // encabezado y coincidía con el nombre parcial.
-  await expect(page.getByRole("heading", { name: "Denuncias abiertas", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Últimas acciones" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Cuentas suspendidas" })).toBeVisible();
+  const denuncias = page.getByRole("heading", { name: "Denuncias abiertas", exact: true });
+  await expect(aviso.or(denuncias)).toBeVisible();
+
+  if (await aviso.isVisible()) {
+    // La cabecera ya nombra el área: «Moderación de la comunidad», no la cuenta.
+    await expect(
+      page.getByRole("heading", { name: "Moderación de la comunidad", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ir a mi cuenta" })).toHaveAttribute(
+      "href",
+      "/cuenta",
+    );
+    // Y no se filtra nada del panel: ni denuncias ni cuentas.
+    await expect(denuncias).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Cuentas suspendidas" })).toHaveCount(0);
+  } else {
+    await expect(page.getByRole("heading", { name: "Últimas acciones" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cuentas suspendidas" })).toBeVisible();
+  }
 });
 
 test("el panel de comunidad carga cada pestaña por separado", async ({ page }) => {  await page.goto("/");
@@ -203,15 +242,14 @@ test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", asy
   await expect(page).toHaveURL(/\/libro\/lst_/, { timeout: 15_000 });
 });
 
-test("las páginas internas piden sesión y el panel marca lo privado", async ({ page }) => {
+test("las páginas internas piden sesión y no enseñan el panel lateral", async ({ page }) => {
   await page.goto("/lectores");
   await expect(page).toHaveURL(/\/\?auth=1&next=/);
-  await expect(page.locator(".sidebar .nav-item.locked")).toHaveCount(3);
-  await expect(page.locator('.sidebar a[href="/clubes"]')).toHaveCount(0);
 
-  await page.locator(".sidebar .nav-item.locked").first().evaluate((element) =>
-    (element as HTMLElement).click(),
-  );
+  // Sin sesión no hay menú: el panel lateral y la barra inferior son de quien
+  // ha entrado, y la ventana de acceso se abre sola con el destino guardado.
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(page.locator(".mobile-bottom-nav")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
@@ -228,4 +266,101 @@ test("salud, Open Graph y sitemap mínimo", async ({ request }) => {
   expect(body).toContain("<loc>");
   expect(body).not.toContain("/clubes/");
   expect(body).not.toContain("/listas/");
+});
+
+test("sin sesión, «Explorar libros» abre el acceso en vez de navegar", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+
+  // El catálogo exige sesión: el botón de la portada pide entrar antes de ir.
+  await page.getByRole("button", { name: "Explorar libros" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  // Las dos pestañas de la ventana: entrar o crear cuenta.
+  await expect(dialog.getByRole("button", { name: "Crear cuenta" })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("la portada cuenta también los clubes de lectura", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+  // El rótulo va en plural o en singular según la cifra, y cada cifra trae su
+  // icono: la banda se comprueba por las dos cosas.
+  await expect(page.locator(".hero-stats")).toContainText(/club(es)? de lectura/);
+  await expect(page.locator(".hero-stats > .hero-stat")).toHaveCount(4);
+});
+
+test("el hub de comunidad no repite cifras ni buscador propio", async ({ page }) => {
+  await loginAsDemo(page);
+
+  for (const tab of ["clubs", "readers", "lists", "conversations"]) {
+    await page.goto(`/comunidad?tab=${tab}`);
+    await expect(page.locator(".community-tabs")).toBeVisible();
+    // Las cifras salieron del hub y el buscador vive en la cabecera.
+    await expect(page.locator(".community-figures")).toHaveCount(0);
+    await expect(page.locator(".community-search")).toHaveCount(0);
+    await expect(page.locator("#site-search-q")).toBeVisible();
+  }
+});
+
+test("ofrecer un libro es una página con su URL, no una ventana", async ({ page }) => {
+  await loginAsDemo(page);
+
+  await page.locator(".sidebar").getByRole("button", { name: "Ofrecer un libro" }).click();
+  await expect(page).toHaveURL(/\/ofrecer/);
+  await expect(page.getByRole("heading", { name: "Cuéntanos qué libro ofreces" })).toBeVisible();
+  await expect(page.locator("form.offer-form")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // La URL se puede recargar sin perder la página.
+  await page.reload();
+  await expect(page.locator("form.offer-form")).toBeVisible();
+  // Y el enlace viejo (`?offer=1`) sigue llevando aquí.
+  await page.goto("/?offer=1");
+  await expect(page).toHaveURL(/\/ofrecer$/);
+});
+
+test("sin sesión no hay panel lateral ni barra de navegación", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(page.locator(".mobile-bottom-nav")).toHaveCount(0);
+  // Lo que sí hay: la portada y el acceso.
+  await expect(page.getByRole("button", { name: "Entrar", exact: true })).toBeVisible();
+  await expect(page.locator(".hero-stats")).toBeVisible();
+});
+
+test("en el menú, «Ofrecer un libro» va justo debajo de «Descubrir»", async ({ page }) => {
+  await loginAsDemo(page);
+  const menu = page.locator(".sidebar");
+  // El raíl se coloca al hidratar y cambia de forma según el ancho: se espera a
+  // que esté y luego se reintenta la medición en vez de medir a mitad de nada.
+  await expect(menu.getByRole("button", { name: "Mi estantería" })).toBeVisible({
+    timeout: 20_000,
+  });
+  // El raíl se coloca después de hidratar; se reintenta la medición hasta que
+  // las tres posiciones son estables en lugar de medir a mitad de la transición.
+  await expect(async () => {
+    const descubrir = await menu.getByRole("button", { name: "Descubrir" }).boundingBox();
+    const ofrecer = await menu.getByRole("button", { name: "Ofrecer un libro" }).boundingBox();
+    const estanteria = await menu.getByRole("button", { name: "Mi estantería" }).boundingBox();
+
+    expect(ofrecer!.y).toBeGreaterThan(descubrir!.y);
+    expect(ofrecer!.y).toBeLessThan(estanteria!.y);
+  }).toPass({ timeout: 15_000 });
+});
+
+test("las cifras de la portada quedan al pie del panel también en pantallas anchas", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await loginAsDemo(page);
+
+  const hero = await page.locator(".hero-banner").boundingBox();
+  const stats = await page.locator(".hero-stats").boundingBox();
+  // La diferencia es el relleno inferior del panel (24 px), no un hueco grande.
+  expect(hero!.y + hero!.height - (stats!.y + stats!.height)).toBeLessThan(40);
+  // Y las cuatro cifras siguen en una fila, no en una columna lateral.
+  expect(Math.round(stats!.width)).toBeGreaterThan(Math.round(hero!.width) * 0.85);
 });

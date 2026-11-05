@@ -62,6 +62,29 @@ export function getStats(): StatsView {
       `SELECT COUNT(*) AS value FROM clubs c JOIN users u ON u.id = c.owner_id
         WHERE c.status = 'visible' AND u.is_suspended = 0`,
     ),
+    // Cuántos títulos distintos hay en circulación: «5 libros» dice menos que
+    // «5 ejemplares de 4 títulos».
+    titles: one(
+      `SELECT COUNT(DISTINCT l.book_id) AS value FROM listings l
+         JOIN users u ON u.id = l.owner_id
+        WHERE l.status = 'available' AND u.is_suspended = 0`,
+    ),
+    // Kilómetros que han viajado los libros ya intercambiados (misma tabla de
+    // distancias que usa el recorrido de cada lector).
+    km: one(
+      `SELECT COALESCE(SUM(cd.km), 0) AS value FROM requests r
+         JOIN users own ON own.id = r.owner_id
+         JOIN users req ON req.id = r.requester_id
+         LEFT JOIN city_distances cd
+                ON cd.from_name = own.city AND cd.to_name = req.city
+        WHERE r.status = 'completed' AND own.is_suspended = 0 AND req.is_suspended = 0`,
+    ),
+    clubsUpcoming: one(
+      `SELECT COUNT(*) AS value FROM clubs c JOIN users u ON u.id = c.owner_id
+        WHERE c.status = 'visible' AND u.is_suspended = 0
+          AND c.meets_at <> ''
+          AND c.meets_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    ),
   };
 }
 

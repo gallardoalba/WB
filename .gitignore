@@ -43,6 +43,12 @@ next-env.d.ts
 
 # datos locales
 .data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.db.enc
+*.bak
 
 # artefactos de Playwright
 test-results/

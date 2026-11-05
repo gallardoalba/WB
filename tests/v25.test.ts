@@ -47,12 +47,13 @@ test("una lista de deseos avisa cuando el libro aparece en tu ciudad", () => {
   assert.equal(repo.isBookWanted("usr_ana", "bok_2"), true);
 
   const listing = repo.createListing("usr_clara", {
-    title: "El infinito en un junco",
-    author: "Irene Vallejo",
-    category: "Humanidades",
+    title: "Triebstruktur und Gesellschaft",
+    author: "Herbert Marcuse",
+    category: "Sociedad y política",
     condition: "Buen estado",
-    isbn: "9788417860790",
+    isbn: "9783518244043",
     city: "Stuttgart",
+    language: "Alemán",
     tags: [],
   });
 
@@ -61,7 +62,7 @@ test("una lista de deseos avisa cuando el libro aparece en tu ciudad", () => {
     .find((notification) => notification.type === "want");
   assert.ok(notice);
   assert.equal(notice!.listingId, listing.id);
-  assert.match(notice!.body, /El infinito en un junco/);
+  assert.match(notice!.body, /Triebstruktur und Gesellschaft/);
 
   repo.setBookWant("usr_ana", "bok_2", false);
   assert.equal(repo.isBookWanted("usr_ana", "bok_2"), false);

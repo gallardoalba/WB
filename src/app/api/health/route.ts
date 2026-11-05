@@ -7,11 +7,9 @@ export async function GET() {
     const db = getDb();
     const { value } = db.prepare("SELECT 1 AS value").get() as { value: number };
     return Response.json(
-      {
-        status: "ok",
-        database: value === 1 ? "ok" : "unknown",
-        uptimeSeconds: Math.round(process.uptime()),
-      },
+      // Sin datos de proceso: el estado de salud no es el sitio para contar
+      // cuánto lleva vivo el servicio ni cuántas veces se ha reiniciado.
+      { status: "ok", database: value === 1 ? "ok" : "unknown" },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

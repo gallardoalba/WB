@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Lock, MapPin, MessageCircle, Send, Star, TriangleAlert } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import Image from "next/image";
+import {
+  Lock,
+  MapPin,
+  MessageCircle,
+  Package,
+  Printer,
+  Send,
+  Star,
+  TriangleAlert,
+} from "lucide-react";
 import { Dialog } from "../dialog";
 import { HandoverCode } from "../handover-code";
 import { api } from "@/lib/client-api";
@@ -20,7 +30,7 @@ import {
   isEncryptionSupported,
   messageAad,
 } from "@/lib/e2e";
-import { officesForCity } from "@/lib/post-offices";
+import { printSheets } from "@/lib/print";
 import { allowedTargets } from "@/lib/request-flow";
 import type { MessageKey } from "@/lib/i18n";
 import { formatWhen } from "@/lib/text";
@@ -83,7 +93,12 @@ export function ExchangeDialog({
   const [incidentFeedback, setIncidentFeedback] = useState("");
   const [incidentError, setIncidentError] = useState("");
   const [incidentBusy, setIncidentBusy] = useState(false);
-  const [changingOffice, setChangingOffice] = useState(false);
+  // Forma de envío elegida en el formulario. Arranca con la que ya está guardada
+  // y, mientras no se toque, sigue a los datos del servidor.
+  const [shippingChoice, setShippingChoice] = useState<"packstation" | "address" | null>(null);
+  const [shippingBusy, setShippingBusy] = useState(false);
+  const [shippingError, setShippingError] = useState("");
+  const [shippingFeedback, setShippingFeedback] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -95,31 +110,37 @@ export function ExchangeDialog({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [fingerprintQr, setFingerprintQr] = useState("");
   const lastSeenMessage = useRef<string | null>(null);
   const requestId = request?.id ?? null;
 
-  // Oficinas de Deutsche Post cercanas a las dos partes. El punto de entrega
-  // siempre es un local público: nunca una dirección privada.
-  const officeOptions = useMemo(() => {
-    if (!request) return [];
-    const merged = new Map<string, { id: string; label: string; km: number }>();
-    for (const city of [request.owner.city, request.requester.city]) {
-      for (const office of officesForCity(city, 3)) {
-        const current = merged.get(office.id);
-        if (!current || office.distanceKm < current.km) {
-          const address = [office.street, [office.postalCode, office.locality].filter(Boolean).join(" ")]
-            .filter(Boolean)
-            .join(", ");
-          merged.set(office.id, {
-            id: office.id,
-            label: `${office.name}${address ? ` · ${address}` : ""} (${office.distanceKm} km de ${city})`,
-            km: office.distanceKm,
-          });
-        }
-      }
-    }
-    return [...merged.values()].sort((a, b) => a.km - b.km);
-  }, [request]);
+  // El QR solo lleva la huella corta (ocho caracteres) que se ve en pantalla:
+  // escanearlo con la cámara tiene que enseñar exactamente eso, para poder
+  // compararlo de un vistazo con lo que muestra la otra persona.
+  const ownFingerprint = shortFingerprint(thread?.me.keyId ?? null);
+  useEffect(() => {
+    if (!thread?.me.keyId) return;
+    let active = true;
+    void import("qrcode")
+      .then((module) =>
+        module.default.toDataURL(`Wanderbibliothek · huella ${ownFingerprint}`, {
+          width: 264,
+          margin: 1,
+          color: { dark: "#2f5741", light: "#ffffff" },
+        }),
+      )
+      .then((url) => {
+        if (active) setFingerprintQr(url);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [ownFingerprint, thread?.me.keyId]);
+
+  // La forma del formulario: manda lo que haya elegido la persona; si no ha
+  // tocado nada, la que ya está guardada (o Packstation, la opción privada).
+  const shippingKind = shippingChoice ?? request?.delivery.shipping?.kind ?? "packstation";
 
   function close() {
     setError("");
@@ -421,12 +442,7 @@ export function ExchangeDialog({
     setBusy(true);
     setError("");
     try {
-      const body: { status: string; officeId?: string | null } = { status };
-      if (status === "accepted" && request) {
-        // Se propone la oficina más cercana a quien entrega el libro.
-        body.officeId = officesForCity(request.owner.city, 1)[0]?.id ?? null;
-      }
-      await api(`/api/requests/${requestId}`, { method: "PATCH", body });
+      await api(`/api/requests/${requestId}`, { method: "PATCH", body: { status } });
       setConfirmStatus(null);
       onChanged();
     } catch (caught) {
@@ -436,21 +452,62 @@ export function ExchangeDialog({
     }
   }
 
-  async function changeOffice(officeId: string) {
+  async function changeMethod(method: "in_person" | "post") {
     if (!requestId) return;
     setBusy(true);
     setError("");
     try {
       await api(`/api/requests/${requestId}/handover`, {
         method: "PATCH",
-        body: { officeId },
+        body: { method },
       });
-      setChangingOffice(false);
       onChanged();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("No se pudo cambiar el punto de entrega."));
+      setError(
+        caught instanceof Error ? caught.message : t("No se pudo cambiar la forma de entrega."),
+      );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveShipping(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!requestId) return;
+    const form = new FormData(event.currentTarget);
+    const campo = (name: string) => String(form.get(name) ?? "").trim();
+    const kind = shippingKind;
+    setShippingBusy(true);
+    setShippingError("");
+    setShippingFeedback("");
+    try {
+      await api(`/api/requests/${requestId}/handover/shipping`, {
+        method: "PUT",
+        body:
+          kind === "packstation"
+            ? {
+                kind: "packstation",
+                postNumber: campo("postNumber"),
+                station: campo("station"),
+                postalCode: campo("postalCode"),
+                city: campo("city"),
+              }
+            : {
+                kind: "address",
+                street: campo("street"),
+                postalCode: campo("postalCode"),
+                city: campo("city"),
+              },
+      });
+      setShippingChoice(null);
+      setShippingFeedback(t("Datos de envío guardados."));
+      onChanged();
+    } catch (caught) {
+      setShippingError(
+        caught instanceof Error ? caught.message : t("No se pudieron guardar los datos de envío."),
+      );
+    } finally {
+      setShippingBusy(false);
     }
   }
 
@@ -483,6 +540,7 @@ export function ExchangeDialog({
       open={open}
       onClose={close}
       wide
+      className="exchange-dialog"
       title={request.listing.title}
       description={`${request.role === "owner" ? t("Solicitud de {name}", { name: request.requester.name }) : t("Solicitado a {name}", { name: request.owner.name })} · ${t("Estado:")} ${t(REQUEST_STATUS_LABELS[request.status])}`}
       overline={t("INTERCAMBIO")}
@@ -498,7 +556,11 @@ export function ExchangeDialog({
               disabled={busy}
               onClick={() => setConfirmStatus(status)}
             >
-              {status === "completed" ? t("Confirmar entrega") : t(ACTION_LABELS[status] ?? status)}
+              {status === "completed"
+                ? t("Confirmar entrega")
+                : status === "cancelled"
+                  ? t("Cancelar el intercambio")
+                  : t(ACTION_LABELS[status] ?? status)}
             </button>
           ))}
         </div>
@@ -563,69 +625,384 @@ export function ExchangeDialog({
       </div>
 
       <div className="handover-card">
-        <MapPin size={16} aria-hidden />
+        {request.delivery.method === "post" ? (
+          <Package size={16} aria-hidden />
+        ) : (
+          <MapPin size={16} aria-hidden />
+        )}
         <div>
-          <strong>{t("Punto de entrega")}</strong>
-          {request.delivery.pickupPoint ? (
-            <p>
-              {request.delivery.pickupPoint.name} ·{" "}
-              {[
-                request.delivery.pickupPoint.street,
-                [
-                  request.delivery.pickupPoint.postalCode,
-                  request.delivery.pickupPoint.city,
-                ]
-                  .filter(Boolean)
-                  .join(" "),
-              ]
-                .filter(Boolean)
-                .join(", ")}
-            </p>
-          ) : (
-            <p>
-              {request.status === "accepted" || request.status === "completed"
-                ? t("Entrega en mano, sin oficina asignada.")
-                : t("Se elige al aceptar el intercambio.")}
-            </p>
-          )}
-          {(request.status === "accepted" || request.status === "completed") &&
-            (officeOptions.length > 0 ? (
+          <strong>{t("Entrega")}</strong>
+          {(request.status === "accepted" || request.status === "completed") && (
+            <div className="handover-methods" role="group" aria-label={t("Forma de entrega")}>
               <button
                 type="button"
-                className="message-report"
-                onClick={() => setChangingOffice((value) => !value)}
+                className={
+                  request.delivery.method === "in_person"
+                    ? "handover-method active"
+                    : "handover-method"
+                }
+                aria-pressed={request.delivery.method === "in_person"}
                 disabled={busy}
+                onClick={() => void changeMethod("in_person")}
               >
-                {changingOffice ? t("Cancelar") : t("Cambiar punto de entrega")}
+                <MapPin size={14} /> {t("En mano")}
               </button>
-            ) : (
-              <p className="form-hint">
-                {t("No hay oficinas de Deutsche Post cerca: acordad el punto exacto en la conversación.")}
-              </p>
-            ))}
-          {changingOffice && (
-            <label className="handover-picker">
-              <span>{t("Oficina de Deutsche Post")}</span>
-              <select
-                defaultValue={request.delivery.pickupPoint?.id ?? ""}
-                disabled={busy || officeOptions.length === 0}
-                onChange={(event) => {
-                  if (event.target.value) void changeOffice(event.target.value);
-                }}
+              <button
+                type="button"
+                className={
+                  request.delivery.method === "post"
+                    ? "handover-method active"
+                    : "handover-method"
+                }
+                aria-pressed={request.delivery.method === "post"}
+                disabled={busy}
+                onClick={() => void changeMethod("post")}
               >
-                {request.delivery.pickupPoint ? null : (
-                  <option value="">{t("Elige una oficina…")}</option>
-                )}
-                {officeOptions.map((office) => (
-                  <option key={office.id} value={office.id}>
-                    {office.label}
-                  </option>
-                ))}
-              </select>
-              <small className="handover-attribution">
-                {t("Direcciones de OpenStreetMap (ODbL). Confirma el horario en la web de Deutsche Post.")}
-              </small>
-            </label>
+                <Package size={14} /> {t("Por correo")}
+              </button>
+            </div>
+          )}
+
+          {request.delivery.method === "post" ? (
+            <>
+              <p className="handover-status">
+                {request.delivery.shipping
+                  ? request.role === "requester"
+                    ? t("Datos guardados. Ya puede enviarte el libro.")
+                    : t("Todo listo: imprime la etiqueta, apunta el código y envíalo.")
+                  : request.role === "requester"
+                    ? t("Falta un paso: guarda dónde quieres recibirlo.")
+                    : t("Esperando a que {name} guarde sus datos de envío.", {
+                        name: request.requester.name,
+                      })}
+              </p>
+              {request.delivery.shipping ? (
+                <>
+                  <p>
+                    {request.role === "requester"
+                      ? request.delivery.shipping.kind === "packstation"
+                        ? t(
+                            "Tu libro llegará a esta Packstation. Nadie de la plataforma ve tu dirección.",
+                          )
+                        : t("Tu libro llegará a tu dirección. Solo la ve quien te lo envía.")
+                      : request.delivery.shipping.kind === "packstation"
+                        ? t(
+                            "El libro viaja a la Packstation de {name}: nadie tiene que dar su dirección.",
+                            { name: request.requester.name },
+                          )
+                        : t(
+                            "El libro viaja a la dirección que {name} ha guardado. Es privada: solo la ven las dos partes del intercambio.",
+                            { name: request.requester.name },
+                          )}
+                  </p>
+                  {/* La etiqueta es de quien envía. Quien recibe la tiene
+                      plegada: le sirve para comprobar qué se va a imprimir,
+                      pero no es su tarea. */}
+                  {request.role === "owner" ? (
+                    <>
+                      <div className="post-label" data-print-sheet>
+                        <p className="post-label-service">{t("WARENSENDUNG")}</p>
+                        <p className="post-label-name">{request.requester.name}</p>
+                        {request.delivery.shipping.kind === "packstation" ? (
+                          <>
+                            <p>{request.delivery.shipping.postNumber}</p>
+                            <p>{request.delivery.shipping.station}</p>
+                          </>
+                        ) : (
+                          <p>{request.delivery.shipping.street}</p>
+                        )}
+                        <p>
+                          {request.delivery.shipping.postalCode} {request.delivery.shipping.city}
+                        </p>
+                        <p className="post-label-sender">
+                          {t("Remitente: {name} · sin dirección", {
+                            name: request.owner.name,
+                          })}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="message-report"
+                        onClick={() => printSheets()}
+                      >
+                        <Printer size={14} /> {t("Imprimir la etiqueta")}
+                      </button>
+                    </>
+                  ) : (
+                    <details className="exchange-help">
+                      <summary>{t("Ver la etiqueta que se imprimirá")}</summary>
+                      <div className="post-label">
+                        <p className="post-label-service">{t("WARENSENDUNG")}</p>
+                        <p className="post-label-name">{request.requester.name}</p>
+                        {request.delivery.shipping.kind === "packstation" ? (
+                          <>
+                            <p>{request.delivery.shipping.postNumber}</p>
+                            <p>{request.delivery.shipping.station}</p>
+                          </>
+                        ) : (
+                          <p>{request.delivery.shipping.street}</p>
+                        )}
+                        <p>
+                          {request.delivery.shipping.postalCode} {request.delivery.shipping.city}
+                        </p>
+                        <p className="post-label-sender">
+                          {t("Remitente: {name} · sin dirección", {
+                            name: request.owner.name,
+                          })}
+                        </p>
+                      </div>
+                    </details>
+                  )}
+                </>
+              ) : (
+                <p className="form-hint">
+                  {request.role === "requester"
+                    ? t(
+                        "Elige cómo quieres recibirlo: en una Packstation o en tu propia dirección. Solo lo verá la persona que te manda el libro.",
+                      )
+                    : t(
+                        "Faltan los datos de envío de {name}. En cuanto los guarde verás aquí la etiqueta.",
+                        { name: request.requester.name },
+                      )}
+                </p>
+              )}
+
+              {request.role === "requester" && (
+                <form className="shipping-form" onSubmit={saveShipping}>
+                  <p className="shipping-form-title">
+                    {request.delivery.shipping
+                      ? t("Tus datos de envío")
+                      : t("Añade tus datos de envío")}
+                  </p>
+                  <p className="form-hint">
+                    {t("Sin ellos no se puede preparar el paquete. Puedes cambiarlos cuando quieras.")}
+                  </p>
+                  <div className="handover-methods" role="group" aria-label={t("Dónde lo recibes")}>
+                    <button
+                      type="button"
+                      className={
+                        shippingKind === "packstation"
+                          ? "handover-method active"
+                          : "handover-method"
+                      }
+                      aria-pressed={shippingKind === "packstation"}
+                      onClick={() => setShippingChoice("packstation")}
+                    >
+                      <Package size={14} /> {t("Packstation")}
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        shippingKind === "address" ? "handover-method active" : "handover-method"
+                      }
+                      aria-pressed={shippingKind === "address"}
+                      onClick={() => setShippingChoice("address")}
+                    >
+                      <MapPin size={14} /> {t("Mi dirección")}
+                    </button>
+                  </div>
+                  {shippingKind === "packstation" ? (
+                    <>
+                      <label htmlFor="ship-number">
+                        {t("Número de cliente de DHL (Postnummer)")}
+                        <input
+                          id="ship-number"
+                          name="postNumber"
+                          inputMode="numeric"
+                          pattern="[0-9]{8,10}"
+                          maxLength={10}
+                          required
+                          defaultValue={request.delivery.shipping?.postNumber ?? ""}
+                          placeholder="123456789"
+                        />
+                        <small>
+                          {t("Aparece en la app Post & DHL después de registrarte gratis.")}
+                        </small>
+                      </label>
+                      <label htmlFor="ship-station">
+                        {t("Packstation")}
+                        <input
+                          id="ship-station"
+                          name="station"
+                          required
+                          defaultValue={request.delivery.shipping?.station ?? "Packstation "}
+                          placeholder="Packstation 123"
+                        />
+                      </label>
+                      <div className="shipping-row">
+                        <label htmlFor="ship-zip">
+                          {t("Código postal")}
+                          <input
+                            id="ship-zip"
+                            name="postalCode"
+                            inputMode="numeric"
+                            pattern="[0-9]{5}"
+                            maxLength={5}
+                            required
+                            defaultValue={request.delivery.shipping?.postalCode ?? ""}
+                            placeholder="10115"
+                          />
+                        </label>
+                        <label htmlFor="ship-city">
+                          {t("Ciudad de la Packstation")}
+                          <input
+                            id="ship-city"
+                            name="city"
+                            required
+                            defaultValue={request.delivery.shipping?.city ?? ""}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <label htmlFor="ship-street" className="ship-full">
+                        {t("Calle y número")}
+                        <input
+                          id="ship-street"
+                          name="street"
+                          required
+                          maxLength={120}
+                          defaultValue={request.delivery.shipping?.street ?? ""}
+                          placeholder="Torstraße 42"
+                        />
+                      </label>
+                      <div className="shipping-row">
+                        <label htmlFor="ship-zip">
+                          {t("Código postal")}
+                          <input
+                            id="ship-zip"
+                            name="postalCode"
+                            inputMode="numeric"
+                            pattern="[0-9]{5}"
+                            maxLength={5}
+                            required
+                            defaultValue={request.delivery.shipping?.postalCode ?? ""}
+                            placeholder="10119"
+                          />
+                        </label>
+                        <label htmlFor="ship-city">
+                          {t("Ciudad")}
+                          <input
+                            id="ship-city"
+                            name="city"
+                            required
+                            defaultValue={request.delivery.shipping?.city ?? ""}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
+                  {shippingError && (
+                    <p className="form-error" role="alert">
+                      {shippingError}
+                    </p>
+                  )}
+                  {shippingFeedback && (
+                    <p className="action-feedback" role="status">
+                      {shippingFeedback}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="share-button small"
+                    disabled={shippingBusy}
+                  >
+                    {shippingBusy ? t("Guardando…") : t("Guardar datos de envío")}
+                  </button>
+                </form>
+              )}
+
+              <details className="exchange-help">
+                <summary>{t("Cómo funciona una Packstation")}</summary>
+                <ul className="shipping-steps">
+                  <li>
+                    {t(
+                      "El registro en DHL es gratuito: con una cuenta de cliente y la app Post & DHL recibes tu Postnummer, un número personal que va siempre detrás de tu nombre.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Hay más de 19 000 Packstations y Poststations en Alemania y, en casi todas, puedes recoger a cualquier hora.",
+                    )}
+                  </li>
+                  <li>
+                    {t("DHL guarda el paquete hasta 9 días naturales y avisa por correo y en la app.")}
+                  </li>
+                  <li>
+                    {t(
+                      "La dirección solo lleva tu nombre, el Postnummer, «Packstation» con su número y el código postal y la ciudad: tu calle nunca aparece.",
+                    )}
+                  </li>
+                </ul>
+                <p className="form-hint">
+                  <a
+                    href="https://www.dhl.de/de/privatkunden/pakete-empfangen/an-einem-abholort-empfangen/packstation.html"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {t("Cómo funciona la Packstation en dhl.de")}
+                  </a>
+                </p>
+              </details>
+
+              <details className="exchange-help">
+                <summary>{t("Cómo enviarlo: Warensendung")}</summary>
+                <ol className="shipping-steps">
+                  <li>
+                    {t(
+                      "Lo más privado es una Packstation: quien recibe se registra gratis en DHL y obtiene su número de cliente (Postnummer) y una taquilla.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Si prefiere el correo normal, guarda su dirección en esta ventana. Es igual de válida y también va cifrada.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Copia en el paquete lo que dice la etiqueta: nombre, Postnummer y «Packstation 123», o la calle, y siempre el código postal y la ciudad. Nunca «Postlagernd»: es otro servicio.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Como remitente basta tu nombre, sin calle ni código postal: así no revelas dónde vives.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Envíalo como Warensendung: hasta 2 kg y 35,3 × 25 × 5 cm. No lleva seguimiento ni seguro.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Apunta a mano el código de entrega de 6 cifras en un papel y mételo dentro del libro: no hace falta imprimir nada.",
+                    )}
+                  </li>
+                  <li>
+                    {t(
+                      "Quien recibe lo recoge en la Packstation con la app Post & DHL y confirma el código aquí.",
+                    )}
+                  </li>
+                </ol>
+                <p className="form-hint">
+                  {t(
+                    "Precios orientativos de Deutsche Post: 2,70 € hasta 1 kg y 3,55 € hasta 2 kg. Confírmalos al enviarlo.",
+                  )}
+                </p>
+              </details>
+            </>
+          ) : (
+            <>
+              <p>
+                {request.status === "accepted" || request.status === "completed"
+                  ? t("Quedad donde os venga bien: un café, la biblioteca del barrio, la puerta del trabajo.")
+                  : t("Al aceptar el intercambio acordáis dónde os lo dais.")}
+              </p>
+              <p className="form-hint handover-privacy">
+                {t("La plataforma no pide ninguna dirección: el sitio lo elegís vosotros en la conversación.")}
+              </p>
+            </>
           )}
         </div>
       </div>
@@ -635,6 +1012,7 @@ export function ExchangeDialog({
           requestId={request.id}
           code={request.handoverCode}
           required={request.handoverCodeRequired}
+          method={request.delivery.method === "post" ? "post" : "in_person"}
           onVerified={onChanged}
         />
       )}
@@ -650,6 +1028,41 @@ export function ExchangeDialog({
         <p>
           {t("La clave privada se guarda solo en este navegador y nunca se envía al servidor. En otro dispositivo no se podrán leer los mensajes anteriores. Si cambias de dispositivo, pide a la otra persona que vuelva a escribirte desde el suyo.")}
         </p>
+        <p>
+          {t("Los datos de envío se guardan cifrados: solo los ve la persona que te manda el libro. Si eliges una Packstation, ni siquiera ella necesita tu dirección.")}
+        </p>
+
+        {/* Huella corta para comparar en persona: sin esto, `keyChanged` avisa
+            pero no hay forma sencilla de comprobar que la clave es la buena. */}
+        <div className="fingerprint-compare">
+          <p className="fingerprint-title">{t("Comprobar que hablamos con quien creemos")}</p>
+          <p className="form-hint">
+            {t("Tu huella y la de {name} tienen que coincidir con lo que veis cada uno en vuestra pantalla. En persona, deja que la otra persona escanee este código: la cámara le mostrará el mismo texto.", { name: thread?.peer.name ?? t("la otra persona") })}
+          </p>
+          <div className="fingerprint-row">
+            <div className="fingerprint-qr">
+              {fingerprintQr ? (
+                <Image
+                  src={fingerprintQr}
+                  alt={t("QR con tu huella de cifrado")}
+                  width={132}
+                  height={132}
+                  unoptimized
+                />
+              ) : null}
+            </div>
+            <dl className="fingerprint-list">
+              <div>
+                <dt>{t("Tu huella")}</dt>
+                <dd>{t(shortFingerprint(thread?.me.keyId ?? null))}</dd>
+              </div>
+              <div>
+                <dt>{thread?.peer.name ?? t("La otra persona")}</dt>
+                <dd>{t(shortFingerprint(thread?.peer.keyId ?? null))}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
       </details>
 
       {thread?.keyChanged && (

@@ -17,7 +17,10 @@ import { catalogParamsSchema } from "@/lib/validation";
  */
 
 /** Vistas que se pueden ver sin sesión. */
-const PUBLIC_VIEWS: readonly View[] = ["home", "discover"];
+// Solo la portada es pública. El catálogo (nombre y ciudad de cada lector
+// junto a sus libros) exige sesión: era accesible sin cuenta y, aunque
+// robots.txt ya evita indexarlo, cualquiera podía recorrerlo entero.
+const PUBLIC_VIEWS: readonly View[] = ["home"];
 
 type RawParams = Record<string, string | string[] | undefined>;
 
@@ -48,6 +51,9 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
   // `?profile=1` era la forma antigua de abrir los ajustes en un diálogo:
   // ahora la cuenta tiene página propia, así que los enlaces viejos se mueven.
   if (raw.profile === "1") redirect("/cuenta");
+  // Igual con «ofrecer un libro»: era una ventana sobre la portada y ahora es
+  // una página, así que los enlaces con `?offer=1` se redirigen a ella.
+  if (raw.offer === "1") redirect("/ofrecer");
 
   const [stats, activity] = await Promise.all([publicStats(), publicActivity()]);
   const snapshot = getSnapshot(user, params, { stats, activity });
@@ -78,7 +84,6 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
       snapshot={snapshot}
       openAuth={raw.auth === "1"}
       openNotifications={raw.notifications === "1"}
-      initialOfferOpen={raw.offer === "1"}
       nextPath={nextPath}
     />
   );

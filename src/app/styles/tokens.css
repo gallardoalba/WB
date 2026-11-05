@@ -7,7 +7,9 @@
   --ink: #222923;
   --ink-soft: #414a40;
   --muted: #5d645a;
-  --muted-2: #6a7167;
+  /* 4,85:1 sobre --paper-sunk: antes quedaba en 4,44 y no pasaba AA en las
+     tarjetas hundidas, donde vive la mayor parte de este texto secundario. */
+  --muted-2: #646b61;
   --line: #e3e3d9;
   --line-soft: #efefe8;
   --green: #2f5741;
@@ -18,6 +20,31 @@
   --coral: #b4503a;
   --coral-soft: #f6e3dc;
   --focus: #a8422c;
+  /* Texto sobre un relleno (botones y distintivos verdes): no es «blanco puro»
+     por casualidad, es el color que va encima del acento. */
+  --on-fill: #ffffff;
+  /* Séptimo tono: el de «tú» (avatar propio del menú y del topbar). */
+  --tone-self-bg: #f0d7c6;
+  --tone-self-ink: #7a5039;
+  /* Estados de un chip: pendiente, aceptado, cerrado, caducado. */
+  --status-pending-bg: #f8ecd4;
+  --status-pending-ink: #77521f;
+  --status-accepted-bg: #e2ecdf;
+  --status-accepted-ink: #33533a;
+  --status-completed-bg: #e2eaee;
+  --status-completed-ink: #35505d;
+  --status-expired-bg: #f2e3df;
+  --status-expired-ink: #7f3f30;
+  /* Borde con más presencia que --line (círculos y separadores). */
+  --line-strong: #d3ddcf;
+  /* Texto decorativo apagado (barras del breadcrumb). */
+  /* Solo para adornos (la barra de las migas). 3,2:1 sobre el papel: antes
+     1,84:1, ilegible en pantallas con brillo. */
+  --faint: #878b81;
+  /* Foto del hero: sin tinte en claro y atenuada de noche; el contorno de esa
+     tarjeta se separa del papel con un tono propio. */
+  --hero-veil: transparent;
+  --hero-border: #dcdcd1;
   /* Escala única de redondeo: paneles, controles y distintivos comparten
      proporción en toda la plataforma. */
   --radius: 12px;
@@ -34,13 +61,51 @@
   --space-7: 48px;
   --content-max: 1120px;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  /* Portadas sin imagen: tipos de imprenta antigua (ver `fonts.css`). */
+  --font-cover: "Tangerine", "Apple Chancery", "Segoe Script", cursive;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Escala tipográfica: seis pasos en vez de dieciocho tamaños sueltos. Por
+     debajo de 12 px solo quedan las iniciales de avatar, que no son texto
+     que haya que leer. */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  /* Borde de controles: 3,7:1 sobre papel y 4:1 sobre superficie, que es lo
+     que pide WCAG 1.4.11 para identificar un campo. `--line` sigue siendo el
+     separador decorativo (1,2:1) y no debe usarse en un control. */
+  --control-border: #7c8175;
+  /* Tonos de portada y avatar (fondo / tinta), siempre en pareja para que el
+     modo oscuro no herede un bloque claro. */
+  --tone-sage-bg: #dfe7d7;
+  --tone-sage-ink: #3d5137;
+  --tone-ochre-bg: #ece1c7;
+  --tone-ochre-ink: #5c4a26;
+  --tone-rose-bg: #ead6d1;
+  --tone-rose-ink: #653f38;
+  --tone-blue-bg: #d5e1e1;
+  --tone-blue-ink: #355050;
+  --tone-plum-bg: #e1dbe8;
+  --tone-plum-ink: #4a3d5a;
+  --tone-terracotta-bg: #e9d7cc;
+  --tone-terracotta-ink: #5f4133;
   --shadow-sm: 0 1px 2px rgba(30, 40, 30, 0.06);
   --shadow: 0 10px 30px rgba(30, 40, 30, 0.1);
   /* Variantes de papel que antes eran literales dispersos. */
   --paper-lift: #fbfbf6;
   --paper-sunk: #f1f1e9;
   --cover-bg: #e9e6d9;
+  /* Volumen de las portadas de reserva: lomo, brillo de papel y sombra del
+     corte. En claro tienen que notarse (si no, la portada parece un hueco);
+     en oscuro se bajan para no ensuciar. */
+  --cover-spine: rgba(38, 45, 33, 0.3);
+  --cover-sheen: rgba(255, 255, 255, 0.5);
+  --cover-shade: rgba(38, 45, 33, 0.14);
+  --cover-rule: rgba(38, 45, 33, 0.16);
+  /* Fondos translúcidos (barra inferior, cabeceras pegadas): en claro van
+     sobre papel, así que el valor debe cambiar con el tema. */
+  --glass: rgba(255, 254, 250, 0.97);
   color-scheme: light dark;
 }
 
@@ -67,8 +132,41 @@
     --coral: #dd8a75;
     --coral-soft: #38251f;
     --focus: #f0a080;
+    --on-fill: #ffffff;
+    --tone-self-bg: #3a2b23;
+    --tone-self-ink: #e7c6bd;
+    --status-pending-bg: #3a3020;
+    --status-pending-ink: #e6c88a;
+    --status-accepted-bg: #22302a;
+    --status-accepted-ink: #a8cca9;
+    --status-completed-bg: #1f2c2e;
+    --status-completed-ink: #a9cbcd;
+    --status-expired-bg: #38251f;
+    --status-expired-ink: #e0a292;
+    --line-strong: #444b3f;
+    --faint: #6f7568;
+    --hero-veil: rgba(21, 23, 15, 0.55);
+    --hero-border: #454c40;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    --glass: rgba(30, 33, 26, 0.96);
+    --cover-spine: rgba(0, 0, 0, 0.35);
+    --cover-sheen: rgba(255, 255, 255, 0.07);
+    --cover-shade: rgba(0, 0, 0, 0.25);
+    --cover-rule: rgba(255, 255, 255, 0.1);
+    --control-border: #6f7669;
+    --tone-sage-bg: #26332a;
+    --tone-sage-ink: #bcd6c4;
+    --tone-ochre-bg: #332e22;
+    --tone-ochre-ink: #ddcaa0;
+    --tone-rose-bg: #332628;
+    --tone-rose-ink: #e3bcb4;
+    --tone-blue-bg: #1f2c2e;
+    --tone-blue-ink: #a9cbcd;
+    --tone-plum-bg: #2a2433;
+    --tone-plum-ink: #cfc5e0;
+    --tone-terracotta-bg: #332720;
+    --tone-terracotta-ink: #e0bda9;
   }
 }
 
@@ -94,8 +192,41 @@
   --coral: #dd8a75;
   --coral-soft: #38251f;
   --focus: #f0a080;
+  --on-fill: #ffffff;
+  --tone-self-bg: #3a2b23;
+  --tone-self-ink: #e7c6bd;
+  --status-pending-bg: #3a3020;
+  --status-pending-ink: #e6c88a;
+  --status-accepted-bg: #22302a;
+  --status-accepted-ink: #a8cca9;
+  --status-completed-bg: #1f2c2e;
+  --status-completed-ink: #a9cbcd;
+  --status-expired-bg: #38251f;
+  --status-expired-ink: #e0a292;
+  --line-strong: #444b3f;
+  --faint: #6f7568;
+  --hero-veil: rgba(21, 23, 15, 0.55);
+  --hero-border: #454c40;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --glass: rgba(30, 33, 26, 0.96);
+  --cover-spine: rgba(0, 0, 0, 0.35);
+  --cover-sheen: rgba(255, 255, 255, 0.07);
+  --cover-shade: rgba(0, 0, 0, 0.25);
+  --cover-rule: rgba(255, 255, 255, 0.1);
+  --control-border: #6f7669;
+  --tone-sage-bg: #26332a;
+  --tone-sage-ink: #bcd6c4;
+  --tone-ochre-bg: #332e22;
+  --tone-ochre-ink: #ddcaa0;
+  --tone-rose-bg: #332628;
+  --tone-rose-ink: #e3bcb4;
+  --tone-blue-bg: #1f2c2e;
+  --tone-blue-ink: #a9cbcd;
+  --tone-plum-bg: #2a2433;
+  --tone-plum-ink: #cfc5e0;
+  --tone-terracotta-bg: #332720;
+  --tone-terracotta-ink: #e0bda9;
 }
 
 :root[data-theme="light"] {
@@ -135,6 +266,9 @@ textarea {
 
 a {
   color: inherit;
+  /* Ningún texto se subraya: lo que cambia al pasar el ratón es el color o el
+     peso, nunca una línea bajo el texto. */
+  text-decoration: none;
 }
 
 button:focus-visible,
@@ -164,6 +298,9 @@ summary:focus-visible {
   z-index: 100;
   top: 10px;
   left: 10px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: var(--green-fill);

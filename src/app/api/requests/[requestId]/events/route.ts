@@ -1,6 +1,7 @@
 import { handleApiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { onRequestMessage } from "@/lib/live";
+import { ApiError } from "@/lib/errors";
+import { acquireStream, onRequestMessage, releaseStream } from "@/lib/live";
 import { requestMessageStamp } from "@/lib/repo";
 import { guard } from "@/lib/throttle";
 
@@ -30,6 +31,17 @@ export async function GET(
       windowMs: 60 * 60 * 1000,
     });
     const initial = requestMessageStamp(requestId, user.id);
+    // Una pestaña necesita un flujo; el resto serían consultas a la base sin
+    // utilidad. Se limita lo simultáneo, no solo las aperturas por hora.
+    if (!acquireStream(user.id)) {
+      throw new ApiError(429, "Tienes demasiadas conversaciones abiertas. Cierra alguna pestaña.");
+    }
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      releaseStream(user.id);
+    };
     const encoder = new TextEncoder();
     let last = `${initial.count}:${initial.lastId ?? ""}`;
     let poll: ReturnType<typeof setInterval> | undefined;
@@ -42,6 +54,7 @@ export async function GET(
       unsubscribe?.();
       if (poll) clearInterval(poll);
       if (heartbeat) clearInterval(heartbeat);
+      release();
     };
 
     const stream = new ReadableStream<Uint8Array>({

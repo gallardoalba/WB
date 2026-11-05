@@ -39,13 +39,51 @@ async function main() {
     !home.headers.get("x-powered-by"),
     home.headers.get("x-powered-by") ?? "ausente",
   );
+  // Sin este id no se puede unir lo que ve una persona con la traza del registro.
+  const requestId = home.headers.get("x-request-id");
+  record(
+    "Id de petición en la respuesta",
+    Boolean(requestId && requestId.length >= 8),
+    requestId ?? "ausente",
+  );
+  const api = await expectStatus("/api/notifications", 401);
+  record(
+    "El id acompaña también a los errores de la API",
+    Boolean(api.headers.get("x-request-id")),
+    api.headers.get("x-request-id") ?? "ausente",
+  );
 
   await expectStatus("/robots.txt", 200);
   await expectStatus("/sitemap.xml", 200);
   await expectStatus("/api/health", 200);
-  await expectStatus("/admin", [404, 200]); // 404 sin sesión, 200 con ella
+  // Páginas legales: sin ellas el servicio no debería abrirse al público.
+  await expectStatus("/privacidad", 200);
+  const privacy = await expectStatus("/aviso-legal", 200);
+  const legalHtml = await privacy.text();
+  record(
+    "Datos del responsable configurados",
+    !legalHtml.includes("legal-warning"),
+    legalHtml.includes("legal-warning")
+      ? "falta LEGAL_CONTROLLER / LEGAL_ADDRESS / LEGAL_CONTACT_EMAIL"
+      : "aviso legal completo",
+  );
+  record(
+    "CSP sin imágenes de terceros",
+    !/img-src[^;]*https?:/.test(csp),
+    /img-src[^;]*https?:/.test(csp) ? "hay orígenes externos en img-src" : "solo el propio origen",
+  );
+  // Sin sesión, /admin puede responder 404/307 o una «cáscara» 200 con la
+  // redirección en el flujo RSC: lo que no puede es servir el panel.
+  const admin = await expectStatus("/admin", [307, 404, 200]);
+  if (admin.status === 200) {
+    const html = await admin.text();
+    record(
+      "/admin sin sesión redirige al acceso",
+      html.includes("next=%2Fadmin"),
+      html.includes("next=%2Fadmin") ? "redirección presente" : "sin marca de redirección",
+    );
+  }
   await expectStatus("/api/account/export", 401);
-  await expectStatus("/api/notifications", 401);
 
   // Una mutación sin JSON ni origen debe rechazarse.
   const bad = await fetch(`${BASE}/api/auth/login`, {

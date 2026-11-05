@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { MapPin, MessageCircle } from "lucide-react";
 import { BookCover } from "@/components/book-cover";
+import { BookCoverUpload } from "@/components/book-cover-upload";
 import { ListingActions } from "@/components/listing-actions";
 import { SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
@@ -59,11 +60,19 @@ export default async function Page({ params }: PageProps) {
           <BookCover
             id={listing.id}
             title={listing.title}
+            author={listing.author}
             coverUrl={listing.coverUrl}
             sizes="(max-width: 700px) 70vw, 280px"
           />
           <span className="condition-tag">{t(listing.condition)}</span>
         </div>
+
+        {listing.isMine && (
+          <BookCoverUpload
+            bookId={listing.bookId}
+            hasUploaded={listing.coverUrl?.startsWith("/api/cover/book/") ?? false}
+          />
+        )}
 
         <div className="book-detail-info">
           <span className="book-category">{t(listing.category)}</span>
@@ -127,6 +136,7 @@ export default async function Page({ params }: PageProps) {
             isAuthenticated={Boolean(user)}
             myRequestStatus={listing.myRequestStatus}
             condition={listing.condition}
+            category={listing.category}
             city={listing.city}
             notes={listing.notes}
             tags={listing.tags}

@@ -4,79 +4,32 @@ import { before, test } from "node:test";
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
-type DbModule = typeof import("../src/lib/db.ts");
-type OfficesModule = typeof import("../src/lib/post-offices.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type E2eModule = typeof import("../src/lib/e2e.ts");
 
 let repo: RepoModule;
 let dbModule: DbModule;
-let offices: OfficesModule;
 let e2e: E2eModule;
 let encryptedMessageId = "";
 
 before(async () => {
   repo = await import("../src/lib/repo.ts");
-  dbModule = await import("../src/lib/db.ts");
-  offices = await import("../src/lib/post-offices.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   e2e = await import("../src/lib/e2e.ts");
 });
 
-test("la base incluye punto de entrega y sobre cifrado", () => {
+test("la base incluye los datos de envío y el sobre cifrado", () => {
   const db = dbModule.getDb();
   assert.equal(db.pragma("user_version", { simple: true }), dbModule.SCHEMA_VERSION);
   const columns = (table: string) =>
     (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
-  assert.ok(columns("requests").includes("handover_office_id"));
+  for (const column of ["ship_kind", "ship_street", "ship_postal_code"]) {
+    assert.ok(columns("requests").includes(column), `falta ${column}`);
+  }
+  assert.equal(columns("requests").includes("handover_office_id"), false);
   for (const column of ["ciphertext", "iv", "encrypted"]) {
     assert.ok(columns("messages").includes(column), `falta ${column}`);
   }
-});
-
-test("las ciudades de Baden-Württemberg tienen una oficina de Deutsche Post cerca", () => {
-  const badenWuerttemberg = ["Stuttgart", "Freiburg im Breisgau", "Tübingen", "Mannheim", "Ulm"];
-  for (const name of badenWuerttemberg) {
-    const office = offices.nearestPostOffice(name);
-    assert.ok(office, `sin oficina para ${name}`);
-    assert.ok(office!.street, `sin dirección para ${name}`);
-    assert.ok(office!.distanceKm <= 20, `${name} queda a ${office!.distanceKm} km`);
-  }
-  // Fuera del conjunto cubierto no se propone una oficina lejana.
-  assert.equal(offices.nearestPostOffice("Berlin"), null);
-  assert.deepEqual(offices.officesForCity("München"), []);
-  assert.ok(offices.officesForCity("Stuttgart").every((office) => office.distanceKm <= 25));
-  // El identificador de una oficina desconocida no se resuelve.
-  assert.equal(offices.findPostOffice("dp_inventada"), null);
-});
-
-test("aceptar fija la oficina más cercana a quien entrega el libro", () => {
-  const updated = repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted");
-  assert.equal(updated.status, "accepted");
-  assert.equal(updated.delivery.method, "pickup");
-  const expected = offices.nearestPostOffice("Stuttgart")!;
-  assert.equal(updated.delivery.pickupPoint?.id, expected.id);
-  assert.equal(updated.delivery.pickupPoint?.street, expected.street);
-
-  // El aviso lleva el local público, nunca una dirección privada.
-  const notification = repo
-    .listNotifications("usr_diego")
-    .find((item) => item.requestId === "req_seed_2");
-  assert.ok(notification);
-  assert.match(notification!.body, /Punto de entrega/);
-});
-
-test("cualquiera de las dos partes puede cambiar el punto de entrega", () => {
-  const alternative = offices.officesForCity("Mannheim", 2)[1]!;
-  const updated = repo.setHandoverOffice("req_seed_2", "usr_diego", alternative.id);
-  assert.equal(updated.delivery.pickupPoint?.id, alternative.id);
-
-  assert.throws(
-    () => repo.setHandoverOffice("req_seed_2", "usr_diego", "dp_inventada"),
-    (error: unknown) => error instanceof Error && error.message.includes("no existe"),
-  );
-  assert.throws(
-    () => repo.setHandoverOffice("req_seed_2", "usr_lucia", alternative.id),
-    (error: unknown) => error instanceof Error && error.message.includes("no existe"),
-  );
 });
 
 test("los mensajes cifrados no dejan texto plano en el servidor", async () => {
@@ -226,7 +179,7 @@ test("el secreto TOTP se guarda cifrado y sigue funcionando", async () => {
     .getDb()
     .prepare("SELECT totp_secret FROM users WHERE id = ?")
     .get("usr_marcos") as { totp_secret: string };
-  assert.match(stored.totp_secret, /^enc:v1:/);
+  assert.match(stored.totp_secret, /^enc:v2:/);
   assert.equal(stored.totp_secret.includes(setup.secret), false);
 
   const code = totp.totpCode(setup.secret, totp.totpStep());

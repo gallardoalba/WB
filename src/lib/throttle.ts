@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { getDb } from "./db";
 import { ApiError } from "./errors";
 
@@ -109,6 +110,40 @@ function trustedProxyHops(): number {
 
 export function clientIp(request: Request): string {
   return clientIpFrom((name) => request.headers.get(name));
+}
+
+let cachedSalt = { day: "", key: "" };
+
+/**
+ * Clave del limitador, que va a la base de datos: no es la IP, es un pseudónimo
+ * con sal que cambia cada día.
+ *
+ * Una IP es un dato personal y el limitador no necesita la dirección, solo
+ * distinguir clientes. La sal se deriva (`APP_ENCRYPTION_KEY` o, en desarrollo,
+ * un valor fijo) y del día: sin la clave no se puede volver a la IP, y la misma
+ * dirección deja de ser reconocible al día siguiente.
+ */
+export function pseudonymizeIp(ip: string): string {
+  if (ip === "direct") return "direct";
+  const day = new Date().toISOString().slice(0, 10);
+  if (cachedSalt.day !== day) {
+    const secret = process.env.APP_ENCRYPTION_KEY?.trim() || "desarrollo-wanderbibliothek";
+    cachedSalt = {
+      day,
+      key: createHmac("sha256", secret).update(`throttle:${day}`).digest("hex"),
+    };
+  }
+  return createHmac("sha256", cachedSalt.key).update(ip).digest("hex").slice(0, 32);
+}
+
+/** Igual que `clientIpFrom`, pero devolviendo el pseudónimo que se guarda. */
+export function clientKeyFrom(get: (name: string) => string | null): string {
+  return pseudonymizeIp(clientIpFrom(get));
+}
+
+/** Clave del limitador para esta petición (nunca la IP en claro). */
+export function clientKey(request: Request): string {
+  return clientKeyFrom((name) => request.headers.get(name));
 }
 
 /** Rechaza mutaciones cuyo Origin no coincide con el Host atendido. */

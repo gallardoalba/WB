@@ -33,6 +33,29 @@
   width: min(500px, 100%);
 }
 
+/* El intercambio tiene que caber de una vez: etiqueta, formulario, código e
+   hilo de mensajes. Con 500 px todo se partía en columnas de 2 palabras. */
+.dialog.add-dialog.exchange-dialog {
+  width: min(880px, 100%);
+  padding: 28px 30px;
+}
+
+@media (max-width: 640px) {
+  .dialog.add-dialog.exchange-dialog {
+    padding: 22px 16px;
+  }
+}
+
+/* En un diálogo ancho las burbujas no deben llegar a 680 px: la medida cómoda
+   de lectura ronda los 60-70 caracteres. */
+.exchange-dialog .message {
+  max-width: min(85%, 62ch);
+}
+
+.exchange-dialog .message-thread {
+  max-height: 340px;
+}
+
 .dialog-close {
   position: absolute;
   top: 12px;
@@ -154,40 +177,103 @@
   font-weight: 700;
 }
 
-.isbn-scanner {
-  display: grid;
-  gap: 7px;
-}
-
-.isbn-scan-button {
-  justify-self: start;
-  display: inline-flex;
+/* ISBN, botón de escáner y vista previa de la portada en una sola fila. */
+.isbn-input-row {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
-.isbn-scanner-live {
-  display: grid;
-  gap: 8px;
-  padding: 8px;
+.isbn-input-row > input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.isbn-preview {
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--cover-bg);
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+/* La ficha del catálogo manda cuando el ISBN ya existe. */
+.known-book-note {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* Ningún catálogo conoce la edición: se avisa y se permite escribir a mano. */
+.isbn-missing {
+  padding-left: 10px;
+  border-left: 3px solid var(--line);
+  color: var(--ink-soft);
+}
+
+.listing-form input[readonly] {
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+}
+
+/* Autocompletado de ciudad: lista propia, funciona en móvil y con teclado. */
+.city-field {
+  position: relative;
+}
+
+.city-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Más específico que `.listing-form input` para que el icono no pise el texto. */
+.city-field .city-input-wrap input {
+  padding-left: 34px;
+}
+
+.city-input-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--muted-2);
+  pointer-events: none;
+}
+
+.city-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  max-height: 244px;
+  overflow-y: auto;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  box-shadow: var(--shadow);
 }
 
-.isbn-scanner-live video {
-  width: 100%;
-  max-height: 220px;
-  border-radius: var(--radius-sm);
-  background: #111;
-  object-fit: cover;
+.city-list li[role="option"] {
+  padding: 9px var(--space-2);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink);
 }
 
-.isbn-scanner-live .secondary-button {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.city-list li[role="option"]:hover,
+.city-list li[aria-selected="true"] {
+  background: var(--green-pale);
+  color: var(--ink);
+}
+
+.city-list-empty {
+  padding: 9px var(--space-2);
+  font-size: 13px;
+  color: var(--muted-2);
 }
 
 .listing-form input,
@@ -199,7 +285,7 @@
   width: 100%;
   min-height: 44px;
   padding: 10px 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
@@ -211,6 +297,23 @@
 .report-box textarea {
   resize: vertical;
   line-height: 1.5;
+}
+
+/* Género e idioma cuando los pone el ISBN: no se eligen, así que no llevan
+   flecha ni se atenúan como un control deshabilitado. */
+.listing-form select.auto-field,
+.listing-form select.auto-field:disabled {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: none;
+  padding-right: 11px;
+  color: var(--ink);
+  opacity: 1;
+  cursor: default;
+}
+
+.listing-form select.auto-field::-ms-expand {
+  display: none;
 }
 
 .form-row {
@@ -228,8 +331,8 @@
   margin: 0;
   padding: 10px 11px;
   border-radius: var(--radius-sm);
-  background: #fbeae5;
-  color: #8f3f2b;
+  background: var(--coral-soft);
+  color: var(--coral);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -324,13 +427,13 @@
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: #fafaf5;
+  background: var(--paper-sunk);
 }
 
 .message {
   max-width: 85%;
   padding: 9px 11px;
-  border: 1px solid #eceded;
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius-xs);
   background: var(--surface);
 }
@@ -358,6 +461,13 @@
 .message-form {
   display: flex;
   gap: 8px;
+  /* Aire con el aviso de cifrado pendiente y con la lista de mensajes. */
+  margin-top: 14px;
+}
+
+.message-thread + .form-note,
+.form-note + .message-form {
+  margin-top: 16px;
 }
 
 .message-form input {
@@ -365,7 +475,7 @@
   min-width: 0;
   min-height: 44px;
   padding: 0 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   font-size: 14px;
@@ -432,6 +542,16 @@
   border-radius: var(--radius-xs);
 }
 
+.handover-code-card {
+  justify-self: start;
+  width: 100%;
+  max-width: 420px;
+}
+
+.handover-code > .secondary-button {
+  justify-self: start;
+}
+
 .handover-code-value {
   justify-self: center;
   padding: 6px 14px;
@@ -452,9 +572,12 @@
 }
 
 .handover-code input {
+  /* Sin `width` el campo usa su ancho intrínseco y se sale de la columna. */
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   padding: 8px 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
@@ -464,32 +587,6 @@
 
 .handover-code .share-button {
   justify-self: start;
-}
-
-.handover-picker {
-  display: block;
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.handover-picker select {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font: inherit;
-  font-size: 13px;
-}
-
-.handover-attribution {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted-2);
-  font-size: 11px;
 }
 
 .form-note {
@@ -516,7 +613,7 @@
   gap: 8px;
   margin-top: 10px;
   padding: 10px 12px;
-  border: 1px solid #e7c6bd;
+  border: 1px solid var(--coral);
   border-radius: var(--radius-sm);
   background: var(--coral-soft);
   color: var(--ink-soft);
@@ -559,7 +656,7 @@
   width: 100%;
   min-height: 56px;
   padding: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   font: inherit;
@@ -611,7 +708,7 @@
 .profile-stats div {
   padding: 11px 6px;
   border-radius: var(--radius-sm);
-  background: #f1f3ed;
+  background: var(--paper-sunk);
 }
 
 .profile-stats strong {
@@ -666,6 +763,499 @@
   margin: 8px 0;
   padding: 6px;
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--surface);
 }
 
+
+/* Consentimiento en el registro (16+): casilla y texto en la misma línea. */
+.consent-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.consent-field input {
+  width: 16px;
+  height: 16px;
+  /* `.listing-form input` da 44 px de alto y relleno de campo de texto: en una
+     casilla eso la saca de la línea y descoloca el texto. */
+  min-height: 0;
+  margin-top: 2px;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--green);
+}
+
+.consent-field label {
+  font-weight: 400;
+}
+
+.consent-field a {
+  color: var(--green);
+  font-weight: 700;
+}
+
+/* Mensajes directos entre seguidores mutuos. */
+.dm-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.dm-reason {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dm-reason svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--coral);
+}
+
+.dm-thread {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+}
+
+.dm-line {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.dm-line.mine {
+  justify-content: flex-end;
+}
+
+.dm-bubble {
+  max-width: 76%;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.dm-line.mine .dm-bubble {
+  border-color: var(--line-strong);
+  background: var(--green-pale);
+}
+
+.dm-bubble p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dm-bubble time {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-2);
+  font-size: 11px;
+}
+
+.dm-unreadable {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.dm-empty {
+  margin: 0;
+  padding: 14px 6px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.dm-composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.dm-composer textarea {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  resize: vertical;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dm-composer textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.dm-composer button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+/* La huella no se parte en dos líneas en pantallas estrechas. */
+.dm-dialog .encryption-note strong {
+  white-space: nowrap;
+}
+
+.dm-badge {
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--coral);
+  color: var(--on-fill);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+@media (max-width: 480px) {
+  .dm-bubble {
+    max-width: 88%;
+  }
+
+  .dm-composer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dm-composer button {
+    justify-content: center;
+    margin-bottom: 0;
+  }
+
+  .dm-thread {
+    max-height: 36vh;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Entrega por correo: Packstation, etiqueta y datos de envío          */
+/* ------------------------------------------------------------------ */
+
+/* Los botones de texto con icono de la tarjeta de entrega, en una sola línea. */
+.handover-card .message-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.handover-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.handover-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.handover-method:hover {
+  border-color: var(--green);
+}
+
+.handover-method[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--on-fill);
+}
+
+.handover-method:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Etiqueta con el mismo texto que se pega en el paquete. */
+.post-label {
+  display: grid;
+  gap: 2px;
+  /* Es una etiqueta de paquete: con el diálogo ancho no debe estirarse a lo
+     ancho de toda la ventana. */
+  max-width: 380px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.post-label p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.post-label-service {
+  margin-bottom: 6px !important;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.post-label-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.post-label-sender {
+  margin-top: 8px !important;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.shipping-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+/* Estado del paso de entrega: lo primero que se lee de la tarjeta. */
+.handover-status {
+  margin: 6px 0 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--green-pale);
+  color: var(--green-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Siempre desplegado: es el paso que bloquea el envío, no una opción. */
+.shipping-form-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.shipping-form > .form-hint {
+  margin: -4px 0 2px;
+}
+
+.shipping-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.shipping-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.shipping-form small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.shipping-form .share-button {
+  justify-self: start;
+}
+
+/* Con el diálogo ancho, los campos van a dos columnas: Postnummer | Packstation
+   y CP | ciudad. Así no hay campos de 800 px para nueve cifras. */
+@media (min-width: 720px) {
+  .shipping-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 14px;
+    align-items: start;
+  }
+
+  .shipping-form > .shipping-form-title,
+  .shipping-form > .form-hint,
+  .shipping-form > .handover-methods,
+  .shipping-form > .form-error,
+  .shipping-form > .action-feedback,
+  .shipping-form > .shipping-row,
+  .shipping-form > .ship-full,
+  .shipping-form > .share-button {
+    grid-column: 1 / -1;
+  }
+}
+
+.shipping-row > label {
+  min-width: 0;
+}
+
+.shipping-row {
+  display: grid;
+  /* Dos columnas iguales: con 110 px fijos la etiqueta «Código postal» se salía
+     de su celda y los dos campos quedaban desalineados. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .shipping-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exchange-help a {
+  color: var(--green-strong);
+  font-weight: 700;
+  text-underline-offset: 2px;
+}
+
+.shipping-steps {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 6px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Tarjeta del código de entrega (se copia a mano, no se imprime). */
+.handover-code-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: center;
+}
+
+.handover-code-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.handover-code-card .post-label-service {
+  margin: 0 !important;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.handover-code-card .handover-code-value {
+  margin: 6px 0 2px;
+  background: transparent;
+  font-size: 30px;
+}
+
+/* Comparar huellas: el QR y las dos huellas cortas, para el careo en persona. */
+.fingerprint-compare {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.fingerprint-title {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fingerprint-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.fingerprint-qr {
+  flex: 0 0 auto;
+  width: 132px;
+  height: 132px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: #ffffff;
+}
+
+.fingerprint-qr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fingerprint-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+
+.fingerprint-list dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.fingerprint-list dd {
+  margin: 2px 0 0;
+  color: var(--green-strong);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}

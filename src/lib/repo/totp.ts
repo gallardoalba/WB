@@ -1,6 +1,6 @@
 import { getDb } from "../db";
 import { ApiError } from "../errors";
-import { decryptSecret, encryptSecret } from "../secret-box";
+import { decryptSecret, encryptSecret, totpContext } from "../secret-box";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "../totp";
 import { getUserById } from "./users";
 
@@ -42,7 +42,7 @@ export function startTotpSetup(userId: string): { secret: string; otpauthUrl: st
     .prepare(
       "UPDATE users SET totp_secret = ?, totp_enabled_at = NULL, totp_last_step = NULL WHERE id = ?",
     )
-    .run(encryptSecret(secret), userId);
+    .run(encryptSecret(secret, totpContext(userId)), userId);
 
   return { secret, otpauthUrl: otpauthUrl(secret, user.email) };
 }
@@ -53,7 +53,9 @@ export function enableTotp(userId: string, code: string): void {
   if (!row?.totp_secret) throw new ApiError(409, "Genera primero el secreto de verificación.");
   if (row.totp_enabled_at) throw new ApiError(409, "La verificación en dos pasos ya está activa.");
 
-  const step = verifyTotp(decryptSecret(row.totp_secret), code, { window: 1 });
+  const step = verifyTotp(decryptSecret(row.totp_secret, totpContext(userId)), code, {
+    window: 1,
+  });
   if (step === null) throw new ApiError(422, "El código no es válido o ha caducado.");
 
   getDb()
@@ -82,7 +84,7 @@ export function verifyUserTotp(userId: string, code: string): boolean {
   const row = readRow(userId);
   if (!row?.totp_secret || !row.totp_enabled_at) return true;
 
-  const step = verifyTotp(decryptSecret(row.totp_secret), code, {
+  const step = verifyTotp(decryptSecret(row.totp_secret, totpContext(userId)), code, {
     window: 1,
     afterStep: row.totp_last_step ?? 0,
   });

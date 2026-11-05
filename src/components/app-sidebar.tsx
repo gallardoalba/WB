@@ -7,6 +7,8 @@ import {
   Compass,
   Heart,
   Lock,
+  Plus,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import type { SessionUser, View } from "@/lib/domain";
@@ -25,6 +27,7 @@ export function AppSidebar({
   onOpenAuth,
   onOpenNotifications,
   onLoggedOut,
+  onOffer,
 }: {
   user: SessionUser | null;
   view: View;
@@ -35,6 +38,8 @@ export function AppSidebar({
   onOpenAuth: () => void;
   onOpenNotifications: () => void;
   onLoggedOut: () => void;
+  /** Abrir «Ofrecer un libro» (pide sesión si no la hay). */
+  onOffer: () => void;
 }) {
   const { t } = useI18n();
   const privateClass = (active: boolean, locked: boolean) =>
@@ -53,14 +58,27 @@ export function AppSidebar({
 
       <nav className="primary-nav" aria-label={t("Navegación principal")}>
         <button
-          className={
-            view === "home" || view === "discover" ? "nav-item active" : "nav-item"
-          }
+          className={privateClass(
+            view === "home" || view === "discover",
+            !user,
+          )}
           aria-current={view === "home" || view === "discover" ? "page" : undefined}
-          onClick={() => onNavigate("discover")}
+          aria-label={user ? undefined : t("Entra para ver el catálogo")}
+          onClick={() => (user ? onNavigate("discover") : onOpenAuth())}
         >
-          <Compass size={18} />
+          {user ? <Compass size={18} /> : <Lock size={18} />}
           <span>{t("Descubrir")}</span>
+        </button>
+        {/* Publicar va justo debajo de Descubrir: es la otra acción
+            principal, con el mismo estilo que el resto del menú. */}
+        <button
+          className={privateClass(view === "offer", !user)}
+          aria-current={view === "offer" ? "page" : undefined}
+          aria-label={user ? undefined : t("Entra para ofrecer un libro")}
+          onClick={onOffer}
+        >
+          {user ? <Plus size={18} /> : <Lock size={18} />}
+          <span>{t("Ofrecer un libro")}</span>
         </button>
         <button
           className={privateClass(view === "shelf", !user)}
@@ -104,6 +122,18 @@ export function AppSidebar({
           <span>{t("Comunidad")}</span>
         </button>
       </nav>
+
+      {/* La administración tiene la misma entrada que en las páginas internas:
+          antes solo aparecía al abrir un libro o la ficha, porque esas vistas
+          usan el otro armazón (SiteRail), y en el catálogo no estaba. */}
+      {user?.isAdmin && (
+        <nav className="primary-nav" aria-label={t("Administración")}>
+          <Link className="nav-item" href="/admin">
+            <ShieldCheck size={18} />
+            <span>{t("Moderación")}</span>
+          </Link>
+        </nav>
+      )}
 
       <AccountMenu
         user={user}

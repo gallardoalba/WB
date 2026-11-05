@@ -3,6 +3,11 @@ Description=Wanderbibliothek (wanderbibliothek)
 Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
 After=network-online.target
 Wants=network-online.target
+# Si el entorno está incompleto el proceso arranca y responde 500 (no muere),
+# así que estos límites solo cubren un fallo real de arranque (puerto ocupado,
+# base corrupta…). Sin ellos systemd reintentaría en bucle cada 3 s.
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
 Type=simple
@@ -13,6 +18,11 @@ Group=wanderbibliothek
 WorkingDirectory=/srv/wanderbibliothek/current
 EnvironmentFile=/etc/wanderbibliothek/env
 Environment=NODE_ENV=production
+# Sin telemetría: el servidor no debe abrir conexiones a Vercel por su cuenta.
+Environment=NEXT_TELEMETRY_DISABLED=1
+# Todo lo que cree el servicio (caché, copias, temporales) nace sin permisos
+# para el resto de usuarios del host.
+UMask=0077
 
 # Solo escucha en loopback: el TLS y el tráfico público los pone nginx.
 ExecStart=/usr/bin/node /srv/wanderbibliothek/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
@@ -27,13 +37,24 @@ KillSignal=SIGTERM
 # escribe su caché de datos en `.next/cache` dentro de la release.
 NoNewPrivileges=yes
 PrivateTmp=yes
+PrivateDevices=yes
 ProtectSystem=full
 ProtectHome=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+# El servicio no necesita ver los procesos de otras cuentas del host.
+ProtectProc=invisible
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
 LockPersonality=yes
+SystemCallArchitectures=native
 ReadWritePaths=/var/lib/wanderbibliothek /var/backups/wanderbibliothek
 
 [Install]

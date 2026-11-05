@@ -8,6 +8,21 @@ Type=oneshot
 User=wanderbibliothek
 Group=wanderbibliothek
 EnvironmentFile=/etc/wanderbibliothek/env
+UMask=0077
 # El token viaja por la cabecera Authorization; el endpoint responde 404 si
-# MAINTENANCE_TOKEN no está definido.
+# MAINTENANCE_TOKEN no está definido. nginx además solo lo deja entrar desde
+# loopback (ver deploy/nginx.conf).
+# `sh -c` expande la variable: mientras dura la llamada, el token es visible en
+# `/proc/<pid>/cmdline` para las cuentas locales. Si eso importa, mueve la
+# cabecera a un fichero de configuración de curl (`curl -K`, modo 0600).
 ExecStart=/bin/sh -c 'curl -fsS -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" http://127.0.0.1:3000/api/cron/maintenance'
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes

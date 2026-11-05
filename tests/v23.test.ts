@@ -36,7 +36,7 @@ test("una incidencia de intercambio exige descripción y participantes", () => {
     .listReports()
     .find((report) => report.targetType === "request");
   assert.ok(incident);
-  assert.match(incident!.targetLabel, /Poeta chileno/);
+  assert.match(incident!.targetLabel, /Gott und der Staat/);
   assert.equal(incident!.reason, "El libro no llegó");
 
   assert.throws(

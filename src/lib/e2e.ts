@@ -127,6 +127,18 @@ export function messageAad(
   return `wanderbibliothek:v1|request:${requestId}|sender:${senderId}|key:${keyId}`;
 }
 
+/**
+ * Contexto autenticado de un mensaje directo: ata el sobre a esa conversación,
+ * a quien lo escribe y a la clave usada, para que no se pueda reutilizar.
+ */
+export function directAad(
+  conversationId: string,
+  senderId: string,
+  keyId: string,
+): string {
+  return `wanderbibliothek:v1|${conversationId}|sender:${senderId}|key:${keyId}`;
+}
+
 /** Identidad guardada en este navegador, si existe. */
 export async function loadIdentity(): Promise<Identity | null> {
   if (!isEncryptionSupported()) return null;

@@ -1,7 +1,7 @@
 import { getDb } from "../db";
 import { findCity } from "../cities";
 import { ApiError } from "../errors";
-import { normalizeText } from "../text";
+import { normalizeCoverUrl, normalizeText } from "../text";
 import type { ListingStatus, ListingView, RequestStatus } from "../domain";
 
 export function nowIso(): string {
@@ -87,6 +87,38 @@ export const VISIBILITY = `l.status <> 'removed'`;
 export const OWNER_ACTIVE = `NOT EXISTS (
   SELECT 1 FROM users su WHERE su.id = l.owner_id AND su.is_suspended = 1
 )`;
+
+/**
+ * Todos los libros que son la **misma obra**: el propio y sus otras ediciones.
+ *
+ * Con la clave de obra, «El infinito en un junco» en tapa dura y en bolsillo
+ * (dos ISBN) comparten conversación y ejemplares. Una fila antigua sin clave se
+ * queda sola en lugar de mezclarse con nada.
+ */
+export function workBookIds(bookId: string): string[] {
+  const db = getDb();
+  const row = db.prepare("SELECT work_key FROM books WHERE id = ?").get(bookId) as
+    | { work_key: string | null }
+    | undefined;
+  if (!row?.work_key) return [bookId];
+  const rows = db.prepare("SELECT id FROM books WHERE work_key = ?").all(row.work_key) as {
+    id: string;
+  }[];
+  return rows.length > 0 ? rows.map((item) => item.id) : [bookId];
+}
+
+/** Lista SQL `col IN (…)` con los ids dados, sin interpolar valores. */
+export function workIdsClause(
+  column: string,
+  ids: readonly string[],
+): { clause: string; params: Record<string, string> } {
+  const params: Record<string, string> = {};
+  const placeholders = ids.map((id, index) => {
+    params[`book${index}`] = id;
+    return `@book${index}`;
+  });
+  return { clause: `${column} IN (${placeholders.join(",")})`, params };
+}
 /** Bloqueo cruzado genérico entre quien mira (`viewerParam`) y otra columna. */
 export const blockPair = (viewerParam: string, otherExpr: string) => `
   NOT EXISTS (
@@ -120,7 +152,9 @@ export function toListingView(row: ListingRow): ListingView {
     condition: row.book_condition,
     city: row.city,
     distanceKm: row.distance_km,
-    coverUrl: row.cover_url,
+    // Cualquier URL antigua de Open Library se sirve desde la app: la CSP solo
+    // permite imágenes del propio origen.
+    coverUrl: normalizeCoverUrl(row.cover_url, row.isbn),
     status: row.status,
     createdAt: row.created_at,
     notes: row.notes,

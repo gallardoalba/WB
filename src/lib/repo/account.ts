@@ -12,7 +12,10 @@ export function deleteAccount(userId: string): void {
   const anonymousEmail = `deleted-${randomUUID()}@wanderbibliothek.invalid`;
 
   db.transaction(() => {
-    db.prepare("UPDATE listings SET status = 'removed' WHERE owner_id = ?").run(userId);
+    // El ejemplar no se borra (las solicitudes lo referencian), pero sus notas
+    // son texto libre de la persona —«lo dejé a nombre de…»— y no tienen por
+    // qué sobrevivir a la cuenta: fuera antes de retirarlo.
+    db.prepare("UPDATE listings SET status = 'removed', notes = '' WHERE owner_id = ?").run(userId);
     // Cancelar sin más dejaría los ejemplares de la otra parte en `reserved`
     // para siempre; el helper reutiliza la misma transición que la UI.
     cancelExchangesForAccount(userId);
@@ -38,6 +41,12 @@ export function deleteAccount(userId: string): void {
     db.prepare("DELETE FROM account_tokens WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM availability_alerts WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?").run(userId, userId);
+    // Conversaciones directas: se van enteras (las dos partes dejan de tenerlas).
+    db.prepare(
+      "DELETE FROM dm_messages WHERE thread_id IN (SELECT id FROM dm_threads WHERE user_a = ? OR user_b = ?)",
+    ).run(userId, userId);
+    db.prepare("DELETE FROM dm_threads WHERE user_a = ? OR user_b = ?").run(userId, userId);
+    db.prepare("DELETE FROM dm_reads WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM request_reads WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM reports WHERE reporter_id = ?").run(userId);
 

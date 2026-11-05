@@ -22,7 +22,7 @@ import {
   CONDITIONS,
   REPORT_REASONS,
   REQUEST_STATUS_LABELS,
-  TAGS,
+  tagsForCategory,
   type ListingStatus,
   type RequestStatus,
 } from "@/lib/domain";
@@ -36,6 +36,7 @@ type Props = {
   isAuthenticated: boolean;
   myRequestStatus: RequestStatus | null;
   condition: string;
+  category: string;
   city: string;
   notes: string;
   tags: string[];
@@ -50,11 +51,19 @@ export function ListingActions({
   isAuthenticated,
   myRequestStatus,
   condition,
+  category,
   city,
   notes,
   tags,
 }: Props) {
   const { t } = useI18n();
+  // Las etiquetas ya guardadas se muestran siempre, aunque el género haya
+  // cambiado: así se ven y se pueden quitar a mano en vez de desaparecer solas.
+  const categoryTags = tagsForCategory(category);
+  const editTags = [
+    ...categoryTags,
+    ...tags.filter((tag) => !categoryTags.includes(tag as never)),
+  ];
   const router = useRouter();
   const [favorite, setFavorite] = useState(isFavorite);
   const [requesting, setRequesting] = useState(false);
@@ -239,7 +248,7 @@ export function ListingActions({
               <fieldset className="tag-field">
                 <legend>{t("Etiquetas (hasta 3)")}</legend>
                 <div className="tag-options">
-                  {TAGS.map((option) => (
+                  {editTags.map((option) => (
                     <label key={option} className="tag-option">
                       <input
                         type="checkbox"
@@ -272,7 +281,7 @@ export function ListingActions({
         ) : requesting ? (
           <form className="request-inline" onSubmit={submitRequest}>
             <p className="form-note">
-              {t("La solicitud no lleva ningún texto en claro. Cuando la acepten podréis coordinar la entrega en la conversación cifrada.")}
+              {t("Cuando la acepten podréis coordinar la entrega en la conversación cifrada del intercambio.")}
             </p>
             <div className="dialog-actions">
               <button

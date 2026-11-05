@@ -1,9 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 import { ApiError } from "./errors";
 import { translate, type Locale } from "./i18n";
 import { getLocale } from "./i18n-server";
-import { reportError } from "./observability";
+import { reportError, requestIdFrom } from "./observability";
 
 /** Tope de cuerpo para las rutas JSON: ninguno de los formularios lo necesita. */
 const MAX_BODY_BYTES = 64 * 1024;
@@ -68,7 +67,17 @@ async function readLimitedText(request: Request, maxBytes: number): Promise<stri
   return new TextDecoder().decode(merged);
 }
 
-export async function handleApiError(error: unknown): Promise<Response> {
+/**
+ * Traduce cualquier fallo a la respuesta JSON de la API.
+ *
+ * `requestId` es el id de la petición (lo pone el envoltorio `route()`); si no
+ * llega —rutas que aún llaman aquí a mano— se toma de la cabecera o se inventa.
+ * En los dos casos el id devuelto es el que aparece en la línea de registro.
+ */
+export async function handleApiError(
+  error: unknown,
+  options: { requestId?: string } = {},
+): Promise<Response> {
   // Los errores de control de Next (prerender dinámico, redirect, notFound) deben
   // propagarse: tragárselos dejaría la ruta marcada como estática o rota.
   if (isNextControlError(error)) throw error;
@@ -84,9 +93,12 @@ export async function handleApiError(error: unknown): Promise<Response> {
     return json(
       {
         error: translate(locale, "Revisa los datos del formulario."),
+        // Los mensajes de los esquemas están escritos en castellano y pasan por
+        // el mismo diccionario que el resto de la interfaz: sin esto, quien usa
+        // la app en alemán leía los errores de validación en castellano.
         issues: error.issues.map((issue) => ({
           path: issue.path.join("."),
-          message: issue.message,
+          message: translate(locale, issue.message),
         })),
       },
       422,
@@ -103,8 +115,11 @@ export async function handleApiError(error: unknown): Promise<Response> {
     );
   }
 
-  const reference = randomUUID().slice(0, 8);
-  reportError(error, { reference, scope: "api" });
+  const requestId = options.requestId ?? requestIdFrom(await requestHeaders());
+  // El cuerpo lleva un prefijo corto del id: es lo que una persona puede
+  // copiar de la pantalla de error y lo que se busca en el registro.
+  const reference = requestId.slice(0, 8);
+  reportError(error, { reference, requestId, scope: "api" });
   return json(
     { error: translate(locale, "Ha ocurrido un error inesperado."), reference },
     500,
@@ -124,4 +139,14 @@ function isNextControlError(error: unknown): boolean {
   if (typeof digest === "string" && /^(NEXT_|DYNAMIC_)/.test(digest)) return true;
   const message = (error as { message?: unknown }).message;
   return typeof message === "string" && message.startsWith("During prerendering");
+}
+
+/** Cabeceras de la petición en curso; fuera de una petición, vacías. */
+async function requestHeaders(): Promise<Headers> {
+  try {
+    const { headers } = await import("next/headers");
+    return new Headers(await headers());
+  } catch {
+    return new Headers();
+  }
 }

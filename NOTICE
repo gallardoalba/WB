@@ -3,18 +3,32 @@
 Este repositorio combina código propio (licencia MIT, ver `LICENSE`) con datos y
 componentes de terceros que mantienen su propia licencia.
 
-## Oficinas de entrega (OpenStreetMap, ODbL 1.0)
+## Fotografía de la portada
 
-`src/lib/post-offices.json` es una base de datos derivada de OpenStreetMap
-(consulta Overpass sobre `amenity=post_office`, noviembre de 2026) y se publica
-bajo la **Open Data Commons Open Database License (ODbL) 1.0**.
+`public/hero/estanteria.webp` es una fotografía de las estanterías de la
+**Suzzallo Allen Library** (University of Washington, Seattle), de
+[Guywelch2000](https://commons.wikimedia.org/wiki/User:Guywelch2000), publicada
+en Wikimedia Commons bajo **Creative Commons Atribución 4.0 Internacional**
+(CC BY 4.0). Se recorta y se recomprime a WebP para usarla como fondo del panel
+principal; no se modifica el contenido de la imagen.
 
-- © OpenStreetMap contributors — https://www.openstreetmap.org/copyright
-- Texto de la licencia: https://opendatacommons.org/licenses/odbl/1-0/
+- Original: https://commons.wikimedia.org/wiki/File:Bookshelves_Suzzallo_Allen_Library_University_of_Washington_Seattle_Washington_2026.jpg
+- Licencia: https://creativecommons.org/licenses/by/4.0/
+- Cambios: recorte a formato panorámico, cambio de tamaño a 1400 px y conversión a WebP.
 
-Esa obligación afecta **solo a ese fichero** (y a cualquier obra derivada de él),
-no al resto del código. Si redistribuyes el proyecto, conserva esta atribución y
-la licencia de los datos.
+## Tipografía de las portadas
+
+`public/fonts/tangerine-400.woff2` y `public/fonts/tangerine-700.woff2` son
+**Tangerine** de Toshi Omagari (tosche@mac.com), una caligrafía de pluma
+trazada sobre la escritura inglesa del siglo XVII. Se distribuye bajo
+**SIL Open Font License 1.1**; el texto completo está en
+`public/fonts/OFL-Tangerine.txt`.
+
+- Origen: https://github.com/google/fonts/tree/main/ofl/tangerine
+- Licencia: https://openfontlicense.org
+- Cambios: recorte del juego de caracteres (latín básico, latino-1, signos de
+  puntuación y comillas tipográficas) y conversión a WOFF2, de 23–24 KB a 13 KB
+  cada peso. No se ha modificado ningún trazo.
 
 ## Portadas de libros
 

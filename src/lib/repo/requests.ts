@@ -10,8 +10,8 @@ import type {
   ViewerRole,
 } from "../domain";
 import { publishRequestMessage } from "../live";
-import { findPostOffice, nearestPostOffice, type PostOffice } from "../post-offices";
 import { canTransition, listingStatusFor } from "../request-flow";
+import { decryptSecret, encryptSecret, shipContext } from "../secret-box";
 import { areBlocked, nowIso } from "./shared";
 import { assertVerified, getPublicKey, getPublicKeyRecord, getUserById } from "./users";
 import { listingTitle, notify } from "./notifications";
@@ -32,9 +32,16 @@ type RequestRow = {
   owner_id: string;
   owner_name: string;
   owner_city: string;
-  handover_office_id: string | null;
   handover_set_at: string | null;
   handover_code: string | null;
+  handover_method: string | null;
+  ship_kind: string | null;
+  ship_number: string | null;
+  ship_station: string | null;
+  ship_street: string | null;
+  ship_postal_code: string | null;
+  ship_city: string | null;
+  ship_set_at: string | null;
   owner_confirmed_at: string | null;
   requester_confirmed_at: string | null;
   message_count: number;
@@ -45,7 +52,9 @@ type RequestRow = {
 
 const REQUEST_SELECT = `
   SELECT r.id, r.status, r.created_at, r.updated_at, r.listing_id,
-         r.handover_office_id, r.handover_set_at, r.handover_code,
+         r.handover_set_at, r.handover_code,
+         r.handover_method, r.ship_kind, r.ship_number, r.ship_station,
+         r.ship_street, r.ship_postal_code, r.ship_city, r.ship_set_at,
          r.owner_confirmed_at, r.requester_confirmed_at,
          b.title, b.author, b.cover_url, l.status AS listing_status,
          req.id AS requester_id, req.name AS requester_name, req.city AS requester_city,
@@ -94,24 +103,41 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
     handoverCode: row.owner_id === viewerId ? row.handover_code : null,
     handoverCodeRequired:
       row.requester_id === viewerId && row.status === "accepted" && Boolean(row.handover_code),
-    delivery: toDeliveryView(row.handover_office_id),
+    delivery: toDeliveryView(row),
   };
 }
 
-/** El punto de entrega siempre es un local público, nunca una dirección privada. */
-function toDeliveryView(officeId: string | null): RequestView["delivery"] {
-  const office = findPostOffice(officeId);
-  if (!office) return { method: "hand", pickupPoint: null };
-  return {
-    method: "pickup",
-    pickupPoint: {
-      id: office.id,
-      name: office.name,
-      street: office.street,
-      postalCode: office.postalCode,
-      city: office.locality || office.city,
-    },
-  };
+/**
+ * El envío va a una Packstation o a la dirección de quien recibe; en los dos
+ * casos los datos están cifrados en la base y solo los ve la persona que envía.
+ */
+function toDeliveryView(row: RequestRow): RequestView["delivery"] {
+  const method = row.handover_method === "post" ? "post" : "in_person";
+  const kind: "packstation" | "address" = row.ship_kind === "address" ? "address" : "packstation";
+  const hayDatos =
+    row.ship_postal_code && row.ship_city && (row.ship_number || row.ship_street);
+  const shipping = hayDatos
+    ? {
+        kind,
+        postNumber: safeDecrypt(row.ship_number, shipContext(row.id, "ship_number")),
+        station: safeDecrypt(row.ship_station, shipContext(row.id, "ship_station")),
+        street: safeDecrypt(row.ship_street, shipContext(row.id, "ship_street")),
+        postalCode: safeDecrypt(row.ship_postal_code, shipContext(row.id, "ship_postal_code")),
+        city: safeDecrypt(row.ship_city, shipContext(row.id, "ship_city")),
+        setAt: row.ship_set_at ?? row.updated_at,
+      }
+    : null;
+  return { method, shipping };
+}
+
+/** Los datos del envío se guardan cifrados; si el descifrado falla, no se rompe la vista. */
+function safeDecrypt(value: string | null, context: string): string {
+  if (!value) return "";
+  try {
+    return decryptSecret(value, context);
+  } catch {
+    return "";
+  }
 }
 
 /** Marca la conversación como leída hasta ahora para esa persona. */
@@ -240,25 +266,6 @@ export function createRequest(
   return toRequestView(row, requesterId);
 }
 
-/**
- * Resuelve la oficina del punto de entrega: la que elige quien acepta o, si no
- * indica ninguna, la más cercana a su ciudad. `null` explícito significa
- * entrega en mano, sin oficina.
- */
-function resolveHandoverOffice(
-  ownerId: string,
-  options: { officeId?: string | null },
-): PostOffice | null {
-  if (options.officeId === null) return null;
-  if (options.officeId !== undefined) {
-    const office = findPostOffice(options.officeId);
-    if (!office) throw new ApiError(400, "Ese punto de entrega no existe.");
-    return office;
-  }
-  const owner = getUserById(ownerId);
-  return owner ? nearestPostOffice(owner.city) : null;
-}
-
 const REQUEST_ERRORS: Record<string, string> = {
   accepted: "Solo la persona que ofrece el libro puede aceptar la solicitud.",
   declined: "Solo la persona que ofrece el libro puede rechazar la solicitud.",
@@ -281,7 +288,7 @@ export function updateRequestStatus(
   requestId: string,
   userId: string,
   target: RequestStatus,
-  options: { officeId?: string | null; handoverCode?: string } = {},
+  options: { handoverCode?: string } = {},
 ): RequestView {
   const db = getDb();
   const row = db
@@ -314,9 +321,6 @@ export function updateRequestStatus(
   }
 
   const now = nowIso();
-  // Al aceptar se propone la oficina de Deutsche Post más cercana a quien
-  // entrega el libro; la otra persona puede cambiarla después.
-  const handover = target === "accepted" ? resolveHandoverOffice(row.owner_id, options) : null;
   const handoverCode =
     target === "accepted" ? String(randomInt(0, 1_000_000)).padStart(6, "0") : null;
 
@@ -396,10 +400,10 @@ export function updateRequestStatus(
     if (target === "accepted") {
       const updated = db
         .prepare(
-          `UPDATE requests SET status = ?, updated_at = ?, handover_office_id = ?, handover_set_at = ?, handover_code = ?
+          `UPDATE requests SET status = ?, updated_at = ?, handover_set_at = ?, handover_code = ?
            WHERE id = ? AND status = ?`,
         )
-        .run(target, now, handover?.id ?? null, now, handoverCode, requestId, row.status);
+        .run(target, now, now, handoverCode, requestId, row.status);
       if (updated.changes !== 1) {
         throw new ApiError(409, STALE_REQUEST);
       }
@@ -439,12 +443,11 @@ export function updateRequestStatus(
       declined: "Han rechazado tu solicitud",
       cancelled: "Intercambio cancelado",
     };
-    const place = handover ? ` · Punto de entrega: ${handover.name}, ${handover.street}` : "";
     notify({
       userId: otherId,
       type: target as NotificationView["type"],
       title: titles[target] ?? "Intercambio actualizado",
-      body: `«${listingTitle(row.listing_id)}»${target === "accepted" ? place : ""}`,
+      body: `«${listingTitle(row.listing_id)}»`,
       listingId: row.listing_id,
       requestId,
     });
@@ -494,14 +497,14 @@ export function cancelExchangesForAccount(userId: string): number {
 }
 
 /**
- * Cambia el punto de entrega de un intercambio ya aceptado. Cualquiera de las
- * dos partes puede proponer otra oficina de Deutsche Post; nunca se acepta
- * texto libre, así que no hay forma de colar una dirección privada.
+ * Cambia la forma de entrega: en mano en una oficina o por correo a una
+ * Packstation. Cualquiera de las dos partes puede cambiarla; los datos de la
+ * Packstation los pone solo quien recibe el libro.
  */
-export function setHandoverOffice(
+export function setHandoverMethod(
   requestId: string,
   userId: string,
-  officeId: string | null,
+  method: "in_person" | "post",
 ): RequestView {
   const db = getDb();
   const row = db
@@ -519,27 +522,107 @@ export function setHandoverOffice(
     throw new ApiError(404, "La solicitud no existe.");
   }
   if (row.status !== "accepted" && row.status !== "completed") {
-    throw new ApiError(409, "El punto de entrega se elige al aceptar el intercambio.");
-  }
-  const office = officeId === null ? null : findPostOffice(officeId);
-  if (officeId !== null && !office) {
-    throw new ApiError(400, "Ese punto de entrega no existe.");
+    throw new ApiError(409, "La forma de entrega se elige al aceptar el intercambio.");
   }
 
   const now = nowIso();
   db.transaction(() => {
     db.prepare(
-      `UPDATE requests SET handover_office_id = ?, handover_set_at = ?, updated_at = ?
-       WHERE id = ?`,
-    ).run(office?.id ?? null, now, now, requestId);
+      "UPDATE requests SET handover_method = ?, handover_set_at = ?, updated_at = ? WHERE id = ?",
+    ).run(method, now, now, requestId);
     const otherId = row.requester_id === userId ? row.owner_id : row.requester_id;
     notify({
       userId: otherId,
       type: "accepted",
-      title: "Punto de entrega actualizado",
-      body: office
-        ? `«${listingTitle(row.listing_id)}» · ${office.name}, ${office.street}`
-        : `«${listingTitle(row.listing_id)}» · Entrega en mano`,
+      title: method === "post" ? "Entrega por correo" : "Entrega en mano",
+      body:
+        method === "post"
+          ? `«${listingTitle(row.listing_id)}» · El libro viajará por correo a una Packstation.`
+          : `«${listingTitle(row.listing_id)}» · Quedáis en una oficina de Deutsche Post.`,
+      listingId: row.listing_id,
+      requestId,
+    });
+  })();
+
+  const updated = db
+    .prepare(`${REQUEST_SELECT} WHERE r.id = @id`)
+    .get({ id: requestId, viewerId: userId }) as RequestRow;
+  return toRequestView(updated, userId);
+}
+
+/**
+ * Guarda a dónde va el libro. Solo lo puede escribir **quien recibe** (la
+ * persona que pidió el ejemplar), porque son sus datos.
+ *
+ * Dos formas: una **Packstation** de DHL (número de cliente + taquilla) o su
+ * **propia dirección**. En los dos casos todos los campos se guardan cifrados
+ * con `APP_ENCRYPTION_KEY`: la etiqueta los necesita en claro, la base no.
+ */
+export function setShippingAddress(
+  requestId: string,
+  userId: string,
+  input:
+    | { kind: "packstation"; postNumber: string; station: string; postalCode: string; city: string }
+    | { kind: "address"; street: string; postalCode: string; city: string },
+): RequestView {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?")
+    .get(requestId) as
+    | {
+        id: string;
+        listing_id: string;
+        requester_id: string;
+        owner_id: string;
+        status: RequestStatus;
+      }
+    | undefined;
+  if (!row || (row.requester_id !== userId && row.owner_id !== userId)) {
+    throw new ApiError(404, "La solicitud no existe.");
+  }
+  if (row.requester_id !== userId) {
+    throw new ApiError(
+      403,
+      "Los datos de envío los pone quien recibe el libro: pídeselos en la conversación.",
+    );
+  }
+  if (row.status !== "accepted") {
+    throw new ApiError(409, "Los datos de envío se guardan con el intercambio aceptado.");
+  }
+
+  const now = nowIso();
+  // Cada campo se cifra atado a esta solicitud y a su columna: un criptograma
+  // movido a otra fila no se descifra.
+  const cifrar = (field: string, value: string) =>
+    encryptSecret(value, shipContext(requestId, field));
+  const numero = input.kind === "packstation" ? input.postNumber : null;
+  const taquilla = input.kind === "packstation" ? input.station : null;
+  const calle = input.kind === "address" ? input.street : null;
+  // El aviso NO repite el destino: las notificaciones se guardan sin cifrar, así
+  // que solo dicen que ya se puede enviar. Los datos están en el intercambio.
+
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE requests
+          SET handover_method = 'post', ship_kind = ?, ship_number = ?, ship_station = ?,
+              ship_street = ?, ship_postal_code = ?, ship_city = ?, ship_set_at = ?, updated_at = ?
+        WHERE id = ?`,
+    ).run(
+      input.kind,
+      numero ? cifrar("ship_number", numero) : null,
+      taquilla ? cifrar("ship_station", taquilla) : null,
+      calle ? cifrar("ship_street", calle) : null,
+      cifrar("ship_postal_code", input.postalCode),
+      cifrar("ship_city", input.city),
+      now,
+      now,
+      requestId,
+    );
+    notify({
+      userId: row.owner_id,
+      type: "accepted",
+      title: "Datos de envío listos",
+      body: `«${listingTitle(row.listing_id)}»`,
       listingId: row.listing_id,
       requestId,
     });

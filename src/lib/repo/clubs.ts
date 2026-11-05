@@ -3,7 +3,7 @@ import { getDb, type Db } from "../db";
 import { ApiError } from "../errors";
 import type { ClubRequestView, ClubView, CommunityMetrics } from "../domain";
 import { notify } from "./notifications";
-import { blockPair, isBlocked, nowIso, userCity } from "./shared";
+import { blockPair, isBlocked, nowIso, userCity, workBookIds, workIdsClause } from "./shared";
 
 /* -------------------------------- clubes ---------------------------------- */
 
@@ -14,6 +14,8 @@ type ClubRow = {
   description: string;
   meets_on: string;
   meets_at: string;
+  meets_place: string;
+  meets_link: string;
   created_at: string;
   owner_id: string;
   owner_name: string;
@@ -31,6 +33,7 @@ type ClubRow = {
   attending: number;
   last_activity: string | null;
   member_names: string | null;
+  is_moderator: number;
 };
 
 /**
@@ -41,7 +44,8 @@ type ClubRow = {
 const MEETS_KEY = "COALESCE(NULLIF(c.meets_at, ''), c.meets_on)";
 
 const CLUB_SELECT = `
-  SELECT c.id, c.name, c.city, c.description, c.meets_on, c.meets_at, c.created_at,
+  SELECT c.id, c.name, c.city, c.description, c.meets_on, c.meets_at,
+         c.meets_place, c.meets_link, c.created_at,
          c.owner_id, uo.name AS owner_name,
          c.book_id, b.title AS book_title, b.author AS book_author,
          c.join_policy, c.progress, c.progress_note,
@@ -57,6 +61,11 @@ const CLUB_SELECT = `
            SELECT 1 FROM club_members m3
             WHERE m3.club_id = c.id AND m3.user_id = @viewerId AND m3.status = 'pending'
          ) THEN 1 ELSE 0 END AS my_pending,
+         CASE WHEN EXISTS (
+           SELECT 1 FROM club_members m7
+            WHERE m7.club_id = c.id AND m7.user_id = @viewerId
+              AND m7.status = 'member' AND m7.role = 'moderator'
+         ) THEN 1 ELSE 0 END AS is_moderator,
          (SELECT COUNT(*) FROM club_members m4
            WHERE m4.club_id = c.id AND m4.status = 'pending') AS pending_requests,
          (SELECT COUNT(*) FROM club_attendance ca
@@ -116,6 +125,8 @@ function toClubView(row: ClubRow, viewerId: string | null): ClubView {
     description: row.description,
     meetsOn: row.meets_on,
     meetsAt: row.meets_at,
+    meetsPlace: row.meets_place,
+    meetsLink: row.meets_link,
     createdAt: row.created_at,
     book:
       row.book_id && row.book_title
@@ -133,7 +144,9 @@ function toClubView(row: ClubRow, viewerId: string | null): ClubView {
     attendees: row.attendees,
     attending: Boolean(row.attending),
     lastActivityAt: row.last_activity,
-    pendingRequests: isMine ? row.pending_requests : 0,
+    isModerator: Boolean(row.is_moderator) && !isMine,
+    // Las solicitudes las ve quien lleva el club: su dueño y sus moderadores.
+    pendingRequests: isMine || row.is_moderator ? row.pending_requests : 0,
   };
 }
 
@@ -212,6 +225,8 @@ export function createClub(
     bookId?: string;
     meetsOn: string;
     meetsAt?: string;
+    meetsPlace?: string;
+    meetsLink?: string;
     joinPolicy?: "open" | "approval";
   },
 ): ClubView {
@@ -237,8 +252,9 @@ export function createClub(
 
   db.transaction(() => {
     db.prepare(
-      `INSERT INTO clubs (id, owner_id, name, city, description, book_id, meets_on, meets_at, join_policy, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO clubs (id, owner_id, name, city, description, book_id, meets_on, meets_at,
+                          meets_place, meets_link, join_policy, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       ownerId,
@@ -248,6 +264,8 @@ export function createClub(
       input.bookId ?? null,
       input.meetsOn,
       input.meetsAt ?? "",
+      input.meetsPlace ?? "",
+      input.meetsLink ?? "",
       input.joinPolicy ?? "open",
       now,
     );
@@ -286,8 +304,8 @@ export function listClubs(options: {
     c.status = 'visible'
     AND uo.is_suspended = 0
     AND (@city IS NULL OR c.city = @city)
-    AND (@like = '%%' OR c.name LIKE @like COLLATE NOCASE
-         OR c.description LIKE @like COLLATE NOCASE)
+    AND (@like = '%%' OR unaccent(c.name) LIKE unaccent(@like)
+         OR unaccent(c.description) LIKE unaccent(@like))
     AND (@mine = 0 OR c.owner_id = @viewerId OR EXISTS (
       SELECT 1 FROM club_members mm
        WHERE mm.club_id = c.id AND mm.user_id = @viewerId AND mm.status = 'member'
@@ -305,10 +323,13 @@ export function listClubs(options: {
   ).value;
 
   const withDistance = sort === "near" && Boolean(viewerCity);
+  // El LEFT JOIN va **después** del FROM, no en su lugar: sustituyendo el FROM
+  // la sentencia quedaba como «JOIN … FROM clubs» y ordenar por cercanía daba
+  // un 500 (error de sintaxis) en cuanto la cuenta tenía ciudad.
   const select = withDistance
     ? CLUB_SELECT.replace(
-        "FROM clubs c",
-        "LEFT JOIN city_distances cd ON cd.from_name = @viewerCity AND cd.to_name = c.city\n  FROM clubs c",
+        "\n  FROM clubs c",
+        "\n  FROM clubs c\n  LEFT JOIN city_distances cd\n    ON cd.from_name = @viewerCity AND cd.to_name = c.city",
       )
     : CLUB_SELECT;
   const order = withDistance
@@ -350,6 +371,8 @@ export type ClubMemberView = {
   city: string;
   joinedAt: string;
   isOwner: boolean;
+  /** Ayuda a llevar el club (moderación y solicitudes). */
+  isModerator: boolean;
 };
 
 /** Miembros activos de un club (sin cuentas suspendidas), paginados. */
@@ -371,7 +394,7 @@ export function listClubMembers(
   ).value;
   const rows = db
     .prepare(
-      `SELECT u.id, u.name, u.city, m.joined_at, c.owner_id
+      `SELECT u.id, u.name, u.city, m.joined_at, c.owner_id, m.role
        FROM club_members m
        JOIN users u ON u.id = m.user_id
        JOIN clubs c ON c.id = m.club_id
@@ -385,6 +408,7 @@ export function listClubMembers(
     city: string;
     joined_at: string;
     owner_id: string;
+    role: string;
   }[];
   return {
     members: rows.map((row) => ({
@@ -393,21 +417,42 @@ export function listClubMembers(
       city: row.city,
       joinedAt: row.joined_at,
       isOwner: row.id === row.owner_id,
+      isModerator: row.role === "moderator",
     })),
     total,
     hasMore: page * pageSize < total,
   };
 }
 
-/** Solicitudes de entrada pendientes: solo para quien creó el club. */
-export function listClubRequests(clubId: string, ownerId: string): ClubRequestView[] {
+/**
+ * Quién puede llevar la parte social del club: su dueño y sus moderadores.
+ *
+ * Se pregunta a la base en cada operación (no se confía en la vista): un
+ * moderador retirado deja de poder aprobar en el acto.
+ */
+export function moderatesClub(clubId: string, userId: string): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT c.owner_id AS owner_id, m.role AS role
+         FROM clubs c
+         LEFT JOIN club_members m
+           ON m.club_id = c.id AND m.user_id = ? AND m.status = 'member'
+        WHERE c.id = ? AND c.status = 'visible'`,
+    )
+    .get(userId, clubId) as { owner_id: string; role: string | null } | undefined;
+  if (!row) return false;
+  return row.owner_id === userId || row.role === "moderator";
+}
+
+/** Solicitudes de entrada pendientes: para el dueño y sus moderadores. */
+export function listClubRequests(clubId: string, viewerId: string): ClubRequestView[] {
   const db = getDb();
   const club = db.prepare("SELECT owner_id FROM clubs WHERE id = ?").get(clubId) as
     | { owner_id: string }
     | undefined;
   if (!club) throw new ApiError(404, "El club no existe.");
-  if (club.owner_id !== ownerId) {
-    throw new ApiError(403, "Solo quien creó el club ve las solicitudes.");
+  if (!moderatesClub(clubId, viewerId)) {
+    throw new ApiError(403, "Solo quien lleva el club ve las solicitudes.");
   }
   return db
     .prepare(
@@ -436,6 +481,8 @@ export function updateClub(
     description: string;
     meetsOn: string;
     meetsAt?: string;
+    meetsPlace?: string;
+    meetsLink?: string;
     bookId: string | null;
     joinPolicy?: "open" | "approval";
     progress?: number;
@@ -445,7 +492,7 @@ export function updateClub(
   const db = getDb();
   const club = db
     .prepare(
-      "SELECT owner_id, city, book_id, meets_at, meets_on, progress FROM clubs WHERE id = ?",
+      "SELECT owner_id, city, book_id, meets_at, meets_on, meets_place, meets_link, progress FROM clubs WHERE id = ?",
     )
     .get(clubId) as
     | {
@@ -454,6 +501,8 @@ export function updateClub(
         book_id: string | null;
         meets_at: string;
         meets_on: string;
+        meets_place: string;
+        meets_link: string;
         progress: number;
       }
     | undefined;
@@ -467,13 +516,20 @@ export function updateClub(
   assertClubNameFree(db, club.city, input.name, clubId);
 
   const meetsAt = input.meetsAt ?? club.meets_at;
-  const changedMeeting = meetsAt !== club.meets_at || input.meetsOn !== club.meets_on;
+  const meetsPlace = input.meetsPlace ?? club.meets_place;
+  const meetsLink = input.meetsLink ?? club.meets_link;
+  const changedMeeting =
+    meetsAt !== club.meets_at ||
+    input.meetsOn !== club.meets_on ||
+    meetsPlace !== club.meets_place ||
+    meetsLink !== club.meets_link;
   const changedReading = (input.bookId ?? null) !== club.book_id;
   const progress = input.progress ?? club.progress;
 
   db.prepare(
     `UPDATE clubs
-        SET name = ?, description = ?, meets_on = ?, meets_at = ?, book_id = ?,
+        SET name = ?, description = ?, meets_on = ?, meets_at = ?,
+            meets_place = ?, meets_link = ?, book_id = ?,
             join_policy = ?, progress = ?, progress_note = ?
       WHERE id = ?`,
   ).run(
@@ -481,6 +537,8 @@ export function updateClub(
     input.description,
     input.meetsOn,
     meetsAt,
+    meetsPlace,
+    meetsLink,
     input.bookId,
     input.joinPolicy ?? "open",
     progress,
@@ -612,16 +670,29 @@ export function setClubMembership(
       }
     })();
   } else {
-    db.prepare("DELETE FROM club_members WHERE club_id = ? AND user_id = ?").run(clubId, userId);
+    db.transaction(() => {
+      db.prepare("DELETE FROM club_members WHERE club_id = ? AND user_id = ?").run(clubId, userId);
+      // Quien se va no deja asistencia fantasma: el club seguía contándole
+      // entre los confirmados del próximo encuentro.
+      db.prepare("DELETE FROM club_attendance WHERE club_id = ? AND user_id = ?").run(
+        clubId,
+        userId,
+      );
+    })();
   }
 
   const counts = membershipCounts(db, clubId);
   return { member: membership.status === "member", status: membership.status, ...counts };
 }
 
-/** Quien creó el club aprueba o rechaza una solicitud de entrada. */
+/**
+ * Aprobar o rechazar una solicitud de entrada: su dueño o un moderador.
+ *
+ * Si decide un moderador, el dueño recibe el aviso: entera a quien responde del
+ * club sin tener que revisar la lista cada día.
+ */
 export function decideClubMembership(
-  ownerId: string,
+  actorId: string,
   clubId: string,
   userId: string,
   approve: boolean,
@@ -631,9 +702,10 @@ export function decideClubMembership(
     .prepare("SELECT owner_id, name FROM clubs WHERE id = ? AND status = 'visible'")
     .get(clubId) as { owner_id: string; name: string } | undefined;
   if (!club) throw new ApiError(404, "El club no existe.");
-  if (club.owner_id !== ownerId) {
-    throw new ApiError(403, "Solo quien creó el club decide quién entra.");
+  if (!moderatesClub(clubId, actorId)) {
+    throw new ApiError(403, "Solo quien lleva el club decide quién entra.");
   }
+  const isOwner = club.owner_id === actorId;
 
   // Todo dentro de una transacción y con escrituras condicionales: si dos
   // peticiones deciden a la vez, solo una cambia el estado.
@@ -674,9 +746,84 @@ export function decideClubMembership(
         link: clubLink(clubId),
       });
     }
+
+    // Si decide alguien de confianza, el dueño se entera: es su club.
+    if (!isOwner) {
+      const actor = db.prepare("SELECT name FROM users WHERE id = ?").get(actorId) as
+        | { name: string }
+        | undefined;
+      const applicant = db.prepare("SELECT name FROM users WHERE id = ?").get(userId) as
+        | { name: string }
+        | undefined;
+      notify({
+        userId: club.owner_id,
+        type: "club",
+        title: approve ? "Una solicitud aceptada" : "Una solicitud rechazada",
+        body: `${actor?.name ?? "Un moderador"} ${approve ? "aceptó" : "rechazó"} la entrada de ${
+          applicant?.name ?? "una persona"
+        } en «${club.name}».`,
+        link: clubLink(clubId),
+      });
+    }
   })();
 
   return membershipCounts(db, clubId);
+}
+
+/**
+ * Nombra (o retira) a un moderador del club. Solo su dueño, y solo entre
+ * miembros activos: moderar sin estar dentro no tendría sentido.
+ */
+export function setClubModerator(
+  ownerId: string,
+  clubId: string,
+  userId: string,
+  moderator: boolean,
+): { moderators: number } {
+  const db = getDb();
+  const club = db.prepare("SELECT owner_id, name FROM clubs WHERE id = ?").get(clubId) as
+    | { owner_id: string; name: string }
+    | undefined;
+  if (!club) throw new ApiError(404, "El club no existe.");
+  if (club.owner_id !== ownerId) {
+    throw new ApiError(403, "Solo quien creó el club elige a sus moderadores.");
+  }
+  if (userId === ownerId) {
+    throw new ApiError(409, "Tú ya llevas el club: no hace falta nombrarte moderador.");
+  }
+
+  db.transaction(() => {
+    const member = db
+      .prepare("SELECT status, role FROM club_members WHERE club_id = ? AND user_id = ?")
+      .get(clubId, userId) as { status: string; role: string } | undefined;
+    if (!member || member.status !== "member") {
+      throw new ApiError(409, "Solo puedes nombrar moderador a alguien que ya esté en el club.");
+    }
+    const role = moderator ? "moderator" : "member";
+    if (member.role !== role) {
+      db.prepare("UPDATE club_members SET role = ? WHERE club_id = ? AND user_id = ?").run(
+        role,
+        clubId,
+        userId,
+      );
+      notify({
+        userId,
+        type: "club",
+        title: moderator ? "Ahora moderas un club" : "Ya no moderas el club",
+        body: moderator
+          ? `Podrás aceptar solicitudes de entrada y retirar mensajes en «${club.name}».`
+          : `«${club.name}» lo lleva otra persona: ya no moderas su foro.`,
+        link: clubLink(clubId),
+      });
+    }
+  })();
+
+  const total = db
+    .prepare(
+      "SELECT COUNT(*) AS value FROM club_members WHERE club_id = ? AND role = 'moderator' AND status = 'member'",
+    )
+    .get(clubId) as { value: number };
+  return { moderators: total.value };
 }
 
 /** El dueño puede retirar a un miembro (nunca a sí mismo). */
@@ -694,6 +841,8 @@ export function removeClubMember(ownerId: string, clubId: string, userId: string
     .prepare("DELETE FROM club_members WHERE club_id = ? AND user_id = ?")
     .run(clubId, userId);
   if (result.changes === 0) throw new ApiError(404, "Esa persona no está en el club.");
+  // Igual que al salir por su cuenta: sin asistencia pendiente.
+  db.prepare("DELETE FROM club_attendance WHERE club_id = ? AND user_id = ?").run(clubId, userId);
   notify({
     userId,
     type: "club",
@@ -853,6 +1002,65 @@ export function listClubSitemap(limit = 500): { id: string; created_at: string }
         ORDER BY c.created_at DESC LIMIT ?`,
     )
     .all(limit) as { id: string; created_at: string }[];
+}
+
+/**
+ * Encuentros anteriores del club. La asistencia se guarda contra la fecha (o la
+ * etiqueta) del encuentro, así que al cambiar de fecha el anterior sigue ahí:
+ * esto lo agrupa para que el club tenga memoria de a quién vio.
+ */
+export function listClubMeetingHistory(
+  clubId: string,
+  limit = 6,
+): { key: string; attendees: number }[] {
+  const db = getDb();
+  const club = db
+    .prepare("SELECT meets_at, meets_on FROM clubs WHERE id = ? AND status = 'visible'")
+    .get(clubId) as { meets_at: string; meets_on: string } | undefined;
+  if (!club) return [];
+  const actual = club.meets_at || club.meets_on;
+  return db
+    .prepare(
+      `SELECT ca.meets_key AS key, COUNT(*) AS attendees, MAX(ca.created_at) AS ultimo
+         FROM club_attendance ca
+         JOIN users u ON u.id = ca.user_id
+        WHERE ca.club_id = ? AND ca.meets_key <> ? AND u.is_suspended = 0
+        GROUP BY ca.meets_key
+        ORDER BY ultimo DESC
+        LIMIT ?`,
+    )
+    .all(clubId, actual, limit)
+    .map((row) => {
+      const typed = row as { key: string; attendees: number };
+      return { key: typed.key, attendees: typed.attendees };
+    });
+}
+
+/**
+ * Quién va por dónde con la lectura en curso: los estados personales
+ * (`reading_states`) de los miembros para esa obra, incluida cualquiera de sus
+ * ediciones. Es la información que un club necesita sin preguntarla en el foro.
+ */
+export function listClubReadingStates(
+  clubId: string,
+  bookId: string,
+): { userId: string; status: "reading" | "read" }[] {
+  const db = getDb();
+  const scope = workIdsClause("rs.book_id", workBookIds(bookId));
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT rs.user_id AS userId, rs.status AS status
+         FROM club_members m
+         JOIN users u ON u.id = m.user_id
+         JOIN reading_states rs ON rs.user_id = m.user_id
+        WHERE m.club_id = @clubId AND m.status = 'member' AND u.is_suspended = 0
+          AND ${scope.clause}`,
+    )
+    .all({ ...scope.params, clubId }) as { userId: string; status: string }[];
+  return rows.map((row) => ({
+    userId: row.userId,
+    status: row.status === "read" ? "read" : "reading",
+  }));
 }
 
 /* ----------------------------- métricas ----------------------------------- */

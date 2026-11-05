@@ -34,12 +34,43 @@ export function normalizeIsbn(raw: string | null | undefined): string | null {
 }
 
 export function isValidIsbn(isbn: string): boolean {
-  return /^(\d{9}[\dX]|\d{13})$/.test(isbn);
+  if (/^\d{13}$/.test(isbn)) {
+    // ISBN-13: los 12 primeros dígitos pesan 1 y 3 alternos; el último cuadra.
+    let sum = 0;
+    for (let index = 0; index < 12; index += 1) {
+      sum += Number(isbn[index]) * (index % 2 === 0 ? 1 : 3);
+    }
+    return (10 - (sum % 10)) % 10 === Number(isbn[12]);
+  }
+  if (/^\d{9}[\dX]$/.test(isbn)) {
+    // ISBN-10: pesos 10…2 y módulo 11 (la X vale 10).
+    let sum = 0;
+    for (let index = 0; index < 9; index += 1) {
+      sum += Number(isbn[index]) * (10 - index);
+    }
+    sum += isbn[9] === "X" ? 10 : Number(isbn[9]);
+    return sum % 11 === 0;
+  }
+  return false;
 }
 
 export function coverFromIsbn(isbn: string | null): string | null {
   if (!isbn || !isValidIsbn(isbn)) return null;
-  return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+  // Se pide a la propia aplicación, que la trae y la cachea en disco: así el
+  // navegador no abre una conexión con Open Library (que vería su IP y el ISBN).
+  return `/api/cover/${isbn}`;
+}
+
+/**
+ * Corrige portadas guardadas con la URL externa de versiones anteriores.
+ * Se aplica al leer, no solo al migrar: así ningún dato viejo puede volver a
+ * romper la política de imágenes.
+ */
+export function normalizeCoverUrl(coverUrl: string | null, isbn: string | null): string | null {
+  if (!coverUrl || coverUrl.startsWith("https://covers.openlibrary.org/")) {
+    return coverFromIsbn(isbn);
+  }
+  return coverUrl;
 }
 
 export function toneForId(id: string): (typeof TONES)[number] {
@@ -48,6 +79,11 @@ export function toneForId(id: string): (typeof TONES)[number] {
     hash = (hash * 31 + id.charCodeAt(index)) % 100000;
   }
   return TONES[hash % TONES.length];
+}
+
+/** Número con el formato del idioma (1.234 en español, 1.234 en alemán). */
+export function formatNumber(value: number, locale: "es" | "de"): string {
+  return new Intl.NumberFormat(locale === "de" ? "de-DE" : "es-ES").format(value);
 }
 
 const DATE_FORMATTERS = {

@@ -32,9 +32,13 @@
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
     "admin:create": "node --import tsx scripts/create-admin.ts",
     "admin:2fa-off": "node --import tsx scripts/disable-2fa.ts",
+    "rotate:secrets": "node --import tsx scripts/rotate-secrets.ts",
+    "legal:env": "node --import tsx scripts/legal-env.ts",
     "user:verify": "node --import tsx scripts/verify-user.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
-    "test:e2e": "playwright test"
+    "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
+    "test:e2e": "playwright test",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
   },
   "engines": {
     "node": ">=22"
@@ -61,5 +65,10 @@
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.4"
+    }
   }
 }

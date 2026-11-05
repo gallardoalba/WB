@@ -3,6 +3,8 @@ import { getDb, type Db } from "../db";
 import { ApiError } from "../errors";
 import type { ListingStatus, ListingView, PagedListings, SortMode } from "../domain";
 import { coverFromIsbn, normalizeText } from "../text";
+import { cachedIsbnMetadata } from "../isbn-metadata";
+import { workKeyFromOpenLibrary, workKeyFromTitle } from "../work";
 import type { CatalogParams, ListingInput } from "../validation";
 import { getUserById, assertVerified } from "./users";
 import { notifyAvailability } from "./alerts";
@@ -18,6 +20,8 @@ import {
   OWNER_ACTIVE,
   toListingView,
   VISIBILITY,
+  workBookIds,
+  workIdsClause,
   type ListingRow,
 } from "./shared";
 
@@ -216,6 +220,12 @@ export function createListing(ownerId: string, input: ListingInput): ListingView
   const searchKey = normalizeText(`${input.title} ${input.author} ${city}`);
   const now = nowIso();
   const coverUrl = coverFromIsbn(input.isbn);
+  // Clave de obra: la de Open Library (agrupa traducciones) o, si no se
+  // conoce, la derivada del título y la autoría. La segunda sirve para unir
+  // las ediciones que ya estén en el catálogo con la misma fórmula.
+  const hashWorkKey = workKeyFromTitle(input.title, input.author);
+  const cached = input.isbn ? cachedIsbnMetadata(input.isbn) : null;
+  const workKey = cached?.workId ? workKeyFromOpenLibrary(cached.workId) : hashWorkKey;
 
   const listId = db.transaction(() => {
     const book = input.isbn
@@ -229,8 +239,19 @@ export function createListing(ownerId: string, input: ListingInput): ListingView
       const newBookId = `bok_${randomUUID()}`;
       try {
         db.prepare(
-          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ).run(newBookId, input.title, titleKey, input.author, input.isbn, input.category, language, coverUrl, now);
+          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ).run(
+          newBookId,
+          input.title,
+          titleKey,
+          input.author,
+          input.isbn,
+          input.category,
+          language,
+          coverUrl,
+          workKey,
+          now,
+        );
         bookId = newBookId;
       } catch (error) {
         // Dos publicaciones simultáneas del mismo ISBN: la segunda reutiliza
@@ -245,6 +266,20 @@ export function createListing(ownerId: string, input: ListingInput): ListingView
     }
 
     const listingId = `lst_${randomUUID()}`;
+    // El libro pudo existir ya (mismo ISBN o mismo título): se le asegura la
+    // clave de obra y, si ahora se conoce la de Open Library, las ediciones que
+    // estaban con la clave derivada pasan a la buena para quedar agrupadas.
+    db.prepare("UPDATE books SET work_key = ? WHERE id = ? AND (work_key IS NULL OR work_key = '')").run(
+      workKey,
+      bookId,
+    );
+    if (workKey !== hashWorkKey) {
+      db.prepare("UPDATE books SET work_key = ? WHERE work_key = ? AND id <> ?").run(
+        workKey,
+        hashWorkKey,
+        bookId,
+      );
+    }
     // Si la edición ya existía sin idioma, la primera persona que lo sepa lo
     // completa; no se pisa un idioma ya indicado.
     if (input.language && input.language !== "No especificado") {
@@ -409,6 +444,28 @@ export type BookView = {
   coverUrl: string | null;
 };
 
+type BookRow = {
+  id: string;
+  title: string;
+  author: string;
+  isbn: string | null;
+  category: string;
+  language: string;
+  cover_url: string | null;
+};
+
+function toBookView(row: BookRow): BookView {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author,
+    isbn: row.isbn,
+    category: row.category,
+    language: row.language,
+    coverUrl: row.cover_url,
+  };
+}
+
 /** Obras que una cuenta tiene publicadas ahora mismo (para elegir lectura). */
 export function listOwnerBooks(userId: string): { id: string; title: string; author: string }[] {
   const rows = getDb()
@@ -423,32 +480,85 @@ export function listOwnerBooks(userId: string): { id: string; title: string; aut
   return rows;
 }
 
+/**
+ * Busca obras del catálogo por título o autoría.
+ *
+ * Antes, para elegir la lectura de un club solo se ofrecían los libros que el
+ * dueño tenía publicados: un club no podía leer algo que su fundador no tuviera
+ * en casa. Esta búsqueda permite elegir cualquier obra que ya exista en el
+ * catálogo (la conversación y los ejemplares cuelgan de la obra, no de la
+ * edición).
+ */
+export function searchBooks(query: string, limit = 8): { id: string; title: string; author: string }[] {
+  const terms = query
+    .trim()
+    .replace(/[%_]/g, "")
+    .slice(0, 60);
+  if (terms.length < 2) return [];
+  const like = `%${terms}%`;
+  return getDb()
+    .prepare(
+      `SELECT id, title, author FROM books
+        WHERE unaccent(title) LIKE unaccent(@like) OR unaccent(author) LIKE unaccent(@like)
+        ORDER BY (unaccent(title) LIKE unaccent(@prefijo)) DESC, length(title) ASC,
+                 title COLLATE NOCASE ASC
+        LIMIT @limit`,
+    )
+    .all({ like, prefijo: `${terms}%`, limit: Math.min(Math.max(limit, 1), 20) }) as {
+    id: string;
+    title: string;
+    author: string;
+  }[];
+}
+
 /** Obra canónica: es donde vive la conversación de un título. */
 export function getBook(bookId: string): BookView | null {
   const row = getDb()
     .prepare("SELECT id, title, author, isbn, category, language, cover_url FROM books WHERE id = ?")
-    .get(bookId) as
-    | {
-        id: string;
-        title: string;
-        author: string;
-        isbn: string | null;
-        category: string;
-        language: string;
-        cover_url: string | null;
-      }
+    .get(bookId) as BookRow | undefined;
+  return row ? toBookView(row) : null;
+}
+
+/**
+ * Obra por ISBN: es la que se reutiliza al publicar, así que el formulario
+ * necesita saberlo antes de enviar para no descartar el título que se escribe.
+ */
+export function bookByIsbn(isbn: string): BookView | null {
+  const row = getDb()
+    .prepare("SELECT id, title, author, isbn, category, language, cover_url FROM books WHERE isbn = ?")
+    .get(isbn) as BookRow | undefined;
+  return row ? toBookView(row) : null;
+}
+
+/**
+ * La portada de una obra solo la puede cambiar quien publica algún ejemplar
+ * suyo (o la administración). Todas las copias comparten la misma obra, así que
+ * la imagen vale para todas y nadie puede cambiarla desde fuera.
+ */
+export function canManageBookCover(bookId: string, userId: string, isAdmin = false): boolean {
+  if (isAdmin) return true;
+  const row = getDb()
+    .prepare("SELECT 1 FROM listings WHERE book_id = ? AND owner_id = ? LIMIT 1")
+    .get(bookId, userId);
+  return Boolean(row);
+}
+
+export function bookExists(bookId: string): boolean {
+  return Boolean(getDb().prepare("SELECT 1 FROM books WHERE id = ?").get(bookId));
+}
+
+/** Guarda (o retira, con `null`) la portada de la obra. */
+export function setBookCoverUrl(bookId: string, coverUrl: string | null): void {
+  getDb().prepare("UPDATE books SET cover_url = ? WHERE id = ?").run(coverUrl, bookId);
+}
+
+/** Al quitar la portada subida se vuelve a la del ISBN (la busca el servidor). */
+export function resetBookCover(bookId: string): void {
+  const row = getDb().prepare("SELECT isbn FROM books WHERE id = ?").get(bookId) as
+    | { isbn: string | null }
     | undefined;
-  return row
-    ? {
-        id: row.id,
-        title: row.title,
-        author: row.author,
-        isbn: row.isbn,
-        category: row.category,
-        language: row.language,
-        coverUrl: row.cover_url,
-      }
-    : null;
+  if (!row) return;
+  setBookCoverUrl(bookId, coverFromIsbn(row.isbn));
 }
 
 /** Copias disponibles de una obra, ordenadas por cercanía y estado. */
@@ -458,10 +568,13 @@ export function listingsForBook(
   options: { city?: string; availableOnly?: boolean; limit?: number } = {},
 ): ListingView[] {
   const distance = distanceParts(viewerId);
+  // Se incluyen las otras ediciones de la misma obra: para quien busca el libro
+  // da igual la editorial de la copia.
+  const scope = workIdsClause("l.book_id", workBookIds(bookId));
   // Los filtros van en SQL: filtrar después del LIMIT dejaba fuera ejemplares
   // de la ciudad del club si las primeras copias eran de otro sitio.
   const filters = [
-    "l.book_id = @bookId",
+    scope.clause,
     VISIBILITY,
     OWNER_ACTIVE,
     BLOCK_FILTER,
@@ -478,7 +591,7 @@ export function listingsForBook(
        LIMIT @limit`,
     )
     .all({
-      bookId,
+      ...scope.params,
       userId: viewerId ?? "",
       fromCity: distance.fromCity,
       limit: options.limit ?? 50,
@@ -489,13 +602,62 @@ export function listingsForBook(
 
 /** Ejemplares visibles de una obra, sin el tope de la lista: da la cifra real. */
 export function countListingsForBook(bookId: string, viewerId: string | null): number {
+  const scope = workIdsClause("l.book_id", workBookIds(bookId));
   const row = getDb()
     .prepare(
       `SELECT COUNT(*) AS value FROM listings l
-        WHERE l.book_id = @bookId AND ${VISIBILITY} AND ${OWNER_ACTIVE} AND ${BLOCK_FILTER}`,
+        WHERE ${scope.clause} AND ${VISIBILITY} AND ${OWNER_ACTIVE} AND ${BLOCK_FILTER}`,
     )
-    .get({ bookId, userId: viewerId ?? "" }) as { value: number };
+    .get({ ...scope.params, userId: viewerId ?? "" }) as { value: number };
   return row.value;
+}
+
+/**
+ * Todas las ediciones de la obra, la primera por antigüedad primero. Sirve para
+ * enseñar «otras ediciones» en la ficha y para canonizar la URL de la obra.
+ */
+export function workBooks(bookId: string): BookView[] {
+  const db = getDb();
+  const row = db.prepare("SELECT work_key FROM books WHERE id = ?").get(bookId) as
+    | { work_key: string | null }
+    | undefined;
+  const self = db
+    .prepare("SELECT id, title, author, isbn, category, language, cover_url FROM books WHERE id = ?")
+    .get(bookId) as BookRow | undefined;
+  if (!row?.work_key || !self) return self ? [toBookView(self)] : [];
+  const rows = db
+    .prepare(
+      `SELECT id, title, author, isbn, category, language, cover_url FROM books
+        WHERE work_key = ?
+        ORDER BY created_at ASC, id ASC`,
+    )
+    .all(row.work_key) as BookRow[];
+  return rows.length > 0 ? rows.map(toBookView) : [toBookView(self)];
+}
+
+/**
+ * Obras del catálogo que corresponden a una clave de obra concreta, mirando
+ * también por la clave derivada: sirve para avisar en el formulario de que la
+ * obra ya existe aunque la edición (el ISBN) sea nueva.
+ */
+export function booksForWorkKeys(keys: readonly string[]): BookView[] {
+  const clean = [...new Set(keys.filter(Boolean))];
+  if (clean.length === 0) return [];
+  const db = getDb();
+  const params: Record<string, string> = {};
+  const placeholders = clean.map((key, index) => {
+    params[`key${index}`] = key;
+    return `@key${index}`;
+  });
+  const rows = db
+    .prepare(
+      `SELECT id, title, author, isbn, category, language, cover_url FROM books
+        WHERE work_key IN (${placeholders.join(",")})
+        ORDER BY created_at ASC
+        LIMIT 10`,
+    )
+    .all(params) as BookRow[];
+  return rows.map(toBookView);
 }
 
 export function listSitemapEntries() {

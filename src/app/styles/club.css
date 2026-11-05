@@ -32,7 +32,9 @@
 
 .club-detail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  /* `min(280px, 100%)`: por debajo de 280 px de columna, el `280px` fijo sacaba
+     la página 16 px de la pantalla en móviles estrechos. */
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -96,28 +98,109 @@
   color: var(--green);
 }
 
+/* El botón de ajustes vive en la fila de acciones de arriba, no al pie. */
 .club-settings {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  gap: 6px;
 }
 
-.club-settings-actions {
+/* Dentro del diálogo el formulario pierde su marco: el diálogo ya es la caja. */
+.club-form.is-dialog {
+  width: 100%;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Un formulario de once campos no cabe en los 460 px de un diálogo corriente:
+   en pantalla ancha se abre a dos columnas y los campos cortos se emparejan. */
+.dialog:has(> .club-form.is-dialog) {
+  width: min(760px, 100%);
+}
+
+@media (min-width: 768px) {
+  .club-form.is-dialog {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+
+  .club-form.is-dialog > label:has(textarea),
+  .club-form.is-dialog > .club-field,
+  .club-form.is-dialog > .form-error,
+  .club-form.is-dialog > .dialog-actions,
+  .club-form.is-dialog > .club-danger {
+    grid-column: 1 / -1;
+  }
+}
+
+/* `.club-form label` pone los campos en columna; el buscador ya trae su fila. */
+.club-form .book-picker-field {
+  flex-direction: row;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.club-form input[type="range"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--green);
+}
+
+/* Zona de peligro: cerrar el club, separado del resto y en dos pasos. */
+.club-danger {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.club-danger p {
+  margin: 2px 0 0;
+  max-width: 46ch;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.club-danger-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 240px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--coral) 35%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--coral-soft);
+}
+
+.club-danger-confirm p {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+/* Relleno suave en vez de coral macizo: en modo oscuro `--coral` es un tono
+   claro y el texto blanco encima se perdía. */
+.club-danger .share-button.danger {
+  border-color: color-mix(in srgb, var(--coral) 45%, transparent);
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.club-danger .share-button.danger:hover:not(:disabled) {
+  border-color: var(--coral);
+  background: color-mix(in srgb, var(--coral) 24%, var(--surface));
 }
 
 /* Pestañas del muro de la comunidad */
-.feed-tabs {
-  display: flex;
-  gap: 6px;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--paper-sunk);
-}
-
 .feed-tab {
   display: inline-flex;
   align-items: center;
@@ -155,34 +238,6 @@
   gap: 8px;
 }
 
-.community-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 6px 8px 6px 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--muted-2);
-}
-
-.community-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  font-size: 13px;
-}
-
-.community-search input:focus-visible {
-  outline: none;
-}
-
-.community-search:focus-within {
-  border-color: var(--green-fill);
-}
-
 .community-clubs-tools {
   display: flex;
   justify-content: flex-end;
@@ -194,13 +249,6 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-}
-
-/* Cinco pestañas no caben en móvil: se reparten en dos filas. */
-.feed-tabs {
-  flex-wrap: wrap;
-  overflow-x: visible;
-  scrollbar-width: thin;
 }
 
 .feed-tab {
@@ -246,7 +294,8 @@
 }
 
 .community-more:hover {
-  text-decoration: underline;
+  color: var(--green-strong);
+  font-weight: 600;
 }
 
 .community-readers {
@@ -344,6 +393,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
 }
 
 .club-progress-bar {
@@ -405,7 +457,7 @@
 
 .club-invite select {
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
   font-size: 13px;
@@ -442,13 +494,85 @@
   font-size: 12px;
 }
 
-.club-request-actions,
-.club-member-admin {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* Arriba y a todo el ancho, así que la lista se reparte en columnas en vez de
+   dejar una fila larguísima con un botón perdido en el extremo. */
+.club-requests-panel {
+  margin-bottom: 20px;
+  border-color: color-mix(in srgb, var(--green) 30%, var(--line));
 }
 
+.club-requests-panel .club-requests ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
+  gap: 10px 16px;
+}
+
+.club-requests-panel .club-requests li {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+/* Moderación del club: cada denuncia con el mensaje a la vista. */
+.club-reports ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-reports li {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.club-reports blockquote {
+  margin: 0 0 6px;
+  padding-left: 10px;
+  border-left: 3px solid color-mix(in srgb, var(--coral) 45%, var(--line));
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.club-report-meta {
+  margin: 0 0 8px;
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.club-report-confirm {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--coral) 35%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--coral-soft);
+}
+
+.club-report-confirm p {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.club-report-confirm .dialog-actions {
+  margin-top: 8px;
+}
+
+.club-report-actions .comment-action {
+  text-decoration: none;
+}
+
+.club-request-actions,
 .club-members li {
   display: flex;
   flex-wrap: wrap;
@@ -457,7 +581,9 @@
 }
 
 .club-member {
-  flex: 1;
+  /* Con dos botones de administración al lado, el nombre se quedaba en 50 px y
+     partía en dos líneas: si no caben juntos, los botones bajan a su línea. */
+  flex: 1 1 160px;
   min-width: 0;
 }
 
@@ -481,7 +607,7 @@
 .club-filters input,
 .club-filters select {
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
   font-size: 13px;
@@ -557,7 +683,7 @@
 .community-aside .aside-link:hover {
   background: transparent;
   color: var(--green-strong);
-  text-decoration: underline;
+  font-weight: 600;
 }
 
 /* Compartir y denunciar conviven en una fila de herramientas, sin barras. */
@@ -588,12 +714,6 @@
   min-height: 40px;
 }
 
-/* Enlaces de acción dentro de una ficha: a su ancho, no como barra. */
-.book-detail-info .work-link {
-  width: auto;
-  margin-bottom: 0;
-}
-
 /* Métricas de administración: una fila compacta, no una lista larga. */
 .admin-metrics .aside-stats {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -610,24 +730,418 @@
   font-size: 22px;
 }
 
-/* Los tonos de avatar y portada también se apagan en modo oscuro. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tone-sage {
-    background: #26332a;
-    color: #bcd6c4;
-  }
-  :root:not([data-theme="light"]) .tone-ochre {
-    background: #332e22;
-    color: #ddcaa0;
+
+/* ============================================================
+   Foro del club (v32)
+   ============================================================ */
+
+/* El foro reutiliza las piezas del hilo de un libro (`.comments`), pero vive
+   dentro de un panel del club: se le quita el marco propio para no dibujar una
+   caja dentro de otra. */
+.club-forum-panel {
+  margin-top: 16px;
+}
+
+.club-forum-panel .club-forum {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.club-forum-panel .club-forum .comments-head {
+  padding-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .club-forum-panel .club-forum .comments-head {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 
-:root[data-theme="dark"] .tone-sage {
-  background: #26332a;
-  color: #bcd6c4;
+/* Gestión de miembros: un solo control junto a «Copiar enlace», no dos botones
+   por cada persona de la lista. */
+.club-members-menu {
+  position: relative;
+  flex: 0 0 auto;
 }
 
-:root[data-theme="dark"] .tone-ochre {
-  background: #332e22;
-  color: #ddcaa0;
+.club-members-menu-panel {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  /* Anclado a la izquierda del botón: con `right: 0` el panel se salía por el
+     borde izquierdo en cuanto el botón estaba cerca de él. */
+  left: 0;
+  display: grid;
+  gap: 8px;
+  width: min(320px, calc(100vw - 48px));
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+/* En el móvil el panel deja de flotar: ocupa su renglón bajo el botón. */
+@media (max-width: 767px) {
+  .club-members-menu-panel {
+    position: static;
+    width: min(320px, calc(100vw - 48px));
+    margin-top: 6px;
+  }
+}
+
+.club-members-menu-panel label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.club-members-menu-panel select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.club-members-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.club-members-menu-actions .danger {
+  color: var(--danger, #a03a2b);
+}
+
+/* ============================================================
+   Lectura, votación y buscador de obras (v33)
+   ============================================================ */
+
+.club-meeting-link a {
+  color: var(--green-strong);
+}
+
+.club-field {
+  display: grid;
+  gap: 6px;
+}
+
+.club-field-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.club-selected-book {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+}
+
+.club-selected-book strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.club-selected-book small {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+/* Si el título es largo, «Quitar» baja de línea: que caiga a la derecha. */
+.club-selected-book .comment-action {
+  margin-left: auto;
+}
+
+/* Buscador de obras: resultados como lista de botones, sin desplegable nativo
+   (no existe un `<datalist>` que funcione igual en todos los navegadores). */
+.book-picker {
+  display: grid;
+  gap: 6px;
+}
+
+.book-picker-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.book-picker-field input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.book-picker-field input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.book-picker-list {
+  display: grid;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  list-style: none;
+}
+
+.book-picker-list button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.book-picker-list li:last-child button {
+  border-bottom: 0;
+}
+
+.book-picker-list button:hover,
+.book-picker-list button:focus-visible {
+  background: var(--paper-sunk);
+}
+
+.book-picker-list strong {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.book-picker-list small {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+/* Histórico de encuentros */
+.club-history {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.club-history strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.club-history ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted-2);
+  font-size: 12.5px;
+}
+
+/* Votación de la próxima lectura */
+/* Va sobre las fichas, no al pie: separa por abajo. */
+.club-poll {
+  margin: 0 0 16px;
+}
+
+.club-poll-question {
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: 15px;
+}
+
+.club-poll-options {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-poll-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.club-poll-option:disabled {
+  cursor: default;
+}
+
+.club-poll-option[aria-pressed="true"] {
+  border-color: var(--green);
+}
+
+.club-poll-bar {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.club-poll-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--green-pale);
+  opacity: 0.7;
+}
+
+.club-poll-book,
+.club-poll-count {
+  position: relative;
+  z-index: 1;
+}
+
+.club-poll-book {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.club-poll-book strong {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.club-poll-book small {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-poll-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--green-strong);
+}
+
+.club-poll-voters {
+  display: block;
+  margin: 4px 0 0 2px;
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.club-poll-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.club-poll-empty {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.club-poll-form {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+}
+
+.club-poll-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.club-poll-form input {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.club-poll-proposals {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.club-poll-proposals li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+}
+
+.club-poll-proposals strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.club-poll-proposals small {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.club-poll-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }

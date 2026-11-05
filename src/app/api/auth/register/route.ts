@@ -8,7 +8,7 @@ import { assertHuman } from "@/lib/captcha";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { createUser } from "@/lib/repo";
-import { clientIp, guard, hasClientIp, hit } from "@/lib/throttle";
+import { clientIp, clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { registerSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // de todo el sitio.
     guard(request, { bucket: "register:global", key: "all", limit: 2000, windowMs: 60 * 60 * 1000 });
     if (hasClientIp()) {
-      hit({ bucket: "register:ip", key: clientIp(request), limit: 5, windowMs: 60 * 60 * 1000 });
+      hit({ bucket: "register:ip", key: clientKey(request), limit: 5, windowMs: 60 * 60 * 1000 });
     }
 
     const input = registerSchema.parse(await readJson(request));

@@ -5,6 +5,7 @@ import { ArrowDownUp, ArrowRight, BookOpen, MessageCircle } from "lucide-react";
 import { REQUEST_STATUS_LABELS, type RequestView } from "@/lib/domain";
 import { formatWhen, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
+import { EmptyState } from "./empty-state";
 
 /** Siguiente paso que corresponde a quien mira, si lo hay. */
 function nextAction(request: RequestView, t: (text: string) => string): string | null {
@@ -35,16 +36,16 @@ export function ExchangesList({
   const { t, locale } = useI18n();
   if (requests.length === 0) {
     return (
-      <div className="empty-state">
-        <span className="empty-icon">
-          <ArrowDownUp size={24} />
-        </span>
-        <h3>{t("Todavía no hay intercambios")}</h3>
-        <p>{t("Cuando solicites un libro, podrás seguir aquí cada paso.")}</p>
-        <button type="button" className="share-button" onClick={onExplore}>
-          {t("Explorar libros")} <ArrowRight size={16} />
-        </button>
-      </div>
+      <EmptyState
+        icon={<ArrowDownUp size={24} />}
+        title={t("Todavía no hay intercambios")}
+        hint={t("Cuando solicites un libro, podrás seguir aquí cada paso.")}
+        action={
+          <button type="button" className="share-button" onClick={onExplore}>
+            {t("Explorar libros")} <ArrowRight size={16} />
+          </button>
+        }
+      />
     );
   }
 
@@ -73,11 +74,17 @@ export function ExchangesList({
               {request.role === "owner"
                 ? t("Solicitud de {name}", { name: request.requester.name })
                 : t("Solicitado a {name}", { name: request.owner.name })}
-              {request.delivery.method === "hand"
-                ? ` · ${t("En mano")}`
-                : request.delivery.pickupPoint
-                  ? ` · ${request.delivery.pickupPoint.name}`
-                  : ` · ${t("Oficina")}`}
+              {request.delivery.method === "post"
+                ? ` · ${t("Por correo")}${
+                    request.delivery.shipping
+                      ? ` (${t(
+                          request.delivery.shipping.kind === "packstation"
+                            ? "Packstation"
+                            : "a tu dirección",
+                        )})`
+                      : ""
+                  }`
+                : ` · ${t("En mano")}`}
               {request.messageCount > 0
                 ? ` · ${request.messageCount} ${
                     request.messageCount === 1 ? t("mensaje") : t("mensajes")

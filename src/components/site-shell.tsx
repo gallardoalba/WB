@@ -1,15 +1,16 @@
-"use client";
-
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDownUp, BookOpen, Compass, Heart, Plus, Users } from "lucide-react";
 import type { SessionUser } from "@/lib/domain";
 import { regionName } from "@/lib/cities";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
+import { getLocale } from "@/lib/i18n-server";
+import { translate } from "@/lib/i18n";
+import { countActiveRequests, countUnreadMessages, countUnreadNotifications } from "@/lib/repo";
 import { SiteRail, type RailSection } from "./site-rail";
+import { SiteSearch } from "./site-search";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
-import { useI18n } from "./i18n-provider";
 import { LocaleSwitcher } from "./locale-switcher";
 import { VerifyEmailBanner } from "./verify-email-banner";
 
@@ -18,7 +19,7 @@ import { VerifyEmailBanner } from "./verify-email-banner";
  * ancho y mismo pie que la aplicación. Así navegar entre catálogo, clubes,
  * listas o perfiles no cambia el marco de la página.
  */
-export function SiteShell({
+export async function SiteShell({
   user,
   section,
   title,
@@ -29,13 +30,28 @@ export function SiteShell({
   title: string;
   children: ReactNode;
 }) {
-  const { t, locale } = useI18n();
+  // Armazón renderizado en el servidor: al navegador solo bajan las islas
+  // interactivas (menú de cuenta, tema, idioma), no la cabecera entera.
+  const locale = await getLocale();
+  const t = (text: string) => translate(locale, text);
+  // Los mismos contadores que el catálogo: el menú no puede cambiar de número
+  // según la página en la que estés.
+  const unreadMessages = user ? countUnreadMessages(user.id) : 0;
+  const activeRequests = user ? countActiveRequests(user.id) : 0;
+  const unreadNotifications = user ? countUnreadNotifications(user.id) : 0;
   return (
     <main className="app-shell">
       <a className="skip-link" href="#main-content">
         {t("Saltar al contenido")}
       </a>
-      <SiteRail user={user} section={section} />
+      <SiteRail
+        user={user}
+        section={section}
+        locale={locale}
+        unreadMessages={unreadMessages}
+        activeRequests={activeRequests}
+        unreadNotifications={unreadNotifications}
+      />
 
       <section className="main-panel">
         <header className="topbar">
@@ -55,6 +71,9 @@ export function SiteShell({
             <span className="crumb-slash">/</span>
             <strong>{title}</strong>
           </div>
+          {/* Buscador global: la entrada a libros, clubes, lectores y listas
+              desde cualquier página. */}
+          <SiteSearch locale={locale} />
           <div className="topbar-actions">
             <LocaleSwitcher locale={locale} />
             <ThemeToggle />
@@ -72,6 +91,10 @@ export function SiteShell({
               <Link href="/clubes">{t("Clubes")}</Link>
               <Link href="/lectores">{t("Lectores")}</Link>
               <Link href="/listas">{t("Listas")}</Link>
+            </nav>
+            <nav className="footer-links legal-links" aria-label={t("Información legal")}>
+              <Link href="/privacidad">{t("Privacidad")}</Link>
+              <Link href="/aviso-legal">{t("Aviso legal")}</Link>
             </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {regionName(locale)}

@@ -7,6 +7,7 @@ import { api } from "@/lib/client-api";
 import { REPORT_REASONS } from "@/lib/domain";
 import { useI18n } from "./i18n-provider";
 import { ConfirmDialog } from "./confirm-dialog";
+import { DirectMessageButton } from "./direct-message-button";
 
 export function ProfileActions({
   userId,
@@ -16,6 +17,8 @@ export function ProfileActions({
   followers,
   isAuthenticated,
   canFollow,
+  canMessage = false,
+  openMessages = false,
 }: {
   userId: string;
   userName: string;
@@ -24,6 +27,8 @@ export function ProfileActions({
   followers: number;
   isAuthenticated: boolean;
   canFollow: boolean;
+  canMessage?: boolean;
+  openMessages?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -131,6 +136,13 @@ export function ProfileActions({
             ? t("Siguiendo · {n}", { n: followerCount })
             : t("Seguir · {n}", { n: followerCount })}
         </button>
+      )}
+      {canMessage && !blocked && (
+        <DirectMessageButton
+          peerId={userId}
+          peerName={userName}
+          autoOpen={openMessages}
+        />
       )}
       <button
         type="button"

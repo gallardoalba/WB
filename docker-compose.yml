@@ -2,7 +2,7 @@
 #
 #   cp deploy/env.example .env      # rellena URL, correo y secretos
 #   docker compose up -d --build
-#   docker compose exec app node --import tsx scripts/admin-create.ts …  (ver abajo)
+#   docker compose exec -T app node --import tsx scripts/create-admin.ts …  (ver abajo)
 #
 # La aplicación escucha solo en 127.0.0.1:3000: pon un proxy con TLS delante
 # (el nginx de deploy/nginx.conf sirve apuntando a 127.0.0.1:3000).
@@ -11,9 +11,22 @@
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      # NEXT_PUBLIC_* se fija en el BUILD, no en tiempo de ejecución.
+      args:
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     image: wanderbibliothek:latest
     restart: unless-stopped
+    # Recoge los procesos hijos (Next no suele dejar zombis, pero si algún día
+    # lanza uno, no se queda colgado del PID 1).
+    init: true
+    # El proceso solo necesita leer sus ficheros y escuchar en el 3000: no debe
+    # poder ganar privilegios ni usar capabilities del kernel.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     env_file:
       - .env
     environment:
@@ -37,6 +50,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 25s
+    # Las conexiones SSE (/api/requests/…) son de larga duración: el mismo
+    # margen que TimeoutStopSec en la unidad systemd.
+    stop_grace_period: 30s
     logging:
       driver: json-file
       options:

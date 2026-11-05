@@ -34,7 +34,12 @@ export function ListingCard({
   return (
     <article className="book-card">
       <div className={`cover-frame tone-${toneForId(listing.id)}`}>
-        <BookCover id={listing.id} title={listing.title} coverUrl={listing.coverUrl} />
+                  <BookCover
+            id={listing.id}
+            title={listing.title}
+            author={listing.author}
+            coverUrl={listing.coverUrl}
+          />
         <span className="condition-tag">{t(listing.condition)}</span>
         {actions}
         {listing.status !== "available" && (

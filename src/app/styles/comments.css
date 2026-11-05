@@ -182,7 +182,7 @@
 .comment-reply textarea {
   width: 100%;
   padding: 11px 13px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
   color: var(--ink);
@@ -402,7 +402,33 @@
   margin-bottom: 20px;
 }
 
-@media (max-width: 700px) {
+/* Otras ediciones de la misma obra: mismo libro, otro ISBN. */
+.edition-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.edition-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-lift);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.edition-list strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
   .work-hero {
     grid-template-columns: 120px minmax(0, 1fr);
     gap: 16px;
@@ -438,7 +464,7 @@
 .comment-report select,
 .comment-report input {
   padding: 6px 9px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   font-size: 12.5px;

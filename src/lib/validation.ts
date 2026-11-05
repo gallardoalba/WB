@@ -17,12 +17,12 @@ import { findCity, isKnownCity } from "./cities";
 import { isCommonPassword } from "./passwords";
 import { isValidIsbn, normalizeIsbn } from "./text";
 
-/** Solo se admiten ciudades de Baden-Württemberg (se guarda el nombre canónico). */
+/** Solo se admiten ciudades del catálogo alemán (se guarda el nombre canónico). */
 const cityField = z
   .string()
   .trim()
   .transform((value) => findCity(value)?.name ?? value)
-  .refine((value) => isKnownCity(value), "Elige una ciudad de Baden-Württemberg.");
+  .refine((value) => isKnownCity(value), "Elige una ciudad de Alemania.");
 
 /** Etiquetas: máximo 3, siempre de la lista curada. */
 const tagsField = z
@@ -49,7 +49,10 @@ const meetsAtField = z
     return date.toISOString();
   });
 
-const joinPolicyField = z.enum(["open", "approval"]).optional().default("open");
+const joinPolicyField = z
+  .enum(["open", "approval"], { error: "Elige cómo se entra al club." })
+  .optional()
+  .default("open");
 
 const trimmed = (min: number, max: number, label: string) =>
   z
@@ -61,9 +64,17 @@ const trimmed = (min: number, max: number, label: string) =>
 export const registerSchema = z.object({
   name: trimmed(2, 60, "El nombre"),
   // Campo trampa y prueba de humanidad (ver `lib/captcha.ts`).
-  website: z.string().max(200).optional().default(""),
+  // Campo trampa: si llega relleno, el alta se descarta en silencio.
+  website: z.string().max(200, "El campo oculto no puede superar 200 caracteres.").optional().default(""),
   startedAt: z.coerce.number().int().optional(),
-  turnstileToken: z.string().max(4_000).optional(),
+  turnstileToken: z.string().max(4_000, "La prueba de humanidad ha caducado.").optional(),
+  // El RGPD (art. 8) exige 16 años para consentir el tratamiento por sí mismo.
+  // No se verifica la edad: se deja constancia de que la persona lo declara.
+  ageConfirmed: z
+    .boolean()
+    .optional()
+    .default(false)
+    .refine((value) => value, "Debes tener al menos 16 años para crear una cuenta."),
   email: z
     .string()
     .trim()
@@ -113,21 +124,22 @@ export const totpDisableSchema = z.object({
 export const listingSchema = z.object({
   title: trimmed(2, 120, "El título"),
   author: trimmed(2, 90, "El autor"),
-  category: z.enum(CATEGORIES),
-  language: z.enum(BOOK_LANGUAGES).optional(),
-  condition: z.enum(CONDITIONS),
+  category: z.enum(CATEGORIES, { error: "Elige una categoría de la lista." }),
+  language: z.enum(BOOK_LANGUAGES, { error: "Elige un idioma de la lista." }).optional(),
+  condition: z.enum(CONDITIONS, { error: "Elige un estado del ejemplar." }),
+  // Obligatorio: identifica la obra y da la portada servida por la app.
   isbn: z
-    .string()
+    .string({ error: "Escribe el ISBN del libro." })
     .trim()
-    .optional()
+    .min(1, "Escribe el ISBN del libro.")
     .transform((value) => normalizeIsbn(value))
-    .refine((value) => value === null || isValidIsbn(value), "El ISBN no es válido."),
+    .refine((value) => value !== null && isValidIsbn(value), "El ISBN no es válido."),
   city: cityField.optional(),
   tags: tagsField,
 });
 
 export const requestSchema = z.object({
-  listingId: z.string().min(1, "Falta el ejemplar.").max(64),
+  listingId: z.string().min(1, "Falta el ejemplar.").max(64, "Ese identificador no es válido."),
   message: z
     .string()
     .trim()
@@ -137,17 +149,9 @@ export const requestSchema = z.object({
 });
 
 export const requestUpdateSchema = z.object({
-  status: z.enum(["accepted", "declined", "cancelled", "completed"]),
-  /**
-   * Oficina de Deutsche Post elegida como punto de entrega. `null` explícito
-   * significa entrega en mano; si se omite al aceptar, se propone la más
-   * cercana a quien entrega el libro.
-   */
-  officeId: z
-    .string()
-    .regex(/^dp_[A-Za-z0-9_]{1,60}$/, "Ese punto de entrega no es válido.")
-    .nullable()
-    .optional(),
+  status: z.enum(["accepted", "declined", "cancelled", "completed"], {
+    error: "Ese estado no existe.",
+  }),
 });
 
 export const favoriteSchema = z.object({
@@ -165,7 +169,7 @@ export const bookWantSchema = z.object({
 });
 
 export const readingStateSchema = z.object({
-  status: z.enum(READING_STATES).nullable(),
+  status: z.enum(READING_STATES, { error: "Elige un estado de lectura." }).nullable(),
 });
 
 export const handoverCodeSchema = z.object({
@@ -173,11 +177,60 @@ export const handoverCodeSchema = z.object({
 });
 
 export const handoverSchema = z.object({
-  officeId: z
-    .string()
-    .regex(/^dp_[A-Za-z0-9_]{1,60}$/, "Ese punto de entrega no es válido.")
-    .nullable(),
+  /** En mano o por correo. */
+  method: z.enum(["in_person", "post"], { error: "Elige en mano o por correo." }),
 });
+
+/** Código postal alemán. */
+const postalCode = z.string().trim().regex(/^\d{5}$/, "El código postal tiene 5 cifras.");
+
+/**
+ * Datos del envío. Dos formas, las dos con la misma garantía: se guardan
+ * cifrados y solo los ve la persona que manda el libro.
+ *
+ * - `packstation`: número de cliente de DHL (Postnummer) + taquilla.
+ * - `address`: la dirección que indique quien recibe, si prefiere el correo
+ *   normal a una taquilla.
+ */
+export const shippingSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("packstation"),
+    postNumber: z
+      .string()
+      .trim()
+      .regex(/^\d{8,10}$/, "El número de cliente de DHL tiene entre 8 y 10 cifras."),
+    station: z
+      .string()
+      .trim()
+      .regex(
+        /^packstation\s*\d{1,4}$/i,
+        "Escribe la Packstation con su número (por ejemplo, «Packstation 123»).",
+      ),
+    postalCode,
+    city: z
+      .string()
+      .trim()
+      .min(2, "Escribe la ciudad de la Packstation.")
+      .max(60, "La ciudad no puede superar 60 caracteres.")
+      .regex(/^[^\d]+$/, "En la ciudad va solo el nombre, sin números."),
+  }),
+  z.object({
+    kind: z.literal("address"),
+    street: z
+      .string()
+      .trim()
+      .min(3, "Escribe la calle y el número.")
+      .max(120, "La dirección no puede superar 120 caracteres.")
+      .regex(/\d/, "La dirección tiene que llevar el número de la casa."),
+    postalCode,
+    city: z
+      .string()
+      .trim()
+      .min(2, "Escribe la ciudad.")
+      .max(60, "La ciudad no puede superar 60 caracteres.")
+      .regex(/^[^\d]+$/, "En la ciudad va solo el nombre, sin números."),
+  }),
+]);
 
 /**
  * Comentario de una obra. El cuerpo se guarda como texto plano (React lo
@@ -187,11 +240,47 @@ escapa):
 export const commentSchema = z.object({
   body: trimmed(2, 800, "El comentario"),
   spoiler: z.boolean().optional().default(false),
-  parentId: z.string().min(1).max(80).optional(),
+  parentId: z
+    .string()
+    .min(1, "Falta el comentario al que respondes.")
+    .max(80, "Ese identificador no es válido.")
+    .optional(),
 });
 
 export const commentLikeSchema = z.object({
   liked: z.boolean(),
+});
+
+/** Mensaje del foro de un club: texto y, si es respuesta, el mensaje padre. */
+export const clubPostSchema = z.object({
+  body: trimmed(2, 800, "El mensaje"),
+  parentId: z
+    .string()
+    .min(1, "Falta el mensaje al que respondes.")
+    .max(80, "Ese identificador no es válido.")
+    .optional(),
+});
+
+export const clubPostLikeSchema = z.object({
+  liked: z.boolean(),
+});
+
+/** Votación de la próxima lectura: entre dos y cinco obras del catálogo. */
+export const clubPollSchema = z.object({
+  question: trimmed(3, 120, "La pregunta de la votación"),
+  bookIds: z
+    .array(
+      z
+        .string()
+        .min(1, "Falta un libro en la votación.")
+        .max(64, "Ese identificador no es válido."),
+    )
+    .min(2, "Propón al menos dos libros.")
+    .max(5, "Cinco libros es el máximo para una votación."),
+});
+
+export const clubPollVoteSchema = z.object({
+  optionId: z.string().min(1, "Falta la opción.").max(64, "Ese identificador no es válido."),
 });
 
 export const followSchema = z.object({
@@ -209,8 +298,30 @@ export const readingListSchema = z.object({
 });
 
 export const readingListItemSchema = z.object({
-  bookId: z.string().min(1, "Falta el libro.").max(64),
+  bookId: z.string().min(1, "Falta el libro.").max(64, "Ese identificador no es válido."),
 });
+
+/**
+ * Dónde se ve el club y cómo entrar a la videollamada. El enlace solo admite
+ * `http(s)`: un `javascript:` acabaria siendo un agujero en un enlace público.
+ */
+const meetsPlaceField = z
+  .string()
+  .trim()
+  .max(120, "El sitio del encuentro no puede superar 120 caracteres.")
+  .optional()
+  .default("");
+
+const meetsLinkField = z
+  .string()
+  .trim()
+  .max(300, "El enlace no puede superar 300 caracteres.")
+  .optional()
+  .default("")
+  .refine(
+    (value) => value === "" || /^https?:\/\//i.test(value),
+    "El enlace debe empezar por http:// o https://.",
+  );
 
 export const clubSchema = z.object({
   name: trimmed(3, 60, "El nombre del club"),
@@ -221,9 +332,11 @@ export const clubSchema = z.object({
     .max(280, "La descripción no puede superar 280 caracteres.")
     .optional()
     .default(""),
-  bookId: z.string().min(1).optional(),
+  bookId: z.string().min(1, "Falta el libro del club.").optional(),
   meetsOn: z.string().trim().max(80, "El día de encuentro es demasiado largo.").optional().default(""),
   meetsAt: meetsAtField,
+  meetsPlace: meetsPlaceField,
+  meetsLink: meetsLinkField,
   joinPolicy: joinPolicyField,
 });
 
@@ -232,7 +345,10 @@ export const clubMembershipSchema = z.object({
 });
 
 export const clubInviteSchema = z.object({
-  userId: z.string().min(1, "Falta la persona a invitar.").max(64),
+  userId: z
+    .string()
+    .min(1, "Falta la persona a invitar.")
+    .max(64, "Ese identificador no es válido."),
 });
 
 export const clubMemberDecisionSchema = z.object({
@@ -240,26 +356,22 @@ export const clubMemberDecisionSchema = z.object({
 });
 
 export const clubTransferSchema = z.object({
-  userId: z.string().min(1, "Falta la persona a la que ceder el club.").max(64),
+  userId: z
+    .string()
+    .min(1, "Falta la persona a la que ceder el club.")
+    .max(64, "Ese identificador no es válido."),
+});
+
+export const clubModeratorSchema = z.object({
+  userId: z
+    .string()
+    .min(1, "Falta la persona a la que nombrar.")
+    .max(64, "Ese identificador no es válido."),
+  moderator: z.boolean(),
 });
 
 export const clubAttendanceSchema = z.object({
   attending: z.boolean(),
-});
-
-export const clubLoanSchema = z.object({
-  listingId: z.string().min(1, "Falta el ejemplar.").max(64),
-  borrowerId: z.string().min(1, "Falta la persona que lo recibe.").max(64),
-  dueAt: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de devolución no es válida.")
-    .optional()
-    .nullable(),
-});
-
-export const clubLoanReturnSchema = z.object({
-  loanId: z.string().min(1, "Falta el préstamo.").max(64),
 });
 
 export const readingListUpdateSchema = readingListSchema;
@@ -274,9 +386,17 @@ export const clubUpdateSchema = z.object({
     .default(""),
   meetsOn: z.string().trim().max(80, "El día de encuentro es demasiado largo.").optional().default(""),
   meetsAt: meetsAtField,
-  bookId: z.string().min(1).nullable().optional(),
+  meetsPlace: meetsPlaceField,
+  meetsLink: meetsLinkField,
+  bookId: z.string().min(1, "Falta el libro del club.").nullable().optional(),
   joinPolicy: joinPolicyField,
-  progress: z.coerce.number().int().min(0).max(100).optional().default(0),
+  // Sin `default(0)`: un PATCH parcial no debe reiniciar el progreso del club.
+  progress: z.coerce
+    .number()
+    .int()
+    .min(0, "El progreso va del 0 al 100.")
+    .max(100, "El progreso va del 0 al 100.")
+    .optional(),
   progressNote: z
     .string()
     .trim()
@@ -327,38 +447,55 @@ export type ListingInput = z.infer<typeof listingSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const listingStatusSchema = z.object({
-  status: z.enum(["paused", "available"]),
+  status: z.enum(["paused", "available"], { error: "Ese estado no existe." }),
 });
 
 export const reportSchema = z.object({
-  targetType: z.enum(REPORT_TARGETS),
-  targetId: z.string().min(1).max(64),
-  reason: z.enum(REPORT_REASONS),
+  targetType: z.enum(REPORT_TARGETS, { error: "Ese tipo de contenido no existe." }),
+  targetId: z
+    .string()
+    .min(1, "Falta el contenido que denuncias.")
+    .max(64, "Ese identificador no es válido."),
+  reason: z.enum(REPORT_REASONS, { error: "Elige un motivo de la lista." }),
   details: z.string().trim().max(500, "El detalle no puede superar 500 caracteres.").optional().default(""),
 });
 
 export const blockSchema = z.object({
-  userId: z.string().min(1, "Falta la persona a bloquear.").max(64),
+  userId: z
+    .string()
+    .min(1, "Falta la persona a bloquear.")
+    .max(64, "Ese identificador no es válido."),
 });
 
 const CATALOG_CATEGORIES = new Set<string>(["Todos", ...CATEGORIES]);
 
 export const catalogParamsSchema = z.object({
-  view: z.enum(VIEWS).optional().default("home"),
-  q: z.string().trim().max(120).optional().default(""),
+  view: z.enum(VIEWS, { error: "Esa vista no existe." }).optional().default("home"),
+  q: z
+    .string()
+    .trim()
+    .max(120, "La búsqueda no puede superar 120 caracteres.")
+    .optional()
+    .default(""),
   // Una categoría desconocida se ignora en vez de devolver un catálogo vacío.
   category: z
     .string()
     .trim()
     .optional()
     .transform((value) => (value && CATALOG_CATEGORIES.has(value) ? value : "Todos")),
-  language: z.enum(CATALOG_LANGUAGES).optional().default("Todos"),
-  sort: z.enum(SORTS).optional().default("near"),
+  language: z.enum(CATALOG_LANGUAGES, { error: "Ese idioma no existe." }).optional().default("Todos"),
+  sort: z.enum(SORTS, { error: "Ese orden no existe." }).optional().default("near"),
   // Radio en km desde la ciudad de quien mira. 0 = sin límite.
-  radius: z.coerce.number().int().min(0).max(100).optional().default(0),
-  shelf: z.enum(["all", "saved", "mine"]).optional().default("all"),
+  radius: z.coerce
+    .number()
+    .int()
+    .min(0, "El radio va de 0 a 100 km.")
+    .max(100, "El radio va de 0 a 100 km.")
+    .optional()
+    .default(0),
+  shelf: z.enum(["all", "saved", "mine"], { error: "Esa estantería no existe." }).optional().default("all"),
   // «Siguiendo» limita el muro de la comunidad a las cuentas que sigues.
-  feed: z.enum(["all", "following"]).optional().default("all"),
+  feed: z.enum(["all", "following"], { error: "Ese muro no existe." }).optional().default("all"),
   // Etiqueta curada; una desconocida se ignora en vez de vaciar el catálogo.
   tag: z
     .string()
@@ -368,15 +505,21 @@ export const catalogParamsSchema = z.object({
     .default(""),
   // Pestaña y ámbito del panel de comunidad: viajan en la URL para poder
   // compartir «Clubes de Stuttgart» o el muro de actividad.
-  tab: z.enum(COMMUNITY_TABS).optional().default("conversations"),
-  scope: z.enum(COMMUNITY_SCOPES).optional().default("region"),
-  page: z.coerce.number().int().min(1).max(500).optional().default(1),
+  tab: z.enum(COMMUNITY_TABS, { error: "Esa pestaña no existe." }).optional().default("conversations"),
+  scope: z.enum(COMMUNITY_SCOPES, { error: "Ese ámbito no existe." }).optional().default("region"),
+  page: z.coerce
+    .number()
+    .int()
+    .min(1, "La página empieza en 1.")
+    .max(500, "No hay más de 500 páginas.")
+    .optional()
+    .default(1),
 });
 
 export type CatalogParams = z.infer<typeof catalogParamsSchema>;
 
 export const listingEditSchema = z.object({
-  condition: z.enum(CONDITIONS),
+  condition: z.enum(CONDITIONS, { error: "Elige un estado del ejemplar." }),
   city: cityField,
   tags: tagsField,
   notes: z
@@ -388,7 +531,7 @@ export const listingEditSchema = z.object({
 });
 
 export const listingPatchSchema = z.union([
-  z.object({ status: z.enum(["paused", "available"]) }),
+  z.object({ status: z.enum(["paused", "available"], { error: "Ese estado no existe." }) }),
   listingEditSchema,
 ]);
 
@@ -445,24 +588,39 @@ export const profileUpdateSchema = z.object({
 });
 
 export const adminActionSchema = z.object({
-  action: z.enum(["dismiss", "hide_listing", "suspend_user", "hide_comment", "hide_club"]),
+  action: z.enum(
+    [
+    "dismiss",
+    "hide_listing",
+    "suspend_user",
+    "hide_comment",
+    "hide_club",
+    "hide_club_post",
+  ]),
 });
 
 export const localeSchema = z.object({
-  locale: z.enum(["es", "de"]),
+  locale: z.enum(["es", "de"], { error: "Ese idioma no existe." }),
 });
 
 export const moderationSchema = z.object({
-  action: z.enum([
-    "hide_listing",
-    "restore_listing",
-    "suspend_user",
-    "unsuspend_user",
-    "hide_comment",
-    "restore_comment",
-    "hide_club",
-    "restore_club",
-  ]),
-  targetType: z.enum(["listing", "user", "comment", "club"]),
-  targetId: z.string().min(1, "Falta el objetivo.").max(64),
+  action: z.enum(
+    [
+      "hide_listing",
+      "restore_listing",
+      "suspend_user",
+      "unsuspend_user",
+      "hide_comment",
+      "restore_comment",
+      "hide_club",
+      "restore_club",
+      "hide_club_post",
+      "restore_club_post",
+    ],
+    { error: "Esa acción no existe." },
+  ),
+  targetType: z.enum(["listing", "user", "comment", "club", "club_post"], {
+    error: "Ese tipo de contenido no existe.",
+  }),
+  targetId: z.string().min(1, "Falta el objetivo.").max(64, "Ese identificador no es válido."),
 });

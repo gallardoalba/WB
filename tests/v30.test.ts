@@ -3,14 +3,14 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type RepoModule = typeof import("../src/lib/repo.ts");
 
 let dbModule: DbModule;
 let repo: RepoModule;
 
 before(async () => {
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   repo = await import("../src/lib/repo.ts");
 });
 
@@ -51,6 +51,9 @@ test("el muro público no muestra actividad de dueños suspendidos", () => {
 });
 
 test("las cifras de la portada ignoran cuentas suspendidas", () => {
+  // La demostración trae un club propio: la prueba mide el efecto de crear y
+  // suspender, así que parte de una tabla sin clubes.
+  dbModule.getDb().prepare("DELETE FROM clubs").run();
   const before = repo.getStats();
   repo.createClub("usr_clara", {
     name: "Club de cifras",

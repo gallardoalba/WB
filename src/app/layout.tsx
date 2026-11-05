@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import { I18nProvider } from "@/components/i18n-provider";
 import { PwaRegister } from "@/components/pwa-register";
+import { DE } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { BRAND } from "@/lib/brand";
 import { siteUrl } from "@/lib/site";
@@ -72,7 +73,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
-        <I18nProvider locale={locale}>
+        <I18nProvider locale={locale} messages={locale === "de" ? DE : {}}>
           <PwaRegister />
           {children}
         </I18nProvider>

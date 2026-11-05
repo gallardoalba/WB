@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CalendarCheck,
@@ -9,15 +10,25 @@ import {
   Pencil,
   Plus,
   Share2,
+  ShieldCheck,
   Trash2,
   UserCheck,
+  UserCog,
   UserPlus,
   X,
 } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { BookPicker } from "./book-picker";
 import { CityField } from "./city-field";
 import { ConfirmDialog } from "./confirm-dialog";
-import { REPORT_REASONS, type ClubRequestView, type ClubView } from "@/lib/domain";
+import { Dialog } from "./dialog";
+import {
+  REPORT_REASONS,
+  type ClubPostReportView,
+  type ClubRequestView,
+  type ClubView,
+} from "@/lib/domain";
+import { formatWhen } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 
 /** Alta de un club de lectura: la conversación vive en el hilo del libro. */
@@ -52,6 +63,8 @@ export function ClubCreate({
           meetsAt: form.get("meetsAt") ?? "",
           joinPolicy: form.get("joinPolicy") ?? "open",
           bookId: book?.id,
+          meetsPlace: form.get("meetsPlace") ?? "",
+          meetsLink: form.get("meetsLink") ?? "",
         },
       });
       setFeedback(t("Club creado. Ya aparece en la lista."));
@@ -80,10 +93,10 @@ export function ClubCreate({
             {t("Nombre")}
             <input name="name" required minLength={3} maxLength={60} placeholder={t("Club de los martes")} />
           </label>
-          <label>
-            {t("Ciudad")}
-            <CityField name="city" defaultValue={defaultCity} required />
-          </label>
+          <div className="field">
+            <label htmlFor="club-city">{t("Ciudad")}</label>
+            <CityField id="club-city" name="city" defaultValue={defaultCity} required />
+          </div>
           <label>
             {t("Horario habitual (opcional)")}
             <input name="meetsOn" maxLength={80} placeholder={t("Último jueves de mes, 19:00")} />
@@ -97,6 +110,15 @@ export function ClubCreate({
             <small className="form-hint">
               {t("Fecha y hora concretas; se avisa a quienes asisten.")}
             </small>
+          </label>
+          <label>
+            {t("Dónde os veis (opcional)")}
+            <input name="meetsPlace" maxLength={120} placeholder={t("Cafetería Central, sala 2")} />
+          </label>
+          <label>
+            {t("Enlace del encuentro (opcional)")}
+            <input name="meetsLink" type="url" maxLength={300} placeholder="https://meet.example.com/…" />
+            <small className="form-hint">{t("Para quien no pueda venir en persona.")}</small>
           </label>
           <label>
             {t("Quién puede entrar")}
@@ -136,6 +158,7 @@ export function ClubJoin({ club }: { club: ClubView }) {
   const [members, setMembers] = useState(club.members);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   async function toggle() {
     const next = status === "none";
@@ -157,6 +180,19 @@ export function ClubJoin({ club }: { club: ClubView }) {
     }
   }
 
+  // Quien creó el club no puede salir: antes se le ofrecía el mismo botón que a
+  // los demás y al pulsarlo recibía un 409.
+  if (club.isMine) {
+    return (
+      <div className="club-join">
+        {/* El número de miembros ya está en la cabecera: aquí no se repite. */}
+        <span className="club-owner">
+          <UserCheck size={14} /> {t("Lo diriges tú")}
+        </span>
+      </div>
+    );
+  }
+
   const label =
     status === "member"
       ? `${t("En el club")} · ${members}`
@@ -173,30 +209,149 @@ export function ClubJoin({ club }: { club: ClubView }) {
         className={status === "none" ? "secondary-button small" : "secondary-button small following"}
         disabled={pending}
         aria-pressed={status !== "none"}
-        onClick={toggle}
+        onClick={() => (status === "member" ? setConfirmLeave(true) : void toggle())}
       >
         {status === "none" ? <UserPlus size={14} /> : <UserCheck size={14} />}
         {label}
       </button>
-      {club.isMine && <span className="club-owner">{t("Lo creaste tú")}</span>}
       {status === "pending" && <span className="club-owner">{t("Espera aprobación")}</span>}
       {error && (
         <span className="form-error" role="alert">
           {error}
         </span>
       )}
+      {/* Salir deja de ser un clic accidental: se pierde el acceso al foro. */}
+      <ConfirmDialog
+        open={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        onConfirm={() => {
+          setConfirmLeave(false);
+          void toggle();
+        }}
+        title={t("Salir del club")}
+        description={t(
+          "Dejarás de ver el foro y la votación de «{name}». Podrás volver a pedir entrada si hay sitio.",
+          { name: club.name },
+        )}
+        confirmLabel={t("Salir del club")}
+        pending={pending}
+      />
     </div>
   );
 }
 
-/** Ajustes del club: solo quien lo creó puede cambiar la lectura o borrarlo. */
-export function ClubSettings({
-  club,
-  books,
+/**
+ * Moderación del club: los mensajes del foro que alguien ha denunciado.
+ *
+ * Quien lleva el club no tenía dónde ver esto —solo el panel de administración
+ * se enteraba—, así que un mensaje denunciado se quedaba ahí sin que nadie del
+ * club pudiera quitarlo. Aquí se decide en el sitio: se lee el mensaje y, si
+ * procede, se borra (lo que además cierra la denuncia).
+ */
+export function ClubReports({
+  clubId,
+  reports,
 }: {
-  club: ClubView;
-  books: { id: string; title: string; author: string }[];
+  clubId: string;
+  reports: ClubPostReportView[];
 }) {
+  const router = useRouter();
+  const { t, locale } = useI18n();
+  const [borrando, setBorrando] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function borrar(postId: string) {
+    setPending(true);
+    setError("");
+    try {
+      await api(`/api/clubs/${clubId}/posts/${postId}`, { method: "DELETE" });
+      setBorrando(null);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("No se pudo borrar el mensaje."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (reports.length === 0) {
+    return <p className="empty-note">{t("Ningún mensaje denunciado ahora mismo.")}</p>;
+  }
+
+  return (
+    <div className="club-reports">
+      <ul>
+        {reports.map((report) => (
+          <li key={report.id}>
+            <blockquote>
+              {report.post.body.length > 160
+                ? `${report.post.body.slice(0, 159)}…`
+                : report.post.body}
+            </blockquote>
+            <p className="club-report-meta">
+              {t("Escrito por {name}", { name: report.post.author })} ·{" "}
+              {t("denunciado por {name}", { name: report.reporter.name })} ·{" "}
+              {t(report.reason)} · {formatWhen(report.createdAt, locale)}
+            </p>
+            {borrando === report.post.id ? (
+              <div className="club-report-confirm">
+                <p>{t("¿Seguro que quieres borrar este mensaje? No se puede deshacer.")}</p>
+                <div className="dialog-actions">
+                  <button
+                    type="button"
+                    className="secondary-button small"
+                    onClick={() => setBorrando(null)}
+                    disabled={pending}
+                  >
+                    {t("No, dejarlo")}
+                  </button>
+                  <button
+                    type="button"
+                    className="share-button small danger"
+                    onClick={() => void borrar(report.post.id)}
+                    disabled={pending}
+                  >
+                    <Trash2 size={14} /> {t("Sí, borrar el mensaje")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="club-report-actions">
+                <Link href={`/clubes/${clubId}#c-${report.post.id}`} className="comment-action">
+                  {t("Ver en el foro")}
+                </Link>
+                <button
+                  type="button"
+                  className="comment-action danger"
+                  onClick={() => setBorrando(report.post.id)}
+                >
+                  <Trash2 size={14} /> {t("Borrar el mensaje")}
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Ajustes del club en una ventana propia.
+ *
+ * Antes eran un formulario plegable al final de la página y el cierre del club
+ * vivía en un botón aparte, a su lado: dos acciones del mismo dueño separadas y
+ * fuera de la vista al entrar. Ahora hay **un solo botón, arriba**, que abre un
+ * diálogo con todo —incluida la zona de peligro, en dos pasos— para que cerrar
+ * el club no esté a un clic accidental ni escondido al pie.
+ */
+export function ClubSettings({ club }: { club: ClubView }) {
   const router = useRouter();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -204,6 +359,15 @@ export function ClubSettings({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // La lectura se elige del catálogo entero, no solo de los libros que ya tiene
+  // publicados quien creó el club.
+  const [lectura, setLectura] = useState(club.book);
+
+  function cerrar() {
+    setOpen(false);
+    setConfirming(false);
+    setError("");
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -219,6 +383,8 @@ export function ClubSettings({
           description: form.get("description") ?? "",
           meetsOn: form.get("meetsOn") ?? "",
           meetsAt: form.get("meetsAt") ?? "",
+          meetsPlace: form.get("meetsPlace") ?? "",
+          meetsLink: form.get("meetsLink") ?? "",
           joinPolicy: form.get("joinPolicy") ?? "open",
           progress: Number(form.get("progress") ?? 0),
           progressNote: form.get("progressNote") ?? "",
@@ -226,7 +392,7 @@ export function ClubSettings({
         },
       });
       setDone(true);
-      setOpen(false);
+      cerrar();
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo guardar el club."));
@@ -236,7 +402,6 @@ export function ClubSettings({
   }
 
   async function remove() {
-    setConfirming(false);
     setPending(true);
     setError("");
     try {
@@ -250,29 +415,31 @@ export function ClubSettings({
 
   return (
     <div className="club-settings">
-      <div className="club-settings-actions">
-        <button type="button" className="secondary-button small" onClick={() => setOpen((v) => !v)}>
-          <Pencil size={14} /> {t("Editar club")}
-        </button>
-        <button
-          type="button"
-          className="secondary-button small danger"
-          disabled={pending}
-          onClick={() => setConfirming(true)}
-        >
-          <Trash2 size={14} /> {t("Cerrar club")}
-        </button>
-      </div>
+      <button type="button" className="secondary-button small" onClick={() => setOpen(true)}>
+        <Pencil size={14} /> {t("Editar club")}
+      </button>
       {done && (
         <p className="action-feedback" role="status">
           {t("Club actualizado.")}
         </p>
       )}
-      {open && (
-        <form className="club-form" onSubmit={submit}>
+
+      <Dialog
+        open={open}
+        onClose={cerrar}
+        title={t("Editar club")}
+        description={t("Nombre, encuentros, lectura en curso y quién puede entrar.")}
+        overline={club.name}
+        wide
+      >
+        <form className="club-form is-dialog" onSubmit={submit}>
           <label>
             {t("Nombre")}
             <input name="name" defaultValue={club.name} required minLength={3} maxLength={60} />
+          </label>
+          <label>
+            {t("Descripción")}
+            <textarea name="description" defaultValue={club.description} rows={2} maxLength={280} />
           </label>
           <label>
             {t("Cuándo os veis")}
@@ -287,12 +454,54 @@ export function ClubSettings({
             />
           </label>
           <label>
+            {t("Dónde os veis")}
+            <input
+              name="meetsPlace"
+              defaultValue={club.meetsPlace}
+              maxLength={120}
+              placeholder={t("Cafetería Central, sala 2")}
+            />
+          </label>
+          <label>
+            {t("Enlace del encuentro (opcional)")}
+            <input
+              name="meetsLink"
+              type="url"
+              defaultValue={club.meetsLink}
+              maxLength={300}
+              placeholder="https://meet.example.com/…"
+            />
+            <small className="form-hint">{t("Para quien no pueda venir en persona.")}</small>
+          </label>
+          <label>
             {t("Quién puede entrar")}
             <select name="joinPolicy" defaultValue={club.joinPolicy}>
               <option value="open">{t("Cualquier lector")}</option>
               <option value="approval">{t("Con mi aprobación")}</option>
             </select>
           </label>
+          <div className="club-field">
+            <span className="club-field-label">{t("Lectura en curso")}</span>
+            <input type="hidden" name="bookId" value={lectura?.id ?? ""} />
+            {lectura ? (
+              <p className="club-selected-book">
+                <span>
+                  <strong>{lectura.title}</strong>
+                  <small>{lectura.author}</small>
+                </span>
+                <button
+                  type="button"
+                  className="comment-action danger"
+                  onClick={() => setLectura(null)}
+                >
+                  <X size={13} /> {t("Quitar")}
+                </button>
+              </p>
+            ) : (
+              <p className="empty-note">{t("Sin lectura por ahora.")}</p>
+            )}
+            <BookPicker onSelect={setLectura} />
+          </div>
           <label>
             {t("Progreso de la lectura")} ({club.progress}%)
             <input
@@ -313,45 +522,72 @@ export function ClubSettings({
               placeholder={t("Capítulo 6 de 12")}
             />
           </label>
-          <label>
-            {t("Descripción")}
-            <textarea name="description" defaultValue={club.description} rows={2} maxLength={280} />
-          </label>
-          <label>
-            {t("Lectura en curso")}
-            <select name="bookId" defaultValue={club.book?.id ?? ""}>
-              <option value="">{t("Sin lectura por ahora")}</option>
-              {books.map((book) => (
-                <option key={book.id} value={book.id}>
-                  {book.title} · {book.author}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" className="share-button small" disabled={pending}>
-            {t("Guardar cambios")}
-          </button>
+
           {error && (
             <p className="form-error" role="alert">
               {error}
             </p>
           )}
+
+          <div className="dialog-actions">
+            <button type="button" className="secondary-button" onClick={cerrar} disabled={pending}>
+              {t("Cancelar")}
+            </button>
+            <button type="submit" className="share-button small" disabled={pending}>
+              {t("Guardar cambios")}
+            </button>
+          </div>
+
+          {/* Zona de peligro: cerrar el club vive aquí, en dos pasos, y no en un
+              botón suelto junto a «Editar». */}
+          <div className="club-danger">
+            <div>
+              <strong>{t("Cerrar el club")}</strong>
+              <p>
+                {t(
+                  "Desaparece del directorio y se pierden su foro y sus votaciones. Sus miembros no podrán volver a entrar.",
+                )}
+              </p>
+            </div>
+            {confirming ? (
+              <div className="club-danger-confirm">
+                <p>
+                  {t("¿Seguro que quieres cerrar «{name}»? No se puede deshacer.", {
+                    name: club.name,
+                  })}
+                </p>
+                <div className="dialog-actions">
+                  <button
+                    type="button"
+                    className="secondary-button small"
+                    onClick={() => setConfirming(false)}
+                    disabled={pending}
+                  >
+                    {t("No, dejarlo")}
+                  </button>
+                  <button
+                    type="button"
+                    className="share-button small danger"
+                    onClick={() => void remove()}
+                    disabled={pending}
+                  >
+                    <Trash2 size={14} /> {t("Sí, cerrar el club")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="secondary-button small danger"
+                onClick={() => setConfirming(true)}
+                disabled={pending}
+              >
+                <Trash2 size={14} /> {t("Cerrar el club")}
+              </button>
+            )}
+          </div>
         </form>
-      )}
-      {!open && error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      <ConfirmDialog
-        open={confirming}
-        onClose={() => setConfirming(false)}
-        onConfirm={() => void remove()}
-        title={t("Cerrar el club")}
-        description={t("«{name}» dejará de aparecer en el directorio y sus miembros no podrán volver a entrar.", { name: club.name })}
-        confirmLabel={t("Cerrar club")}
-        pending={pending}
-      />
+      </Dialog>
     </div>
   );
 }
@@ -418,9 +654,12 @@ export function ClubAttendance({ club }: { club: ClubView }) {
 export function ClubShare({
   club,
   following,
+  extra,
 }: {
   club: ClubView;
   following: { id: string; name: string }[];
+  /** Controles que acompañan a «Copiar enlace» (gestión de miembros). */
+  extra?: ReactNode;
 }) {
   const router = useRouter();
   const { t } = useI18n();
@@ -433,7 +672,11 @@ export function ClubShare({
     const url = `${window.location.origin}/clubes/${club.id}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: club.name, text: t("Te invito a «{name}»", { name: club.name }), url });
+        await navigator.share({
+          title: club.name,
+          text: t("Te invito a «{name}»", { name: club.name }),
+          url,
+        });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -482,6 +725,7 @@ export function ClubShare({
         >
           <Copy size={14} /> {t("Copiar enlace")}
         </button>
+        {extra}
       </div>
       {following.length > 0 && (
         <form className="club-invite" onSubmit={invite}>
@@ -587,58 +831,163 @@ export function ClubRequests({
   );
 }
 
-/** Acciones del dueño sobre un miembro concreto: retirar o ceder el club. */
-export function ClubMemberAdmin({
+/**
+ * Gestión de miembros, en un solo sitio: los botones dejaron de repetirse en
+ * cada fila de la lista y viven junto a «Copiar enlace», que es donde se busca
+ * lo de administrar el club.
+ */
+export function ClubMembersMenu({
   clubId,
-  userId,
-  name,
+  members,
 }: {
   clubId: string;
-  userId: string;
-  name: string;
+  members: { id: string; name: string; isModerator: boolean }[];
 }) {
   const router = useRouter();
   const { t } = useI18n();
-  const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [elegido, setElegido] = useState("");
+  const [pendiente, setPendiente] = useState(false);
+  const [confirmando, setConfirmando] = useState<null | "quitar" | "ceder">(null);
   const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
 
-  async function call(path: string, body?: Record<string, unknown>) {
-    setPending(true);
+  const persona = members.find((member) => member.id === elegido);
+  const yaModera = Boolean(persona?.isModerator);
+
+  /**
+   * Nombra o retira a un moderador sin diálogo: es reversible y no saca a
+   * nadie del club, así que confirmarlo sería ruido.
+   */
+  async function alternarModerador() {
+    if (!persona) return;
+    setPendiente(true);
     setError("");
+    setAviso("");
     try {
-      await api(path, { method: body ? "POST" : "DELETE", body });
+      await api(`/api/clubs/${clubId}/moderators`, {
+        method: "POST",
+        body: { userId: persona.id, moderator: !persona.isModerator },
+      });
+      setAviso(
+        persona.isModerator
+          ? t("{name} ya no modera el club.", { name: persona.name })
+          : t("{name} ahora modera el club.", { name: persona.name }),
+      );
+      // La lista de nombres deja de incluir a quien cambia de rol: se recarga.
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo completar la acción."));
     } finally {
-      setPending(false);
+      setPendiente(false);
+    }
+  }
+
+  async function ejecutar() {
+    const accion = confirmando;
+    setConfirmando(null);
+    if (!persona) return;
+    setPendiente(true);
+    setError("");
+    setAviso("");
+    try {
+      if (accion === "quitar") {
+        await api(`/api/clubs/${clubId}/requests/${persona.id}`, { method: "DELETE" });
+        setAviso(t("{name} ya no está en el club.", { name: persona.name }));
+      } else {
+        await api(`/api/clubs/${clubId}/transfer`, {
+          method: "POST",
+          body: { userId: persona.id },
+        });
+        setAviso(t("El club pasa a {name}.", { name: persona.name }));
+      }
+      setElegido("");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("No se pudo completar la acción."));
+    } finally {
+      setPendiente(false);
     }
   }
 
   return (
-    <span className="club-member-admin">
+    <div className="club-members-menu">
       <button
         type="button"
         className="secondary-button small"
-        disabled={pending}
-        onClick={() => void call(`/api/clubs/${clubId}/requests/${userId}`)}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
       >
-        {t("Quitar")}
+        <UserCog size={14} /> {t("Gestionar miembros")}
       </button>
-      <button
-        type="button"
-        className="secondary-button small"
-        disabled={pending}
-        onClick={() => void call(`/api/clubs/${clubId}/transfer`, { userId })}
-      >
-        {t("Ceder club a {name}", { name })}
-      </button>
-      {error && (
-        <span className="form-error" role="alert">
-          {error}
-        </span>
+      {open && (
+        <div className="club-members-menu-panel">
+          <label>
+            {t("Elige a quién gestionar")}
+            <select value={elegido} onChange={(event) => setElegido(event.target.value)}>
+              <option value="">{t("Elige una persona")}</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="club-members-menu-actions">
+            <button
+              type="button"
+              className="secondary-button small"
+              disabled={!elegido || pendiente}
+              onClick={() => void alternarModerador()}
+            >
+              <ShieldCheck size={14} />{" "}
+              {yaModera ? t("Quitar moderador") : t("Hacer moderador")}
+            </button>
+            <button
+              type="button"
+              className="secondary-button small danger"
+              disabled={!elegido || pendiente}
+              onClick={() => setConfirmando("quitar")}
+            >
+              <Trash2 size={14} /> {t("Retirar del club")}
+            </button>
+            <button
+              type="button"
+              className="secondary-button small"
+              disabled={!elegido || pendiente}
+              onClick={() => setConfirmando("ceder")}
+            >
+              {t("Ceder el club")}
+            </button>
+          </div>
+          {aviso && (
+            <p className="action-feedback" role="status">
+              {aviso}
+            </p>
+          )}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       )}
-    </span>
+      <ConfirmDialog
+        open={confirmando !== null}
+        onClose={() => setConfirmando(null)}
+        onConfirm={() => void ejecutar()}
+        title={confirmando === "ceder" ? t("Ceder el club") : t("Retirar del club")}
+        description={
+          persona && confirmando === "ceder"
+            ? t("«{name}» pasará a llevar el club y tú dejarás de poder editarlo.", { name: persona.name })
+            : persona
+              ? t("«{name}» saldrá del club y dejará de ver el foro.", { name: persona.name })
+              : t("Elige primero a una persona.")
+        }
+        confirmLabel={confirmando === "ceder" ? t("Ceder el club") : t("Retirar del club")}
+        pending={pendiente}
+      />
+    </div>
   );
 }
 

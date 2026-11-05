@@ -3,14 +3,14 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type RepoModule = typeof import("../src/lib/repo.ts");
 
 let dbModule: DbModule;
 let repo: RepoModule;
 
 before(async () => {
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   repo = await import("../src/lib/repo.ts");
 });
 
@@ -51,6 +51,9 @@ test("la portada no carga clubes, lectores, listas ni intercambios", () => {
 });
 
 test("cada pestaña de la comunidad ejecuta solo su consulta", () => {
+  // Los datos de demostración traen un club: aquí se mide la consulta de la
+  // pestaña, así que se parte de una tabla vacía.
+  dbModule.getDb().prepare("DELETE FROM clubs").run();
   repo.createClub("usr_clara", {
     name: "Club de los martes",
     city: "Stuttgart",

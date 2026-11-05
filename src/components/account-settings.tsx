@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Download, LogOut } from "lucide-react";
+import { Download, Lock, LogOut, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { ensureIdentity } from "@/lib/e2e";
 import type { RequestView, SessionUser } from "@/lib/domain";
@@ -70,8 +70,25 @@ export function AccountSettings({
           ensureIdentity(),
         ]);
         if (cancelled) return;
-        setKeys(stored);
         setLocalKeyId(identity.keyId);
+        if (stored.keyId) {
+          setKeys(stored);
+          return;
+        }
+        // Primera clave de la cuenta: se publica sola, igual que hace el shell
+        // al entrar. Antes había que pulsar un botón y la sección parecía
+        // pedir permiso para algo que ya estaba resuelto.
+        try {
+          const saved = await api<{ keyId: string; history: KeyHistory[] }>(
+            "/api/account/keys",
+            { method: "PUT", body: identity.publicJwk },
+          );
+          if (cancelled) return;
+          setKeys({ keyId: saved.keyId, history: saved.history });
+        } catch {
+          // Si falla, se queda el botón manual con su explicación.
+          if (!cancelled) setKeys(stored);
+        }
       } catch {
         if (!cancelled) setKeyError(t("No se pudo cargar el estado del cifrado."));
       }
@@ -101,6 +118,10 @@ export function AccountSettings({
       cancelled = true;
     };
   }, [t]);
+
+  // «Activo» significa que la clave de la cuenta es la de este navegador: si
+  // hay otra publicada, este dispositivo no puede leer los mensajes nuevos.
+  const keyActive = Boolean(keys?.keyId) && keys?.keyId === localKeyId;
 
   const completed = requests.filter((request) => request.status === "completed").length;
   const active = requests.filter((request) => ["pending", "accepted"].includes(request.status)).length;
@@ -456,8 +477,17 @@ export function AccountSettings({
           </form>
         </details>
 
-        <details>
-          <summary>{t("Cifrado de mensajes")}</summary>
+        <details className="crypto-section">
+          <summary>
+            <span>{t("Cifrado de mensajes")}</span>
+            <span className={`crypto-badge${keyActive ? " is-on" : ""}`}>
+              {keys === null
+                ? t("Comprobando…")
+                : keyActive
+                  ? t("Activo")
+                  : t("Sin activar")}
+            </span>
+          </summary>
           {keyMsg && (
             <p className="action-feedback" role="status">
               {keyMsg}
@@ -468,58 +498,114 @@ export function AccountSettings({
               {keyError}
             </p>
           )}
-          <p className="form-hint">
-            {t(
-              "Los mensajes de tus intercambios se cifran en este navegador: la clave privada no sale de aquí.",
+
+          <div className="crypto-status">
+            <span className={`crypto-icon${keyActive ? " is-on" : ""}`} aria-hidden="true">
+              {keyActive ? <ShieldCheck size={18} /> : <Lock size={18} />}
+            </span>
+            <div>
+              <strong>
+                {keys === null
+                  ? t("Comprobando el estado del cifrado…")
+                  : keyActive
+                    ? t("Este navegador puede leer las conversaciones")
+                    : keys.keyId
+                      ? t("Tu cuenta ya tiene una clave, pero no es la de este navegador")
+                      : t("Este navegador todavía no está cifrado")}
+              </strong>
+              <p>
+                {keys === null
+                  ? t("En cuanto esté, se dirá aquí si este navegador puede leer las conversaciones.")
+                  : keyActive
+                    ? t(
+                        "La conversación de cada intercambio se cifra con una clave que solo existe aquí: el servidor guarda un sobre que no puede abrir.",
+                      )
+                    : keys.keyId
+                      ? t(
+                          "Puedes entrar desde el dispositivo donde la creaste o sustituirla aquí con tu contraseña: al hacerlo, el anterior deja de leer los mensajes nuevos.",
+                        )
+                      : t(
+                          "Se crea y se publica sola al entrar con tu cuenta. Si esa publicación falló, puedes hacerlo aquí a mano.",
+                        )}
+              </p>
+            </div>
+          </div>
+
+          <dl className="crypto-facts">
+            <div>
+              <dt>{t("Huella de este navegador")}</dt>
+              <dd>
+                {keyActive ? (
+                  <code className="secret-code">{keys?.keyId?.slice(0, 8)}</code>
+                ) : (
+                  <span>{t("Sin clave en este navegador")}</span>
+                )}
+              </dd>
+            </div>
+            {/* Solo se enseña la clave de la cuenta cuando no es la de este
+                navegador: repetir dos veces la misma huella solo confunde. */}
+            {keys?.keyId && !keyActive && (
+              <div>
+                <dt>{t("Clave de la cuenta")}</dt>
+                <dd>
+                  <code className="secret-code">{keys.keyId.slice(0, 8)}</code>
+                </dd>
+              </div>
             )}
-          </p>
-          {keys === null ? (
-            <p className="form-hint">{t("Cargando…")}</p>
-          ) : !keys.keyId ? (
+            {keys && keys.history.length > 0 && (
+              <div>
+                <dt>{t("Último cambio")}</dt>
+                <dd>{formatWhen(keys.history[0]!.createdAt, locale)}</dd>
+              </div>
+            )}
+          </dl>
+
+          <ul className="crypto-list">
+            <li>{t("La clave privada no sale de este navegador: no se puede exportar, ni siquiera para la administración.")}</li>
+            <li>{t("Ni quien administra la web puede leer el contenido: el panel solo muestra «mensaje cifrado».")}</li>
+            <li>{t("Si entras desde otro dispositivo, publícala allí con tu contraseña; el anterior dejará de leer los mensajes nuevos.")}</li>
+          </ul>
+
+          {keys !== null && !keys.keyId && (
             <button
               className="secondary-button small"
               type="button"
               disabled={keyBusy}
               onClick={() => void activateKey()}
             >
-              {t("Publicar la clave de este navegador")}
+              {keyBusy ? t("Activando…") : t("Activar el cifrado en este navegador")}
             </button>
-          ) : keys.keyId === localKeyId ? (
-            <p className="form-hint">
-              {t("Cifrado activo en este navegador.")}{" "}
-              <code className="secret-code">{keys.keyId.slice(0, 8)}</code>
-            </p>
-          ) : (
-            <>
+          )}
+
+          {keys !== null && keys.keyId && !keyActive && (
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              void activateKey();
+            }}>
+              <label htmlFor="key-password">
+                {t("Contraseña actual")}
+                <input
+                  id="key-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={keyPassword}
+                  onChange={(event) => setKeyPassword(event.target.value)}
+                  required
+                />
+              </label>
               <p className="form-hint">
                 {t(
-                  "Tu cuenta ya tiene otra clave (por ejemplo, de otro dispositivo). Si la sustituyes, ese dispositivo dejará de leer los mensajes nuevos.",
+                  "Al sustituir la clave desde aquí, el otro dispositivo deja de leer los mensajes nuevos. Pide la contraseña para que nadie pueda hacerlo desde una sesión abierta.",
                 )}
               </p>
-              <label htmlFor="key-password">{t("Contraseña actual")}</label>
-              <input
-                id="key-password"
-                type="password"
-                autoComplete="current-password"
-                value={keyPassword}
-                onChange={(event) => setKeyPassword(event.target.value)}
-              />
               <button
                 className="secondary-button small"
-                type="button"
+                type="submit"
                 disabled={keyBusy || !keyPassword}
-                onClick={() => void activateKey()}
               >
-                {t("Activar en este navegador")}
+                {keyBusy ? t("Activando…") : t("Usar la clave de este navegador")}
               </button>
-            </>
-          )}
-          {keys && keys.history.length > 0 && (
-            <p className="form-hint">
-              {t("Último cambio de clave: {date}", {
-                date: formatWhen(keys.history[0]!.createdAt, locale),
-              })}
-            </p>
+            </form>
           )}
         </details>
 

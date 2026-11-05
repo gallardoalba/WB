@@ -1,7 +1,17 @@
 "use client";
 
-import { createContext, useCallback, useContext, type ReactNode } from "react";
-import { translate, type Locale, type MessageKey } from "@/lib/i18n";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import type { Locale } from "@/lib/locale";
+import type { MessageKey } from "@/lib/i18n";
+
+/**
+ * Traducción en el cliente.
+ *
+ * El diccionario alemán **no** se importa aquí: llega resuelto desde el layout
+ * (servidor) y solo para quien tiene la interfaz en alemán. Antes este módulo
+ * importaba `@/lib/i18n` como valor y el diccionario entero (68 KB) viajaba al
+ * navegador de todo el mundo, también para quien lee en español.
+ */
 
 /**
  * Texto que se puede pasar a `t()`: cualquier español funciona (si falta la
@@ -10,6 +20,8 @@ import { translate, type Locale, type MessageKey } from "@/lib/i18n";
  */
 type Translatable = MessageKey | (string & {});
 
+export type Messages = Record<string, string>;
+
 type I18nValue = {
   locale: Locale;
   t: (text: Translatable, vars?: Record<string, string | number>) => string;
@@ -17,12 +29,31 @@ type I18nValue = {
 
 const I18nContext = createContext<I18nValue>({ locale: "es", t: (text) => text });
 
-export function I18nProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
-  const t = useCallback(
-    (text: Translatable, vars?: Record<string, string | number>) => translate(locale, text, vars),
-    [locale],
+/** Misma interpolación que `translate()` en el servidor: `{nombre}`. */
+function interpolate(template: string, vars?: Record<string, string | number>): string {
+  if (!vars) return template;
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    vars[key] === undefined ? `{${key}}` : String(vars[key]),
   );
-  return <I18nContext.Provider value={{ locale, t }}>{children}</I18nContext.Provider>;
+}
+
+export function I18nProvider({
+  locale,
+  messages,
+  children,
+}: {
+  locale: Locale;
+  /** Textos del idioma activo; en español llega vacío. */
+  messages: Messages;
+  children: ReactNode;
+}) {
+  const t = useCallback(
+    (text: Translatable, vars?: Record<string, string | number>) =>
+      interpolate(messages[text] ?? text, vars),
+    [messages],
+  );
+  const value = useMemo(() => ({ locale, t }), [locale, t]);
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
 export function useI18n(): I18nValue {

@@ -4,9 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, MailCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { useUrlToken } from "@/lib/use-url-token";
 import { useI18n } from "./i18n-provider";
 
-export function VerifyEmail({ token }: { token: string }) {
+export function VerifyEmail({ token: initialToken }: { token: string }) {
+  const { token, ready } = useUrlToken(initialToken);
   const { t } = useI18n();
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [error, setError] = useState("");
@@ -21,6 +23,14 @@ export function VerifyEmail({ token }: { token: string }) {
       setError(caught instanceof Error ? caught.message : t("No se pudo confirmar el correo."));
       setState("idle");
     }
+  }
+
+  if (!ready) {
+    return (
+      <div className="auth-page">
+        <p className="form-hint">{t("Cargando…")}</p>
+      </div>
+    );
   }
 
   if (!token) {

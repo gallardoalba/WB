@@ -65,9 +65,13 @@
 .tag-filter-banner .inline-link {
   border: 0;
   background: none;
-  text-decoration: underline;
   cursor: pointer;
-  color: inherit;
+  color: var(--green-strong);
+  font-weight: 700;
+}
+
+.tag-filter-banner .inline-link:hover {
+  color: var(--ink);
 }
 
 .tag-field {
@@ -195,7 +199,7 @@
   flex: 1;
   min-width: 160px;
   padding: 7px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
   font-size: 12.5px;
@@ -335,7 +339,8 @@
   background: var(--surface);
 }
 
-.club-form label {
+.club-form label,
+.club-form .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -347,7 +352,7 @@
 .club-form select,
 .club-form textarea {
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
   font-size: 13px;
@@ -436,7 +441,31 @@
 }
 
 .club-reading:hover {
-  text-decoration: underline;
+  color: var(--green-strong);
+  font-weight: 700;
+}
+
+/* En la ficha del club la lectura no es una etiqueta: es el contenido. */
+.club-reading.is-detail {
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.club-reading.is-detail svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--green);
+}
+
+.club-reading.is-detail:hover {
+  color: var(--green-strong);
+  font-weight: 400;
+  text-decoration: none;
 }
 
 .club-copies {
@@ -469,7 +498,8 @@
 }
 
 .club-copies li a:hover {
-  text-decoration: underline;
+  color: var(--green-strong);
+  font-weight: 700;
 }
 
 .club-loans {
@@ -540,11 +570,15 @@
   font-size: 12px;
 }
 
+/* Un `<select>` mide lo que su opción más larga: en una columna estrecha eso
+   empujaba el formulario 23 px fuera de la pantalla. */
 .club-loan-form select,
 .club-loan-form input {
+  width: 100%;
+  min-width: 0;
   min-height: 36px;
   padding: 6px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
@@ -581,6 +615,10 @@
 }
 
 .club-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
   color: var(--muted-2);
   font-size: 11.5px;
 }
@@ -654,8 +692,10 @@
   max-width: 220px;
 }
 
-.badge:not(.earned) {
-  opacity: 0.75;
+.badge-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .badge-label {
@@ -682,3 +722,55 @@
   opacity: 0.8;
 }
 
+
+/* Las etiquetas del formulario son casillas, no campos de texto: no deben
+   heredar `.listing-form label` (display: grid) ni `.listing-form input`
+   (100% de ancho y 44 px de alto), que convertían cada etiqueta en un cuadro
+   blanco enorme con el texto debajo. */
+.listing-form .tag-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.listing-form .tag-option:hover {
+  border-color: var(--green);
+}
+
+.listing-form .tag-option.selected {
+  border-color: var(--green);
+  background: var(--green-pale);
+  color: var(--green-strong);
+}
+
+/* Mismo selector específico que `.listing-form input`: la casilla vuelve a ser
+   una casilla. */
+.listing-form .tag-option input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--green);
+}
+
+.listing-form .tag-option:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tag-counter {
+  color: var(--muted-2);
+  font-weight: 400;
+}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { AdminReports } from "@/components/admin-reports";
 import { AdminSanctions } from "@/components/admin-sanctions";
 import { PageHeader, SiteShell } from "@/components/site-shell";
@@ -49,8 +49,51 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
   if (!user?.isAdmin) notFound();
+  // Moderar mueve cuentas y contenido de otras personas, así que en producción
+  // exige segundo factor. Antes esto era un `notFound()`: el enlace «Moderación»
+  // del menú de cuenta llevaba a «Esta página no existe», que parece un fallo.
+  // Ahora se explica el requisito y se ofrece el camino para activarlo.
   if (process.env.NODE_ENV === "production" && !getTotpState(user.id).enabled) {
-    notFound();
+    return (
+      <SiteShell user={user} section="admin" title={t("Moderación")}>
+        <PageHeader
+          overline={t("SOLO ADMINISTRACIÓN")}
+          title={t("Moderación de la comunidad")}
+          description={t(
+            "Aquí se revisan las denuncias, se sancionan cuentas y se restablece el contenido oculto.",
+          )}
+        />
+        {/* Estado bloqueado: se explica el paso que falta, no se disfraza de
+            página de cuenta. */}
+        <section className="club-panel admin-gate">
+          <div className="admin-gate-head">
+            <span className="admin-gate-icon" aria-hidden="true">
+              <ShieldCheck size={20} />
+            </span>
+            <div>
+              <h2>{t("Falta un paso: verificación en dos pasos")}</h2>
+              <p>
+                {t(
+                  "El panel no se abre hasta que tu cuenta tenga un segundo factor, porque desde aquí se mueven cuentas y contenido de otras personas.",
+                )}
+              </p>
+            </div>
+          </div>
+          <h3>{t("Cómo activarla")}</h3>
+          <ol className="admin-steps">
+            <li>{t("Abre tu cuenta y despliega «Verificación en dos pasos».")}</li>
+            <li>{t("Escanea el código QR con una aplicación de códigos (o guarda la clave).")}</li>
+            <li>{t("Escribe el código de seis cifras que te muestre la aplicación.")}</li>
+          </ol>
+          <p className="admin-gate-note">
+            {t("Cuando esté activa, «Moderación» abrirá el panel completo.")}
+          </p>
+          <Link href="/cuenta" className="share-button small">
+            {t("Ir a mi cuenta")}
+          </Link>
+        </section>
+      </SiteShell>
+    );
   }
 
   const raw = await searchParams;

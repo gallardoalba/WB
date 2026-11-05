@@ -21,11 +21,13 @@ import {
   MessageCircle,
   Plus,
   Search,
+  SlidersHorizontal,
   TriangleAlert,
   Users,
   X,
 } from "lucide-react";
 import { ListingCard } from "./listing-card";
+import { EmptyState } from "./empty-state";
 import { ExchangesList } from "./exchanges-list";
 import { AppSidebar } from "./app-sidebar";
 import { AccountMenu } from "./account-menu";
@@ -36,18 +38,18 @@ import { ReaderCard } from "./reader-card";
 import { LocaleSwitcher } from "./locale-switcher";
 import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
-import { OnboardingCard } from "./onboarding-card";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { AuthDialog } from "./dialogs/auth-dialog";
+import { SiteSearch } from "./site-search";
 
 // Los diálogos pesados (cripto E2E y QR, TOTP, escáner ISBN) solo se descargan
 // cuando se abren: el catálogo no paga su bundle.
 const ExchangeDialog = dynamic(() =>
   import("./dialogs/exchange-dialog").then((module) => module.ExchangeDialog),
 );
-const OfferDialog = dynamic(() =>
-  import("./dialogs/offer-dialog").then((module) => module.OfferDialog),
-);
+const OfferForm = dynamic(() => import("./offer-form").then((module) => module.OfferForm), {
+  loading: () => <p className="empty-note">Cargando…</p>,
+});
 const NotificationsDialog = dynamic(() =>
   import("./dialogs/notifications-dialog").then((module) => module.NotificationsDialog),
 );
@@ -65,7 +67,8 @@ import {
 } from "@/lib/domain";
 import { api } from "@/lib/client-api";
 import { ensureIdentity } from "@/lib/e2e";
-import { formatNumber, type MessageKey } from "@/lib/i18n";
+import { formatNumber } from "@/lib/text";
+import type { MessageKey } from "@/lib/i18n";
 import { regionName } from "@/lib/cities";
 import { formatWhen, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
@@ -91,6 +94,7 @@ const VIEW_LABELS = {
   shelf: "Mi estantería",
   community: "Comunidad",
   exchanges: "Intercambios",
+  offer: "Ofrecer un libro",
 } satisfies Record<View, MessageKey>;
 
 const VIEW_TITLES = {
@@ -99,6 +103,7 @@ const VIEW_TITLES = {
   shelf: "Tu estantería guardada",
   community: "La lectura se comparte",
   exchanges: "Tus intercambios",
+  offer: "Cuéntanos qué libro ofreces",
 } satisfies Record<View, MessageKey>;
 
 const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
@@ -115,16 +120,14 @@ export default function WanderbibliothekApp({
   snapshot,
   openAuth = false,
   openNotifications = false,
-  initialOfferOpen = false,
   nextPath = null,
 }: {
   snapshot: AppSnapshot;
   openAuth?: boolean;
   openNotifications?: boolean;
-  initialOfferOpen?: boolean;
   nextPath?: string | null;
 }) {
-  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, myPublished } = snapshot;
+  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
   const { t, locale } = useI18n();
   const REGION = regionName(locale);
   const router = useRouter();
@@ -135,15 +138,30 @@ export default function WanderbibliothekApp({
   // cambia (atrás/adelante, un enlace o un chip) el texto se resincroniza sin
   // un efecto que devuelva la consulta vieja al servidor.
   const [searchDraft, setSearchDraft] = useState({ query: filters.q, value: filters.q });
+  // Los filtros secundarios (distancia e idioma) se pliegan en móvil para que
+  // la primera tarjeta no quede a 600 px del borde superior.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters =
+    (filters.radius !== 0 ? 1 : 0) +
+    (filters.language && filters.language !== CATALOG_LANGUAGES[0] ? 1 : 0);
   const search = searchDraft.query === filters.q ? searchDraft.value : filters.q;
   const setSearch = useCallback(
     (value: string) => setSearchDraft({ query: filters.q, value }),
     [filters.q],
   );
-  const [authOpen, setAuthOpen] = useState(openAuth || (initialOfferOpen && !user));
+  const [authOpen, setAuthOpen] = useState(openAuth);
   const [authNext, setAuthNext] = useState<string | null>(null);
+  // Si la página llega con `?auth=1` en una navegación de cliente (el servidor
+  // redirigiendo una vista privada), el estado inicial ya no se recalcula. Se
+  // ajusta durante el render —el patrón que recomienda React para «estado que
+  // depende de una prop»— en vez de con un efecto, que encadena renders.
+  const [authProp, setAuthProp] = useState(openAuth);
+  if (openAuth !== authProp) {
+    setAuthProp(openAuth);
+    if (openAuth) setAuthOpen(true);
+  }
   const [previewListing, setPreviewListing] = useState<ListingView | null>(null);
-  const [offerOpen, setOfferOpen] = useState(initialOfferOpen && Boolean(user));
+
   const [notificationsOpen, setNotificationsOpen] = useState(openNotifications);
   const [exchangeId, setExchangeId] = useState<string | null>(null);
   const [favoriteOverrides, setFavoriteOverrides] = useState<Record<string, boolean>>({});
@@ -151,6 +169,18 @@ export default function WanderbibliothekApp({
   const [toast, setToast] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingFavorite = useRef<{ id: string; favorite: boolean } | null>(null);
+
+  // Si una petición responde 401, la sesión ya no vale. Se reabre el acceso
+  // con esta página como destino, en lugar de dejar al usuario ante un error
+  // que no puede resolver por sí mismo.
+  useEffect(() => {
+    function onAuthRequired() {
+      setAuthNext(`${window.location.pathname}${window.location.search}`);
+      setAuthOpen(true);
+    }
+    window.addEventListener("wb:auth-required", onAuthRequired);
+    return () => window.removeEventListener("wb:auth-required", onAuthRequired);
+  }, []);
 
   const notify = useCallback((message: string, tone: "ok" | "error" = "ok") => {
     setToast({ message, tone });
@@ -200,6 +230,11 @@ export default function WanderbibliothekApp({
     })();
     return () => {
       cancelled = true;
+      // Al desmontar se olvida la marca: si el efecto se vuelve a montar con el
+      // mismo usuario (doble invocación de React en desarrollo, o una recarga
+      // del shell) la publicación pendiente se reintenta en vez de quedarse a
+      // medias y dejar la cuenta sin clave.
+      keysPublished.current = null;
     };
   }, [notify, user, t]);
 
@@ -266,6 +301,17 @@ export default function WanderbibliothekApp({
     },
     [filters.category, filters.feed, filters.language, filters.q, filters.radius, filters.shelf, filters.sort, filters.tag, filters.tab, filters.scope, page, pathname, router, view],
   );
+
+  // Al cambiar de vista el foco sigue donde estaba y el lector de pantalla no
+  // anuncia nada nuevo. Se mueve al título de la vista (que recibirá
+  // `tabIndex={-1}`); en la primera pintura no se toca.
+  const viewRef = useRef(view);
+  useEffect(() => {
+    if (viewRef.current === view) return;
+    viewRef.current = view;
+    const heading = document.querySelector<HTMLElement>("#main-content h1");
+    heading?.focus();
+  }, [view]);
 
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
@@ -339,7 +385,8 @@ export default function WanderbibliothekApp({
 
   function openOffer() {
     if (!requireAuth()) return;
-    setOfferOpen(true);
+    navigate({ view: "offer", page: 1 });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function markNotificationsRead() {
@@ -360,6 +407,9 @@ export default function WanderbibliothekApp({
         {t("Saltar al contenido")}
       </a>
 
+      {/* El panel lateral es de quien ha entrado: sin sesión no hay menú que
+          enseñar (todo lo que hay dentro pide sesión). */}
+      {user && (
       <AppSidebar
         user={user}
         view={view}
@@ -373,7 +423,9 @@ export default function WanderbibliothekApp({
           refresh();
           notify(t("Has cerrado sesión."));
         }}
+        onOffer={openOffer}
       />
+      )}
 
       <section className="main-panel">
         <header className="topbar">
@@ -397,6 +449,9 @@ export default function WanderbibliothekApp({
               </>
             )}
           </div>
+          {/* Mismo buscador global que el resto de páginas: obras, clubes,
+              lectores y listas desde cualquier vista. */}
+          <SiteSearch locale={locale} />
           <div className="topbar-actions">
             <LocaleSwitcher locale={locale} />
             <ThemeToggle />
@@ -441,7 +496,7 @@ export default function WanderbibliothekApp({
           {view === "home" && (
             <section className="hero-banner">
               <div className="hero-copy">
-                <h1>{t("Los libros no se quedan quietos.")}</h1>
+                <h1 tabIndex={-1}>{t("Los libros no se quedan quietos.")}</h1>
                 <p>
                   {user
                     ? t(
@@ -449,14 +504,17 @@ export default function WanderbibliothekApp({
                         { region: REGION },
                       )
                     : t(
-                        "Explora todo el catálogo de {region}. Al entrar podrás elegir tu ciudad, guardar libros y pedirlos.",
-                        { region: REGION },
+                        "Cada libro guarda algo de quien lo leyó. Comparte los que ya no necesitas, encuentra los que te faltan y conoce a lectores de toda Alemania: en cada intercambio viajan un libro, una historia y una conversación.",
                       )}
                 </p>
                 <button
                   type="button"
                   className="hero-button"
                   onClick={() => {
+                    // El catálogo pide sesión: sin ella esto abría la ventana
+                    // de acceso *por dentro* del redirect del servidor y no se
+                    // veía nada. Se pregunta antes de navegar.
+                    if (!requireAuth()) return;
                     navigate({ view: "discover", page: 1 });
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
@@ -465,29 +523,32 @@ export default function WanderbibliothekApp({
                 </button>
               </div>
               <div className="hero-stats">
-                <div>
+                <div className="hero-stat">
                   <strong>{formatNumber(stats.available, locale)}</strong>
-                  <span>{t("libros disponibles")}</span>
+                  <span className="hero-stat-label">
+                    {stats.available === 1 ? t("libro disponible") : t("libros disponibles")}
+                  </span>
                 </div>
-                <div>
+                <div className="hero-stat">
                   <strong>{formatNumber(stats.completed, locale)}</strong>
-                  <span>{t("intercambios hechos")}</span>
+                  <span className="hero-stat-label">
+                    {stats.completed === 1 ? t("intercambio hecho") : t("intercambios hechos")}
+                  </span>
                 </div>
-                <div>
+                <div className="hero-stat">
                   <strong>{formatNumber(stats.members, locale)}</strong>
-                  <span>{t("lectores registrados")}</span>
+                  <span className="hero-stat-label">
+                    {stats.members === 1 ? t("lector registrado") : t("lectores registrados")}
+                  </span>
+                </div>
+                <div className="hero-stat">
+                  <strong>{formatNumber(stats.clubs, locale)}</strong>
+                  <span className="hero-stat-label">
+                    {stats.clubs === 1 ? t("club de lectura") : t("clubes de lectura")}
+                  </span>
                 </div>
               </div>
             </section>
-          )}
-
-          {(view === "home" || view === "discover") && user && myPublished === 0 && (
-            <OnboardingCard
-              userId={user.id}
-              onOpenProfile={() => router.push("/cuenta")}
-              onOpenOffer={openOffer}
-              onOpenCommunity={() => navigate({ view: "community", page: 1 })}
-            />
           )}
 
           <div className="section-heading">
@@ -495,12 +556,9 @@ export default function WanderbibliothekApp({
               {view === "home" ? (
                 <h2>{t(VIEW_TITLES[view])}</h2>
               ) : (
-                <h1>{t(VIEW_TITLES[view])}</h1>
+                <h1 tabIndex={-1}>{t(VIEW_TITLES[view])}</h1>
               )}
             </div>
-            <button type="button" className="secondary-button" onClick={openOffer}>
-              <Plus size={17} /> {t("Ofrecer un libro")}
-            </button>
           </div>
 
           {filters.tag && (view === "discover" || view === "shelf") && (
@@ -518,140 +576,112 @@ export default function WanderbibliothekApp({
 
           {view === "community" ? (
             <div className="community-hub">
-            <div className="community-layout">
-              <section className="activity-feed">
-                <div className="feed-header">
-                  <div>
-                    <strong>{t(COMMUNITY_TAB_LABELS[filters.tab])}</strong>
-                    <span>
-                      {filters.scope === "city" && user
-                        ? t("Solo {city}", { city: user.city })
-                        : filters.tab === "conversations"
-                          ? filters.feed === "following"
-                            ? t("Solo lo que publican las cuentas que sigues")
-                            : t("Lo que la comunidad está leyendo y comentando")
-                          : filters.tab === "activity"
-                            ? t("Movimientos de la comunidad")
-                            : filters.tab === "clubs"
-                              ? t("Clubes de lectura para leer en compañía")
-                              : filters.tab === "readers"
-                                ? t("Personas activas con las que compartir lecturas")
-                                : t("Listas de lectura que la comunidad comparte")}
-                    </span>
-                  </div>
-                  <div className="feed-header-controls">
-                    {user && (
-                      <div className="feed-switch" role="group" aria-label={t("Ámbito de la comunidad")}>
-                        <button
-                          type="button"
-                          className={
-                            filters.scope === "region" ? "feed-switch-option active" : "feed-switch-option"
-                          }
-                          aria-pressed={filters.scope === "region"}
-                          onClick={() => navigate({ scope: "region", page: 1 })}
-                        >
-                          {t("Toda la región")}
-                        </button>
-                        <button
-                          type="button"
-                          className={
-                            filters.scope === "city" ? "feed-switch-option active" : "feed-switch-option"
-                          }
-                          aria-pressed={filters.scope === "city"}
-                          onClick={() => navigate({ scope: "city", page: 1 })}
-                        >
-                          {user.city}
-                        </button>
-                      </div>
-                    )}
-                    {user && (filters.tab === "conversations" || filters.tab === "activity") && (
-                      <div className="feed-switch" role="group" aria-label={t("Filtrar el muro")}>
-                        <button
-                          type="button"
-                          className={
-                            filters.feed === "all" ? "feed-switch-option active" : "feed-switch-option"
-                          }
-                          aria-pressed={filters.feed === "all"}
-                          onClick={() => navigate({ feed: "all", page: 1 })}
-                        >
-                          {t("Toda la comunidad")}
-                        </button>
-                        <button
-                          type="button"
-                          className={
-                            filters.feed === "following"
-                              ? "feed-switch-option active"
-                              : "feed-switch-option"
-                          }
-                          aria-pressed={filters.feed === "following"}
-                          onClick={() => navigate({ feed: "following", page: 1 })}
-                        >
-                          {t("Siguiendo")}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div
-                  className="feed-tabs"
-                  role="tablist"
-                  aria-label={t("Contenido de la comunidad")}
-                  onKeyDown={onCommunityTabKeyDown}
-                >
-                  {COMMUNITY_TABS_ORDER.map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      role="tab"
-                      id={`community-tab-${tab}`}
-                      aria-controls="feed-panel"
-                      aria-selected={filters.tab === tab}
-                      tabIndex={filters.tab === tab ? 0 : -1}
-                      className={filters.tab === tab ? "feed-tab active" : "feed-tab"}
-                      onClick={() => navigate({ tab, page: 1 })}
-                    >
-                      {tab === "conversations" ? (
-                        <MessageCircle size={14} />
-                      ) : tab === "activity" ? (
-                        <Activity size={14} />
-                      ) : tab === "clubs" ? (
-                        <BookOpen size={14} />
-                      ) : tab === "readers" ? (
-                        <Users size={14} />
-                      ) : (
-                        <Heart size={14} />
-                      )}
-                      {t(COMMUNITY_TAB_LABELS[tab])}
-                    </button>
-                  ))}
-                </div>
-                {(filters.tab === "clubs" || filters.tab === "readers" || filters.tab === "lists") && (
-                  <form
-                    className="community-search"
-                    role="search"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const value = String(new FormData(event.currentTarget).get("q") ?? "");
-                      navigate({ q: value.trim(), page: 1 });
-                    }}
+              {/* Las secciones primero: son la navegación del hub y estaban
+                  escondidas dentro de la tarjeta del muro, después de un
+                  encabezado que repetía el nombre de la pestaña activa. */}
+              <div
+                className="community-tabs"
+                role="tablist"
+                aria-label={t("Contenido de la comunidad")}
+                onKeyDown={onCommunityTabKeyDown}
+              >
+                {COMMUNITY_TABS_ORDER.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    id={`community-tab-${tab}`}
+                    aria-controls="feed-panel"
+                    aria-selected={filters.tab === tab}
+                    tabIndex={filters.tab === tab ? 0 : -1}
+                    className={filters.tab === tab ? "feed-tab active" : "feed-tab"}
+                    onClick={() => navigate({ tab, page: 1 })}
                   >
-                    <Search size={15} aria-hidden="true" />
-                    <label className="sr-only" htmlFor="community-search">
-                      {t("Buscar en la comunidad")}
-                    </label>
-                    <input
-                      id="community-search"
-                      name="q"
-                      type="search"
-                      defaultValue={filters.q}
-                      placeholder={t("Buscar clubes, lectores o listas")}
-                      maxLength={80}
-                    />
-                    <button type="submit" className="secondary-button small">
-                      {t("Buscar")}
-                    </button>
-                  </form>
-                )}
+                    {tab === "conversations" ? (
+                      <MessageCircle size={14} />
+                    ) : tab === "activity" ? (
+                      <Activity size={14} />
+                    ) : tab === "clubs" ? (
+                      <BookOpen size={14} />
+                    ) : tab === "readers" ? (
+                      <Users size={14} />
+                    ) : (
+                      <Heart size={14} />
+                    )}
+                    {t(COMMUNITY_TAB_LABELS[tab])}
+                  </button>
+                ))}
+              </div>
+              <div className="community-toolbar">
+                <p className="community-toolbar-note">
+                  {filters.scope === "city" && user
+                    ? t("Solo {city}", { city: user.city })
+                    : filters.tab === "conversations"
+                      ? filters.feed === "following"
+                        ? t("Solo lo que publican las cuentas que sigues")
+                        : t("Lo que la comunidad está leyendo y comentando")
+                      : filters.tab === "activity"
+                        ? t("Movimientos de la comunidad")
+                        : filters.tab === "clubs"
+                          ? t("Clubes de lectura para leer en compañía")
+                          : filters.tab === "readers"
+                            ? t("Personas activas con las que compartir lecturas")
+                            : t("Listas de lectura que la comunidad comparte")}
+                </p>
+                <div className="feed-header-controls">
+                  {user && (
+                    <div className="feed-switch" role="group" aria-label={t("Ámbito de la comunidad")}>
+                      <button
+                        type="button"
+                        className={
+                          filters.scope === "region"
+                            ? "feed-switch-option active"
+                            : "feed-switch-option"
+                        }
+                        aria-pressed={filters.scope === "region"}
+                        onClick={() => navigate({ scope: "region", page: 1 })}
+                      >
+                        {t("Toda Alemania")}
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          filters.scope === "city" ? "feed-switch-option active" : "feed-switch-option"
+                        }
+                        aria-pressed={filters.scope === "city"}
+                        onClick={() => navigate({ scope: "city", page: 1 })}
+                      >
+                        {user.city}
+                      </button>
+                    </div>
+                  )}
+                  {user && (filters.tab === "conversations" || filters.tab === "activity") && (
+                    <div className="feed-switch" role="group" aria-label={t("Filtrar el muro")}>
+                      <button
+                        type="button"
+                        className={
+                          filters.feed === "all" ? "feed-switch-option active" : "feed-switch-option"
+                        }
+                        aria-pressed={filters.feed === "all"}
+                        onClick={() => navigate({ feed: "all", page: 1 })}
+                      >
+                        {t("Toda la comunidad")}
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          filters.feed === "following" ? "feed-switch-option active" : "feed-switch-option"
+                        }
+                        aria-pressed={filters.feed === "following"}
+                        onClick={() => navigate({ feed: "following", page: 1 })}
+                      >
+                        {t("Siguiendo")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <section className="activity-feed">
                 <div
                   role="tabpanel"
                   id="feed-panel"
@@ -813,54 +843,32 @@ export default function WanderbibliothekApp({
                   </div>
                 )}
                 </div>
-                <div className="community-prompt">
-                  <span>
-                    <MessageCircle size={19} />
-                  </span>
-                  <div>
-                    <strong>{t("¿Tienes un libro para pasar?")}</strong>
-                    <p>{t("Publícalo y deja que encuentre a su siguiente lector.")}</p>
-                  </div>
-                  <button type="button" aria-label={t("Ofrecer un libro")} onClick={openOffer}>
-                    <ArrowRight size={18} />
-                  </button>
-                </div>
               </section>
-              <aside className="community-aside">
-                <strong>
-                  {t("La lectura")}
-                  <br />
-                  {t("en cifras")}
-                </strong>
-                <div className="community-number">
-                  {formatNumber(stats.completed, locale)}
-                  <small>
-                    {t("intercambios")}
-                    <br />
-                    {t("completados")}
-                  </small>
-                </div>
-                <dl className="aside-stats">
-                  <div>
-                    <dt>{t("Miembros")}</dt>
-                    <dd>{stats.members}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("Clubes")}</dt>
-                    <dd>{stats.clubs}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("Ciudades activas")}</dt>
-                    <dd>{stats.cities}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("Disponibles")}</dt>
-                    <dd>{stats.available}</dd>
-                  </div>
-                </dl>
-              </aside>
             </div>
-            </div>
+          ) : view === "offer" ? (
+            /* Publicar un libro, en su página: mismo shell y misma cabecera
+               que el resto de vistas, pero con URL propia. */
+            <section className="offer-page">
+              <p className="offer-intro">
+                {t("Escribe el ISBN y el resto de la ficha se rellena sola.")}
+              </p>
+              <OfferForm
+                defaultCity={user?.city ?? ""}
+                onCreated={(demand) => {
+                  refresh();
+                  notify(
+                    demand === 1
+                      ? t("Tu libro ya está en la comunidad y hay 1 persona esperándolo en tu ciudad.")
+                      : demand > 1
+                        ? t("Tu libro ya está en la comunidad y hay {n} personas esperándolo en tu ciudad.", {
+                            n: demand,
+                          })
+                        : t("Tu libro ya está en la estantería de la comunidad."),
+                  );
+                  navigate({ view: "shelf", page: 1 });
+                }}
+              />
+            </section>
           ) : view === "exchanges" ? (
             !user ? (
               <div className="empty-state">
@@ -870,7 +878,7 @@ export default function WanderbibliothekApp({
                 <h3>{t("Entra para ver tus intercambios")}</h3>
                 <p>{t("Las solicitudes quedan ligadas a tu cuenta y se sincronizan en tus dispositivos.")}</p>
                 <button type="button" className="share-button" onClick={() => setAuthOpen(true)}>
-                  {t("Iniciar sesión")} <ArrowRight size={16} />
+                  {t("Entrar")} <ArrowRight size={16} />
                 </button>
               </div>
             ) : (
@@ -964,7 +972,22 @@ export default function WanderbibliothekApp({
                     <ChevronDown size={14} aria-hidden="true" />
                   </div>
                 </div>
-                <div className="filter-secondary">
+                <button
+                  type="button"
+                  className="filters-toggle"
+                  aria-expanded={filtersOpen}
+                  aria-controls="catalog-secondary-filters"
+                  onClick={() => setFiltersOpen((open) => !open)}
+                >
+                  <SlidersHorizontal size={15} aria-hidden="true" />
+                  {t("Filtros")}
+                  {activeFilters > 0 && <span className="filters-count">{activeFilters}</span>}
+                  <ChevronDown size={14} aria-hidden="true" className="filters-chevron" />
+                </button>
+                <div
+                  className={filtersOpen ? "filter-secondary is-open" : "filter-secondary"}
+                  id="catalog-secondary-filters"
+                >
                   {user && user.city && (
                     <div className="radius-filter" role="group" aria-label={t("Distancia desde tu ciudad")}>
                       <MapPin size={14} aria-hidden="true" />
@@ -1085,35 +1108,37 @@ export default function WanderbibliothekApp({
                 })}
 
                 {listings.length === 0 && (
-                  <div className="empty-results">
-                    <BookOpen size={24} />
-                    <strong>
-                      {view === "shelf" && !user
+                  <EmptyState
+                    icon={<BookOpen size={24} />}
+                    title={
+                      view === "shelf" && !user
                         ? t("Entra para guardar tu estantería")
-                        : t("No encontramos libros por aquí.")}
-                    </strong>
-                    <span>
-                      {view === "shelf" && !user
+                        : t("No encontramos libros por aquí.")
+                    }
+                    hint={
+                      view === "shelf" && !user
                         ? t("Inicia sesión para conservar tus favoritos y publicaciones.")
-                        : t("Prueba con otro título, autor o género.")}
-                    </span>
-                    {view === "shelf" && !user ? (
+                        : t("Prueba con otro título, autor o género.")
+                    }
+                    action={
+                      view === "shelf" && !user ? (
                       <button type="button" className="share-button small" onClick={() => setAuthOpen(true)}>
-                        {t("Iniciar sesión")}
+                        {t("Entrar")}
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="share-button small"
-                        onClick={() => {
-                          setSearch("");
-                          navigate({ q: "", category: "Todos", page: 1 });
-                        }}
-                      >
-                        {t("Limpiar filtros")}
-                      </button>
-                    )}
-                  </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="share-button small"
+                          onClick={() => {
+                            setSearch("");
+                            navigate({ q: "", category: "Todos", page: 1 });
+                          }}
+                        >
+                          {t("Limpiar filtros")}
+                        </button>
+                      )
+                    }
+                  />
                 )}
                 </div>
               </div>
@@ -1174,6 +1199,12 @@ export default function WanderbibliothekApp({
                 <Link href="/listas">{t("Listas")}</Link>
               </nav>
             )}
+            {/* Sin sesión también: la política de privacidad hay que poder
+                leerla antes de crear la cuenta. */}
+            <nav className="footer-links legal-links" aria-label={t("Información legal")}>
+              <Link href="/privacidad">{t("Privacidad")}</Link>
+              <Link href="/aviso-legal">{t("Aviso legal")}</Link>
+            </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {stats.cities}{" "}
               {t("ciudades de")} {REGION}
@@ -1182,6 +1213,7 @@ export default function WanderbibliothekApp({
         </div>
       </section>
 
+      {user && (
       <div className="mobile-bottom-nav" role="navigation" aria-label={t("Navegación móvil")}>
         <button
           type="button"
@@ -1204,8 +1236,17 @@ export default function WanderbibliothekApp({
           <Heart size={19} />
           <span>{t("Estantería")}</span>
         </button>
-        <button type="button" className="mobile-add" aria-label={t("Ofrecer un libro")} onClick={openOffer}>
-          <Plus size={21} />
+        <button
+          type="button"
+          className={view === "offer" ? "mobile-add mobile-active" : "mobile-add"}
+          aria-current={view === "offer" ? "page" : undefined}
+          aria-label={t("Ofrecer un libro")}
+          onClick={openOffer}
+        >
+          <span className="mobile-add-icon" aria-hidden="true">
+            <Plus size={18} />
+          </span>
+          <span>{t("Ofrecer")}</span>
         </button>
         <button
           type="button"
@@ -1215,7 +1256,10 @@ export default function WanderbibliothekApp({
           onClick={() => (requireAuth() ? navigate({ view: "exchanges", page: 1 }) : undefined)}
         >
           <ArrowDownUp size={19} />
-          <span>{t("Intercambios")}</span>
+          {/* En la barra inferior el hueco es de ~58 px: «Intercambios» no cabe
+              y se partía por la mitad. El nombre completo sigue en la barra
+              lateral y en el breadcrumb. */}
+          <span>{t("Cambios")}</span>
         </button>
         <button
           type="button"
@@ -1228,6 +1272,7 @@ export default function WanderbibliothekApp({
           <span>{t("Comunidad")}</span>
         </button>
       </div>
+      )}
 
       {toast && (
         <div
@@ -1288,29 +1333,6 @@ export default function WanderbibliothekApp({
           setAuthOpen(true);
         }}
       />
-
-      {offerOpen && (
-        <OfferDialog
-        open={offerOpen}
-        onClose={() => {
-          setOfferOpen(false);
-          clearQueryParams("offer");
-        }}
-        defaultCity={user?.city ?? ""}
-        onCreated={(demand) => {
-          refresh();
-          notify(
-            demand === 1
-              ? t("Tu libro ya está en la comunidad y hay 1 persona esperándolo en tu ciudad.")
-              : demand > 1
-                ? t("Tu libro ya está en la comunidad y hay {n} personas esperándolo en tu ciudad.", {
-                    n: demand,
-                  })
-                : t("Tu libro ya está en la estantería de la comunidad."),
-          );
-        }}
-        />
-      )}
 
       {notificationsOpen && (
         <NotificationsDialog

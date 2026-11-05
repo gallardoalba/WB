@@ -26,6 +26,14 @@ FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Las variables NEXT_PUBLIC_* se incrustan en el bundle del cliente durante el
+# build: definirlas solo en el entorno del contenedor NO sirve (el widget de
+# Turnstile no aparecería y la CSP no autorizaría challenges.cloudflare.com).
+# Se pasan como build args para que la imagen pueda llevar captcha:
+#   docker compose build --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAA…
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY=""
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # El build no necesita base de datos ni secretos.

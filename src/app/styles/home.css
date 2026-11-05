@@ -76,8 +76,15 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 22px;
-  padding: 36px 40px;
+  /* Solo separa el texto de la banda de cifras: con 22 px quedaba un hueco de
+     casi 40 px entre el botón y la raya. */
+  gap: 14px;
+  /* Menos aire abajo: con 36 px, entre las cifras y la fila de libros se
+     juntaban casi 70 px de hueco. El relleno va en variables porque la banda
+     de cifras lo necesita para sangrar hasta los bordes de la tarjeta. */
+  --hero-pad-x: 40px;
+  --hero-pad-bottom: 24px;
+  padding: 36px var(--hero-pad-x) var(--hero-pad-bottom);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: linear-gradient(180deg, var(--paper-lift), var(--surface) 65%);
@@ -140,7 +147,7 @@
   border-radius: var(--radius-sm);
   background: var(--green-fill);
   box-shadow: var(--shadow-sm);
-  color: #fff;
+  color: var(--on-fill);
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
@@ -155,74 +162,54 @@
   background: var(--green-fill-strong);
 }
 
+/* Cuatro cifras: ejemplares, intercambios, lectores y clubes.
+   Cuatro columnas iguales con una regla fina entre ellas —como estaban antes—
+   pero con la cifra y el rótulo **centrados** en su columna: con el texto
+   pegado a la izquierda, cada columna dejaba detrás media columna vacía y la
+   banda parecía una tabla descolocada. Sin iconos ni fondo propio: la cifra y
+   su rótulo, nada más. */
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
-  gap: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 0;
+  row-gap: 10px;
   width: 100%;
-  padding-top: 18px;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
 }
 
-.hero-stats div {
+.hero-stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding-left: 26px;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
 }
 
-.hero-stats div:first-child {
-  padding-left: 0;
-}
-
-.hero-stats div + div {
+.hero-stat + .hero-stat {
   border-left: 1px solid var(--line);
 }
 
-.hero-stats strong {
+.hero-stat strong {
   font-family: var(--serif);
-  font-size: 30px;
-  font-weight: 500;
+  font-size: clamp(26px, 2.4vw, 34px);
+  font-weight: 600;
   line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  color: var(--ink);
 }
 
-.hero-stats span {
+.hero-stat-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
-/* En pantallas muy anchas la portada reparte el espacio: texto a la
-   izquierda y cifras en columna a la derecha, en vez de dejar media
-   superficie vacía. */
-@media (min-width: 1400px) {
-  .hero-banner {
-    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.55fr);
-    align-items: center;
-    gap: 56px;
-  }
-
-  .hero-stats {
-    grid-template-columns: minmax(0, 1fr);
-    padding-top: 0;
-    padding-left: 48px;
-    border-top: 0;
-    border-left: 1px solid var(--line);
-  }
-
-  .hero-stats div {
-    padding-left: 0;
-  }
-
-  .hero-stats div + div {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    border-left: 0;
-  }
-}
-
+/* En pantallas muy anchas las cifras seguían en una columna a la derecha,
+   flotando a media altura: ahora se quedan siempre en la fila inferior del
+   panel, igual que en el resto de anchos. */
 /* ============================================================
    Cabeceras de sección y filtros
    ============================================================ */
@@ -264,7 +251,7 @@
   border: 1px solid var(--green-fill);
   border-radius: var(--radius-sm);
   background: var(--green-fill);
-  color: #fff;
+  color: var(--on-fill);
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
@@ -297,8 +284,8 @@
 }
 
 .secondary-button.danger {
-  border-color: #e7c6bd;
-  color: #9c4530;
+  border-color: color-mix(in srgb, var(--coral) 40%, transparent);
+  color: var(--coral);
 }
 
 .share-button.small,
@@ -333,7 +320,7 @@
   scrollbar-width: none;
 }
 
-@media (min-width: 1000px) {
+@media (min-width: 1121px) {
   .category-tabs {
     flex-wrap: wrap;
     overflow: visible;
@@ -342,7 +329,10 @@
 
 .filter-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 520px) auto minmax(0, 1fr);
+  /* El buscador cede espacio; el contador y el orden conservan su ancho. Antes
+     era `minmax(0, 520px) auto minmax(0, 1fr)` y a 1280 px el contador se
+     cortaba («5 libro») para dejar sitio al selector. */
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
 }
@@ -353,8 +343,11 @@
 
 .result-count {
   color: var(--muted-2);
-  font-size: 13px;
+  font-size: var(--text-sm);
   white-space: nowrap;
+  /* No se encoge nunca: es información, no decoración. */
+  flex: 0 0 auto;
+  justify-self: start;
 }
 
 .active-filters {
@@ -378,33 +371,42 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px 16px;
+  gap: 10px 16px;
+  margin-top: 10px;
+}
+
+/* Buscador, orden, idioma y chips comparten alto, borde, radio y tipografía:
+   antes el orden era un cuadrado de 40 px, el idioma una píldora de 30 y la
+   distancia otra píldora distinta. */
+.search-field,
+.sort-select,
+.language-filter select,
+.filter-chip {
+  min-height: 38px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13px;
 }
 
 .language-filter {
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
   margin-left: auto;
 }
 
 .language-filter select {
   appearance: none;
-  min-height: 30px;
-  padding: 0 28px 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--paper-sunk);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: 12px;
+  padding: 0 32px 0 12px;
   cursor: pointer;
 }
 
 .language-filter svg {
   position: absolute;
-  right: 9px;
+  right: 11px;
   pointer-events: none;
   color: var(--muted);
 }
@@ -415,7 +417,7 @@
 }
 
 .radius-filter .filter-chip {
-  min-height: 28px;
+  padding: 0 12px;
 }
 
 .radius-filter .filter-chip.selected {
@@ -429,20 +431,20 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 30px;
-  padding: 0 11px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--paper-sunk);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: 12px;
+  padding: 0 12px;
   cursor: pointer;
 }
 
 .filter-chip:hover {
   border-color: var(--green-fill);
   color: var(--ink);
+}
+
+.filter-chip.selected {
+  border-color: var(--green-fill);
+  background: var(--green-pale);
+  color: var(--green-strong);
+  font-weight: 650;
 }
 
 .category-tabs::-webkit-scrollbar {
@@ -487,7 +489,6 @@
 .search-field {
   flex: 1 1 190px;
   min-width: 0;
-  height: 40px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -519,7 +520,7 @@
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: #eceee6;
+  background: var(--paper-sunk);
   color: var(--ink-soft);
   cursor: pointer;
 }
@@ -528,20 +529,17 @@
   position: relative;
   display: flex;
   align-items: center;
-  height: 40px;
   padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
 }
 
 .sort-select select {
   appearance: none;
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 18px 0 2px;
   border: 0;
   background: transparent;
-  font-size: 13px;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
 }
 
@@ -552,3 +550,193 @@
   color: var(--muted-2);
 }
 
+
+/* ---------------------- Fotografía del hero ------------------------------- */
+/* Estanterías reales (Suzzallo Allen Library, CC BY 4.0; crédito en NOTICE).
+   La foto va en las capas de fondo del PROPIO elemento, no en un pseudo-elemento
+   con `inset: 0`: un hijo absoluto se recorta con el radio del relleno y en el
+   contorno quedaba una esquina cuadrada con un trozo de la imagen asomando. Como
+   fondo, se recorta con el radio del borde y el contorno queda limpio.
+
+   De arriba abajo: velo horizontal (que deja leer el texto), velo vertical (para
+   la banda de cifras), tinte opcional del tema, la foto y el color base. */
+.hero-banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: var(--hero-border);
+  background:
+    linear-gradient(
+      to top,
+      var(--surface) 0%,
+      var(--surface) 26%,
+      transparent 46%
+    ),
+    linear-gradient(
+      90deg,
+      var(--surface) 0%,
+      var(--surface) 34%,
+      color-mix(in srgb, var(--surface) 92%, transparent) 46%,
+      color-mix(in srgb, var(--surface) 70%, transparent) 62%,
+      color-mix(in srgb, var(--surface) 38%, transparent) 80%,
+      transparent 100%
+    ),
+    linear-gradient(var(--hero-veil), var(--hero-veil)),
+    url("/hero/estanteria.webp") right center / cover no-repeat,
+    linear-gradient(180deg, var(--paper-lift), var(--surface) 65%);
+}
+
+.hero-copy,
+.hero-stats {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  /* En el móvil el texto ocupa todo el ancho: la foto queda como textura por
+     arriba y el velo se orienta en vertical. */
+  .hero-banner {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--surface) 88%, transparent) 0%,
+        var(--surface) 58%
+      ),
+      linear-gradient(var(--hero-veil), var(--hero-veil)),
+      url("/hero/estanteria.webp") center top / cover no-repeat,
+      linear-gradient(180deg, var(--paper-lift), var(--surface) 65%);
+  }
+}
+
+/* ---------------------- Filtros plegables en móvil ------------------------ */
+/* En escritorio el botón no existe visualmente y los filtros están siempre
+   abiertos; en móvil se piden con un toque y el botón muestra cuántos hay
+   activos. */
+.filters-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filters-toggle[aria-expanded="true"] .filters-chevron {
+  transform: rotate(180deg);
+}
+
+.filters-chevron {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+
+.filters-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--green-fill);
+  color: var(--on-fill);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .filters-toggle {
+    display: flex;
+  }
+
+  /* Plegado por defecto: la primera tarjeta tiene que verse sin hacer scroll. */
+  .filter-secondary {
+    display: none;
+  }
+
+  .filter-secondary.is-open {
+    display: flex;
+  }
+}
+
+/* «Ofrecer un libro» es una página, no una ventana: el formulario respira y se
+   parte en dos bloques —lo que pone el ISBN y lo que aportas tú— en pantalla
+   ancha. */
+.offer-page {
+  max-width: 980px;
+}
+
+.offer-intro {
+  margin: 0 0 16px;
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.offer-form {
+  width: 100%;
+  gap: 18px;
+  padding: 22px 24px;
+}
+
+.offer-grid {
+  display: grid;
+  gap: 22px 32px;
+}
+
+@media (min-width: 900px) {
+  .offer-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.offer-block {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.offer-block-title {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* La nota legal y el botón, en una sola línea y alineados por la base. */
+.offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.offer-actions small {
+  max-width: 46ch;
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.offer-actions .form-submit {
+  width: auto;
+  min-width: 180px;
+  margin: 0;
+}

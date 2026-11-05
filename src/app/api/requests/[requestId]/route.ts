@@ -20,8 +20,8 @@ export async function PATCH(
       limit: 120,
       windowMs: 24 * 60 * 60 * 1000,
     });
-    const { status, officeId } = requestUpdateSchema.parse(await readJson(request));
-    const updated = updateRequestStatus(requestId, user.id, status, { officeId });
+    const { status } = requestUpdateSchema.parse(await readJson(request));
+    const updated = updateRequestStatus(requestId, user.id, status);
     invalidatePublicData();
     after(async () => {
       await processOutbox().catch((error: unknown) => {

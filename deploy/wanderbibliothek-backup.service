@@ -8,8 +8,20 @@ User=wanderbibliothek
 Group=wanderbibliothek
 WorkingDirectory=/srv/wanderbibliothek/current
 EnvironmentFile=/etc/wanderbibliothek/env
-# `tsx` es dependencia de desarrollo: si instalas con `--omit=dev`, este
-# servicio no arranca. Ver «Instalación de dependencias» en deploy/README.md.
+# `tsx` está en `dependencies` a propósito (no es una devDependency): así estos
+# comandos funcionan también con `npm ci --omit=dev` y dentro de la imagen.
+# `--import tsx` se resuelve desde el directorio de trabajo, de ahí que sea
+# imprescindible el `WorkingDirectory` de arriba.
 ExecStart=/usr/bin/node --import tsx /srv/wanderbibliothek/current/scripts/backup.ts
+UMask=0077
 Nice=10
 IOSchedulingClass=idle
+# La copia solo necesita leer la base y escribir en la carpeta de copias; el
+# gancho opcional (`WANDERBIBLIOTHEK_BACKUP_HOOK`) sigue teniendo red y home.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/var/lib/wanderbibliothek /var/backups/wanderbibliothek

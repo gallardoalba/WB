@@ -61,3 +61,18 @@ test("las rutas que leen cuerpo exigen JSON a través de readJson()", () => {
   }
   assert.deepEqual(offenders, [], `Rutas que parsean el cuerpo a mano: ${offenders.join(", ")}`);
 });
+
+test("las rutas que leen la URL pública se renderizan por petición", () => {
+  // El build no lleva entorno (CI y Docker compilan sin él), así que una ruta
+  // prerenderizada evaluaría `siteUrl()` con el valor de reserva y publicaría
+  // `http://localhost:3000` en el sitemap o en el canonical.
+  for (const file of ["src/app/sitemap.ts", "src/app/robots.ts"]) {
+    const source = readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8");
+    if (!source.includes("siteUrl(")) continue;
+    assert.match(
+      source,
+      /await connection\(\)/,
+      `${file} usa siteUrl() y debe llamar a connection() para no quedarse con la URL del build`,
+    );
+  }
+});

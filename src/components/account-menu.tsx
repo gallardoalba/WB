@@ -143,7 +143,7 @@ export function AccountMenu({
           <LogIn size={15} />
         </span>
         <span className="profile-copy">
-          <strong>{t("Iniciar sesión")}</strong>
+          <strong>{t("Entrar")}</strong>
           <small>{t("Guarda y solicita libros")}</small>
         </span>
       </>

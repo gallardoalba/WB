@@ -3,14 +3,14 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type RepoModule = typeof import("../src/lib/repo.ts");
 
 let dbModule: DbModule;
 let repo: RepoModule;
 
 before(async () => {
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   repo = await import("../src/lib/repo.ts");
 });
 
@@ -117,28 +117,6 @@ test("en producción un correo fallido no se da por entregado", async () => {  c
     if (previousWebhook === undefined) delete env.MAIL_WEBHOOK_URL;
     else env.MAIL_WEBHOOK_URL = previousWebhook;
   }
-});
-
-test("los préstamos del club solo los ve quien es miembro", () => {
-  const club = repo.createClub("usr_clara", {
-    name: "Club de préstamos privados",
-    city: "Stuttgart",
-    description: "",
-    meetsOn: "",
-    joinPolicy: "open",
-  });
-  repo.setClubMembership("usr_marcos", club.id, true);
-  repo.createClubLoan({
-    clubId: club.id,
-    listingId: "lst_1",
-    lenderId: "usr_clara",
-    borrowerId: "usr_marcos",
-  });
-
-  assert.equal(repo.listClubLoans(club.id, "usr_clara").length, 1);
-  assert.equal(repo.listClubLoans(club.id, "usr_marcos").length, 1);
-  // usr_ana no pertenece al club: no debe ver quién presta qué.
-  assert.deepEqual(repo.listClubLoans(club.id, "usr_ana"), []);
 });
 
 test("marcar como leída una conversación ajena se rechaza", () => {

@@ -4,7 +4,7 @@ import { before, test } from "node:test";
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type TokensModule = typeof import("../src/lib/account-tokens.ts");
 
 let repo: RepoModule;
@@ -13,7 +13,7 @@ let tokens: TokensModule;
 
 before(async () => {
   repo = await import("../src/lib/repo.ts");
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   tokens = await import("../src/lib/account-tokens.ts");
 });
 

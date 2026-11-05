@@ -3,14 +3,14 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-type DbModule = typeof import("../src/lib/db.ts");
+type DbModule = typeof import("../src/lib/db/index.ts");
 type RepoModule = typeof import("../src/lib/repo.ts");
 
 let dbModule: DbModule;
 let repo: RepoModule;
 
 before(async () => {
-  dbModule = await import("../src/lib/db.ts");
+  dbModule = await import("../src/lib/db/index.ts");
   repo = await import("../src/lib/repo.ts");
 });
 
@@ -31,16 +31,16 @@ const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
 });
 
 test("la búsqueda usa FTS5 y acepta prefijos", () => {
-  const exact = repo.catalogPage(null, params({ q: "junco" }));
+  const exact = repo.catalogPage(null, params({ q: "Anarchie" }));
   assert.equal(exact.total, 1);
-  assert.equal(exact.items[0]?.title, "El infinito en un junco");
+  assert.equal(exact.items[0]?.title, "Staatlichkeit und Anarchie und andere Schriften");
 
-  const prefix = repo.catalogPage(null, params({ q: "infinit" }));
+  const prefix = repo.catalogPage(null, params({ q: "eindim" }));
   assert.equal(prefix.total, 1);
 
-  // Sin acentos y por autor.
-  assert.equal(repo.catalogPage(null, params({ q: "educacion" })).total, 1);
-  assert.equal(repo.catalogPage(null, params({ q: "vallejo" })).total, 1);
+  // Por autor (dos libros de Marcuse) y por palabra del título.
+  assert.equal(repo.catalogPage(null, params({ q: "marcuse" })).total, 2);
+  assert.equal(repo.catalogPage(null, params({ q: "Antiquiertheit" })).total, 2);
   // Token inexistente: sin resultados, sin error de sintaxis FTS.
   assert.equal(repo.catalogPage(null, params({ q: "zzzqqq" })).total, 0);
 });

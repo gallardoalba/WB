@@ -23,13 +23,23 @@ export type EnvLike = Record<string, string | undefined>;
 
 const has = (env: EnvLike, key: string) => Boolean(env[key]?.trim());
 
-/** La clave de cifrado debe ser de 32 bytes, en hexadecimal o en base64. */
-function isValidEncryptionKey(value: string): boolean {
+/** Las claves de 32 bytes (cifrado y copias) van en hexadecimal o en base64. */
+function isKeyOf32Bytes(value: string): boolean {
   const raw = value.trim();
   const bytes = /^[a-f0-9]{64}$/i.test(raw)
     ? Buffer.from(raw, "hex").length
     : Buffer.from(raw, "base64").length;
   return bytes === 32;
+}
+
+/** La clave de cifrado debe ser de 32 bytes, en hexadecimal o en base64. */
+function isValidEncryptionKey(value: string): boolean {
+  return isKeyOf32Bytes(value);
+}
+
+/** Ruta absoluta: una relativa depende del directorio de la release. */
+function isAbsolutePath(value: string): boolean {
+  return value.trim().startsWith("/");
 }
 
 /**
@@ -78,10 +88,37 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     );
   }
 
+  // Claves antiguas para poder rotar sin perder los secretos ya guardados.
+  const clavesAntiguas = (env.APP_ENCRYPTION_OLD_KEYS ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  for (const entry of clavesAntiguas) {
+    const separator = entry.indexOf(":");
+    const clave = separator > 0 ? entry.slice(separator + 1) : entry;
+    if (!isValidEncryptionKey(clave)) {
+      error(
+        "APP_ENCRYPTION_OLD_KEYS",
+        `La entrada «${entry.slice(0, 16)}…» no es una clave de 32 bytes (hex o base64).`,
+      );
+    }
+  }
+  if (clavesAntiguas.length > 0 && !has(env, "APP_ENCRYPTION_KEY_ID")) {
+    warn(
+      "APP_ENCRYPTION_KEY_ID",
+      "Sin un id para la clave activa se usa uno derivado de la propia clave: funciona, pero un nombre legible («2026-11») hace más fácil saber qué clave toca retirar de APP_ENCRYPTION_OLD_KEYS.",
+    );
+  }
+
   if (!has(env, "MAINTENANCE_TOKEN")) {
     warn(
       "MAINTENANCE_TOKEN",
       "El cron de mantenimiento responderá 404: no se purgan sesiones, cuotas ni avisos viejos, y los correos fallidos no se reintentan.",
+    );
+  } else if ((env.MAINTENANCE_TOKEN ?? "").trim().length < 24) {
+    warn(
+      "MAINTENANCE_TOKEN",
+      "Es más corto de 24 caracteres: un token débil protege una tarea de escritura expuesta a Internet. Genéralo con `openssl rand -hex 32`.",
     );
   }
 
@@ -90,6 +127,14 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
       "TRUST_PROXY",
       "Detrás de un proxy, todas las peticiones comparten la cuota de la clave «direct»: un cliente puede agotar los límites de todo el sitio.",
     );
+  } else if (has(env, "TRUSTED_PROXY_HOPS")) {
+    const hops = Number.parseInt(env.TRUSTED_PROXY_HOPS ?? "", 10);
+    if (!Number.isFinite(hops) || hops < 1) {
+      warn(
+        "TRUSTED_PROXY_HOPS",
+        "No es un entero ≥ 1: se usarán 1 salto, así que con un CDN delante la IP del cliente sería la del CDN y todas sus visitas compartirían cuota.",
+      );
+    }
   }
 
   if (env.SEED_DEMO === "1") {
@@ -103,6 +148,27 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     warn(
       "ADMIN_PASSWORD",
       "Retírala del entorno cuando el administrador ya exista: no hace falta para arrancar y queda legible en la configuración del servicio.",
+    );
+  }
+  // Un par a medias no crea la cuenta y el operador se queda esperando: se
+  // avisa ahora, no cuando falle el primer acceso a /admin.
+  if (has(env, "ADMIN_EMAIL") !== has(env, "ADMIN_PASSWORD")) {
+    warn(
+      has(env, "ADMIN_EMAIL") ? "ADMIN_PASSWORD" : "ADMIN_EMAIL",
+      "El administrador inicial necesita las dos variables: con solo una no se crea ninguna cuenta. Usa `npm run admin:create` si prefieres hacerlo a mano.",
+    );
+  }
+
+  // Las páginas legales se alimentan de estas variables. Sin ellas, el aviso
+  // legal queda visiblemente incompleto, y el Impressum (§ 5 DDG) es
+  // obligatorio para un servicio abierto en Alemania.
+  const legalMissing = ["LEGAL_CONTROLLER", "LEGAL_ADDRESS", "LEGAL_CONTACT_EMAIL"].filter(
+    (key) => !has(env, key),
+  );
+  if (legalMissing.length > 0) {
+    warn(
+      legalMissing[0]!,
+      `Faltan datos del responsable (${legalMissing.join(", ")}): /privacidad y /aviso-legal se publican incompletos. El aviso legal es obligatorio en Alemania y la política de privacidad, exigible por el RGPD.`,
     );
   }
 
@@ -124,6 +190,30 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     warn(
       "WANDERBIBLIOTHEK_DB",
       "La base quedará dentro del directorio de la aplicación (.data/): un despliegue nuevo se la lleva por delante.",
+    );
+  } else if (!isAbsolutePath(env.WANDERBIBLIOTHEK_DB!)) {
+    warn(
+      "WANDERBIBLIOTHEK_DB",
+      "Es una ruta relativa: se resuelve contra el directorio de la release y una actualización puede dejar la base atrás. Usa una ruta absoluta fuera de la aplicación.",
+    );
+  }
+
+  // Copias de seguridad: la rotación y el cifrado solo se descubren a las 03:20,
+  // así que una clave mal escrita se avisa al arrancar en vez de dejar copias
+  // en claro (o ninguna) durante semanas.
+  if (has(env, "WANDERBIBLIOTHEK_BACKUP_KEY") && !isKeyOf32Bytes(env.WANDERBIBLIOTHEK_BACKUP_KEY!)) {
+    warn(
+      "WANDERBIBLIOTHEK_BACKUP_KEY",
+      "No son 32 bytes en hexadecimal (64 caracteres) ni en base64: la copia diaria fallará y no habrá respaldo cifrado. Genérala con `openssl rand -hex 32`.",
+    );
+  }
+  if (
+    has(env, "WANDERBIBLIOTHEK_BACKUP_DIR") &&
+    !isAbsolutePath(env.WANDERBIBLIOTHEK_BACKUP_DIR!)
+  ) {
+    warn(
+      "WANDERBIBLIOTHEK_BACKUP_DIR",
+      "Es una ruta relativa: las copias acabarían dentro de la release y se perderían en el siguiente despliegue. Usa una ruta absoluta.",
     );
   }
 

@@ -38,6 +38,11 @@ jobs:
       - name: Pruebas
         run: npm test
 
+      # Umbrales mínimos (líneas 92 %, ramas 80 %, funciones 88 %): impiden que
+      # una funcionalidad nueva entre sin pruebas que la cubran.
+      - name: Cobertura
+        run: npm run test:coverage
+
       - name: Build
         run: npm run build
 

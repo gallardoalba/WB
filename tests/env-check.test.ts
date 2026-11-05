@@ -5,15 +5,20 @@ import { assertEnv, checkEnv, formatEnvIssues, type EnvLike } from "../src/lib/e
 const KEY_HEX = "a".repeat(64);
 const KEY_B64 = Buffer.alloc(32, 7).toString("base64");
 
+const TOKEN = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
+
 const complete = (patch: EnvLike = {}): EnvLike => ({
   NODE_ENV: "production",
   NEXT_PUBLIC_SITE_URL: "https://biblioteca.example.com",
   MAIL_WEBHOOK_URL: "https://mail.example/send",
   APP_ENCRYPTION_KEY: KEY_HEX,
-  MAINTENANCE_TOKEN: "token-largo",
+  MAINTENANCE_TOKEN: TOKEN,
   TRUST_PROXY: "1",
   ERROR_WEBHOOK_URL: "https://errors.example/hook",
   WANDERBIBLIOTHEK_DB: "/var/lib/wanderbibliothek/wanderbibliothek.db",
+  LEGAL_CONTROLLER: "Equipo Wanderbibliothek",
+  LEGAL_ADDRESS: "Calle 1, 00000 Stuttgart",
+  LEGAL_CONTACT_EMAIL: "privacidad@example.com",
   ...patch,
 });
 
@@ -58,8 +63,61 @@ test("la clave de cifrado admite hex y base64 de 32 bytes, y nada más", () => {
   }
 });
 
+test("un token de mantenimiento corto se avisa: protege una ruta de escritura", () => {
+  const issue = checkEnv(complete({ MAINTENANCE_TOKEN: "corto" })).find(
+    (item) => item.key === "MAINTENANCE_TOKEN",
+  );
+  assert.equal(issue?.severity, "warn");
+  assert.match(issue!.message, /openssl rand -hex 32/);
+});
+
+test("las rutas de la base y de las copias deben ser absolutas", () => {
+  const issues = checkEnv(
+    complete({
+      WANDERBIBLIOTHEK_DB: ".data/wanderbibliothek.db",
+      WANDERBIBLIOTHEK_BACKUP_DIR: ".data/backups",
+    }),
+  );
+  assert.deepEqual(
+    issues.map((item) => item.key).sort(),
+    ["WANDERBIBLIOTHEK_BACKUP_DIR", "WANDERBIBLIOTHEK_DB"],
+  );
+  assert.ok(issues.every((item) => item.severity === "warn"));
+});
+
+test("una clave de copias mal escrita se detecta al arrancar, no a las 03:20", () => {
+  const issue = checkEnv(complete({ WANDERBIBLIOTHEK_BACKUP_KEY: "secreto-corto" })).find(
+    (item) => item.key === "WANDERBIBLIOTHEK_BACKUP_KEY",
+  );
+  assert.equal(issue?.severity, "warn");
+  assert.match(issue!.message, /16 bytes|32 bytes/);
+  // Una clave válida (hex o base64) no genera ningún aviso.
+  assert.deepEqual(checkEnv(complete({ WANDERBIBLIOTHEK_BACKUP_KEY: KEY_B64 })), []);
+});
+
+test("ADMIN_EMAIL y ADMIN_PASSWORD se exigen juntas", () => {
+  const issue = checkEnv(complete({ ADMIN_EMAIL: "admin@example.com" })).find(
+    (item) => item.key === "ADMIN_PASSWORD",
+  );
+  assert.equal(issue?.severity, "warn");
+  assert.match(issue!.message, /las dos variables/);
+  // Con el par completo solo queda el aviso de «retíralas cuando el
+  // administrador ya exista», no el de configuración incompleta.
+  const both = checkEnv(complete({ ADMIN_EMAIL: "a@b.c", ADMIN_PASSWORD: "x".repeat(20) }));
+  assert.ok(both.every((item) => !/las dos variables/.test(item.message)));
+});
+
+test("faltan los datos del responsable: aviso, no bloqueo", () => {
+  const issue = checkEnv(complete({ LEGAL_CONTROLLER: "", LEGAL_ADDRESS: "" })).find((item) =>
+    item.key.startsWith("LEGAL_"),
+  );
+  assert.equal(issue?.severity, "warn");
+  assert.match(issue!.message, /aviso legal/i);
+});
+
 test("los avisos no bloquean el arranque y los errores sí", () => {
   const warningsOnly = complete({ MAINTENANCE_TOKEN: "", TRUST_PROXY: "", WANDERBIBLIOTHEK_DB: "" });
+
   assert.deepEqual(
     assertEnv(warningsOnly, () => {}).filter((issue) => issue.severity === "error"),
     [],
