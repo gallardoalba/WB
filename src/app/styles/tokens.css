@@ -42,9 +42,12 @@
      1,84:1, ilegible en pantallas con brillo. */
   --faint: #878b81;
   /* Foto del hero: sin tinte en claro y atenuada de noche; el contorno de esa
-     tarjeta se separa del papel con un tono propio. */
+     tarjeta se separa del papel con un tono propio. El halo del titular se
+     compone del mismo color de la tarjeta, así que en cada tema despega las
+     letras de la fotografía sin convertirse en un contorno. */
   --hero-veil: transparent;
   --hero-border: #dcdcd1;
+  --hero-text-halo: 0 0 14px color-mix(in srgb, var(--surface) 85%, transparent);
   /* Escala única de redondeo: paneles, controles y distintivos comparten
      proporción en toda la plataforma. */
   --radius: 12px;

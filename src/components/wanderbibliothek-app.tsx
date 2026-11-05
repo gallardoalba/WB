@@ -39,7 +39,7 @@ import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
 import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
-import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
+import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { AuthDialog } from "./dialogs/auth-dialog";
 import { SiteSearch } from "./site-search";
 
@@ -498,7 +498,10 @@ export default function WanderbibliothekApp({
           {view === "home" && (
             <section className="hero-banner">
               <div className="hero-copy">
-                <h1 tabIndex={-1}>{t("Los libros no se quedan quietos.")}</h1>
+                <h1 tabIndex={-1}>
+                  <span className="hero-brand">{BRAND}:</span>{" "}
+                  {t("Los libros no se quedan quietos.")}
+                </h1>
                 <p>
                   {user
                     ? t(

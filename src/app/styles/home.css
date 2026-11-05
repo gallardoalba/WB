@@ -126,6 +126,16 @@
   font-weight: 500;
   line-height: 1.06;
   letter-spacing: -0.025em;
+  /* El titular es lo más ancho de la tarjeta y su último renglón entra en la
+     zona donde la foto empieza a verse: el halo lo despega del fondo. */
+  text-shadow: var(--hero-text-halo);
+}
+
+/* La portada abre con la marca, pero quien manda es la frase: el nombre va en
+   el verde de acento y algo más de peso, no como un segundo logotipo. */
+.hero-brand {
+  color: var(--green);
+  font-weight: 600;
 }
 
 .hero-banner p {
@@ -575,10 +585,10 @@
     linear-gradient(
       90deg,
       var(--surface) 0%,
-      var(--surface) 34%,
-      color-mix(in srgb, var(--surface) 92%, transparent) 46%,
-      color-mix(in srgb, var(--surface) 70%, transparent) 62%,
-      color-mix(in srgb, var(--surface) 38%, transparent) 80%,
+      var(--surface) 46%,
+      color-mix(in srgb, var(--surface) 94%, transparent) 60%,
+      color-mix(in srgb, var(--surface) 78%, transparent) 74%,
+      color-mix(in srgb, var(--surface) 46%, transparent) 88%,
       transparent 100%
     ),
     linear-gradient(var(--hero-veil), var(--hero-veil)),
