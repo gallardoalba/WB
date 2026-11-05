@@ -10,8 +10,7 @@ The platform is deliberately built as a counter-model to commercial marketplaces
 
 - **Publishing books.** Enter the ISBN and the German National Library and Open Library supply title, author, language and category. When no cover exists, a typeset title card is composed instead.
 - **Swapping.** Request, acceptance, hand-over, a confirmation from both sides with a six-digit code, then a review. Each side confirms separately, so nobody can close an exchange on their own.
-- **Shipping without revealing the address.** The book travels as a Warensendung (Deutsche Post's book rate) to a DHL Packstation or to the recipient's own address. Every shipping field is stored encrypted and readable only by the two people in the exchange.
-- **Works rather than listings.** Every edition of a title shares one page: the conversation, the available copies, recommendations, and who in your city is looking for exactly that book.
+- **Shipping without revealing the address.** Every shipping field is stored encrypted and readable only by the two people in the exchange.
 - **Reading circles.** Organised by city, with a current read, meetings, an attendance list, a vote on the next book and a forum only members can read.
 - **Lists, directory, activity.** Reading lists as public curation, a directory of readers sorted by distance, and a stream of what is happening around you.
 - **Self-hosted.** One instance runs on a small server with SQLite, without third-party services.
