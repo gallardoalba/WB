@@ -1,40 +1,40 @@
 # Wanderbibliothek
 
-**Bücher, die weiterreisen.**
+**Books that keep travelling.**
 
-Wanderbibliothek bringt Menschen zusammen, die gelesene Bücher nicht im Regal verstauben lassen wollen. Wer ein Buch einstellt, macht es für andere in der Nähe auffindbar; wer eines sucht, fragt danach, und beide einigen sich auf die Übergabe. Kein Preis, keine Provision, kein Warenkorb – nur ein Buch, ein Gespräch und jemand, der es als Nächstes liest.
+Wanderbibliothek brings together people who don't want the books they have read to gather dust on a shelf. Publish a book and it becomes findable for readers nearby; look for one and you ask for it, and the two of you agree on the hand-over. No price, no commission, no shopping cart – just a book, a conversation and whoever reads it next.
 
-Die Plattform ist bewusst als Gegenentwurf zu kommerziellen Marktplätzen gebaut: Sie verkauft nichts, wirbt nicht, verfolgt niemanden und belohnt niemanden für Aktivität. Sie geht davon aus, dass Menschen teilen, wenn man es ihnen leicht macht und ihnen nicht misstraut – und dass eine Gemeinschaft ihre Regeln selbst aushandeln kann.
+The platform is deliberately built as a counter-model to commercial marketplaces: it sells nothing, runs no ads, tracks nobody and rewards nobody for being active. It assumes that people share when it is made easy for them and they are not distrusted – and that a community can negotiate its own rules.
 
-## Was die Plattform kann
+## What the platform does
 
-- **Bücher einstellen.** ISBN eingeben, den Rest liefern die Deutsche Nationalbibliothek und Open Library: Titel, Autor:in, Sprache, Kategorie. Fehlt ein Cover, entsteht eine gesetzte Titelkarte.
-- **Tauschen.** Anfrage, Annahme, Übergabe, beidseitige Bestätigung mit einem sechsstelligen Code, danach eine Bewertung. Beide Seiten bestätigen getrennt, damit niemand den Tausch allein abschließen kann.
-- **Verschicken, ohne die Adresse zu verraten.** Das Buch geht als Warensendung an eine Packstation oder an die eigene Adresse der empfangenden Person. Alle Versandfelder liegen verschlüsselt und sind nur für die beiden Tauschpartner:innen lesbar.
-- **Werke statt Angebote.** Alle Ausgaben eines Titels teilen sich eine Seite: Gespräch, verfügbare Exemplare, Empfehlungen und der Hinweis, wer in der eigenen Stadt genau dieses Buch sucht.
-- **Lesekreise.** Nach Stadt, mit laufender Lektüre, Treffen, Teilnahmeliste, Abstimmung über das nächste Buch und einem Forum, das nur die Mitglieder lesen.
-- **Listen, Verzeichnis, Aktivität.** Leselisten als öffentliche Kuratierung, ein Verzeichnis der Leser:innen mit Sortierung nach Nähe und ein Strom dessen, was in der eigenen Umgebung passiert.
-- **Selbst gehostet.** Eine Instanz läuft auf einem kleinen Server mit SQLite, ohne fremde Dienste. Ohne Konto lassen sich Startseite, Rechtstexte und die technische Dokumentation lesen.
+- **Publishing books.** Enter the ISBN and the German National Library and Open Library supply title, author, language and category. When no cover exists, a typeset title card is composed instead.
+- **Swapping.** Request, acceptance, hand-over, a confirmation from both sides with a six-digit code, then a review. Each side confirms separately, so nobody can close an exchange on their own.
+- **Shipping without revealing the address.** The book travels as a Warensendung (Deutsche Post's book rate) to a DHL Packstation or to the recipient's own address. Every shipping field is stored encrypted and readable only by the two people in the exchange.
+- **Works rather than listings.** Every edition of a title shares one page: the conversation, the available copies, recommendations, and who in your city is looking for exactly that book.
+- **Reading circles.** Organised by city, with a current read, meetings, an attendance list, a vote on the next book and a forum only members can read.
+- **Lists, directory, activity.** Reading lists as public curation, a directory of readers sorted by distance, and a stream of what is happening around you.
+- **Self-hosted.** One instance runs on a small server with SQLite, without third-party services. Without an account you can read the home page, the legal pages and the technical documentation.
 
-## Grundsätze
+## Principles
 
-**Gegenseitigkeit.** Wer ein Buch abgibt, bekommt eines zurück. Es gibt keine Währung, kein Guthaben und keine Punkte, die jemanden zum Viel-Tauschen antreiben – nur die Erwartung, dass man selbst auch gibt.
+**Reciprocity.** Whoever gives a book away gets one back. There is no currency, no balance and no points pushing anyone to trade more – only the expectation that you give too.
 
-**Unentgeltlich.** Keine Gebühren, keine Premium-Stufe, keine Werbung, keine Weitergabe von Daten an Dritte. Was die Plattform nicht kostet, muss sie auch nicht einnehmen – und was sie nicht einnimmt, kann sie niemandem verkaufen.
+**Free of charge.** No fees, no premium tier, no advertising, no handing data to third parties. What the platform does not cost it does not need to earn – and what it does not earn it cannot sell.
 
-**Bücher als Gemeingut.** Ein gelesenes Buch ist kein Ladenhüter, sondern etwas, das weitergegeben werden will. Die Plattform verwaltet deshalb kein Eigentum, sondern Übergaben: Wer ein Exemplar weitergibt, verliert es nicht, sondern bringt es in Umlauf.
+**Books as commons.** A book that has been read is not dead stock; it is something that wants to be passed on. So the platform manages hand-overs rather than property: giving a copy away does not lose it, it puts it into circulation.
 
-**Selbstorganisation.** Was ein Lesekreis liest, wann er sich trifft und wer hineinkommt, entscheidet der Lesekreis – nicht eine Zentrale. Auch Moderation ist umkehrbar und nachvollziehbar: Zurückgezogenes lässt sich wiederherstellen, und jede Entscheidung hinterlässt eine Spur.
+**Self-organisation.** What a reading circle reads, when it meets and who joins is decided by the reading circle, not by a head office. Moderation is reversible and traceable too: what has been taken down can be restored, and every decision leaves a trail.
 
-**Transparenz.** Der Quellcode ist offen, und die Regeln stehen dort, wo sie gelten. Wer wissen will, was mit den eigenen Daten passiert, kann es nachlesen statt es zu glauben.
+**Transparency.** The source is open and the rules sit where they apply. If you want to know what happens to your data, you can read it up instead of taking it on trust.
 
-**Privatsphäre.** Keine Werbe- oder Analysedienste, keine Profile für Dritte. Nachrichten zwischen zwei Menschen sind Ende-zu-Ende verschlüsselt, Versanddaten sind verschlüsselt, und alle eigenen Daten lassen sich als JSON exportieren und vollständig löschen.
+**Privacy.** No advertising or analytics services, no profiles for third parties. Messages between two people are end-to-end encrypted, shipping data is encrypted, and all your own data can be exported as JSON and deleted completely.
 
-**Autonomie.** Keine Abhängigkeit von einer Plattform, einem Konzernkonto oder einem Bezahldienst: ein Server, eine Datenbankdatei, ein Betriebssystemdienst. Wer will, betreibt seine eigene Instanz.
+**Autonomy.** No dependency on a platform, a corporate account or a payment provider: one server, one database file, one system service. Anyone who wants to can run their own instance.
 
-## Selbst hosten
+## Run it yourself
 
-Voraussetzung ist Node.js 22 oder neuer.
+Requires Node.js 22 or newer.
 
 ```bash
 git clone https://github.com/gallardoalba/wanderbibliothek.git
@@ -44,29 +44,29 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Die SQLite-Datenbank legt sich beim ersten Start selbst an, im Entwicklungsmodus mit Demodaten. Für den Betrieb sind mindestens `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` und `MAIL_WEBHOOK_URL` nötig; ohne Verschlüsselungsschlüssel wird kein Geheimnis gespeichert. Die vollständige Anleitung mit systemd, nginx, TLS, Sicherungen und Zeitplänen steht in [`deploy/README.md`](deploy/README.md).
+The SQLite database creates itself on first start, with demo data in development. For a real deployment you need at least `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` and `MAIL_WEBHOOK_URL`; without an encryption key no secret is ever stored. The full guide with systemd, nginx, TLS, backups and timers is in [`deploy/README.md`](deploy/README.md).
 
-Ein Verwaltungskonto entsteht über `ADMIN_EMAIL`/`ADMIN_PASSWORD` oder mit `npm run admin:create`.
+An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run admin:create`.
 
-## Technische Dokumentation
+## Technical documentation
 
-Architektur, Routen, Datenmodell, Sicherheit, Umgebungsvariablen und Betrieb sind aus diesem README ausgelagert:
+Architecture, routes, data model, security, environment variables and operations have moved out of this README:
 
-- **In der Anwendung selbst** unter `/documentacion` – dieselbe Seite, die die Instanz ausliefert, ohne Konto lesbar.
-- **Im Repository**: [`CONTRIBUTING.md`](CONTRIBUTING.md) (Umgebung, Qualitätsbefehle, Commit-Konventionen, Migrationsregeln), [`deploy/README.md`](deploy/README.md) (Betrieb) und [`SECURITY.md`](SECURITY.md) (Meldeweg für Schwachstellen).
+- **Inside the application** at `/documentacion` – the same page the instance serves, readable without an account.
+- **In the repository**: [`CONTRIBUTING.md`](CONTRIBUTING.md) (environment, quality commands, commit conventions, migration rules), [`deploy/README.md`](deploy/README.md) (operations) and [`SECURITY.md`](SECURITY.md) (how to report a vulnerability).
 
-Lint, Typprüfung, über 320 automatisierte Tests, Browser-Tests, ein Produktions-Build und ein Image-Build laufen bei jedem Push in der CI; `npm audit --omit=dev` meldet derzeit keine offenen Punkte.
+Lint, type checking, more than 320 automated tests, browser tests, a production build and an image build run on every push in CI; `npm audit --omit=dev` currently reports no open issues.
 
-## Mitmachen
+## Contributing
 
-Fehlerberichte, Vorschläge und Pull Requests sind willkommen. Ein Blick in [`CONTRIBUTING.md`](CONTRIBUTING.md) lohnt vorher: Dort stehen die Befehle, die eine Änderung erfüllen muss, und die Regel, dass neue Texte in beiden Sprachen dazukommen.
+Bug reports, suggestions and pull requests are welcome. A look at [`CONTRIBUTING.md`](CONTRIBUTING.md) first is worthwhile: it lists the commands a change has to pass and the rule that new strings always arrive in both languages.
 
-## Sicherheit
+## Security
 
-Schwachstellen bitte über **Security → Report a vulnerability** im Repository melden (privater Hinweis von GitHub, kein öffentliches Issue). Umfang, Antwortzeiten und Hinweise zum Selbsthosten stehen in [`SECURITY.md`](SECURITY.md).
+Please report vulnerabilities through **Security → Report a vulnerability** in the repository (GitHub's private advisory, not a public issue). Scope, response times and self-hosting notes are in [`SECURITY.md`](SECURITY.md).
 
-## Lizenz und Herkunftsnachweise
+## License and credits
 
-Der Code steht unter der **MIT-Lizenz** – siehe [`LICENSE`](LICENSE).
+The code is released under the **MIT license** – see [`LICENSE`](LICENSE).
 
-Fremde Bestandteile (Titelfoto, Schrift der Cover) behalten ihre eigenen Lizenzen und sind in [`NOTICE`](NOTICE) genannt.
+Third-party material (the cover photograph, the typeface used on covers) keeps its own license and is credited in [`NOTICE`](NOTICE).
