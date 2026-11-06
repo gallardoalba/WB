@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { useI18n } from "./i18n-provider";
@@ -24,18 +24,17 @@ export function CoverFilePicker({
 }) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
 
+  // El `blob:` se deriva del archivo, no de un estado que se rellena en un
+  // efecto: así no hay renders en cascada y el mismo archivo da la misma URL.
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+
   useEffect(() => {
-    if (!file) {
-      setPreview("");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    if (!preview) return;
+    // Se libera al cambiar de archivo o al desmontar.
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
 
   function choose(event: ChangeEvent<HTMLInputElement>) {
     const chosen = event.target.files?.[0];
