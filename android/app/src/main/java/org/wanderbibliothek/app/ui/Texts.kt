@@ -74,7 +74,7 @@ object TextCatalog {
         // Entdecken
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Bücher, die reisen. Menschen, die sich begegnen.",
-        "heroSubtitle" to "Teile, was du gelesen hast, entdecke, was andere in deiner Stadt lesen, und werde Teil einer Gemeinschaft, die Geschichten im Umlauf hält.",
+        "heroSubtitle" to "Eine von der Gemeinschaft getragene Bibliothek, in der Bücher neue Leser:innen finden und Lesen Menschen verbindet.",
         "searchPlaceholder" to "Titel, Autor:in oder Stichwort",
         "filters" to "Filter",
         "category" to "Kategorie",
@@ -371,7 +371,7 @@ object TextCatalog {
 
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Libros que viajan. Personas que se encuentran.",
-        "heroSubtitle" to "Comparte lo que ya has leído, descubre lo que leen otras personas de tu ciudad y forma parte de una comunidad que mantiene las historias en circulación.",
+        "heroSubtitle" to "Una biblioteca impulsada por la comunidad donde los libros encuentran nuevos lectores y la lectura conecta a las personas.",
         "searchPlaceholder" to "Título, autoría o palabra clave",
         "filters" to "Filtros",
         "category" to "Categoría",
@@ -655,7 +655,7 @@ object TextCatalog {
         "signInRequired" to "You need to be signed in for that.",
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Books that travel. People who meet.",
-        "heroSubtitle" to "Share what you have read, discover what others in your city are reading, and join a community that keeps stories in circulation.",
+        "heroSubtitle" to "A community-driven library where books find new readers and reading connects people.",
         "searchPlaceholder" to "Title, author or keyword",
         "filters" to "Filters",
         "category" to "Category",

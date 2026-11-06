@@ -521,13 +521,9 @@ export default function WanderbibliothekApp({
                   {t("Libros que viajan. Personas que se encuentran.")}
                 </p>
                 <p>
-                  {user
-                    ? t(
-                        "Encuentra historias que ya tienen ganas de llegar a tus manos. Elige tu ciudad y mira qué libros tienes al lado.",
-                      )
-                    : t(
-                        "Cada libro guarda algo de quien lo leyó. Comparte aquellos que te han marcado y sé parte de la comunidad: en cada intercambio viajan un libro, una historia y una conversación.",
-                      )}
+                  {t(
+                    "Una biblioteca impulsada por la comunidad donde los libros encuentran nuevos lectores y la lectura conecta a las personas.",
+                  )}
                 </p>
                 <button
                   type="button"
