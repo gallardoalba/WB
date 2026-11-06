@@ -20,6 +20,7 @@ fun errorText(texts: Texts, error: Throwable): String {
             "notFound" -> texts["notFound"]
             "serverOutdated" -> texts["serverOutdated"]
             "redirect" -> texts["serverRedirect"]
+            "redirectLoop" -> texts["serverRedirectLoop"]
             "signInRequired" -> texts["signInRequired"]
             "tooManyRequests" -> texts["errorGeneric"]
             "tooLarge" -> texts["errorGeneric"]

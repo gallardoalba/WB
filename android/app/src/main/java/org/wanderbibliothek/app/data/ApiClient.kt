@@ -83,6 +83,8 @@ class ApiClient(private val prefs: Prefs) {
         body: JSONObject?,
         maxBytes: Int,
         redirects: Int = 0,
+        /** Ruta de la primera tentativa: sirve para reconocer un bucle. */
+        origin: String = path,
     ): Raw = withContext(Dispatchers.IO) {
         val base = prefs.serverUrl().trimEnd('/')
         val host = runCatching { java.net.URL(base).host }.getOrNull().orEmpty()
@@ -119,17 +121,30 @@ class ApiClient(private val prefs: Prefs) {
                 // (`/api/requests` ⇄ `/api/requests/`) con un 301/308. Seguir
                 // la redirección a mano solo es seguro si es el mismo host: la
                 // cookie de sesión no viaja fuera.
-                val retry = if (redirects == 0) {
-                    slashVariant(
-                        base = base,
-                        location = connection.getHeaderField("Location"),
-                    )
-                } else {
-                    null
+                val target = slashVariant(
+                    base = base,
+                    location = connection.getHeaderField("Location"),
+                )
+                // Si la redirección devuelve a la ruta de partida, el servidor
+                // está en un bucle (así estaba nginx con `/api/requests`): no
+                // hay nada que arreglar en la app y conviene decirlo así.
+                if (target != null &&
+                    redirects > 0 &&
+                    target.trimEnd('/') == origin.trimEnd('/')
+                ) {
+                    throw ApiException(status, "redirectLoop", null)
                 }
-                if (retry != null) {
+                if (target != null && redirects == 0) {
                     connection.disconnect()
-                    return@withContext execute(method, retry, query, body, maxBytes, redirects + 1)
+                    return@withContext execute(
+                        method,
+                        target,
+                        query,
+                        body,
+                        maxBytes,
+                        redirects + 1,
+                        origin,
+                    )
                 }
                 throw ApiException(status, "redirect", null)
             }

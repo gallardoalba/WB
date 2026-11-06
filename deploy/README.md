@@ -230,8 +230,13 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 La unidad escucha en `127.0.0.1:3000`; lo público lo sirve nginx. La ubicación
-`/api/requests/` va sin buffering y con timeout largo: ahí vive el canal de
-mensajería en vivo (SSE).
+`^~ /api/requests` (la ruta exacta y todo lo que cuelga de ella) va sin
+buffering y con timeout largo: ahí vive el canal de mensajería en vivo (SSE).
+⚠ Ese prefijo tiene que casar también con el listado **sin** barra final: con
+`location /api/requests/` la petición caía en `location /`, Next respondía 301
+a `/api/requests/` y la regla la devolvía a `/api/requests` (bucle que la app no
+sigue). Si la app dice «el servidor redirige en bucle», falta copiar este
+`nginx.conf` y recargar.
 
 El `nginx.conf` de `deploy/` añade tres cosas que la aplicación no puede hacer
 sola:
