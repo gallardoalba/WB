@@ -17,6 +17,12 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
+  // Una sola instancia en CI: cada contexto de navegador tiene su propia clave
+  // E2E y la publica en la ranura `web` de la cuenta. Con dos workers, otra
+  // prueba que entre con la misma cuenta publica la suya entre medias, el
+  // diálogo pasa a «este navegador tiene otra clave» y el envío queda
+  // deshabilitado (`e2e/direct.spec.ts` agotaba los 120 s).
+  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? "github" : "list",
   use: {
     // Next dev bloquea HMR para orígenes distintos de su host de arranque.

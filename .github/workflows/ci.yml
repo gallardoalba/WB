@@ -108,7 +108,9 @@ jobs:
       - name: Instalar plataforma y build-tools
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
+          # Android 17 (API 37) lleva la versión menor en el nombre del paquete:
+          # «platforms;android-37» no existe, el identificador es «android-37.0».
+          sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
 
