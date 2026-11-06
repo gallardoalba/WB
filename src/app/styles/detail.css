@@ -142,10 +142,34 @@
   font-size: 13px;
 }
 
+/* La barra de acciones cierra la ficha a todo el ancho. Antes vivía al final
+   de la columna de los datos, que con la barra lateral abierta mide 266 px:
+   «Pedir este libro» salía pequeño y pegado al borde derecho, como un enlace
+   más de la lista. */
+.book-detail > .detail-actions {
+  grid-column: 1 / -1;
+}
+
 .detail-actions {
-  display: grid;
-  gap: 10px;
-  justify-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Avisos, notas y formularios ocupan la barra entera. */
+.detail-actions > .action-feedback,
+.detail-actions > .form-error,
+.detail-actions > .request-inline,
+.detail-actions > .unavailable-note,
+.detail-actions > .owner-actions,
+.detail-actions > .edit-box {
+  flex: 1 1 100%;
 }
 
 /* El enlace a la conversación va a su ancho, no como barra, y con aire
@@ -156,12 +180,42 @@
   margin-bottom: var(--space-5);
 }
 
-/* La acción principal ocupa todo el ancho, igual que el resto de paneles
-   de la ficha. */
+/* La acción principal de la ficha: alta, ancha y con el texto grande. Es lo
+   que se viene a hacer en esta página, así que se queda a la izquierda y
+   empuja las secundarias al otro extremo de la barra. */
 .detail-actions > .share-button {
-  width: 100%;
-  min-height: 48px;
+  flex: 1 1 280px;
+  max-width: 420px;
+  min-height: 54px;
+  padding: 0 22px;
+  margin-right: auto;
+  font-size: 15px;
   justify-content: center;
+}
+
+.detail-actions > .favorite-inline,
+.detail-actions .report-box > summary {
+  min-height: 46px;
+  padding: 0 16px;
+}
+
+/* El formulario de la solicitud ya vive dentro de la barra: los botones van al
+   tamaño de los de al lado y sin el aire extra que se les da dentro de un
+   diálogo. */
+.request-inline {
+  margin-top: 0;
+}
+
+.request-inline .dialog-actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.request-inline .dialog-actions .secondary-button,
+.request-inline .dialog-actions .share-button {
+  min-height: 46px;
+  padding: 0 18px;
+  font-size: 14px;
 }
 
 .request-inline {
@@ -296,7 +350,7 @@
 
 /* Los botones del propietario comparten altura con el desplegable de edición. */
 .owner-actions .secondary-button.small {
-  min-height: 44px;
+  min-height: 46px;
 }
 
 .detail-footer {

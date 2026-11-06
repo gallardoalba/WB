@@ -302,6 +302,16 @@
     gap: 20px;
   }
 
+  /* En una columna no hay sitio para el botón y las acciones secundarias a la
+     vez: se apilan, y la de pedir sigue siendo la primera y la más alta. */
+  .detail-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .secondary-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .book-detail-cover {
     height: 300px;
   }

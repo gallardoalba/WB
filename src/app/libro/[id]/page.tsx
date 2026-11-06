@@ -132,32 +132,32 @@ export default async function Page({ params }: PageProps) {
             </span>
           </Link>
 
-          {/* El género cierra el bloque: arriba separaba el borde del título,
-              que es lo primero que se busca en la ficha. */}
+          {/* El género cierra el bloque de datos. Las acciones van fuera, en
+              una barra a todo el ancho bajo la portada. */}
           <span className="book-category">{t(listing.category)}</span>
-
-          <ListingActions
-            listingId={listing.id}
-            bookId={listing.bookId}
-            hasUploadedCover={listing.coverUrl?.startsWith("/api/cover/book/") ?? false}
-            listingTitle={listing.title}
-            status={listing.status}
-            isMine={listing.isMine}
-            isFavorite={listing.isFavorite}
-            isAuthenticated={Boolean(user)}
-            myRequestStatus={listing.myRequestStatus}
-            condition={listing.condition}
-            category={listing.category}
-            city={listing.city}
-            notes={listing.notes}
-            tags={listing.tags}
-            author={listing.author}
-            language={listing.language}
-            publisher={listing.publisher}
-            year={listing.year}
-            series={listing.series}
-          />
         </div>
+
+        <ListingActions
+          listingId={listing.id}
+          bookId={listing.bookId}
+          hasUploadedCover={listing.coverUrl?.startsWith("/api/cover/book/") ?? false}
+          listingTitle={listing.title}
+          status={listing.status}
+          isMine={listing.isMine}
+          isFavorite={listing.isFavorite}
+          isAuthenticated={Boolean(user)}
+          myRequestStatus={listing.myRequestStatus}
+          condition={listing.condition}
+          category={listing.category}
+          city={listing.city}
+          notes={listing.notes}
+          tags={listing.tags}
+          author={listing.author}
+          language={listing.language}
+          publisher={listing.publisher}
+          year={listing.year}
+          series={listing.series}
+        />
       </article>
 
       <p className="detail-footer">
