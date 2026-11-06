@@ -165,27 +165,32 @@
     margin-top: 10px;
   }
 
-  /* Cuatro cifras en dos filas y alineadas a la izquierda: en una tarjeta
-     estrecha, centradas quedaban flotando. */
+  /* Cuatro cifras en dos filas, cada una centrada sobre su rótulo. Alineadas a
+     la izquierda la cifra quedaba pegada al borde y, con rótulos de una y de
+     dos líneas («Tausch abgeschlossen» / «Lesekreis»), cada cifra parecía de
+     una columna distinta. El relleno va a los dos lados para que el centro del
+     contenido caiga en el centro de la columna y los dos pares queden iguales. */
   .hero-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: 12px;
+    column-gap: 0;
+    row-gap: 14px;
     margin-top: 14px;
     padding-top: 12px;
   }
 
   .hero-stat {
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
+    padding-inline: 8px;
   }
 
   .hero-stat + .hero-stat {
     border-left: 0;
-    padding-left: 0;
+    padding-left: 8px;
   }
 
   .hero-stat:nth-child(2n) {
     border-left: 1px solid var(--line);
-    padding-left: 14px;
   }
 
   .hero-stat strong {

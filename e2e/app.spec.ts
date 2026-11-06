@@ -425,3 +425,26 @@ test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", as
   // Todos los rótulos en una línea: ninguna columna más alta que otra.
   expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(4);
 });
+
+test("en el móvil cada cifra queda centrada sobre su rótulo", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await waitForHydration(page);
+
+  const desvios = await page.locator(".hero-stat").evaluateAll((els) =>
+    els.map((el) => {
+      const columna = el.getBoundingClientRect();
+      const centro = (r: DOMRect) => r.x + r.width / 2;
+      const cifra = el.querySelector("strong")!.getBoundingClientRect();
+      const rotulo = el.querySelector(".hero-stat-label")!.getBoundingClientRect();
+      return Math.round(Math.max(
+        Math.abs(centro(cifra) - centro(columna)),
+        Math.abs(centro(rotulo) - centro(columna)),
+      ));
+    }),
+  );
+
+  // Con la cifra pegada a la izquierda, «Tausch abgeschlossen» (dos líneas)
+  // dejaba el número fuera del eje de su propio rótulo.
+  expect(Math.max(...desvios)).toBeLessThanOrEqual(2);
+});
