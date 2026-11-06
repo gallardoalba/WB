@@ -5,6 +5,34 @@ supervisado, tareas programadas y copias de seguridad. La aplicación es una sol
 instancia de Node con SQLite: **no** se puede replicar horizontalmente (ver
 «Límites conocidos»).
 
+## 0. Vía rápida: los dos scripts
+
+Si prefieres no lanzar los apartados uno a uno, el repositorio trae dos:
+
+```bash
+# Primera instalación en un servidor vacío (Debian/Ubuntu, como root).
+sudo deploy/bootstrap.sh --domain tu-dominio.de --email tu@correo.de
+
+# Cada versión nueva: trae el código de GitHub y cambia de release.
+sudo /srv/wanderbibliothek/current/deploy/deploy.sh
+```
+
+- **`deploy/bootstrap.sh`** instala Node 22, nginx y certbot, crea el usuario y
+  los directorios, clona y compila, genera `/etc/wanderbibliothek/env` con
+  secretos nuevos, coloca el servicio y los temporizadores, publica el vhost y
+  pide el certificado. No pisa un `env` existente ni un vhost sin guardar copia,
+  y se niega a seguir si Apache ocupa los puertos 80/443.
+- **`deploy/deploy.sh`** crea una release en `releases/<fecha>-<commit>`, la
+  compila, **hace copia de la base** antes de cambiar nada, mueve `current`,
+  reinicia y comprueba `/api/health`. Si la comprobación falla, vuelve solo a la
+  versión anterior. Acepta `--ref` (etiqueta o commit), `--rollback`, `--keep N`
+  y `--dry-run`.
+
+Los dos aceptan `--dry-run` y explican cada paso con `OK/AVISO/FALLO`. Lo que
+ninguno puede adivinar —correo, Impressum, cuenta de administración— queda
+listado al final de la ejecución. Los apartados siguientes son la versión manual
+paso a paso, útil para entender qué hace cada cosa o para depurar.
+
 ## 1. Requisitos
 
 - Debian 12 / Ubuntu 22.04 o similar, 1 vCPU y 1 GB de RAM bastan para empezar.
@@ -12,6 +40,22 @@ instancia de Node con SQLite: **no** se puede replicar horizontalmente (ver
 - nginx y certbot: `sudo apt install nginx certbot python3-certbot-nginx`.
 - `build-essential` y `python3` por si `better-sqlite3` no encuentra binario
   precompilado para tu versión de Node.
+
+### Debian 13 (trixie)
+
+Funciona igual, con tres detalles que cambian respecto a Debian 12:
+
+- El `nodejs` de los repositorios es la 20 y aquí hace falta la 22: instálala
+  desde NodeSource (`curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -`)
+  o con nvm de sistema, y comprueba que `node -v` da 22 antes del `npm ci`.
+- nginx es 1.26: `listen 443 ssl http2;` sigue valiendo pero avisa de que está
+  obsoleto (`nginx -t` lo dice). En `deploy/nginx.conf`, cambia esas dos líneas
+  por `listen 443 ssl;` + `http2 on;`.
+- Con 1 GB de RAM, `npm run build` es lo más hambriento del proceso: añade 2 GB
+  de swap antes de compilar en el servidor
+  (`fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`,
+  y la línea correspondiente en `/etc/fstab`), o compila en tu equipo y copia la
+  release ya construida.
 
 ## 2. Usuario y directorios
 
@@ -79,6 +123,44 @@ solo en el entorno del servicio. En Docker se pasa como build arg (apartado 11).
 > **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
 > abajo: el mismo entorno sirve, con `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
 
+### Correo: qué proveedor poner en `MAIL_WEBHOOK_URL`
+
+La aplicación no habla SMTP: hace `POST` a esa URL con
+`{"to": "…", "subject": "…", "text": "…"}` y, si defines
+`MAIL_WEBHOOK_TOKEN`, con `Authorization: Bearer <token>`. No manda remitente,
+así que el adaptador decide el `from`. Solo se envían dos cosas —confirmación de
+cuenta y restablecer contraseña—, hablamos de decenas de correos al día.
+
+Opciones, de menos a más trabajo:
+
+| Opción | Coste | Notas |
+|---|---|---|
+| **Brevo** (UE) | 300/día gratis | API `POST /v3/smtp/email` con `{sender, to, subject, textContent}`: el adaptador son quince líneas. Datos en la UE, encaja con el RGPD del proyecto |
+| **Resend** | 3 000/mes gratis | La mejor documentación; `POST /emails` con `{from, to, subject, text}`. Empresa de EE. UU. (con DPA) |
+| **Scaleway TEM** (UE) | ~0,25 €/1000 | Barato si algún día crece; alta de dominio más lenta |
+| **Mailjet / Infomaniak** (UE) | planes pequeños gratis | Equivalentes a Brevo |
+| **Amazon SES** | 0,10 $/1000 | Hay que salir del modo *sandbox* pidiéndolo a AWS |
+| **SMTP desde el servidor** | gratis | Requiere Postfix y **desbloquear el SMTP en el panel del proveedor** (netcup lo bloquea por defecto) o usar un relay autenticado. Peor entregabilidad y más piezas que mantener |
+
+En cualquiera de los casos hace falta un **adaptador** mínimo (una función de
+Cloudflare Worker, Netlify o Vercel, o un pequeño servicio en el propio host) que
+reciba el JSON de arriba y llame a la API del proveedor. El token del webhook
+protege esa URL: sin él cualquiera podría usarla para enviar correo con tu
+dominio.
+
+Dos pasos que se olvidan y luego caen en spam:
+
+- Verificar el dominio remitente en el panel del proveedor y publicar los
+  registros **SPF y DKIM** (y un `DMARC` en modo `p=none` para empezar) en el DNS
+  del dominio.
+- Usar un remitente real del dominio, por ejemplo `hallo@tu-dominio.de`, no
+  `no-reply@` de un dominio ajeno.
+
+Para probar sin quemar reputación, manda primero a tu propia cuenta y revisa
+`journalctl -u wanderbibliothek | grep '\[mail\]'`: ahí se ve si el proveedor
+responde 2xx o si el mensaje se queda en la cola (`/api/cron/maintenance` lo
+reintenta).
+
 ## 5. Servicio, proxy y tareas programadas
 
 ```bash
@@ -112,6 +194,39 @@ sola:
 - **`/api/cron/maintenance` solo desde el propio host** (`allow 127.0.0.1;`): el
   token ya la protege, pero no hay razón para exponer una tarea de escritura.
 - **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
+
+### `www` y la forma canónica
+
+El `server_name` del fichero es un único nombre. Si quieres atender también
+`www.`, **no lo añadas al mismo bloque**: redirígelo al canónico. La sesión es
+una cookie `__Host-` (atada al host exacto) y las claves de cifrado de la
+mensajería viven en IndexedDB por origen, así que quien entre por `www.` sería,
+a efectos prácticos, otra persona: otra sesión y otras claves, con los mensajes
+antiguos ilegibles.
+
+```nginx
+# /etc/nginx/sites-available/wanderbibliothek-www
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.tu-dominio.de;
+    return 301 https://tu-dominio.de$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name www.tu-dominio.de;
+    ssl_certificate     /etc/letsencrypt/live/tu-dominio.de/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tu-dominio.de/privkey.pem;
+    return 301 https://tu-dominio.de$request_uri;
+}
+```
+
+Pide el certificado con los dos nombres (`certbot --nginx -d tu-dominio.de -d
+www.tu-dominio.de`) para que el bloque de `www` tenga TLS válido; si no, el
+navegador corta antes de leer la redirección. Y en `NEXT_PUBLIC_SITE_URL` pon
+siempre **la forma canónica**.
 
 ## 6. Primer arranque
 
@@ -419,3 +534,150 @@ npm run rotate:secrets
 
 Si el informe lista valores que no se pueden descifrar, **no retires la clave
 antigua**: significa que falta otra anterior en `APP_ENCRYPTION_OLD_KEYS`.
+
+## Sustituir una web que ya vive en el servidor
+
+Este apartado es para un host que **ya sirve otra web** (por ejemplo un
+WordPress con nginx o Apache) y se quiere poner Wanderbibliothek en su lugar sin
+quedarse sin nada. La regla es no tocar lo que funciona hasta que lo nuevo
+responda por HTTPS en un nombre propio.
+
+### 1. Inventario antes de instalar
+
+```bash
+ss -ltnp | grep -E ':(80|443|3000)\b'          # quién ocupa los puertos
+systemctl list-units --type=service --state=running --no-pager | head -30
+ls -l /etc/nginx/sites-enabled/                 # nginx
+ls -l /etc/apache2/sites-enabled/ 2>/dev/null   # Apache, si lo hubiera
+docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' 2>/dev/null
+df -h / ; free -h ; nproc                       # disco, RAM, núcleos
+```
+
+Apunta el dominio actual, su `root`/`proxy_pass` y dónde vive su base de datos:
+eso es lo que hay que copiar en el paso 2.
+
+### 2. Copia de la web actual (antes de tocar nada)
+
+```bash
+sudo tar -C /etc -czf /root/backup-etc-$(date +%F).tar.gz nginx apache2 2>/dev/null
+# WordPress de ejemplo: ficheros, base y configuración
+sudo tar -C /var/www -czf /root/backup-www-$(date +%F).tar.gz .
+mysqldump --single-transaction -u root -p --all-databases | gzip > /root/backup-db-$(date +%F).sql.gz
+# Docker: volúmenes y compose del proyecto en uso
+docker run --rm -v <volumen>:/v -v /root:/backup alpine tar -czf /backup/docker-<volumen>.tar.gz -C /v .
+```
+
+Sin esta copia no hay vuelta atrás: la web vieja no se «desinstala», se apaga.
+
+### 3. Instalar Wanderbibliothek en paralelo
+
+Sigue los apartados 2 a 5 de esta guía tal cual. No hay conflicto con la web
+actual: la aplicación escucha en `127.0.0.1:3000` y solo la publica su propio
+`server_name`.
+
+Para probar sin tocar el dominio, publica primero en un subdominio
+(`wander.tu-dominio.de`): crea el registro A con antelación y pide el
+certificado solo para él.
+
+```bash
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
+sudo sed -i 's/biblioteca.example.com/wander.tu-dominio.de/g' /etc/nginx/sites-available/wanderbibliothek
+sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d wander.tu-dominio.de
+```
+
+En `/etc/wanderbibliothek/env`, `NEXT_PUBLIC_SITE_URL` tiene que ser **exactamente**
+ese nombre con `https://`, o la cookie `__Host-` no se guarda y el acceso entra
+en bucle.
+
+### 4. Cambiar el dominio
+
+Con el sitio nuevo ya respondiendo en el subdominio:
+
+```bash
+# 1) El vhost nuevo pasa a servir el dominio final (y el www, si lo usas).
+sudo sed -i 's/wander.tu-dominio.de/tu-dominio.de www.tu-dominio.de/' \
+  /etc/nginx/sites-available/wanderbibliothek
+sudo sed -i 's|^NEXT_PUBLIC_SITE_URL=.*|NEXT_PUBLIC_SITE_URL=https://tu-dominio.de|' \
+  /etc/wanderbibliothek/env
+
+# 2) El vhost de la web vieja deja de escuchar ese nombre: se desactiva, no se borra.
+sudo unlink /etc/nginx/sites-enabled/<sitio-antiguo>
+sudo systemctl stop <servicio-antiguo>        # php8.x-fpm, apache2, el contenedor…
+
+# 3) Certificado del dominio final y recarga.
+sudo certbot --nginx -d tu-dominio.de -d www.tu-dominio.de
+sudo nginx -t && sudo systemctl reload nginx
+sudo systemctl restart wanderbibliothek
+```
+
+Si el dominio apuntaba a **otra IP**, baja el TTL del registro A un día antes y
+cámbialo; el certificado no se puede pedir hasta que el DNS resuelva al servidor
+nuevo (`dig +short tu-dominio.de`).
+
+`NEXT_PUBLIC_SITE_URL` se lee en cada arranque (sitemap, `robots.txt`, canonical
+y avisos del comprobador de entorno), así que basta con reiniciar el servicio:
+no hace falta reconstruir la release.
+
+### 5. Verificación y vuelta atrás
+
+```bash
+curl -fsS https://tu-dominio.de/api/health
+BASE_URL=https://tu-dominio.de npm --prefix /srv/wanderbibliothek/current run smoke
+systemctl --no-pager status wanderbibliothek | head -12
+systemctl list-timers 'wanderbibliothek-*' --no-pager
+sudo journalctl -u wanderbibliothek -n 40 --no-pager | grep -F '[env]'
+```
+
+Si algo falla, la vuelta atrás son tres órdenes: reactivar el vínculo del sitio
+antiguo (`ln -s`), arrancar su servicio y recargar nginx. Los ficheros de la web
+vieja siguen en su sitio: **no borres nada de ella hasta que el sitio nuevo
+lleve una semana en pie** con copias funcionando.
+
+### 6. Que el dominio antiguo no muera (301)
+
+Si el dominio de la web anterior va a dejar de tener contenido, es mejor que
+redirija al nuevo en vez de dar error: los enlaces guardados y los buscadores
+siguen funcionando.
+
+```nginx
+# /etc/nginx/sites-available/<dominio-antiguo>-redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name <dominio-antiguo> www.<dominio-antiguo>;
+    return 301 https://<dominio-nuevo>$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name <dominio-antiguo> www.<dominio-antiguo>;
+    ssl_certificate     /etc/letsencrypt/live/<dominio-antiguo>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/<dominio-antiguo>/privkey.pem;
+    return 301 https://<dominio-nuevo>$request_uri;
+}
+```
+
+Detalle que se olvida: **la redirección solo sirve si el certificado del dominio
+antiguo está vigente**. Con el TLS caducado el navegador muestra el aviso y
+nunca llega a leer el `301`. Comprueba la renovación antes
+(`sudo certbot renew --dry-run`, `systemctl list-timers 'certbot*'`) y, si el
+dominio se queda sin contenido, deja ese vhost como única cosa que sirve.
+
+### 7. Lo que no puede faltar antes de abrirlo al público
+
+- `LEGAL_CONTROLLER`, `LEGAL_ADDRESS` y `LEGAL_CONTACT_EMAIL`: sin ellos el
+  Impressum y la política de privacidad salen incompletos (obligatorio en
+  Alemania). Ver el apartado 13.
+- `MAIL_WEBHOOK_URL` con un proveedor real: sin correo no se puede confirmar la
+  cuenta ni restablecer la contraseña.
+- Cuenta de administración creada y **con 2FA activo**; después, borrar
+  `ADMIN_EMAIL`/`ADMIN_PASSWORD` del entorno.
+- Copias probadas: ejecutar `wanderbibliothek-backup.service` a mano una vez y
+  restaurar en una base de prueba. Guardar `WANDERBIBLIOTHEK_BACKUP_KEY` fuera
+  del servidor y llevar las copias a otro sitio con `WANDERBIBLIOTHEK_BACKUP_HOOK`.
+- Firewall del proveedor: 80 y 443 abiertos. Si el panel bloquea SMTP (netcup lo
+  hace por defecto), no afecta: la aplicación envía el correo por HTTPS a un
+  webhook, no por SMTP.
