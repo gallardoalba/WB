@@ -102,7 +102,7 @@ consecuencias están comentadas en el propio fichero; el resumen:
 | Variable | Si falta |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` (https) | Sitemap y canonical apuntan a localhost; con `http://` el navegador descarta la cookie `__Host-` y el login entra en bucle |
-| `MAIL_WEBHOOK_URL` | Nadie puede confirmar el correo (obligatorio para publicar en producción) ni recuperar la contraseña |
+| `BREVO_API_KEY` + `MAIL_FROM` (o `MAIL_WEBHOOK_URL`) | Nadie puede confirmar el correo (obligatorio para publicar en producción) ni recuperar la contraseña |
 | `APP_ENCRYPTION_KEY` | No se pueden guardar el secreto TOTP ni los datos de envío; sin 2FA la administración responde 403 |
 | `APP_ENCRYPTION_OLD_KEYS` | Solo se usa al **rotar** la clave: la nueva en `APP_ENCRYPTION_KEY`, la anterior aquí para seguir leyendo |
 | `MAINTENANCE_TOKEN` | El cron responde 404: sin purgas, sin reintentos de correo, sin recordatorios de club |
@@ -123,43 +123,78 @@ solo en el entorno del servicio. En Docker se pasa como build arg (apartado 11).
 > **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
 > abajo: el mismo entorno sirve, con `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
 
-### Correo: qué proveedor poner en `MAIL_WEBHOOK_URL`
+### Correo: Brevo, integrado en la aplicación
 
-La aplicación no habla SMTP: hace `POST` a esa URL con
-`{"to": "…", "subject": "…", "text": "…"}` y, si defines
-`MAIL_WEBHOOK_TOKEN`, con `Authorization: Bearer <token>`. No manda remitente,
-así que el adaptador decide el `from`. Solo se envían dos cosas —confirmación de
-cuenta y restablecer contraseña—, hablamos de decenas de correos al día.
+La entrega está resuelta dentro del código (`src/lib/mailer.ts`): con
+`BREVO_API_KEY` y `MAIL_FROM` definidas, los envíos van directamente a
+`POST https://api.brevo.com/v3/smtp/email`. No hay adaptador, ni Worker, ni una
+segunda URL pública que proteger. Solo se envían dos correos de texto plano
+—confirmación de cuenta y restablecer contraseña—, así que el plan gratuito
+(300 al día) sobra.
 
-Opciones, de menos a más trabajo:
+1. **Cuenta**: brevo.com. La empresa es Sendinblue SAS (París) y los datos se
+   tratan en la UE, así que no hay transferencia internacional que declarar en
+   `/privacidad`.
+2. **Autenticar el dominio**: *Senders, Domains & Dedicated IPs → Domains* →
+   añade `wanderbibliothek.org`. Brevo muestra los registros exactos: dos o tres
+   **CNAME de DKIM**, un **TXT de DMARC** y el `include:` del **SPF**. En netcup
+   CloudDNS se pegan tal cual; si el dominio ya tiene un SPF (por ejemplo, del
+   correo), los `include:` se suman en **una sola** línea.
+3. **Clave de API**: *SMTP & API → API Keys (v3)*, con permiso de envío. Va en
+   `BREVO_API_KEY`; el remitente, en `MAIL_FROM`.
 
-| Opción | Coste | Notas |
-|---|---|---|
-| **Brevo** (UE) | 300/día gratis | API `POST /v3/smtp/email` con `{sender, to, subject, textContent}`: el adaptador son quince líneas. Datos en la UE, encaja con el RGPD del proyecto |
-| **Resend** | 3 000/mes gratis | La mejor documentación; `POST /emails` con `{from, to, subject, text}`. Empresa de EE. UU. (con DPA) |
-| **Scaleway TEM** (UE) | ~0,25 €/1000 | Barato si algún día crece; alta de dominio más lenta |
-| **Mailjet / Infomaniak** (UE) | planes pequeños gratis | Equivalentes a Brevo |
-| **Amazon SES** | 0,10 $/1000 | Hay que salir del modo *sandbox* pidiéndolo a AWS |
-| **SMTP desde el servidor** | gratis | Requiere Postfix y **desbloquear el SMTP en el panel del proveedor** (netcup lo bloquea por defecto) o usar un relay autenticado. Peor entregabilidad y más piezas que mantener |
+```bash
+sudo -e /etc/wanderbibliothek/env
+#   BREVO_API_KEY=xkeysib-…
+#   MAIL_FROM="Wanderbibliothek <no-reply@wanderbibliothek.org>"
+sudo systemctl restart wanderbibliothek
+```
 
-En cualquiera de los casos hace falta un **adaptador** mínimo (una función de
-Cloudflare Worker, Netlify o Vercel, o un pequeño servicio en el propio host) que
-reciba el JSON de arriba y llame a la API del proveedor. El token del webhook
-protege esa URL: sin él cualquiera podría usarla para enviar correo con tu
-dominio.
+Dos trampas que dan un 401/400 difícil de leer:
 
-Dos pasos que se olvidan y luego caen en spam:
+- **IP no autorizada.** Si activas *Seguridad → IP autorizadas* en Brevo, la API
+  solo acepta peticiones desde esas direcciones: añade la del servidor o deja la
+  opción desactivada. El registro dirá `Brevo rechazó el envío 401 ·
+  unauthorized` y el mensaje ya apunta a esa pantalla.
+- **Remitente sin verificar.** `MAIL_FROM` tiene que salir de un dominio (o un
+  remitente suelto) validado en la cuenta, nunca de un dominio ajeno.
 
-- Verificar el dominio remitente en el panel del proveedor y publicar los
-  registros **SPF y DKIM** (y un `DMARC` en modo `p=none` para empezar) en el DNS
-  del dominio.
-- Usar un remitente real del dominio, por ejemplo `hallo@tu-dominio.de`, no
-  `no-reply@` de un dominio ajeno.
+`DMARC` mejor en `p=none` al principio: si algo falla, los correos llegan igual
+y el informe dice qué.
 
-Para probar sin quemar reputación, manda primero a tu propia cuenta y revisa
-`journalctl -u wanderbibliothek | grep '\[mail\]'`: ahí se ve si el proveedor
-responde 2xx o si el mensaje se queda en la cola (`/api/cron/maintenance` lo
-reintenta).
+### Otros proveedores: `MAIL_WEBHOOK_URL`
+
+La segunda vía es un webhook genérico: `POST` con
+`{"to": "…", "subject": "…", "text": "…"}` y, si defines `MAIL_WEBHOOK_TOKEN`,
+`Authorization: Bearer <token>`. La aplicación no manda remitente, así que el
+adaptador decide el `from`. Sirve para Resend (`POST /emails`, empresa de
+EE. UU.), Scaleway TEM o Mailjet (UE), Amazon SES (hay que salir del *sandbox*) o
+un Worker propio. Si defines esta URL **y** `BREVO_API_KEY`, manda el webhook y
+el arranque avisa de que la clave de Brevo se está quedando sin usar.
+
+En cualquiera de los dos caminos hay dos pasos que se olvidan y luego caen en
+spam: publicar **SPF y DKIM** (y un `DMARC` en `p=none` para empezar) en el DNS
+del dominio, no solo en el panel del proveedor, y usar un remitente del propio
+dominio, no `no-reply@` de uno ajeno.
+
+**Probarlo** sin esperar a que alguien se registre: el script envía un correo de
+prueba por el mismo camino que los de verdad (no toca la base).
+
+```bash
+sudo -u wanderbibliothek npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo
+```
+
+Si sale `Aceptado por el proveedor`, el resto —la cola, los enlaces de un solo
+uso— también funciona. Para ver el flujo completo, pide un restablecimiento desde
+`/restablecer` y mira el registro:
+
+```bash
+sudo journalctl -u wanderbibliothek -n 50 | grep '\[mail\]'
+```
+
+Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
+—el 401 o el 400 con el `code` de Brevo— está una línea antes. El cron
+(`/api/cron/maintenance`) reintenta con espera creciente hasta cinco veces.
 
 ## 5. Servicio, proxy y tareas programadas
 
@@ -325,7 +360,7 @@ la guardas fuera del servidor: pásala en la línea de órdenes, como arriba.
 |---|---|
 | Todo responde 500 y el log dice `[env] ERROR …` | Falta una variable obligatoria del punto 4 |
 | El login «funciona» pero al recargar no hay sesión | El sitio se sirve por HTTP: la cookie `__Host-` necesita TLS |
-| No llegan correos de verificación | `MAIL_WEBHOOK_URL` vacío o proveedor rechazando; los reintentos se ven en el outbox del cron |
+| No llegan correos de verificación | Falta el proveedor (`BREVO_API_KEY` + `MAIL_FROM`, o `MAIL_WEBHOOK_URL`) o el proveedor rechaza; el motivo sale en `journalctl \| grep '\[mail\]'` y los reintentos en el outbox del cron |
 | `/admin` y las rutas de moderación dan 403 | La cuenta admin no tiene 2FA activa (o falta `APP_ENCRYPTION_KEY`) |
 | 429 para todo el mundo | `TRUST_PROXY` sin activar: todas las IP comparten la cuota `direct` |
 | 429 solo en `/api/auth/*` con `limit_req` en el log | El límite de nginx: 10 peticiones/minuto por IP. Sube `rate`/`burst` si hay un CDN delante sin `real_ip` |
@@ -671,13 +706,14 @@ dominio se queda sin contenido, deja ese vhost como única cosa que sirve.
 - `LEGAL_CONTROLLER`, `LEGAL_ADDRESS` y `LEGAL_CONTACT_EMAIL`: sin ellos el
   Impressum y la política de privacidad salen incompletos (obligatorio en
   Alemania). Ver el apartado 13.
-- `MAIL_WEBHOOK_URL` con un proveedor real: sin correo no se puede confirmar la
-  cuenta ni restablecer la contraseña.
+- `BREVO_API_KEY` y `MAIL_FROM` (o un `MAIL_WEBHOOK_URL`) con un proveedor real
+  y el dominio autenticado: sin correo no se puede confirmar la cuenta ni
+  restablecer la contraseña.
 - Cuenta de administración creada y **con 2FA activo**; después, borrar
   `ADMIN_EMAIL`/`ADMIN_PASSWORD` del entorno.
 - Copias probadas: ejecutar `wanderbibliothek-backup.service` a mano una vez y
   restaurar en una base de prueba. Guardar `WANDERBIBLIOTHEK_BACKUP_KEY` fuera
   del servidor y llevar las copias a otro sitio con `WANDERBIBLIOTHEK_BACKUP_HOOK`.
 - Firewall del proveedor: 80 y 443 abiertos. Si el panel bloquea SMTP (netcup lo
-  hace por defecto), no afecta: la aplicación envía el correo por HTTPS a un
-  webhook, no por SMTP.
+  hace por defecto), no afecta: la aplicación envía por HTTPS a la API de Brevo,
+  no por SMTP.

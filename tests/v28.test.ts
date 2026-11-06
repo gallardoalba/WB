@@ -101,8 +101,10 @@ test("en producción un correo fallido no se da por entregado", async () => {  c
   const env = process.env as Record<string, string | undefined>;
   const previousEnv = env.NODE_ENV;
   const previousWebhook = env.MAIL_WEBHOOK_URL;
+  const previousBrevo = env.BREVO_API_KEY;
   env.NODE_ENV = "production";
   delete env.MAIL_WEBHOOK_URL;
+  delete env.BREVO_API_KEY;
   try {
     const result = await sendMail({
       to: "persona@example.test",
@@ -116,6 +118,8 @@ test("en producción un correo fallido no se da por entregado", async () => {  c
     env.NODE_ENV = previousEnv;
     if (previousWebhook === undefined) delete env.MAIL_WEBHOOK_URL;
     else env.MAIL_WEBHOOK_URL = previousWebhook;
+    if (previousBrevo === undefined) delete env.BREVO_API_KEY;
+    else env.BREVO_API_KEY = previousBrevo;
   }
 });
 

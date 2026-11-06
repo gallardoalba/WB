@@ -46,6 +46,29 @@ test("en producción faltan el correo, la URL y la clave de cifrado", () => {
   assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_DB"));
 });
 
+test("Brevo sustituye al webhook, pero exige remitente", () => {
+  const brevo = { MAIL_WEBHOOK_URL: undefined, BREVO_API_KEY: "xkeysib-prueba" };
+  assert.deepEqual(
+    checkEnv(complete({ ...brevo, MAIL_FROM: "Wanderbibliothek <no-reply@biblioteca.example>" })),
+    [],
+  );
+
+  // Sin remitente, la API de Brevo rechaza cada envío: se avisa al arrancar.
+  const sinRemitente = checkEnv(complete(brevo)).find((issue) => issue.key === "MAIL_FROM");
+  assert.equal(sinRemitente?.severity, "error");
+
+  const remitenteRoto = checkEnv(complete({ ...brevo, MAIL_FROM: "no-es-un-correo" })).find(
+    (issue) => issue.key === "MAIL_FROM",
+  );
+  assert.equal(remitenteRoto?.severity, "error");
+
+  // Con los dos, manda el webhook: la clave de Brevo quedaría muerta y se dice.
+  const losDos = checkEnv(
+    complete({ BREVO_API_KEY: "xkeysib-prueba", MAIL_FROM: "no-reply@biblioteca.example" }),
+  ).find((issue) => issue.key === "BREVO_API_KEY");
+  assert.equal(losDos?.severity, "warn");
+});
+
 test("una URL sin https es un error: la cookie __Host- no sobrevive", () => {
   const issues = checkEnv(complete({ NEXT_PUBLIC_SITE_URL: "http://biblioteca.example.com" }));
   const issue = issues.find((item) => item.key === "NEXT_PUBLIC_SITE_URL");

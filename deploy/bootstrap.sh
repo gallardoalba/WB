@@ -10,8 +10,8 @@
 # y no toca otras webs del servidor (solo añade su propio fichero de nginx).
 #
 # Lo que NO hace: rellenar los datos del proveedor de correo ni los del
-# Impressum. Sin `MAIL_WEBHOOK_URL` nadie puede confirmar su cuenta, así que el
-# script termina recordándolo.
+# Impressum. Sin `BREVO_API_KEY` (o un `MAIL_WEBHOOK_URL`) nadie puede confirmar
+# su cuenta, así que el script termina recordándolo.
 #
 #   --domain <nombre>   Dominio público (obligatorio).
 #   --email <correo>    Correo para Let's Encrypt; si falta, no pide certificado.
@@ -271,9 +271,12 @@ else
 NEXT_PUBLIC_SITE_URL=https://$DOMAIN
 
 # Sin proveedor de correo nadie puede confirmar su cuenta ni recuperar la
-# contraseña. Rellena esta URL y su token (ver deploy/README.md, apartado 4).
-MAIL_WEBHOOK_URL=
-MAIL_WEBHOOK_TOKEN=
+# contraseña. Opción A: Brevo (clave + remitente). Opción B: un webhook propio
+# en MAIL_WEBHOOK_URL. Ver deploy/README.md, apartado 4.
+BREVO_API_KEY=
+MAIL_FROM="Wanderbibliothek <no-reply@$DOMAIN>"
+# MAIL_WEBHOOK_URL=
+# MAIL_WEBHOOK_TOKEN=
 
 # Cifra el secreto TOTP y los datos de envío. No la cambies sin rotar:
 # `npm run rotate:secrets` (deploy/README.md).
@@ -294,8 +297,8 @@ EOF
     # El correo es obligatorio en producción: mientras falte, la aplicación
     # responde 500 a propósito (ver src/lib/env-check.ts). Mejor decirlo aquí
     # que dejar que lo descubra quien abra el navegador.
-    if ! grep -qE '^MAIL_WEBHOOK_URL=.+' "$ENV_FILE"; then
-      warn "sin MAIL_WEBHOOK_URL el sitio responderá 500 hasta que la rellenes"
+    if ! grep -qE '^(MAIL_WEBHOOK_URL|BREVO_API_KEY)=.+' "$ENV_FILE"; then
+      warn "sin proveedor de correo el sitio responderá 500 hasta que lo rellenes"
       printf '    %sEs el aviso del comprobador de entorno, no un fallo de la instalación.\n' "$DIM"
       printf '    Para verlo funcionando sin correo: añade WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1%s\n' "$NC"
     fi
@@ -414,7 +417,7 @@ else
     ENV_LINES="$(printf '%s\n' "$LOG_TAIL" | grep -F '[env]' || true)"
     [ -n "$ENV_LINES" ] && printf '%s\n' "$ENV_LINES"
     if printf '%s' "$LOG_TAIL" | grep -q 'MAIL_WEBHOOK_URL'; then
-      warn "es lo esperado sin proveedor de correo: rellena MAIL_WEBHOOK_URL en $ENV_FILE"
+      warn "es lo esperado sin proveedor de correo: rellena BREVO_API_KEY y MAIL_FROM en $ENV_FILE"
       printf '    %sSe puede arrancar sin él con WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1 (solo para probar)%s\n' "$DIM" "$NC"
     elif printf '%s' "$LOG_TAIL" | grep -q 'NEXT_PUBLIC_SITE_URL'; then
       warn "revisa NEXT_PUBLIC_SITE_URL en $ENV_FILE: debe empezar por https://"
@@ -434,9 +437,12 @@ printf '%s═══════════════════════�
 cat <<EOF
 
 ${BOLD}Falta lo que ningún script puede adivinar:${NC}
-  1. Correo: rellena MAIL_WEBHOOK_URL y MAIL_WEBHOOK_TOKEN en $ENV_FILE
+  1. Correo: rellena BREVO_API_KEY y MAIL_FROM en $ENV_FILE
+     (o, si prefieres otro proveedor, MAIL_WEBHOOK_URL y MAIL_WEBHOOK_TOKEN)
      y reinicia (sudo systemctl restart $SERVICE). Sin esto nadie puede
      confirmar su cuenta, y en producción la confirmación es obligatoria.
+     Comprueba la clave sin esperar a un registro:
+       sudo -u $APP_USER npm --prefix $CURRENT_LINK run mail:test -- tu@correo
   2. Impressum: LEGAL_CONTROLLER, LEGAL_ADDRESS y LEGAL_CONTACT_EMAIL
      (obligatorio en Alemania; ver deploy/README.md, apartado 13).
   3. Cuenta de administración:

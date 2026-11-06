@@ -44,7 +44,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-The SQLite database creates itself on first start, with demo data in development. For a real deployment you need at least `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` and `MAIL_WEBHOOK_URL`; without an encryption key no secret is ever stored. The full guide with systemd, nginx, TLS, backups and timers is in [`deploy/README.md`](deploy/README.md).
+The SQLite database creates itself on first start, with demo data in development. For a real deployment you need at least `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` and a mail provider (`BREVO_API_KEY` + `MAIL_FROM`, or `MAIL_WEBHOOK_URL` for anything else); without an encryption key no secret is ever stored. The full guide with systemd, nginx, TLS, backups and timers is in [`deploy/README.md`](deploy/README.md).
 
 An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run admin:create`.
 

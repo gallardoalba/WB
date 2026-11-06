@@ -10,6 +10,8 @@
  * correo, ni cron, y la app está pensada para funcionar sin nada de eso.
  */
 
+import { parseSender } from "./mailer";
+
 export type EnvSeverity = "error" | "warn";
 
 export type EnvIssue = {
@@ -69,10 +71,31 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     );
   }
 
-  if (!has(env, "MAIL_WEBHOOK_URL")) {
+  // Correo: o la API de Brevo (clave y remitente) o un webhook propio. Sin
+  // ninguno de los dos no hay confirmación de cuenta ni recuperación.
+  if (!has(env, "MAIL_WEBHOOK_URL") && !has(env, "BREVO_API_KEY")) {
     error(
       "MAIL_WEBHOOK_URL",
-      "Sin proveedor de correo nadie puede confirmar su cuenta (en producción es obligatorio para publicar) ni recuperar la contraseña.",
+      "Sin proveedor de correo (`BREVO_API_KEY` + `MAIL_FROM`, o `MAIL_WEBHOOK_URL`) nadie puede confirmar su cuenta (en producción es obligatorio para publicar) ni recuperar la contraseña.",
+    );
+  } else if (!has(env, "MAIL_WEBHOOK_URL")) {
+    // Con Brevo el remitente no es opcional: la API lo exige y, sin él, cada
+    // envío acabaría en un 400 que solo se ve en la cola del cron.
+    if (!has(env, "MAIL_FROM")) {
+      error(
+        "MAIL_FROM",
+        "Brevo necesita un remitente autenticado en la cuenta: `MAIL_FROM=\"Wanderbibliothek <no-reply@tu-dominio>\"`.",
+      );
+    } else if (!parseSender(env.MAIL_FROM)) {
+      error(
+        "MAIL_FROM",
+        "No es una dirección válida: se admite `correo@dominio` o `Nombre <correo@dominio>`.",
+      );
+    }
+  } else if (has(env, "BREVO_API_KEY")) {
+    warn(
+      "BREVO_API_KEY",
+      "Están el webhook y Brevo a la vez: manda el webhook y esta clave no se usa. Deja solo uno de los dos.",
     );
   }
 

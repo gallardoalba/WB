@@ -35,6 +35,7 @@
     "rotate:secrets": "node --import tsx scripts/rotate-secrets.ts",
     "legal:env": "node --import tsx scripts/legal-env.ts",
     "user:verify": "node --import tsx scripts/verify-user.ts",
+    "mail:test": "node --import tsx scripts/mail-test.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "test:e2e": "playwright test",
