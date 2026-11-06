@@ -34,6 +34,17 @@ const nextConfig: NextConfig = {
     "10.*.*.*",
   ],
   serverExternalPackages: ["better-sqlite3"],
+  /**
+   * La barra final se gestiona en `src/proxy.ts`, no aquí.
+   *
+   * Con el valor por defecto, Next responde a `/api/requests/` con un 308 de
+   * vuelta a `/api/requests`, y ese 308 se emite antes del proxy. Si un proxy
+   * delante (nginx) normaliza al revés, los dos se devuelven la petición el uno
+   * al otro y ni el navegador ni la app pueden salir del bucle. Desactivado, la
+   * ruta con barra se atiende igual y el proxy mantiene las URL de las páginas
+   * sin barra, como hasta ahora.
+   */
+  skipTrailingSlashRedirect: true,
   turbopack: {
     rules: {
       "*.css": {

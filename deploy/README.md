@@ -346,6 +346,12 @@ BASE_URL=https://biblioteca.example.com npm --prefix /srv/wanderbibliothek/curre
 Las releases antiguas se pueden borrar cuando la copia de seguridad de esa fecha
 ya esté fuera del servidor.
 
+Desde la versión de noviembre de 2026, `deploy.sh` también pone al día el vhost
+de nginx: si encuentra la regla vieja `location /api/requests/` la cambia por
+`location ^~ /api/requests` y recarga nginx. Antes no tocaba el proxy y una
+corrección en `deploy/nginx.conf` no llegaba nunca al servidor, que es como
+apareció el bucle de redirecciones de `/api/requests`.
+
 ## 8. Copias de seguridad y restauración
 
 - Diaria a las 03:20 (`wanderbibliothek-backup.timer`), con `integrity_check` y rotación
@@ -388,6 +394,7 @@ la guardas fuera del servidor: pásala en la línea de órdenes, como arriba.
 | 429 solo en `/api/auth/*` con `limit_req` en el log | El límite de nginx: 10 peticiones/minuto por IP. Sube `rate`/`burst` si hay un CDN delante sin `real_ip` |
 | `/api/cron/maintenance` responde 403 al llamarlo desde fuera | Correcto: nginx solo lo deja entrar desde loopback |
 | Los mensajes nuevos no aparecen solos | nginx con buffering en `/api/requests/` |
+| Al pedir un libro, la app dice «el servidor responde con una redirección» y la web «No hay conexión con el servidor» | El vhost todavía tiene `location /api/requests/ {` (con barra). nginx manda `/api/requests` a `/api/requests/`, Next lo devuelve a `/api/requests` y el 301/308 se muerde la cola. Se ve con `curl -sI https://tu-dominio/api/requests \| grep -i location`. Arreglo (una línea, sin tocar el resto del fichero, que es de certbot): `sudo sed -i 's\|location /api/requests/ {\|location ^~ /api/requests {\|' /etc/nginx/sites-available/wanderbibliothek && sudo nginx -t && sudo systemctl reload nginx`. `deploy.sh` lo corrige solo en el siguiente despliegue |
 | Subir una portada responde **413** | `client_max_body_size` de nginx (128 KB globales, pensados para JSON). La ruta `/api/cover/` necesita su propio `location` con 8 MB; el registro del proxy lo dice: `error.log` → `client intended to send too large body`. Sin eso la imagen ni llega a la aplicación |
 | El disco crece y la base no baja | Normal: SQLite no compacta al borrar; el mantenimiento hace `PRAGMA optimize` y `wal_checkpoint(TRUNCATE)` |
 | No hay copias en `/var/backups/wanderbibliothek` | Mira `journalctl -u wanderbibliothek-backup`; si el log habla de `tsx`, la release se instaló sin dependencias de producción o falta el `WorkingDirectory` |

@@ -82,7 +82,33 @@ export function proxy(request: NextRequest) {
     requestHeaders.set("cookie", [...kept, `${LOCALE_COOKIE}=${requestedLocale}`].join("; "));
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  // Un proxy por delante (nginx) puede normalizar la barra final de una ruta de
+  // API: la petición a `/api/requests` acaba llegando como `/api/requests/`.
+  // Con `skipTrailingSlashRedirect` Next ya no devuelve el 308 de vuelta —ese
+  // 308, unido al 301 del proxy, era el bucle que dejaba la app sin poder pedir
+  // un libro—, así que aquí se reescribe la ruta para que la atienda el mismo
+  // manejador.
+  //
+  // Las páginas siguen con su URL canónica sin barra: se redirige (308, como
+  // hacía Next) para no servir dos URL del mismo contenido.
+  const conBarraFinal =
+    request.nextUrl.pathname !== "/" && request.nextUrl.pathname.endsWith("/");
+  const esApi = request.nextUrl.pathname.startsWith("/api/");
+
+  if (conBarraFinal && !esApi) {
+    const clean = new URL(request.url);
+    clean.pathname = request.nextUrl.pathname.replace(/\/+$/, "");
+    return NextResponse.redirect(clean, 308);
+  }
+
+  const destino = request.nextUrl.clone();
+  if (conBarraFinal) {
+    destino.pathname = request.nextUrl.pathname.replace(/\/+$/, "");
+  }
+
+  const response = conBarraFinal
+    ? NextResponse.rewrite(destino, { request: { headers: requestHeaders } })
+    : NextResponse.next({ request: { headers: requestHeaders } });
   if (requestedLocale) {
     response.cookies.set(LOCALE_COOKIE, requestedLocale, {
       path: "/",

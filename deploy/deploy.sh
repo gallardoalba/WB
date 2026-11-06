@@ -43,6 +43,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-/srv/wanderbibliothek}"
 RELEASES_DIR="${RELEASES_DIR:-$PROJECT_ROOT/releases}"
 CURRENT_LINK="${CURRENT_LINK:-$PROJECT_ROOT/current}"
 SERVICE="${SERVICE:-wanderbibliothek}"
+NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/wanderbibliothek}"
 BACKUP_SERVICE="${BACKUP_SERVICE:-wanderbibliothek-backup.service}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 HEALTH_TRIES="${HEALTH_TRIES:-30}"
@@ -274,7 +275,32 @@ step "Activar la versión nueva"
 activate "$RELEASE_DIR"
 [ "$DRY_RUN" -eq 0 ] && ok "enlace current → $(basename "$RELEASE_DIR") y servicio reiniciado"
 
-# ── Paso 7: comprobación (con vuelta atrás) ────────────────────────────────
+# ── Paso 7: el vhost de nginx ──────────────────────────────────────────────
+# Este script cambia el código, no la configuración del proxy, y ahí estaba la
+# trampa: la regla vieja de `/api/requests/` (con barra final) seguía en el
+# servidor aunque el repositorio ya la hubiera corregido. Con ella, nginx manda
+# `/api/requests` a `/api/requests/`, Next lo devuelve a `/api/requests` y la
+# app solo puede decir «el servidor responde con una redirección».
+step "Revisar el vhost de nginx"
+if ! command -v nginx >/dev/null 2>&1; then
+  warn "no hay nginx en este host: no hay vhost que revisar"
+elif [ ! -f "$NGINX_SITE" ]; then
+  warn "no encuentro $NGINX_SITE: revisa el vhost a mano"
+elif grep -qE 'location[[:space:]]+/api/requests/[[:space:]]*\{' "$NGINX_SITE"; then
+  # Se cambia solo esa línea: los certificados que puso certbot, las cabeceras
+  # y el resto de ubicaciones se quedan como están.
+  if run sed -i 's|location /api/requests/ {|location ^~ /api/requests {|' "$NGINX_SITE" \
+    && run nginx -t \
+    && run systemctl reload nginx; then
+    ok "/api/requests se sirve sin barra final (se acabó el bucle 301/308)"
+  else
+    warn "no se pudo actualizar el vhost: hazlo a mano (ver deploy/README.md)"
+  fi
+else
+  ok "el vhost no tiene la regla que provocaba el bucle"
+fi
+
+# ── Paso 8: comprobación (con vuelta atrás) ────────────────────────────────
 step "Comprobar el servicio"
 if [ "$DRY_RUN" -eq 1 ]; then
   ok "se comprobaría $HEALTH_URL"
@@ -296,7 +322,7 @@ else
   exit 1
 fi
 
-# ── Paso 8: limpiar releases antiguas ──────────────────────────────────────
+# ── Paso 9: limpiar releases antiguas ──────────────────────────────────────
 step "Conservar las últimas $KEEP releases"
 if [ "$DRY_RUN" -eq 1 ]; then
   printf '    %s→ se borrarían las anteriores a las %s más recientes%s\n' "$DIM" "$KEEP" "$NC"
