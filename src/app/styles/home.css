@@ -23,6 +23,9 @@
 
 /* La portada enseña exactamente una fila: el número de tarjetas visible
    sigue al de columnas de cada breakpoint. */
+/* La portada enseña una fila: el número de tarjetas visible sigue al de
+   columnas de cada breakpoint. En dos columnas (móvil y tableta) una fila
+   dejaba solo dos libros, así que ahí se muestran tres filas. */
 .home-grid .book-card:nth-child(n + 4),
 .home-grid > .skeleton-card:nth-child(n + 4) {
   display: none;

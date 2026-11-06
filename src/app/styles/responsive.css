@@ -15,8 +15,24 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .home-grid .book-card:nth-child(n + 3),
-  .home-grid > .skeleton-card:nth-child(n + 3) {
+  /* Con dos columnas, una sola fila enseñaba dos libros: seis (tres filas)
+     dan una portada útil también en tableta. Hay que volver a mostrar la 4.ª
+     y la 5.ª: la regla base ya las ocultaba, y una regla posterior no deshace
+     ese `display: none`. */
+  .home-grid .book-card:nth-child(4),
+  .home-grid .book-card:nth-child(5),
+  .home-grid .book-card:nth-child(6) {
+    display: flex;
+  }
+
+  .home-grid > .skeleton-card:nth-child(4),
+  .home-grid > .skeleton-card:nth-child(5),
+  .home-grid > .skeleton-card:nth-child(6) {
+    display: block;
+  }
+
+  .home-grid .book-card:nth-child(n + 7),
+  .home-grid > .skeleton-card:nth-child(n + 7) {
     display: none;
   }
 }
@@ -445,8 +461,21 @@
     gap: 14px;
   }
 
-  .home-grid .book-card:nth-child(n + 2),
-  .home-grid > .skeleton-card:nth-child(n + 2) {
+  /* A una columna, una sola tarjeta dejaba la portada sin catálogo: cinco
+     dan una idea de lo que hay sin convertir la página en un listín. Como
+     arriba, hay que volver a mostrar las que la regla base ocultaba. */
+  .home-grid .book-card:nth-child(4),
+  .home-grid .book-card:nth-child(5) {
+    display: flex;
+  }
+
+  .home-grid > .skeleton-card:nth-child(4),
+  .home-grid > .skeleton-card:nth-child(5) {
+    display: block;
+  }
+
+  .home-grid .book-card:nth-child(n + 6),
+  .home-grid > .skeleton-card:nth-child(n + 6) {
     display: none;
   }
 
