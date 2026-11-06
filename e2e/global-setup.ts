@@ -28,6 +28,9 @@ export default function globalSetup(): void {
       "DELETE FROM dm_reads",
       "DELETE FROM notifications WHERE type = 'direct'",
       "DELETE FROM public_key_history",
+      // v40: las ranuras activas están en `user_keys`; borrar solo las columnas
+      // antiguas dejaba una clave publicada de la pasada anterior.
+      "DELETE FROM user_keys",
       "UPDATE users SET public_key = NULL, public_key_id = NULL",
     ]) {
       db.prepare(sql).run();

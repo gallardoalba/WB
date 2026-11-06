@@ -62,6 +62,10 @@ export function prepareDirectMessaging([a, b]: [string, string]): void {
     follow.run(a, b, now);
     follow.run(b, a, now);
     db.prepare("DELETE FROM public_key_history WHERE user_id IN (?, ?)").run(a, b);
+    // Desde la v40 las claves viven en `user_keys` (una por ranura). Si solo se
+    // limpian las columnas antiguas, el navegador de la prueba encuentra una
+    // clave publicada que no es la suya y el envío queda deshabilitado.
+    db.prepare("DELETE FROM user_keys WHERE user_id IN (?, ?)").run(a, b);
     db.prepare(
       "UPDATE users SET public_key = NULL, public_key_id = NULL WHERE id IN (?, ?)",
     ).run(a, b);
