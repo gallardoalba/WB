@@ -25,6 +25,9 @@ fun errorText(texts: Texts, error: Throwable): String {
             "tooManyRequests" -> texts["errorGeneric"]
             "tooLarge" -> texts["errorGeneric"]
             "encryptionUnavailable" -> texts["encryptionUnavailable"]
+            // Un 4xx/5xx sin cuerpo JSON (una página de error del proxy, por
+            // ejemplo): antes se pintaba la palabra «error» tal cual.
+            "error" -> texts["errorGeneric"]
             else -> error.message.takeIf { it.isNotBlank() } ?: texts["errorGeneric"]
         }
     }

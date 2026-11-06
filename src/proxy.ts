@@ -82,14 +82,16 @@ export function proxy(request: NextRequest) {
     requestHeaders.set("cookie", [...kept, `${LOCALE_COOKIE}=${requestedLocale}`].join("; "));
   }
 
-  // Un proxy por delante (nginx) puede normalizar la barra final de una ruta de
-  // API: la petición a `/api/requests` acaba llegando como `/api/requests/`.
-  // Con `skipTrailingSlashRedirect` Next ya no devuelve el 308 de vuelta —ese
-  // 308, unido al 301 del proxy, era el bucle que dejaba la app sin poder pedir
-  // un libro—, así que aquí se reescribe la ruta para que la atienda el mismo
-  // manejador.
+  // Un proxy por delante (nginx) puede normalizar la barra final: la petición
+  // a `/api/requests` acaba llegando como `/api/requests/`. Antes de esto Next
+  // respondía a esa barra con un 308 de vuelta —emitido antes del proxy, así
+  // que no había forma de interceptarlo— y, unido al 301 del proxy, dejaba un
+  // bucle que ni el navegador ni la app podían seguir. Con
+  // `skipTrailingSlashRedirect` Next atiende la ruta tal cual llega, sin
+  // reescribir ni redirigir nada: el manejador de `/api/requests` responde
+  // también en `/api/requests/`.
   //
-  // Las páginas siguen con su URL canónica sin barra: se redirige (308, como
+  // Las páginas sí mantienen su URL canónica sin barra: se redirigen (308, como
   // hacía Next) para no servir dos URL del mismo contenido.
   const conBarraFinal =
     request.nextUrl.pathname !== "/" && request.nextUrl.pathname.endsWith("/");
@@ -101,14 +103,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(clean, 308);
   }
 
-  const destino = request.nextUrl.clone();
-  if (conBarraFinal) {
-    destino.pathname = request.nextUrl.pathname.replace(/\/+$/, "");
-  }
-
-  const response = conBarraFinal
-    ? NextResponse.rewrite(destino, { request: { headers: requestHeaders } })
-    : NextResponse.next({ request: { headers: requestHeaders } });
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   if (requestedLocale) {
     response.cookies.set(LOCALE_COOKIE, requestedLocale, {
       path: "/",
