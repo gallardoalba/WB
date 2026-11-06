@@ -10,7 +10,18 @@ import { formatWhen } from "@/lib/text";
 import { CityField } from "./city-field";
 import { useI18n } from "./i18n-provider";
 
-type KeyHistory = { keyId: string; reason: string; createdAt: string; replacedAt: string | null };
+type KeyHistory = {
+  keyId: string;
+  platform: string;
+  reason: string;
+  createdAt: string;
+  replacedAt: string | null;
+};
+type StoredKeys = {
+  keys: { platform: string; keyId: string }[];
+  keyId: string | null;
+  history: KeyHistory[];
+};
 
 /**
  * Ajustes de la cuenta. Vive en su propia página (`/cuenta`) en vez de en un
@@ -51,7 +62,7 @@ export function AccountSettings({
   const [totpMsg, setTotpMsg] = useState("");
   const [totpError, setTotpError] = useState("");
 
-  const [keys, setKeys] = useState<{ keyId: string | null; history: KeyHistory[] } | null>(null);
+  const [keys, setKeys] = useState<StoredKeys | null>(null);
   const [localKeyId, setLocalKeyId] = useState<string | null>(null);
   const [keyPassword, setKeyPassword] = useState("");
   const [keyBusy, setKeyBusy] = useState(false);
@@ -66,25 +77,28 @@ export function AccountSettings({
     void (async () => {
       try {
         const [stored, identity] = await Promise.all([
-          api<{ keyId: string | null; history: KeyHistory[] }>("/api/account/keys"),
+          api<StoredKeys>("/api/account/keys"),
           ensureIdentity(),
         ]);
         if (cancelled) return;
         setLocalKeyId(identity.keyId);
-        if (stored.keyId) {
+        // Este bloque es la ranura web: la app móvil tiene la suya y no se
+        // toca desde aquí.
+        const web = stored.keys?.find((key) => key.platform === "web") ?? null;
+        if (web) {
           setKeys(stored);
           return;
         }
-        // Primera clave de la cuenta: se publica sola, igual que hace el shell
+        // Primera clave del navegador: se publica sola, igual que hace el shell
         // al entrar. Antes había que pulsar un botón y la sección parecía
         // pedir permiso para algo que ya estaba resuelto.
         try {
-          const saved = await api<{ keyId: string; history: KeyHistory[] }>(
-            "/api/account/keys",
-            { method: "PUT", body: identity.publicJwk },
-          );
+          const saved = await api<StoredKeys>("/api/account/keys", {
+            method: "PUT",
+            body: { ...identity.publicJwk, platform: "web" },
+          });
           if (cancelled) return;
-          setKeys({ keyId: saved.keyId, history: saved.history });
+          setKeys(saved);
         } catch {
           // Si falla, se queda el botón manual con su explicación.
           if (!cancelled) setKeys(stored);
@@ -122,6 +136,8 @@ export function AccountSettings({
   // «Activo» significa que la clave de la cuenta es la de este navegador: si
   // hay otra publicada, este dispositivo no puede leer los mensajes nuevos.
   const keyActive = Boolean(keys?.keyId) && keys?.keyId === localKeyId;
+  /** La cuenta ya cifra en algún dispositivo (aunque no sea este navegador). */
+  const hasAnySlot = (keys?.keys?.length ?? 0) > 0;
 
   const completed = requests.filter((request) => request.status === "completed").length;
   const active = requests.filter((request) => ["pending", "accepted"].includes(request.status)).length;
@@ -157,13 +173,15 @@ export function AccountSettings({
     setKeyError("");
     try {
       const identity = await ensureIdentity();
-      const body: Record<string, unknown> = { ...identity.publicJwk };
-      if (keys?.keyId) body.password = keyPassword;
-      const saved = await api<{ keyId: string; history: KeyHistory[] }>("/api/account/keys", {
+      const body: Record<string, unknown> = { ...identity.publicJwk, platform: "web" };
+      // Añadir la ranura a una cuenta que ya cifra pide la contraseña igual que
+      // rotarla: si no, una sesión abierta bastaría para instalar otra clave.
+      if ((keys?.keys?.length ?? 0) > 0) body.password = keyPassword;
+      const saved = await api<StoredKeys>("/api/account/keys", {
         method: "PUT",
         body,
       });
-      setKeys({ keyId: saved.keyId, history: saved.history });
+      setKeys(saved);
       setLocalKeyId(identity.keyId);
       setKeyPassword("");
       setKeyMsg(t("Cifrado activado en este navegador."));
@@ -524,9 +542,13 @@ export function AccountSettings({
                       ? t(
                           "Puedes entrar desde el dispositivo donde la creaste o sustituirla aquí con tu contraseña: al hacerlo, el anterior deja de leer los mensajes nuevos.",
                         )
-                      : t(
-                          "Se crea y se publica sola al entrar con tu cuenta. Si esa publicación falló, puedes hacerlo aquí a mano.",
-                        )}
+                      : (keys.keys?.length ?? 0) > 0
+                        ? t(
+                            "Tu cuenta ya cifra desde otro dispositivo. Con tu contraseña puedes añadir también la clave de este navegador: las dos leerán los mensajes nuevos.",
+                          )
+                        : t(
+                            "Se crea y se publica sola al entrar con tu cuenta. Si esa publicación falló, puedes hacerlo aquí a mano.",
+                          )}
               </p>
             </div>
           </div>
@@ -552,6 +574,18 @@ export function AccountSettings({
                 </dd>
               </div>
             )}
+            {keys?.keys?.some((key) => key.platform === "android") && (
+              <div>
+                <dt>{t("Aplicación móvil")}</dt>
+                <dd>
+                  <code className="secret-code">
+                    {keys.keys
+                      .find((key) => key.platform === "android")!
+                      .keyId.slice(0, 8)}
+                  </code>
+                </dd>
+              </div>
+            )}
             {keys && keys.history.length > 0 && (
               <div>
                 <dt>{t("Último cambio")}</dt>
@@ -563,10 +597,10 @@ export function AccountSettings({
           <ul className="crypto-list">
             <li>{t("La clave privada no sale de este navegador: no se puede exportar, ni siquiera para la administración.")}</li>
             <li>{t("Ni quien administra la web puede leer el contenido: el panel solo muestra «mensaje cifrado».")}</li>
-            <li>{t("Si entras desde otro dispositivo, publícala allí con tu contraseña; el anterior dejará de leer los mensajes nuevos.")}</li>
+            <li>{t("El navegador y la app tienen cada uno su clave: los mensajes nuevos se cifran una vez por dispositivo, así que los dos pueden leerlos.")}</li>
           </ul>
 
-          {keys !== null && !keys.keyId && (
+          {keys !== null && !keyActive && !hasAnySlot && (
             <button
               className="secondary-button small"
               type="button"
@@ -577,7 +611,7 @@ export function AccountSettings({
             </button>
           )}
 
-          {keys !== null && keys.keyId && !keyActive && (
+          {keys !== null && !keyActive && hasAnySlot && (
             <form onSubmit={(event) => {
               event.preventDefault();
               void activateKey();
@@ -594,9 +628,13 @@ export function AccountSettings({
                 />
               </label>
               <p className="form-hint">
-                {t(
-                  "Al sustituir la clave desde aquí, el otro dispositivo deja de leer los mensajes nuevos. Pide la contraseña para que nadie pueda hacerlo desde una sesión abierta.",
-                )}
+                {keys.keyId
+                  ? t(
+                      "Al sustituir la clave desde aquí, el otro dispositivo deja de leer los mensajes nuevos. Pide la contraseña para que nadie pueda hacerlo desde una sesión abierta.",
+                    )
+                  : t(
+                      "Pide la contraseña para que nadie pueda añadir su propia clave desde una sesión abierta.",
+                    )}
               </p>
               <button
                 className="secondary-button small"

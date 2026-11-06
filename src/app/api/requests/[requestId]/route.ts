@@ -3,9 +3,26 @@ import { invalidatePublicData } from "@/lib/revalidate";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { processOutbox } from "@/lib/outbox";
 import { requireUser } from "@/lib/auth";
-import { updateRequestStatus } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { ApiError } from "@/lib/errors";
+import { getRequest, updateRequestStatus } from "@/lib/repo";
+import { guard, hit } from "@/lib/throttle";
 import { requestUpdateSchema } from "@/lib/validation";
+
+type Context = { params: Promise<{ requestId: string }> };
+
+/** Una solicitud concreta (para la pantalla de intercambio de la app). */
+export async function GET(request: Request, { params }: Context) {
+  try {
+    const user = await requireUser();
+    hit({ bucket: "requests:detail", key: user.id, limit: 600, windowMs: 60 * 60 * 1000 });
+    const { requestId } = await params;
+    const request_ = getRequest(requestId, user.id);
+    if (!request_) throw new ApiError(404, "Esa solicitud no existe.");
+    return json({ request: request_ });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
 
 export async function PATCH(
   request: Request,

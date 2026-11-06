@@ -37,19 +37,13 @@ export async function POST(
       windowMs: 60 * 60 * 1000,
     });
     const payload = await readJson(request);
+    // Clientes nuevos: `envelopes`. Clientes anteriores a la v40: `ciphertext`.
     const isEncrypted =
-      payload !== null && typeof payload === "object" && "ciphertext" in payload;
+      payload !== null &&
+      typeof payload === "object" &&
+      ("ciphertext" in payload || "envelopes" in payload);
     const message = isEncrypted
-      ? (() => {
-          const envelope = encryptedMessageSchema.parse(payload);
-          return addEncryptedMessage(
-            requestId,
-            user.id,
-            envelope.ciphertext,
-            envelope.iv,
-            envelope.keyId,
-          );
-        })()
+      ? addEncryptedMessage(requestId, user.id, encryptedMessageSchema.parse(payload))
       : addMessage(requestId, user.id, messageSchema.parse(payload).body);
     after(async () => {
       await processOutbox().catch((error: unknown) => {

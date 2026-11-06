@@ -70,18 +70,18 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y route handlers (App Router)",
-            "    api/               71 handlers agrupados por dominio",
+            "    api/               73 handlers agrupados por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          armazón de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v38), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v40), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP, envíos)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 331 pruebas unitarias y de integración (45 ficheros)",
+            "tests/                 377 pruebas unitarias y de integración (52 ficheros)",
             "e2e/                   36 pruebas de navegador con Playwright",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -141,7 +141,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 71 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
+          text: "La API tiene 73 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
         },
         {
           kind: "list",
@@ -176,7 +176,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v38) y conservan los datos de una instalación anterior. La v38 vuelve a abrir el catálogo a toda Alemania, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo.",
+          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v40) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a toda Alemania, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo.",
         },
         {
           kind: "p",
@@ -206,6 +206,7 @@ const ES: TechnicalDocument = {
           kind: "list",
           items: [
             "Contraseñas con `scrypt` asíncrono y sal única; el acceso verifica siempre un hash (contra un señuelo si la cuenta no existe), así que el tiempo de respuesta no revela qué correos están registrados.",
+            "Los mensajes de intercambio y directos van cifrados de extremo a extremo (ECDH P-256 + HKDF-SHA256 + AES-GCM). Cada cuenta publica **una clave por ranura** (`web` y `android`); el remitente guarda un sobre por cada clave del destinatario, así que el navegador y la app leen el mismo mensaje. Solo la primera clave de una cuenta se publica sin confirmación: en cuanto hay una ranura ocupada, tanto sustituirla como **añadir un dispositivo** exigen la contraseña, y cada cambio genera un aviso de seguridad.",
             "Sesión de 256 bits en cookie `httpOnly` con `SameSite=Lax`; en producción solo se acepta el prefijo `__Host-` y en la base solo vive su SHA-256.",
             "Verificación en dos pasos (TOTP RFC 6238, ventana de ±1 paso y anti-replay) obligatoria para moderar en producción; los secretos se guardan cifrados.",
             "Cuotas atómicas en base de datos por IP y por cuenta, con `429` y `Retry-After`.",
@@ -266,7 +267,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 331 pruebas unitarias y de integración en 45 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 377 pruebas unitarias y de integración en 52 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -436,18 +437,18 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route Handler (App Router)",
-            "    api/               71 Handler, nach Domäne gruppiert",
+            "    api/               73 Handler, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Gerüst und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v38), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v40), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP, Versand)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 331 Unit- und Integrationstests (45 Dateien)",
+            "tests/                 377 Unit- und Integrationstests (52 Dateien)",
             "e2e/                   36 Browser-Tests mit Playwright",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -507,7 +508,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 71 Handlern unter `src/app/api`. Fast alle werden mit `route()` (`src/lib/route.ts`) deklariert, das an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` anwendet; `tests/route.test.ts` prüft an den Dateien, dass keine Route Fehler unübersetzt durchlässt.",
+          text: "Die API besteht aus 73 Handlern unter `src/app/api`. Fast alle werden mit `route()` (`src/lib/route.ts`) deklariert, das an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` anwendet; `tests/route.test.ts` prüft an den Dateien, dass keine Route Fehler unübersetzt durchlässt.",
         },
         {
           kind: "list",
@@ -542,7 +543,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v38) und erhalten die Daten einer bestehenden Installation. Die v38 öffnet den Katalog wieder für ganz Deutschland, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post.",
+          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v40) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für ganz Deutschland, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post.",
         },
         {
           kind: "p",
@@ -572,6 +573,7 @@ const DE: TechnicalDocument = {
           kind: "list",
           items: [
             "Passwörter mit asynchronem `scrypt` und eigenem Salt; die Anmeldung prüft immer einen Hash (gegen einen Köder, wenn es das Konto nicht gibt), sodass die Antwortzeit nicht verrät, welche Adressen registriert sind.",
+            "Tausch- und Direktnachrichten sind Ende-zu-Ende verschlüsselt (ECDH P-256 + HKDF-SHA256 + AES-GCM). Jedes Konto veröffentlicht **einen Schlüssel pro Geräte-Slot** (`web` und `android`); der Absender speichert pro Empfängerschlüssel einen Umschlag, sodass Browser und App dieselbe Nachricht lesen. Nur der erste Schlüssel eines Kontos wird ohne Bestätigung veröffentlicht: Sobald ein Slot belegt ist, verlangt sowohl das Ersetzen als auch das **Hinzufügen eines Geräts** das Kontopasswort, und jede Änderung erzeugt einen Sicherheitshinweis.",
             "Sitzung mit 256 Bit im `httpOnly`-Cookie und `SameSite=Lax`; in Produktion wird nur das Präfix `__Host-` akzeptiert, und in der Datenbank liegt nur ihr SHA-256.",
             "Zweiter Faktor (TOTP nach RFC 6238, Fenster ±1 Schritt, Anti-Replay) ist für Moderation in Produktion Pflicht; die Geheimnisse liegen verschlüsselt.",
             "Atomare Kontingente in der Datenbank je IP und je Konto, mit `429` und `Retry-After`.",
@@ -632,7 +634,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 331 Unit- und Integrationstests in 45 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 377 Unit- und Integrationstests in 52 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

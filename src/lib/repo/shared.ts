@@ -2,7 +2,12 @@ import { getDb } from "../db";
 import { findCity } from "../cities";
 import { ApiError } from "../errors";
 import { normalizeCoverUrl, normalizeText } from "../text";
-import type { ListingStatus, ListingView, RequestStatus } from "../domain";
+import type {
+  ListingStatus,
+  ListingView,
+  MessageEnvelopeView,
+  RequestStatus,
+} from "../domain";
 
 export function nowIso(): string {
   return new Date().toISOString();
@@ -215,5 +220,39 @@ export function isBlocked(blockerId: string, blockedId: string): boolean {
     .prepare("SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?")
     .get(blockerId, blockedId);
   return Boolean(row);
+}
+
+/**
+ * Sobres de una tanda de mensajes, agrupados por mensaje.
+ *
+ * Una consulta por página (no una por mensaje) y una tabla por tipo de hilo:
+ * el nombre de tabla solo puede ser uno de los dos literales de abajo, así que
+ * interpolarlo no abre la puerta a inyección.
+ */
+export function messageEnvelopesFor(
+  table: "message_envelopes" | "dm_message_envelopes",
+  messageIds: string[],
+): Map<string, MessageEnvelopeView[]> {
+  const grouped = new Map<string, MessageEnvelopeView[]>();
+  if (messageIds.length === 0) return grouped;
+  const placeholders = messageIds.map(() => "?").join(", ");
+  const rows = getDb()
+    .prepare(
+      `SELECT message_id, key_id, ciphertext, iv FROM ${table}
+        WHERE message_id IN (${placeholders})
+        ORDER BY key_id`,
+    )
+    .all(...messageIds) as {
+    message_id: string;
+    key_id: string;
+    ciphertext: string;
+    iv: string;
+  }[];
+  for (const row of rows) {
+    const list = grouped.get(row.message_id) ?? [];
+    list.push({ keyId: row.key_id, ciphertext: row.ciphertext, iv: row.iv });
+    grouped.set(row.message_id, list);
+  }
+  return grouped;
 }
 

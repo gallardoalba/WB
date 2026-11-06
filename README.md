@@ -48,6 +48,15 @@ The SQLite database creates itself on first start, with demo data in development
 
 An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run admin:create`.
 
+## Android app
+
+A native client (Kotlin + Jetpack Compose) lives in [`android/`](android/README.md). It talks to the same REST API, uses the same end-to-end encryption for exchange messages and can point at any server from its settings.
+
+```bash
+cd android
+./gradlew :app:assembleDebug
+```
+
 ## Technical documentation
 
 Architecture, routes, data model, security, environment variables and operations have moved out of this README:

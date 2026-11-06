@@ -3,6 +3,7 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type {
   ListingStatus,
+  MessageEnvelopeView,
   MessageView,
   NotificationView,
   RequestStatus,
@@ -12,8 +13,14 @@ import type {
 import { publishRequestMessage } from "../live";
 import { canTransition, listingStatusFor } from "../request-flow";
 import { decryptSecret, encryptSecret, shipContext } from "../secret-box";
-import { areBlocked, nowIso } from "./shared";
-import { assertVerified, getPublicKey, getPublicKeyRecord, getUserById } from "./users";
+import { areBlocked, messageEnvelopesFor, nowIso } from "./shared";
+import {
+  assertVerified,
+  getUserById,
+  hasPublicKey,
+  listPublicKeyRecords,
+  toPublicKeyEntries,
+} from "./users";
 import { listingTitle, notify } from "./notifications";
 
 type RequestRow = {
@@ -190,6 +197,23 @@ export function listRequests(userId: string): RequestView[] {
     )
     .all({ userId, viewerId: userId }) as RequestRow[];
   return rows.map((row) => toRequestView(row, userId));
+}
+
+/**
+ * Una solicitud concreta vista por una de sus dos partes.
+ *
+ * Se filtra por participante en el SQL, no después: así un id ajeno responde
+ * «no existe» sin revelar que existe. La usa la app Android al abrir un hilo.
+ */
+export function getRequest(requestId: string, userId: string): RequestView | null {
+  const row = getDb()
+    .prepare(
+      `${REQUEST_SELECT}
+       WHERE r.id = @requestId
+         AND (r.requester_id = @userId OR r.owner_id = @userId)`,
+    )
+    .get({ requestId, userId, viewerId: userId }) as RequestRow | undefined;
+  return row ? toRequestView(row, userId) : null;
 }
 
 export function createRequest(
@@ -697,6 +721,10 @@ export function listMessages(
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
+  const envelopes = messageEnvelopesFor(
+    "message_envelopes",
+    page.map((row) => row.id),
+  );
 
   return {
     messages: page.reverse().map((row) => ({
@@ -705,6 +733,7 @@ export function listMessages(
       ciphertext: row.ciphertext,
       iv: row.iv,
       keyId: row.key_id,
+      envelopes: envelopes.get(row.id) ?? [],
       encrypted: Boolean(row.encrypted),
       createdAt: row.created_at,
       sender: { id: row.sender_id, name: row.sender_name },
@@ -741,6 +770,7 @@ function storeMessage(input: {
   ciphertext: string | null;
   iv: string | null;
   keyId: string | null;
+  envelopes: MessageEnvelopeView[];
 }): MessageView {
   const db = getDb();
   const id = `msg_${randomUUID()}`;
@@ -760,9 +790,17 @@ function storeMessage(input: {
       input.ciphertext,
       input.iv,
       input.keyId,
-      input.ciphertext ? 1 : 0,
+      input.ciphertext || input.envelopes.length > 0 ? 1 : 0,
       now,
     );
+    // Un sobre por cada clave activa del destinatario. El mensaje no guarda el
+    // texto: cada aparato abre el suyo con su clave privada.
+    const insertEnvelope = db.prepare(
+      "INSERT INTO message_envelopes (message_id, key_id, ciphertext, iv) VALUES (?, ?, ?, ?)",
+    );
+    for (const envelope of input.envelopes) {
+      insertEnvelope.run(id, envelope.keyId, envelope.ciphertext, envelope.iv);
+    }
     db.prepare("UPDATE requests SET updated_at = ? WHERE id = ?").run(now, input.requestId);
 
     // El aviso nunca incluye el contenido: ni la bandeja ni la base de datos
@@ -785,7 +823,8 @@ function storeMessage(input: {
     ciphertext: input.ciphertext,
     iv: input.iv,
     keyId: input.keyId,
-    encrypted: Boolean(input.ciphertext),
+    envelopes: input.envelopes,
+    encrypted: Boolean(input.ciphertext) || input.envelopes.length > 0,
     createdAt: now,
     sender: { id: user.id, name: user.name },
     isMine: true,
@@ -802,7 +841,7 @@ export function addMessage(requestId: string, userId: string, body: string): Mes
   const otherId = otherParticipant(request, userId);
   // Basta con que una de las dos partes tenga clave publicada para que el
   // servidor deje de aceptar texto plano: así nadie puede degradar el cifrado.
-  if (getPublicKey(userId) || getPublicKey(otherId)) {
+  if (hasPublicKey(userId) || hasPublicKey(otherId)) {
     throw new ApiError(
       409,
       "Esta conversación está cifrada: el mensaje debe enviarse cifrado.",
@@ -816,37 +855,68 @@ export function addMessage(requestId: string, userId: string, body: string): Mes
     ciphertext: null,
     iv: null,
     keyId: null,
+    envelopes: [],
   });
 }
 
-/** Mensaje cifrado de extremo a extremo: el servidor solo guarda el sobre. */
+/**
+ * Mensaje cifrado de extremo a extremo: el servidor solo guarda los sobres.
+ *
+ * `keyId` es la clave del **remitente** (va en el AAD del cliente). Cada sobre
+ * va dirigido a una clave del destinatario; los clientes nuevos mandan uno por
+ * cada ranura activa. Los antiguos mandaban un único `ciphertext`/`iv` sin
+ * destinatario anotado y se conserva tal cual para que su historial se lea.
+ */
 export function addEncryptedMessage(
   requestId: string,
   userId: string,
-  ciphertext: string,
-  iv: string,
-  keyId: string,
+  input: {
+    keyId: string;
+    ciphertext?: string;
+    iv?: string;
+    envelopes?: MessageEnvelopeView[];
+  },
 ): MessageView {
   const request = assertCanMessage(requestId, userId);
   const otherId = otherParticipant(request, userId);
-  const senderKey = getPublicKeyRecord(userId);
-  if (!senderKey) {
+  const senderKeys = listPublicKeyRecords(userId);
+  if (senderKeys.length === 0) {
     throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
   }
-  if (senderKey.keyId !== keyId) {
+  if (!senderKeys.some((key) => key.keyId === input.keyId)) {
     throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
   }
-  if (!getPublicKeyRecord(otherId)) {
+  const peerKeys = listPublicKeyRecords(otherId);
+  if (peerKeys.length === 0) {
     throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
   }
+
+  const envelopes = input.envelopes ?? [];
+  if (envelopes.length > 0) {
+    const allowed = new Set(peerKeys.map((key) => key.keyId));
+    const seen = new Set<string>();
+    for (const envelope of envelopes) {
+      if (!allowed.has(envelope.keyId)) {
+        throw new ApiError(400, "Hay un sobre dirigido a una clave que no es de la otra persona.");
+      }
+      if (seen.has(envelope.keyId)) {
+        throw new ApiError(400, "Hay dos sobres para la misma clave.");
+      }
+      seen.add(envelope.keyId);
+    }
+  } else if (!input.ciphertext || !input.iv) {
+    throw new ApiError(400, "Falta el sobre cifrado.");
+  }
+
   return storeMessage({
     requestId,
     userId,
     otherId,
     body: "",
-    ciphertext,
-    iv,
-    keyId,
+    ciphertext: envelopes.length > 0 ? null : input.ciphertext ?? null,
+    iv: envelopes.length > 0 ? null : input.iv ?? null,
+    keyId: input.keyId,
+    envelopes,
   });
 }
 
@@ -857,24 +927,31 @@ export function addEncryptedMessage(
 export function conversationKeys(
   requestId: string,
   userId: string,
-): {
-  me: { id: string; name: string; publicJwk: JsonWebKey | null; keyId: string | null };
-  peer: { id: string; name: string; publicJwk: JsonWebKey | null; keyId: string | null };
-} {
+) {
   const request = assertParticipant(requestId, userId);
   const peerId = otherParticipant(request, userId);
   const me = getUserById(userId);
   const peer = getUserById(peerId);
   if (!me || !peer) throw new ApiError(404, "La solicitud no existe.");
-  const myKey = getPublicKeyRecord(me.id);
-  const peerKey = getPublicKeyRecord(peer.id);
+  const myKeys = listPublicKeyRecords(me.id);
+  const peerKeys = listPublicKeyRecords(peer.id);
+  // La ranura web es la que leen los clientes anteriores como clave única.
+  const myWeb = myKeys.find((key) => key.platform === "web") ?? myKeys[0] ?? null;
+  const peerWeb = peerKeys.find((key) => key.platform === "web") ?? peerKeys[0] ?? null;
   return {
-    me: { id: me.id, name: me.name, publicJwk: myKey?.jwk ?? null, keyId: myKey?.keyId ?? null },
+    me: {
+      id: me.id,
+      name: me.name,
+      publicJwk: myWeb?.jwk ?? null,
+      keyId: myWeb?.keyId ?? null,
+      keys: toPublicKeyEntries(myKeys),
+    },
     peer: {
       id: peer.id,
       name: peer.name,
-      publicJwk: peerKey?.jwk ?? null,
-      keyId: peerKey?.keyId ?? null,
+      publicJwk: peerWeb?.jwk ?? null,
+      keyId: peerWeb?.keyId ?? null,
+      keys: toPublicKeyEntries(peerKeys),
     },
   };
 }

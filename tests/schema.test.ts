@@ -37,6 +37,7 @@ const EXPECTED_TABLES = [
   "club_post_likes",
   "club_posts",
   "clubs",
+  "dm_message_envelopes",
   "dm_messages",
   "dm_reads",
   "dm_threads",
@@ -47,6 +48,7 @@ const EXPECTED_TABLES = [
   "listings",
   "listings_fts",
   "mail_outbox",
+  "message_envelopes",
   "messages",
   "notifications",
   "product_events",
@@ -60,6 +62,7 @@ const EXPECTED_TABLES = [
   "reviews",
   "sessions",
   "throttle",
+  "user_keys",
   "users",
 ] as const;
 
@@ -83,6 +86,10 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   ],
   users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at"],
   messages: ["ciphertext", "iv", "encrypted", "key_id"],
+  user_keys: ["user_id", "platform", "key_id", "public_jwk"],
+  message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
+  dm_message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
+  public_key_history: ["key_id", "platform", "reason", "replaced_at"],
   clubs: ["meets_at", "meets_on", "status", "meets_place", "meets_link"],
   club_posts: ["club_id", "author_id", "parent_id", "body", "status"],
 };

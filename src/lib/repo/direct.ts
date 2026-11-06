@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
-import type { DirectMessageView, DirectThreadView } from "../domain";
+import type { DirectMessageView, DirectThreadView, MessageEnvelopeView } from "../domain";
 import { notify } from "./notifications";
-import { getPublicKeyRecord } from "./users";
-import { isBlocked, nowIso } from "./shared";
+import { listPublicKeyRecords, toPublicKeyEntries } from "./users";
+import { isBlocked, messageEnvelopesFor, nowIso } from "./shared";
 
 /**
  * Mensajes directos cifrados entre dos personas.
@@ -77,8 +77,11 @@ export function directThread(viewerId: string, peerId: string): DirectThreadView
     .get(viewerId) as { id: string; name: string } | undefined;
   if (!me) throw new ApiError(404, "Tu cuenta no existe.");
 
-  const myKey = getPublicKeyRecord(viewerId);
-  const peerKey = getPublicKeyRecord(peerId);
+  const myKeys = listPublicKeyRecords(viewerId);
+  const peerKeys = listPublicKeyRecords(peerId);
+  // La ranura web es la que leen los clientes anteriores como clave única.
+  const myWeb = myKeys.find((key) => key.platform === "web") ?? myKeys[0] ?? null;
+  const peerWeb = peerKeys.find((key) => key.platform === "web") ?? peerKeys[0] ?? null;
   const blocked = isBlocked(viewerId, peerId) || isBlocked(peerId, viewerId);
   const mutual = mutualFollow(viewerId, peerId);
 
@@ -86,7 +89,7 @@ export function directThread(viewerId: string, peerId: string): DirectThreadView
     ? "blocked"
     : !mutual
       ? "mutual"
-      : !myKey || !peerKey
+      : myKeys.length === 0 || peerKeys.length === 0
         ? "no-key"
         : "ok";
 
@@ -99,14 +102,16 @@ export function directThread(viewerId: string, peerId: string): DirectThreadView
       id: peer.id,
       name: peer.name,
       city: peer.city,
-      keyId: peerKey?.keyId ?? null,
-      keyJwk: peerKey?.jwk ?? null,
+      keyId: peerWeb?.keyId ?? null,
+      keyJwk: peerWeb?.jwk ?? null,
+      keys: toPublicKeyEntries(peerKeys),
     },
     me: {
       id: me.id,
       name: me.name,
-      keyId: myKey?.keyId ?? null,
-      keyJwk: myKey?.jwk ?? null,
+      keyId: myWeb?.keyId ?? null,
+      keyJwk: myWeb?.jwk ?? null,
+      keys: toPublicKeyEntries(myKeys),
     },
     canMessage: reason === "ok",
     reason,
@@ -124,7 +129,11 @@ type MessageRow = {
   created_at: string;
 };
 
-function toMessageView(row: MessageRow, viewerId: string): DirectMessageView {
+function toMessageView(
+  row: MessageRow,
+  viewerId: string,
+  envelopes: MessageEnvelopeView[],
+): DirectMessageView {
   return {
     id: row.id,
     senderId: row.sender_id,
@@ -132,6 +141,7 @@ function toMessageView(row: MessageRow, viewerId: string): DirectMessageView {
     ciphertext: row.ciphertext,
     iv: row.iv,
     keyId: row.key_id,
+    envelopes,
     encrypted: row.encrypted === 1,
     createdAt: row.created_at,
   };
@@ -152,7 +162,12 @@ export function listDirectMessages(
         LIMIT ?`,
     )
     .all(threadId, limit) as MessageRow[];
-  return rows.reverse().map((row) => toMessageView(row, viewerId));
+  const page = rows.reverse();
+  const envelopes = messageEnvelopesFor(
+    "dm_message_envelopes",
+    page.map((row) => row.id),
+  );
+  return page.map((row) => toMessageView(row, viewerId, envelopes.get(row.id) ?? []));
 }
 
 /**
@@ -163,7 +178,12 @@ export function listDirectMessages(
 export function sendDirectMessage(
   viewerId: string,
   peerId: string,
-  input: { ciphertext: string; iv: string; keyId: string },
+  input: {
+    keyId: string;
+    ciphertext?: string;
+    iv?: string;
+    envelopes?: MessageEnvelopeView[];
+  },
 ): DirectMessageView {
   if (!mutualFollow(viewerId, peerId)) {
     throw new ApiError(403, "Solo puedes escribir a quien también te sigue.");
@@ -171,16 +191,37 @@ export function sendDirectMessage(
   if (isBlocked(viewerId, peerId) || isBlocked(peerId, viewerId)) {
     throw new ApiError(403, "No puedes escribir a esta persona.");
   }
-  const myKey = getPublicKeyRecord(viewerId);
-  if (!myKey) {
+  const senderKeys = listPublicKeyRecords(viewerId);
+  if (senderKeys.length === 0) {
     throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
   }
-  if (myKey.keyId !== input.keyId) {
+  if (!senderKeys.some((key) => key.keyId === input.keyId)) {
     throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
   }
-  if (!getPublicKeyRecord(peerId)) {
+  const peerKeys = listPublicKeyRecords(peerId);
+  if (peerKeys.length === 0) {
     throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
   }
+
+  const envelopes = input.envelopes ?? [];
+  if (envelopes.length > 0) {
+    const allowed = new Set(peerKeys.map((key) => key.keyId));
+    const seen = new Set<string>();
+    for (const envelope of envelopes) {
+      if (!allowed.has(envelope.keyId)) {
+        throw new ApiError(400, "Hay un sobre dirigido a una clave que no es de la otra persona.");
+      }
+      if (seen.has(envelope.keyId)) {
+        throw new ApiError(400, "Hay dos sobres para la misma clave.");
+      }
+      seen.add(envelope.keyId);
+    }
+  } else if (!input.ciphertext || !input.iv) {
+    throw new ApiError(400, "Falta el sobre cifrado.");
+  }
+  // Sin sobres es un cliente anterior a la v40: se guarda su único sobre en
+  // las columnas de siempre para que su historial siga leyéndose.
+  const legacy = envelopes.length === 0;
 
   const db = getDb();
   const [user_a, user_b] = pair(viewerId, peerId);
@@ -200,7 +241,21 @@ export function sendDirectMessage(
     db.prepare(
       `INSERT INTO dm_messages (id, thread_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at)
        VALUES (?, ?, ?, '', ?, ?, ?, 1, ?)`,
-    ).run(id, row.id, viewerId, input.ciphertext, input.iv, input.keyId, now);
+    ).run(
+      id,
+      row.id,
+      viewerId,
+      legacy ? input.ciphertext : null,
+      legacy ? input.iv : null,
+      input.keyId,
+      now,
+    );
+    const insertEnvelope = db.prepare(
+      "INSERT INTO dm_message_envelopes (message_id, key_id, ciphertext, iv) VALUES (?, ?, ?, ?)",
+    );
+    for (const envelope of envelopes) {
+      insertEnvelope.run(id, envelope.keyId, envelope.ciphertext, envelope.iv);
+    }
     // Quien escribe ha leído lo suyo.
     markRead(db, row.id, viewerId);
     return { thread: row, messageId: id };
@@ -213,7 +268,7 @@ export function sendDirectMessage(
       "SELECT id, sender_id, ciphertext, iv, key_id, encrypted, created_at FROM dm_messages WHERE id = ?",
     )
     .get(thread.messageId) as MessageRow;
-  return toMessageView(saved, viewerId);
+  return toMessageView(saved, viewerId, envelopes);
 }
 
 /**

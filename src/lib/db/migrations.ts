@@ -1257,6 +1257,68 @@ function migrateToV39(db: Db) {
 }
 
 /**
+ * v40: una clave de cifrado por dispositivo y un sobre por clave.
+ *
+ * Hasta aquí una cuenta tenía **una** clave pública: entrar con otro navegador
+ * sustituía la anterior y el primero dejaba de leer los mensajes nuevos. Ahora
+ * cada dispositivo ocupa una ranura (`web`, `android`) y los mensajes llevan un
+ * sobre por cada clave del destinatario, así que los dos leen lo mismo.
+ *
+ * La clave única anterior era la del navegador: se copia a la ranura `web`.
+ * Los mensajes anteriores conservan su único sobre en `ciphertext`/`iv`; los
+ * clientes lo aceptan como respaldo y no hace falta reescribirlos.
+ */
+function migrateToV40(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_keys (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      key_id TEXT NOT NULL,
+      public_jwk TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, platform)
+    );
+    CREATE INDEX IF NOT EXISTS user_keys_user ON user_keys(user_id);
+
+    CREATE TABLE IF NOT EXISTS message_envelopes (
+      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      key_id TEXT NOT NULL,
+      ciphertext TEXT NOT NULL,
+      iv TEXT NOT NULL,
+      PRIMARY KEY (message_id, key_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS dm_message_envelopes (
+      message_id TEXT NOT NULL REFERENCES dm_messages(id) ON DELETE CASCADE,
+      key_id TEXT NOT NULL,
+      ciphertext TEXT NOT NULL,
+      iv TEXT NOT NULL,
+      PRIMARY KEY (message_id, key_id)
+    );
+  `);
+
+  const columns = (table: string) =>
+    (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
+  if (!columns("public_key_history").includes("platform")) {
+    db.exec("ALTER TABLE public_key_history ADD COLUMN platform TEXT NOT NULL DEFAULT 'web'");
+  }
+
+  // La clave única de la versión anterior pasa a ser la del navegador.
+  db.prepare(
+    `INSERT OR IGNORE INTO user_keys
+       (user_id, platform, key_id, public_jwk, created_at, updated_at)
+     SELECT id, 'web', public_key_id, public_key,
+            COALESCE(public_key_at, created_at),
+            COALESCE(public_key_at, created_at)
+       FROM users
+      WHERE public_key IS NOT NULL AND public_key_id IS NOT NULL`,
+  ).run();
+
+  db.pragma("user_version = 40");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1380,6 +1442,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 37) migrateToV37(db);
   if (userVersion(db) < 38) migrateToV38(db);
   if (userVersion(db) < 39) migrateToV39(db);
+  if (userVersion(db) < 40) migrateToV40(db);
 
   backfillSearchKeys(db);
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Solo se comparte lo que la persona exporta a propósito: el JSON de sus datos
+  se escribe en `cacheDir/export/` y se entrega con un URI temporal de lectura.
+-->
+<paths>
+    <cache-path name="export" path="export/" />
+</paths>

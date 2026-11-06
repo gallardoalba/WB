@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
-import type { SessionUser } from "../domain";
+import type { KeyPlatform, SessionUser } from "../domain";
+import { KEY_PLATFORMS } from "../domain";
 import { keyIdFromJwk } from "../key-id";
 import { DEFAULT_LOCALE, type Locale } from "../locale";
 import { verifyPassword } from "../password";
@@ -190,44 +191,106 @@ export function updateProfile(
 /* ------------------------- claves de cifrado ------------------------- */
 
 /**
- * Clave pública ECDH (P-256) de una cuenta. La clave privada nunca llega al
+ * Clave pública ECDH (P-256) de un dispositivo. La clave privada nunca llega al
  * servidor: solo se publica esta mitad para que la otra persona pueda derivar
  * el secreto compartido de la conversación.
+ *
+ * Una cuenta puede tener varias (`web` y `android`). Los mensajes llevan un
+ * sobre por cada una, así que los dos aparatos leen lo mismo sin compartir la
+ * clave privada.
  */
-export type PublicKeyRecord = { jwk: JsonWebKey; keyId: string };
+export type PublicKeyRecord = {
+  jwk: JsonWebKey;
+  keyId: string;
+  platform: KeyPlatform;
+};
 
-export function getPublicKeyRecord(userId: string): PublicKeyRecord | null {
-  const row = getDb()
-    .prepare("SELECT public_key, public_key_id FROM users WHERE id = ?")
-    .get(userId) as { public_key: string | null; public_key_id: string | null } | undefined;
-  if (!row?.public_key) return null;
-  try {
-    const jwk = JSON.parse(row.public_key) as JsonWebKey;
-    const keyId = row.public_key_id ?? keyIdFromJwk(jwk);
-    return { jwk, keyId };
-  } catch {
-    return null;
-  }
-}
+/** Forma pública que viaja en la API. */
+export type PublicKeyEntry = {
+  platform: KeyPlatform;
+  keyId: string;
+  publicJwk: JsonWebKey;
+};
 
-export function getPublicKey(userId: string): JsonWebKey | null {
-  return getPublicKeyRecord(userId)?.jwk ?? null;
+export function toPublicKeyEntries(records: PublicKeyRecord[]): PublicKeyEntry[] {
+  return records.map((record) => ({
+    platform: record.platform,
+    keyId: record.keyId,
+    publicJwk: record.jwk,
+  }));
 }
 
 /**
- * Guarda (o reemplaza) la clave pública de la cuenta y su huella. Devuelve la
- * huella anterior para que la ruta pueda avisar de un cambio de dispositivo.
+ * Claves activas de la cuenta, la ranura web primero: es la que los clientes
+ * anteriores a la v40 siguen leyendo como `keyId` único.
+ */
+export function listPublicKeyRecords(userId: string): PublicKeyRecord[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT platform, key_id, public_jwk FROM user_keys
+        WHERE user_id = ?
+        ORDER BY CASE platform WHEN 'web' THEN 0 ELSE 1 END, platform`,
+    )
+    .all(userId) as { platform: string; key_id: string; public_jwk: string }[];
+  const records: PublicKeyRecord[] = [];
+  for (const row of rows) {
+    if (!(KEY_PLATFORMS as readonly string[]).includes(row.platform)) continue;
+    try {
+      records.push({
+        platform: row.platform as KeyPlatform,
+        keyId: row.key_id,
+        jwk: JSON.parse(row.public_jwk) as JsonWebKey,
+      });
+    } catch {
+      // Una fila corrupta no debe tumbar la conversación entera.
+    }
+  }
+  if (records.length > 0) return records;
+
+  // Base anterior a la v40 sin migrar (o restaurada a mano): la columna antigua
+  // era la clave del navegador.
+  const legacy = getDb()
+    .prepare("SELECT public_key, public_key_id FROM users WHERE id = ?")
+    .get(userId) as { public_key: string | null; public_key_id: string | null } | undefined;
+  if (!legacy?.public_key) return [];
+  try {
+    const jwk = JSON.parse(legacy.public_key) as JsonWebKey;
+    return [{ platform: "web", keyId: legacy.public_key_id ?? keyIdFromJwk(jwk), jwk }];
+  } catch {
+    return [];
+  }
+}
+
+export function getPublicKeyRecord(
+  userId: string,
+  platform: KeyPlatform = "web",
+): PublicKeyRecord | null {
+  return listPublicKeyRecords(userId).find((record) => record.platform === platform) ?? null;
+}
+
+export function getPublicKey(
+  userId: string,
+  platform: KeyPlatform = "web",
+): JsonWebKey | null {
+  return getPublicKeyRecord(userId, platform)?.jwk ?? null;
+}
+
+/**
+ * Guarda (o reemplaza) la clave pública de **una ranura** y su huella. Devuelve
+ * la huella anterior para que la ruta pueda avisar de un cambio de dispositivo.
  */
 export function setPublicKey(
   userId: string,
   jwk: JsonWebKey,
   reason: "initial" | "rotation" = "initial",
+  platform: KeyPlatform = "web",
 ): PublicKeyRecord & { previousKeyId: string | null; changed: boolean } {
-  const record = {
+  const record: PublicKeyRecord = {
     jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y },
     keyId: keyIdFromJwk(jwk),
+    platform,
   };
-  const previous = getPublicKeyRecord(userId);
+  const previous = getPublicKeyRecord(userId, platform);
   if (previous?.keyId === record.keyId) {
     return { ...record, previousKeyId: previous.keyId, changed: false };
   }
@@ -235,50 +298,84 @@ export function setPublicKey(
   const db = getDb();
   const now = nowIso();
   db.transaction(() => {
+    // Una fila por ranura: publicar en el móvil no toca la clave del navegador.
+    db.prepare(
+      `INSERT INTO user_keys (user_id, platform, key_id, public_jwk, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, platform) DO UPDATE SET
+         key_id = excluded.key_id,
+         public_jwk = excluded.public_jwk,
+         updated_at = excluded.updated_at`,
+    ).run(userId, platform, record.keyId, JSON.stringify(record.jwk), now, now);
     // Cada rotación deja rastro: se cierra la fila abierta y se apunta la nueva.
     db.prepare(
-      "UPDATE public_key_history SET replaced_at = ? WHERE user_id = ? AND replaced_at IS NULL",
-    ).run(now, userId);
+      "UPDATE public_key_history SET replaced_at = ? WHERE user_id = ? AND platform = ? AND replaced_at IS NULL",
+    ).run(now, userId, platform);
     db.prepare(
-      `INSERT INTO public_key_history (id, user_id, key_id, public_jwk, reason, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(`pkh_${randomUUID()}`, userId, record.keyId, JSON.stringify(record.jwk), reason, now);
-    db.prepare(
-      `UPDATE users SET public_key = ?, public_key_id = ?, public_key_at = ?
-       WHERE id = ?`,
-    ).run(JSON.stringify(record.jwk), record.keyId, now, userId);
+      `INSERT INTO public_key_history (id, user_id, platform, key_id, public_jwk, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      `pkh_${randomUUID()}`,
+      userId,
+      platform,
+      record.keyId,
+      JSON.stringify(record.jwk),
+      reason,
+      now,
+    );
+    if (platform === "web") {
+      // Compatibilidad: las consultas y pruebas anteriores leen esta columna.
+      db.prepare(
+        `UPDATE users SET public_key = ?, public_key_id = ?, public_key_at = ?
+         WHERE id = ?`,
+      ).run(JSON.stringify(record.jwk), record.keyId, now, userId);
+    }
   })();
   return { ...record, previousKeyId: previous?.keyId ?? null, changed: true };
 }
 
 /**
- * Publica o **sustituye** la clave de cifrado.
+ * Publica o **sustituye** la clave de una ranura.
  *
- * Sustituir una clave existente exige la contraseña de la cuenta: quien robe
- * una sesión no puede instalar su propia clave y leer los mensajes futuros.
- * La primera publicación es TOFU (no hay clave anterior que verificar).
+ * La contraseña hace falta en cuanto la cuenta ya tiene **cualquier** clave:
+ * tanto para sustituir la de una ranura como para añadir una nueva (la del
+ * móvil a una cuenta que solo cifraba en el navegador, o al revés). Así una
+ * sesión robada no sirve para instalar la clave del atacante en otro
+ * dispositivo y leer los mensajes futuros. Solo la primera clave de una cuenta
+ * vacía es TOFU.
  */
 export async function changePublicKey(
   userId: string,
   jwk: JsonWebKey,
-  options: { password?: string } = {},
+  options: { password?: string; platform?: KeyPlatform } = {},
 ): Promise<PublicKeyRecord & { previousKeyId: string | null; changed: boolean }> {
+  const platform = options.platform ?? "web";
   const keyId = keyIdFromJwk(jwk);
-  const previous = getPublicKeyRecord(userId);
+  const previous = getPublicKeyRecord(userId, platform);
   if (previous?.keyId === keyId) {
     return {
       jwk: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y },
       keyId,
+      platform,
       previousKeyId: previous.keyId,
       changed: false,
     };
   }
 
-  if (previous) {
+  // Añadir una ranura a una cuenta que ya cifra es tan sensible como rotarla:
+  // con una sesión robada, el atacante instalaría *su* clave en un dispositivo
+  // nuevo y leería los mensajes que se cifren a partir de ahí, sin tocar la
+  // clave existente (que seguiría funcionando y nadie notaría nada).
+  const occupying = listPublicKeyRecords(userId).length > 0;
+  if (previous || occupying) {
     if (!options.password) {
-      throw new ApiError(428, "Confirma tu contraseña para cambiar la clave de cifrado.", {
-        details: { rotationRequired: true },
-      });
+      throw new ApiError(
+        428,
+        previous
+          ? "Confirma tu contraseña para cambiar la clave de cifrado."
+          : "Confirma tu contraseña para añadir otra clave de cifrado.",
+        { details: { rotationRequired: true, newSlot: !previous } },
+      );
     }
     const row = getDb()
       .prepare("SELECT password_hash FROM users WHERE id = ?")
@@ -289,7 +386,7 @@ export async function changePublicKey(
     }
   }
 
-  return setPublicKey(userId, jwk, previous ? "rotation" : "initial");
+  return setPublicKey(userId, jwk, previous ? "rotation" : "initial", platform);
 }
 
 /** Personas con un intercambio abierto o cerrado: las que cifran contigo. */
@@ -309,21 +406,31 @@ export function listConversationPeers(userId: string, limit = 20): string[] {
 export function listPublicKeyHistory(
   userId: string,
   limit = 5,
-): { keyId: string; reason: string; createdAt: string; replacedAt: string | null }[] {
+): {
+  keyId: string;
+  platform: KeyPlatform;
+  reason: string;
+  createdAt: string;
+  replacedAt: string | null;
+}[] {
   const rows = getDb()
     .prepare(
-      `SELECT key_id, reason, created_at, replaced_at
+      `SELECT key_id, platform, reason, created_at, replaced_at
          FROM public_key_history WHERE user_id = ?
         ORDER BY created_at DESC LIMIT ?`,
     )
     .all(userId, limit) as {
     key_id: string;
+    platform: string;
     reason: string;
     created_at: string;
     replaced_at: string | null;
   }[];
   return rows.map((row) => ({
     keyId: row.key_id,
+    platform: (KEY_PLATFORMS as readonly string[]).includes(row.platform)
+      ? (row.platform as KeyPlatform)
+      : "web",
     reason: row.reason,
     createdAt: row.created_at,
     replacedAt: row.replaced_at,
@@ -332,5 +439,5 @@ export function listPublicKeyHistory(
 
 /** True cuando la cuenta ya puede recibir mensajes cifrados. */
 export function hasPublicKey(userId: string): boolean {
-  return getPublicKey(userId) !== null;
+  return listPublicKeyRecords(userId).length > 0;
 }

@@ -223,15 +223,19 @@ export default function WanderbibliothekApp({
     void (async () => {
       try {
         const identity = await ensureIdentity();
-        const stored = await api<{ publicJwk: JsonWebKey | null; keyId: string | null }>(
-          "/api/account/keys",
-        );
+        const stored = await api<{
+          keys: { platform: string; keyId: string }[];
+        }>("/api/account/keys");
         if (cancelled) return;
-        // Solo se publica la **primera** clave. Sustituir una existente exige
-        // la contraseña: se hace desde el perfil, nunca en silencio al entrar
-        // (así un navegador nuevo no rompe el cifrado del que ya funcionaba).
-        if (!stored.keyId) {
-          await api("/api/account/keys", { method: "PUT", body: identity.publicJwk });
+        // Solo se publica la **primera** clave de la ranura web. Sustituir una
+        // existente exige la contraseña y se hace desde el perfil, nunca en
+        // silencio al entrar. La app móvil publica su propia ranura.
+        const web = stored.keys?.find((key) => key.platform === "web") ?? null;
+        if (!web) {
+          await api("/api/account/keys", {
+            method: "PUT",
+            body: { ...identity.publicJwk, platform: "web" },
+          });
         }
       } catch {
         keysPublished.current = null;

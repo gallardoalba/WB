@@ -6,6 +6,7 @@ import {
   COMMUNITY_SCOPES,
   COMMUNITY_TABS,
   CONDITIONS,
+  KEY_PLATFORMS,
   READING_STATES,
   REPORT_REASONS,
   REPORT_TARGETS,
@@ -422,7 +423,7 @@ export const messageSchema = z.object({
  * Sobre cifrado (AES-GCM): el servidor no sabe qué contiene, solo comprueba
  * que el formato y el tamaño son razonables.
  */
-export const encryptedMessageSchema = z.object({
+const envelopeFields = {
   keyId: z
     .string()
     .regex(/^[A-Za-z0-9_-]{43}$/, "La huella de la clave no es válida."),
@@ -436,7 +437,26 @@ export const encryptedMessageSchema = z.object({
     .regex(/^[A-Za-z0-9+/]+={0,2}$/, "El vector de inicialización no es válido.")
     .min(12, "El vector de inicialización no es válido.")
     .max(32, "El vector de inicialización no es válido."),
-});
+};
+
+/**
+ * Mensaje cifrado de extremo a extremo.
+ *
+ * El cliente actual manda un sobre por cada clave activa del destinatario
+ * (`envelopes`); los clientes anteriores a la v40 mandaban un único sobre en
+ * `ciphertext`/`iv`, y se sigue aceptando para no romper una pestaña abierta.
+ */
+export const encryptedMessageSchema = z
+  .object({
+    keyId: envelopeFields.keyId,
+    envelopes: z.array(z.object(envelopeFields)).min(1).max(4).optional(),
+    ciphertext: envelopeFields.ciphertext.optional(),
+    iv: envelopeFields.iv.optional(),
+  })
+  .refine(
+    (value) => Boolean(value.envelopes?.length) || Boolean(value.ciphertext && value.iv),
+    { message: "Falta el sobre cifrado.", path: ["envelopes"] },
+  );
 
 /** Clave pública ECDH P-256 en formato JWK (solo la mitad pública). */
 export const publicKeySchema = z.object({
@@ -444,6 +464,11 @@ export const publicKeySchema = z.object({
   crv: z.literal("P-256"),
   x: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "La clave pública no es válida."),
   y: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "La clave pública no es válida."),
+  /** Ranura del dispositivo. Sin ella, los clientes antiguos publican la web. */
+  platform: z
+    .enum(KEY_PLATFORMS, { error: "Esa plataforma no existe." })
+    .optional()
+    .default("web"),
 });
 
 export type PublicKeyInput = z.infer<typeof publicKeySchema>;

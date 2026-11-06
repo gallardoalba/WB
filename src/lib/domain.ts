@@ -310,8 +310,10 @@ export type DirectMessageView = {
   isMine: boolean;
   ciphertext: string | null;
   iv: string | null;
-  /** Huella de la clave con la que se cifró. */
+  /** Huella de la clave con la que se cifró (la del remitente). */
   keyId: string | null;
+  /** Un sobre por cada clave activa del destinatario; vacío en mensajes antiguos. */
+  envelopes: MessageEnvelopeView[];
   encrypted: boolean;
   createdAt: string;
 };
@@ -325,8 +327,15 @@ export type DirectThreadView = {
     city: string;
     keyId: string | null;
     keyJwk: JsonWebKey | null;
+    keys: { platform: KeyPlatform; keyId: string; publicJwk: JsonWebKey }[];
   };
-  me: { id: string; name: string; keyId: string | null; keyJwk: JsonWebKey | null };
+  me: {
+    id: string;
+    name: string;
+    keyId: string | null;
+    keyJwk: JsonWebKey | null;
+    keys: { platform: KeyPlatform; keyId: string; publicJwk: JsonWebKey }[];
+  };
   canMessage: boolean;
   reason: "ok" | "mutual" | "blocked" | "no-key";
   messages: DirectMessageView[];
@@ -451,17 +460,33 @@ export type MessageView = {
   iv: string | null;
   /** Huella de la clave del remitente (null en mensajes anteriores a la v16). */
   keyId: string | null;
+  /** Un sobre por cada clave activa del destinatario; vacío en mensajes antiguos. */
+  envelopes: MessageEnvelopeView[];
   encrypted: boolean;
   createdAt: string;
   sender: { id: string; name: string };
   isMine: boolean;
 };
 
+/** Ranuras de clave pública: una por tipo de dispositivo. */
+export const KEY_PLATFORMS = ["web", "android"] as const;
+export type KeyPlatform = (typeof KEY_PLATFORMS)[number];
+
 export type PublicKeyView = {
   id: string;
   name: string;
+  /** Clave de la ranura web (compatibilidad con clientes anteriores a la v40). */
   publicJwk: JsonWebKey | null;
   keyId: string | null;
+  /** Todas las ranuras activas: web y app. */
+  keys: { platform: KeyPlatform; keyId: string; publicJwk: JsonWebKey }[];
+};
+
+/** Sobre cifrado para una clave concreta del destinatario. */
+export type MessageEnvelopeView = {
+  keyId: string;
+  ciphertext: string;
+  iv: string;
 };
 
 export const REQUEST_STATUS_LABELS = {

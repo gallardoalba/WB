@@ -17,12 +17,12 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               71 handlers grouped by domain
+    api/               73 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v38), seed
+    db/                connection, base schema (v2), migrations (v3–v40), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP, shipping)
@@ -69,7 +69,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/health` | Service and database status. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the public catalogue and the work pages. |
 
-The API has 71 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
+The API has 73 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -90,7 +90,7 @@ The API has 71 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds 123 German cities and `city_distances` the precomputed distance matrix.
 
-Migrations are versioned with `PRAGMA user_version` (currently v38) and keep the data of an existing installation. v38 opens the catalogue to all of Germany again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail.
+Migrations are versioned with `PRAGMA user_version` (currently v40) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to all of Germany again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail.
 
 Shipping data (`ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) is stored encrypted with `APP_ENCRYPTION_KEY`, and every value is bound to its request and its column through AAD (`ship:<request>:<field>`): a ciphertext moved to another row cannot be opened. It is only decrypted in the view of the two people in the exchange, and notifications never repeat the destination.
 
@@ -105,6 +105,7 @@ Messages within an exchange and direct messages are encrypted in the browser (EC
 ## Security
 
 - Passwords with asynchronous `scrypt` and a unique salt; sign-in always verifies a hash (against a decoy when the account does not exist), so response time does not reveal which addresses are registered.
+- Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (`web` and `android`); the sender stores one envelope per recipient key, so the browser and the app can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification.
 - 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted, and the database only stores its SHA-256.
 - Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation in production; secrets are stored encrypted.
 - Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.

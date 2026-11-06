@@ -265,3 +265,103 @@ export async function decryptMessage(
     return null;
   }
 }
+
+/* ---------------------- varias claves por destinatario ---------------------- */
+
+/** Clave pública de un dispositivo del destinatario. */
+export type RecipientKey = { keyId: string; publicJwk: JsonWebKey };
+/** Sobre dirigido a una clave concreta del destinatario. */
+export type MessageEnvelope = EncryptedEnvelope & { keyId: string };
+
+type ThreadMessageLike = {
+  isMine: boolean;
+  keyId: string | null;
+  ciphertext: string | null;
+  iv: string | null;
+  envelopes?: MessageEnvelope[];
+};
+
+/**
+ * Sobres de un mensaje: los guardados o, en mensajes anteriores a la v40, el
+ * único sobre de `ciphertext`/`iv` (sin destinatario anotado).
+ */
+export function envelopesOf(message: ThreadMessageLike): MessageEnvelope[] {
+  if (message.envelopes && message.envelopes.length > 0) return message.envelopes;
+  if (message.ciphertext && message.iv) {
+    return [{ keyId: message.keyId ?? "", ciphertext: message.ciphertext, iv: message.iv }];
+  }
+  return [];
+}
+
+/**
+ * Cifra un texto una vez por cada dispositivo del destinatario. Todos los
+ * sobres comparten el mismo AAD (la clave del **remitente**), así que cualquiera
+ * de los dos aparatos puede abrir el suyo.
+ */
+export async function encryptForRecipients(
+  privateKey: CryptoKey,
+  recipients: RecipientKey[],
+  conversationId: string,
+  text: string,
+  aad: string,
+): Promise<MessageEnvelope[]> {
+  return Promise.all(
+    recipients.map(async (recipient) => {
+      const key = await deriveConversationKey(
+        privateKey,
+        recipient.publicJwk,
+        conversationId,
+      );
+      const envelope = await encryptMessage(key, text, aad);
+      return { keyId: recipient.keyId, ...envelope };
+    }),
+  );
+}
+
+/**
+ * Descifra un mensaje probando el sobre que corresponde a cada clave.
+ *
+ * En un mensaje de la otra persona el sobre va dirigido a una clave **mía** y
+ * se deriva con mi privada + la pública del remitente (`message.keyId`). En uno
+ * mío los sobres van dirigidos a las claves del destinatario y se derivan con
+ * mi privada + cada clave suya. Los mensajes heredados solo tienen un sobre y
+ * se prueban con el primer candidato.
+ */
+export async function decryptForThread(
+  privateKey: CryptoKey,
+  myKeyId: string,
+  peerKeys: RecipientKey[],
+  message: ThreadMessageLike,
+  senderId: string,
+  conversationId: string,
+  aad: (senderId: string, keyId: string) => string,
+): Promise<string | null> {
+  const envelopes = envelopesOf(message);
+  if (envelopes.length === 0) return null;
+
+  const senderKey = peerKeys.find((key) => key.keyId === message.keyId);
+  const candidates: RecipientKey[] = [];
+  if (!message.isMine && senderKey) {
+    candidates.push({ keyId: myKeyId, publicJwk: senderKey.publicJwk });
+  }
+  candidates.push(...peerKeys);
+
+  for (const envelope of envelopes) {
+    const candidate =
+      candidates.find((key) => key.keyId === envelope.keyId) ??
+      (envelopes.length === 1 ? candidates[0] : undefined);
+    if (!candidate) continue;
+    const key = await deriveConversationKey(
+      privateKey,
+      candidate.publicJwk,
+      conversationId,
+    );
+    const text = await decryptMessage(
+      key,
+      envelope,
+      message.keyId ? aad(senderId, message.keyId) : undefined,
+    );
+    if (text !== null) return text;
+  }
+  return null;
+}

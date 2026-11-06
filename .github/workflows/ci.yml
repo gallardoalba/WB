@@ -84,3 +84,31 @@ jobs:
           load: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  android:
+    # La app nativa tiene su propio ciclo: pruebas de JVM (modelos, formatos,
+    # diccionarios), lint y APK de depuración. Sin este trabajo, un cambio en el
+    # servidor podía romper la app sin que nadie se enterara hasta compilarla a
+    # mano.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar la plataforma del SDK
+        run: sdkmanager "platforms;android-37"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Pruebas, lint y APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug

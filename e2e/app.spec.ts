@@ -24,7 +24,6 @@ test("el menú de cuenta se opera con el teclado", async ({ page }) => {
 });
 
 test("el catálogo carga y permite buscar", async ({ page }) => {
-  // El catálogo exige sesión: muestra nombre y ciudad de cada lector.
   await loginAsDemo(page);
   await page.goto("/?view=discover");
   await expect(page).toHaveTitle(/Wanderbibliothek/);
@@ -40,9 +39,18 @@ test("el catálogo carga y permite buscar", async ({ page }) => {
   );
 });
 
-test("sin sesión el catálogo no se expone", async ({ page }) => {
+test("sin sesión el catálogo se puede ojear, pero pedir pide acceso", async ({ page }) => {
   await page.goto("/descubrir");
-  await expect(page).toHaveURL(/\/\?auth=1&next=/);
+  await expect(page).toHaveURL(/\/descubrir$/);
+  await expect(page.locator(".book-card:visible").first()).toBeVisible();
+
+  // La tarjeta abre la vista previa: describe el ejemplar y ofrece entrar, pero
+  // no deja pedirlo sin cuenta.
+  await page.locator(".book-card:visible .card-link").first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Entrar para pedirlo" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Seguir explorando" })).toBeVisible();
 });
 
 test("el tema claro/oscuro se conmuta y persiste", async ({ page }) => {  await page.goto("/");
@@ -268,17 +276,16 @@ test("salud, Open Graph y sitemap mínimo", async ({ request }) => {
   expect(body).not.toContain("/listas/");
 });
 
-test("sin sesión, «Explorar libros» abre el acceso en vez de navegar", async ({ page }) => {
+test("sin sesión, «Explorar libros» abre el catálogo público", async ({ page }) => {
   await page.goto("/");
   await waitForHydration(page);
 
-  // El catálogo exige sesión: el botón de la portada pide entrar antes de ir.
+  // El catálogo es público: el botón de la portada navega en vez de pedir
+  // cuenta. Pedir un libro concreto sí abre el acceso (se prueba arriba).
   await page.getByRole("button", { name: "Explorar libros" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  // Las dos pestañas de la ventana: entrar o crear cuenta.
-  await expect(dialog.getByRole("button", { name: "Crear cuenta" })).toBeVisible();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/descubrir$/);
+  await expect(page.locator(".book-card:visible").first()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("la portada cuenta también los clubes de lectura", async ({ page }) => {

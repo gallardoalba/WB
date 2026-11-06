@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  La app no guarda nada que merezca un respaldo automático: la sesión y la clave
+  privada del cifrado viven cifradas con la clave del Keystore, que **no** se
+  copia a otro dispositivo. Restaurar esas preferencias en un teléfono nuevo
+  dejaría un secreto ilegible y, peor, un estado a medias. Por eso se excluye
+  todo, también en la transferencia directa entre teléfonos.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -54,9 +54,11 @@ test("los mensajes cifrados no dejan texto plano en el servidor", async () => {
   const message = repo.addEncryptedMessage(
     "req_seed_2",
     "usr_diego",
-    envelope.ciphertext,
-    envelope.iv,
-    keyIdA,
+    {
+      keyId: keyIdA,
+      ciphertext: envelope.ciphertext,
+      iv: envelope.iv,
+    },
   );
   encryptedMessageId = message.id;
   assert.equal(message.encrypted, true);
@@ -86,7 +88,12 @@ test("los mensajes cifrados no dejan texto plano en el servidor", async () => {
   );
   assert.equal(keyIdB.length, 43);
   assert.throws(
-    () => repo.addEncryptedMessage("req_seed_2", "usr_diego", envelope.ciphertext, envelope.iv, keyIdB),
+    () =>
+      repo.addEncryptedMessage("req_seed_2", "usr_diego", {
+        keyId: keyIdB,
+        ciphertext: envelope.ciphertext,
+        iv: envelope.iv,
+      }),
     (error: unknown) => error instanceof Error && error.message.includes("clave"),
   );
 

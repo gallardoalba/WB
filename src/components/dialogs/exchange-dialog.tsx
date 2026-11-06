@@ -23,12 +23,12 @@ import {
   type RequestView,
 } from "@/lib/domain";
 import {
-  decryptMessage,
-  deriveConversationKey,
-  encryptMessage,
+  decryptForThread,
+  encryptForRecipients,
   ensureIdentity,
   isEncryptionSupported,
   messageAad,
+  type RecipientKey,
 } from "@/lib/e2e";
 import { printSheets } from "@/lib/print";
 import { allowedTargets } from "@/lib/request-flow";
@@ -51,11 +51,20 @@ type ThreadPayload = {
   hasMore: boolean;
   keys: { me: PublicKeyView; peer: PublicKeyView };
 };
+/** Clave de un dispositivo de la otra persona, con su ranura. */
+type PeerKey = RecipientKey & { platform: string };
+
 type Conversation = {
   requestId: string;
   messages: MessageView[];
-  key: CryptoKey | null;
+  /** Una clave por dispositivo habilitado de la otra persona. */
+  peerKeys: PeerKey[];
+  /** Clave privada de este navegador (no sale de aquí). */
+  privateKey: CryptoKey | null;
+  myKeyId: string | null;
   decoded: Record<string, string>;
+  /** Este navegador tiene su clave publicada en la ranura web. */
+  ownKeyReady: boolean;
   peerReady: boolean;
   me: PublicKeyView;
   peer: PublicKeyView;
@@ -63,14 +72,68 @@ type Conversation = {
   keyChanged: boolean;
 };
 
-function sameKey(stored: JsonWebKey | null, own: JsonWebKey): boolean {
-  return Boolean(
-    stored && stored.x === own.x && stored.y === own.y && stored.crv === own.crv,
-  );
+/** Claves de la otra persona; admite un servidor anterior a la v40. */
+function peerKeyEntries(peer: PublicKeyView): PeerKey[] {
+  if (peer.keys && peer.keys.length > 0) {
+    return peer.keys.map((key) => ({
+      platform: key.platform,
+      keyId: key.keyId,
+      publicJwk: key.publicJwk,
+    }));
+  }
+  if (peer.keyId && peer.publicJwk) {
+    return [{ platform: "web", keyId: peer.keyId, publicJwk: peer.publicJwk }];
+  }
+  return [];
 }
 
-function pinStorageKey(userId: string): string {
-  return `b2p-key-pin:${userId}`;
+/** La ranura web conserva la clave de localStorage anterior a la v40. */
+function pinStorageKey(userId: string, platform: string): string {
+  return platform === "web" ? `b2p-key-pin:${userId}` : `b2p-key-pin:${userId}:${platform}`;
+}
+
+/** TOFU por dispositivo: añadir una ranura no es un cambio; rotarla sí. */
+function checkPeerKeys(userId: string, keys: PeerKey[]): boolean {
+  let changed = false;
+  for (const key of keys) {
+    const storage = pinStorageKey(userId, key.platform);
+    const pinned = localStorage.getItem(storage);
+    if (!pinned) localStorage.setItem(storage, key.keyId);
+    else if (pinned !== key.keyId) changed = true;
+  }
+  return changed;
+}
+
+function trustPeerKeys(userId: string, keys: PeerKey[]): void {
+  for (const key of keys) {
+    localStorage.setItem(pinStorageKey(userId, key.platform), key.keyId);
+  }
+}
+
+/** Descifra una tanda de mensajes con la clave de este navegador. */
+async function decodePayload(
+  messages: MessageView[],
+  identity: { privateKey: CryptoKey; keyId: string },
+  peerKeys: PeerKey[],
+  conversationId: string,
+): Promise<Record<string, string>> {
+  const decoded: Record<string, string> = {};
+  await Promise.all(
+    messages.map(async (message) => {
+      if (!message.encrypted) return;
+      const text = await decryptForThread(
+        identity.privateKey,
+        identity.keyId,
+        peerKeys,
+        message,
+        message.sender.id,
+        conversationId,
+        (senderId, keyId) => messageAad(conversationId, senderId, keyId),
+      );
+      if (text !== null) decoded[message.id] = text;
+    }),
+  );
+  return decoded;
 }
 
 function shortFingerprint(keyId: string | null): string {
@@ -151,52 +214,59 @@ export function ExchangeDialog({
     payload: ThreadPayload,
     conversationId: string,
   ): Promise<Omit<Conversation, "requestId" | "messages">> {
-    const peerJwk = payload.keys.peer.publicJwk;
     const me: PublicKeyView = { ...payload.keys.me };
     const peer: PublicKeyView = { ...payload.keys.peer };
-    if (!peerJwk || !isEncryptionSupported()) {
-      return { key: null, decoded: {}, peerReady: Boolean(peerJwk), me, peer, keyChanged: false };
+    const peerKeys = peerKeyEntries(peer);
+    if (peerKeys.length === 0 || !isEncryptionSupported()) {
+      return {
+        peerKeys: [],
+        privateKey: null,
+        myKeyId: null,
+        decoded: {},
+        ownKeyReady: false,
+        peerReady: peerKeys.length > 0,
+        me,
+        peer,
+        keyChanged: false,
+      };
     }
     const identity = await ensureIdentity();
     me.keyId = identity.keyId;
     me.publicJwk = identity.publicJwk;
-    if (
-      payload.keys.me.keyId !== identity.keyId ||
-      !sameKey(payload.keys.me.publicJwk, identity.publicJwk)
-    ) {
-      await api("/api/account/keys", { method: "PUT", body: identity.publicJwk });
+
+    // La ranura web es la de este navegador. Si está vacía se publica gratis;
+    // si tiene otra clave, este navegador necesita la contraseña desde «Mi
+    // cuenta» y nunca se sustituye en silencio.
+    const serverKeys = me.keys ?? [];
+    const webSlot = serverKeys.find((key) => key.platform === "web") ?? null;
+    let ownKeyReady = webSlot?.keyId === identity.keyId;
+    if (!webSlot) {
+      try {
+        await api("/api/account/keys", {
+          method: "PUT",
+          body: { ...identity.publicJwk, platform: "web" },
+        });
+        ownKeyReady = true;
+      } catch {
+        ownKeyReady = false;
+      }
     }
 
-    // TOFU: la primera huella que veamos se recuerda; si cambia, se avisa y no
-    // se permite enviar hasta que la persona lo confirme.
-    let keyChanged = false;
-    if (peer.keyId) {
-      const pinned = localStorage.getItem(pinStorageKey(peer.id));
-      if (!pinned) localStorage.setItem(pinStorageKey(peer.id), peer.keyId);
-      else keyChanged = pinned !== peer.keyId;
-    }
-
-    const key = await deriveConversationKey(identity.privateKey, peerJwk, conversationId);
-    const decoded: Record<string, string> = {};
-    await Promise.all(
-      payload.messages
-        .filter((message) => message.encrypted && message.ciphertext && message.iv)
-        .map(async (message) => {
-          const aad = message.keyId
-            ? messageAad(conversationId, message.sender.id, message.keyId)
-            : undefined;
-          const text = await decryptMessage(
-            key,
-            {
-              ciphertext: message.ciphertext as string,
-              iv: message.iv as string,
-            },
-            aad,
-          );
-          if (text !== null) decoded[message.id] = text;
-        }),
-    );
-    return { key, decoded, peerReady: true, me, peer, keyChanged };
+    // TOFU por dispositivo: la primera huella de cada ranura se recuerda; si
+    // cambia, se avisa. Añadir la ranura del móvil no es un cambio.
+    const keyChanged = checkPeerKeys(peer.id, peerKeys);
+    const decoded = await decodePayload(payload.messages, identity, peerKeys, conversationId);
+    return {
+      peerKeys,
+      privateKey: identity.privateKey,
+      myKeyId: identity.keyId,
+      decoded,
+      ownKeyReady,
+      peerReady: true,
+      me,
+      peer,
+      keyChanged,
+    };
   }
 
   // Mensajería en vivo: el servidor solo avisa de que hay novedades (sin
@@ -214,8 +284,11 @@ export function ExchangeDialog({
     api<ThreadPayload>(`/api/requests/${requestId}/messages`)
       .then(async (data) => {
         let prepared: Omit<Conversation, "requestId" | "messages"> = {
-          key: null,
+          peerKeys: [],
+          privateKey: null,
+          myKeyId: null,
           decoded: {},
+          ownKeyReady: false,
           peerReady: false,
           me: data.keys.me,
           peer: data.keys.peer,
@@ -274,40 +347,37 @@ export function ExchangeDialog({
       );
       const prepared = thread
         ? {
-            key: thread.key,
+            peerKeys: thread.peerKeys,
+            privateKey: thread.privateKey,
+            myKeyId: thread.myKeyId,
             decoded: thread.decoded,
             peerReady: thread.peerReady,
+            ownKeyReady: thread.ownKeyReady,
             me: thread.me,
             peer: thread.peer,
             keyChanged: thread.keyChanged,
           }
         : {
-            key: null,
+            peerKeys: [],
+            privateKey: null,
+            myKeyId: null,
             decoded: {},
             peerReady: false,
+            ownKeyReady: false,
             me: data.keys.me,
             peer: data.keys.peer,
             keyChanged: false,
           };
       const decoded = { ...prepared.decoded };
-      if (prepared.key) {
-        await Promise.all(
-          data.messages
-            .filter((message) => message.encrypted && message.ciphertext && message.iv)
-            .map(async (message) => {
-              const aad = message.keyId
-                ? messageAad(requestId, message.sender.id, message.keyId)
-                : undefined;
-              const text = await decryptMessage(
-                prepared.key as CryptoKey,
-                {
-                  ciphertext: message.ciphertext as string,
-                  iv: message.iv as string,
-                },
-                aad,
-              );
-              if (text !== null) decoded[message.id] = text;
-            }),
+      if (prepared.privateKey && prepared.myKeyId) {
+        Object.assign(
+          decoded,
+          await decodePayload(
+            data.messages,
+            { privateKey: prepared.privateKey, keyId: prepared.myKeyId },
+            prepared.peerKeys,
+            requestId,
+          ),
         );
       }
       setThread({
@@ -328,6 +398,13 @@ export function ExchangeDialog({
 
   const messages = thread?.requestId === requestId ? thread.messages : [];
   const loading = !error && thread?.requestId !== requestId;
+  const canSend = Boolean(
+    thread?.privateKey &&
+      thread.myKeyId &&
+      thread.ownKeyReady &&
+      thread.peerKeys.length > 0 &&
+      !thread.keyChanged,
+  );
   const actions = allowedTargets(request.role, request.status).filter(
     (target) =>
       !(target === "completed" && request.confirmedByMe) &&
@@ -340,8 +417,14 @@ export function ExchangeDialog({
     const formData = new FormData(form);
     const body = String(formData.get("body") ?? "").trim();
     if (!body || !requestId) return;
-    if (!thread?.key || !thread.me.keyId) {
+    if (!thread?.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
       setError(t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."));
+      return;
+    }
+    if (!thread.ownKeyReady) {
+      setError(
+        t("Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta»."),
+      );
       return;
     }
     if (thread.keyChanged) {
@@ -351,14 +434,16 @@ export function ExchangeDialog({
     setSending(true);
     setError("");
     try {
-      const envelope = await encryptMessage(
-        thread.key,
+      const envelopes = await encryptForRecipients(
+        thread.privateKey,
+        thread.peerKeys,
+        requestId,
         body,
-        messageAad(requestId, thread.me.id, thread.me.keyId),
+        messageAad(requestId, thread.me.id, thread.myKeyId),
       );
       const data = await api<{ message: MessageView }>(`/api/requests/${requestId}/messages`, {
         method: "POST",
-        body: { ...envelope, keyId: thread.me.keyId },
+        body: { keyId: thread.myKeyId, envelopes },
       });
       setThread({
         ...thread,
@@ -375,8 +460,8 @@ export function ExchangeDialog({
   }
 
   function trustPeerKey() {
-    if (!thread?.peer.keyId) return;
-    localStorage.setItem(pinStorageKey(thread.peer.id), thread.peer.keyId);
+    if (!thread) return;
+    trustPeerKeys(thread.peer.id, thread.peerKeys);
     setThread({ ...thread, keyChanged: false });
   }
 
@@ -1069,6 +1154,19 @@ export function ExchangeDialog({
         </div>
       </details>
 
+      {thread && !thread.ownKeyReady && (
+        <div className="key-warning" role="alert">
+          <p>
+            {t(
+              "Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta» para leer y escribir en esta conversación.",
+            )}
+          </p>
+          <a className="secondary-button small" href="/cuenta">
+            {t("Ir a Mi cuenta")}
+          </a>
+        </div>
+      )}
+
       {thread?.keyChanged && (
         <div className="key-warning" role="alert">
           <p>
@@ -1176,7 +1274,7 @@ export function ExchangeDialog({
         </p>
       )}
 
-      {!loading && !thread?.key && (
+      {!loading && !thread?.peerReady && (
         <p className="form-note" role="status">
           {isEncryptionSupported()
             ? t("La otra persona todavía no ha activado el cifrado en su dispositivo. Podréis escribir en cuanto abra la aplicación una vez.")
@@ -1193,17 +1291,15 @@ export function ExchangeDialog({
           name="body"
           maxLength={800}
           placeholder={
-            thread?.key && !thread.keyChanged
-              ? t("Escribe un mensaje…")
-              : t("Mensajes cifrados no disponibles")
+            canSend ? t("Escribe un mensaje…") : t("Mensajes cifrados no disponibles")
           }
           autoComplete="off"
-          disabled={!thread?.key || thread.keyChanged || sending}
+          disabled={!canSend || sending}
         />
         <button
           className="share-button small"
           type="submit"
-          disabled={!thread?.key || thread.keyChanged || sending}
+          disabled={!canSend || sending}
           aria-label={t("Enviar mensaje")}
         >
           <Send size={15} />
