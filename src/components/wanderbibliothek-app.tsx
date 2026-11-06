@@ -509,7 +509,7 @@ export default function WanderbibliothekApp({
               <div className="hero-copy">
                 <h1 tabIndex={-1}>
                   <span className="hero-brand">{BRAND}:</span>{" "}
-                  {t("Los libros no se quedan quietos.")}
+                  {t("Los libros siguen viajando.")}
                 </h1>
                 <p>
                   {user

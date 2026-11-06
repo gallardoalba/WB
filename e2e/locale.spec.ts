@@ -25,7 +25,7 @@ test.describe("idioma por defecto", () => {
 
     await page.reload();
     await expect(page.getByRole("heading", { level: 1 }).first()).toContainText(
-      "Los libros no se quedan quietos.",
+      "Los libros siguen viajando.",
     );
   });
 });

@@ -509,7 +509,7 @@ export const DE = {
   "Tu estantería guardada": "Dein gespeichertes Regal",
   "La lectura se comparte": "Lesen verbindet",
   "Tus intercambios": "Deine Tauschvorgänge",
-  "Los libros no se quedan quietos.": "Bücher, die weiterreisen",
+  "Los libros siguen viajando.": "Bücher, die weiterreisen",
   "Cómo funciona": "So funktioniert es",
   "Comparte": "Teilen",
   "Publica un libro que ya hayas leído y deja que otros lo encuentren.": "Stelle ein Buch ein, das du gelesen hast, und lass es andere finden.",
