@@ -67,7 +67,6 @@ export default async function Page({ params }: PageProps) {
         </div>
 
         <div className="book-detail-info">
-          <span className="book-category">{t(listing.category)}</span>
           <h1>{listing.title}</h1>
           <p className="book-detail-author">{listing.author}</p>
 
@@ -118,6 +117,10 @@ export default async function Page({ params }: PageProps) {
               </small>
             </span>
           </Link>
+
+          {/* El género cierra el bloque: arriba separaba el borde del título,
+              que es lo primero que se busca en la ficha. */}
+          <span className="book-category">{t(listing.category)}</span>
 
           <ListingActions
             listingId={listing.id}

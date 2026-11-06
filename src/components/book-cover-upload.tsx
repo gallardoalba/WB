@@ -67,7 +67,11 @@ export function BookCoverUpload({
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error ?? t("No se pudo subir la portada."));
+        // Con el código a la vista, un 413 del proxy (cuerpo demasiado grande)
+        // deja de parecer un fallo genérico de la aplicación.
+        throw new Error(
+          payload?.error ?? `${t("No se pudo subir la portada.")} (HTTP ${response.status})`,
+        );
       }
       setFeedback(t("Portada actualizada."));
       router.refresh();
