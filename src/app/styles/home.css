@@ -141,8 +141,11 @@
   font-weight: 600;
 }
 
+/* El párrafo ocupa el mismo ancho que el titular. Con `56ch` se quedaba en
+   dos tercios de la columna y dejaba un hueco a la derecha incluso en
+   pantallas grandes. */
 .hero-banner p {
-  max-width: 56ch;
+  max-width: none;
   margin: 0;
   color: var(--muted);
   font-size: 15px;
