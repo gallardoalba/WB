@@ -89,6 +89,7 @@ test("un mensaje lleva un sobre por cada clave del destinatario", async () => {
   const webId = repo.getPublicKeyRecord("usr_clara", "web")!.keyId;
   const appId = repo.getPublicKeyRecord("usr_clara", "android")!.keyId;
 
+  repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted");
   const message = repo.addEncryptedMessage("req_seed_2", "usr_diego", {
     keyId: senderId,
     envelopes: [

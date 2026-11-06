@@ -399,7 +399,8 @@ export function ExchangeDialog({
   const messages = thread?.requestId === requestId ? thread.messages : [];
   const loading = !error && thread?.requestId !== requestId;
   const canSend = Boolean(
-    thread?.privateKey &&
+    request.status === "accepted" &&
+      thread?.privateKey &&
       thread.myKeyId &&
       thread.ownKeyReady &&
       thread.peerKeys.length > 0 &&
@@ -1274,7 +1275,7 @@ export function ExchangeDialog({
         </p>
       )}
 
-      {!loading && !thread?.peerReady && (
+      {request.status === "accepted" && !loading && !thread?.peerReady && (
         <p className="form-note" role="status">
           {isEncryptionSupported()
             ? t("La otra persona todavía no ha activado el cifrado en su dispositivo. Podréis escribir en cuanto abra la aplicación una vez.")
@@ -1282,29 +1283,37 @@ export function ExchangeDialog({
         </p>
       )}
 
-      <form className="message-form" onSubmit={send}>
-        <label className="sr-only" htmlFor="message-body">
-          {t("Escribe un mensaje")}
-        </label>
-        <input
-          id="message-body"
-          name="body"
-          maxLength={800}
-          placeholder={
-            canSend ? t("Escribe un mensaje…") : t("Mensajes cifrados no disponibles")
-          }
-          autoComplete="off"
-          disabled={!canSend || sending}
-        />
-        <button
-          className="share-button small"
-          type="submit"
-          disabled={!canSend || sending}
-          aria-label={t("Enviar mensaje")}
-        >
-          <Send size={15} />
-        </button>
-      </form>
+      {request.status === "accepted" ? (
+        <form className="message-form" onSubmit={send}>
+          <label className="sr-only" htmlFor="message-body">
+            {t("Escribe un mensaje")}
+          </label>
+          <input
+            id="message-body"
+            name="body"
+            maxLength={800}
+            placeholder={
+              canSend ? t("Escribe un mensaje…") : t("Mensajes cifrados no disponibles")
+            }
+            autoComplete="off"
+            disabled={!canSend || sending}
+          />
+          <button
+            className="share-button small"
+            type="submit"
+            disabled={!canSend || sending}
+            aria-label={t("Enviar mensaje")}
+          >
+            <Send size={15} />
+          </button>
+        </form>
+      ) : (
+        <p className="form-note" role="status">
+          {request.status === "pending"
+            ? t("La conversación se abre cuando se acepta el intercambio: hasta entonces no se pueden enviar mensajes.")
+            : t("Este intercambio está cerrado: la conversación queda solo para consultarla.")}
+        </p>
+      )}
 
       {request.status !== "pending" && (
         <details className="report-box incident-box">

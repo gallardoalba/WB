@@ -282,7 +282,6 @@
 .listing-form input,
 .listing-form select,
 .listing-form textarea,
-.request-inline textarea,
 .report-box select,
 .report-box textarea {
   width: 100%;
@@ -296,7 +295,6 @@
 }
 
 .listing-form textarea,
-.request-inline textarea,
 .report-box textarea {
   resize: vertical;
   line-height: 1.5;

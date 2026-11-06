@@ -10,7 +10,6 @@ import {
   Pause,
   Pencil,
   Play,
-  Send,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import { BookCoverUpload } from "./book-cover-upload";
 import { CityField } from "./city-field";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Dialog } from "./dialog";
+import { RequestDialog } from "./dialogs/request-dialog";
 import { useI18n } from "./i18n-provider";
 import {
   BOOK_LANGUAGES,
@@ -38,6 +38,8 @@ type Props = {
   /** Ya hay una portada subida a mano (se puede quitar). */
   hasUploadedCover: boolean;
   listingTitle: string;
+  /** Quien publica: la solicitud se la manda a esta persona. */
+  ownerName: string;
   status: ListingStatus;
   isMine: boolean;
   isFavorite: boolean;
@@ -61,6 +63,7 @@ export function ListingActions({
   bookId,
   hasUploadedCover,
   listingTitle,
+  ownerName,
   status,
   isMine,
   isFavorite,
@@ -141,24 +144,6 @@ export function ListingActions({
     }
   }
 
-  async function submitRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending(true);
-    setError("");
-    try {
-      await api("/api/requests", {
-        method: "POST",
-        body: { listingId },
-      });
-      setRequesting(false);
-      setFeedback(t("Solicitud enviada. Podrás seguirla en Intercambios."));
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("No se pudo enviar la solicitud."));
-    } finally {
-      setPending(false);
-    }
-  }
 
   async function submitEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -375,25 +360,6 @@ export function ListingActions({
           <Link className="share-button" href={`/?auth=1&next=${encodeURIComponent(`/libro/${listingId}`)}`}>
             {t("Inicia sesión para pedirlo")} <ArrowRight size={16} />
           </Link>
-        ) : requesting ? (
-          <form className="request-inline" onSubmit={submitRequest}>
-            <div className="dialog-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setRequesting(false)}
-                disabled={pending}
-              >
-                {t("Cancelar")}
-              </button>
-              <button className="share-button" type="submit" disabled={pending}>
-                {pending ? t("Enviando…") : t("Enviar solicitud")} <Send size={15} />
-              </button>
-            </div>
-            <p className="form-note">
-              {t("Cuando la acepten podréis coordinar la entrega en la conversación cifrada del intercambio.")}
-            </p>
-          </form>
         ) : (
           <button type="button" className="share-button" onClick={() => setRequesting(true)}>
             {t("Pedir este libro")} <ArrowRight size={16} />
@@ -485,6 +451,18 @@ export function ListingActions({
         description={t("«{title}» dejará de aparecer en el catálogo y se cerrarán las solicitudes pendientes.", { title: listingTitle })}
         confirmLabel={t("Retirar")}
         pending={pending}
+      />
+
+      {/* Pedir el libro abre una ventana: la solicitud es un paso aparte, no un
+          formulario suelto en la barra de acciones. */}
+      <RequestDialog
+        open={requesting}
+        onClose={() => setRequesting(false)}
+        listing={{ id: listingId, title: listingTitle, ownerName }}
+        onCreated={() => {
+          setFeedback(t("Solicitud enviada. Podrás seguirla en Intercambios."));
+          router.refresh();
+        }}
       />
     </div>
   );

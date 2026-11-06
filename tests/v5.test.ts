@@ -34,6 +34,7 @@ test("una categoría desconocida se ignora en vez de vaciar el catálogo", () =>
 
 test("los mensajes se paginan y respetan el cursor", () => {
   const request = repo.createRequest("usr_ana", "lst_3", "Hola");
+  repo.updateRequestStatus(request.id, "usr_lucia", "accepted");
   for (let index = 0; index < 12; index += 1) {
     repo.addMessage(request.id, "usr_lucia", `Mensaje ${index}`);
   }

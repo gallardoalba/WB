@@ -204,41 +204,7 @@
   padding: 0 18px;
 }
 
-/* Solicitud en curso: los dos botones ocupan la columna principal, iguales y
-   al alto del resto, y la explicación va debajo en letra pequeña (encima
-   separaba el botón de pedir de lo que se acaba de abrir). */
-.request-inline {
-  width: 100%;
-  max-width: 430px;
-  display: grid;
-  gap: 10px;
-}
-
-.request-inline .dialog-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 0;
-}
-
-.request-inline .dialog-actions .secondary-button,
-.request-inline .dialog-actions .share-button {
-  min-height: 54px;
-  padding: 0 14px;
-  font-size: 14px;
-}
-
-/* La nota va sin la caja que lleva dentro de un diálogo: debajo de dos botones
-   ya se lee como pie, y el recuadro gris pesaba más que la acción. */
-.request-inline .form-note {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
+/* Las dos acciones secundarias, a la derecha de la barra. */
 .secondary-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

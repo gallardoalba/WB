@@ -74,6 +74,7 @@ fun ListingDetailScreen(
     var reloads by remember { mutableIntStateOf(0) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showListPicker by remember { mutableStateOf(false) }
+    var confirmRequest by remember { mutableStateOf(false) }
     var myLists by remember { mutableStateOf<List<ReadingList>>(emptyList()) }
 
     LaunchedEffect(listingId, reloads) {
@@ -92,6 +93,36 @@ fun ListingDetailScreen(
         if (showListPicker) {
             myLists = runCatching { viewModel.repo.myLists() }.getOrDefault(emptyList())
         }
+    }
+
+    if (confirmRequest) {
+        // Pedir un libro es un paso aparte: la conversación no se abre hasta
+        // que la otra persona acepta, así que conviene decirlo antes.
+        AlertDialog(
+            onDismissRequest = { confirmRequest = false },
+            title = { Text(texts["requestBook"]) },
+            text = { Text(texts["requestConfirm"]) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRequest = false
+                    scope.launch {
+                        busy = true
+                        try {
+                            viewModel.repo.requestListing(listingId)
+                            notice = texts["requestSent"]
+                            reloads += 1
+                        } catch (failure: Exception) {
+                            notice = errorText(texts, failure)
+                        } finally {
+                            busy = false
+                        }
+                    }
+                }) { Text(texts["send"]) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRequest = false }) { Text(texts["cancel"]) }
+            },
+        )
     }
 
     if (confirmDelete) {
@@ -263,18 +294,7 @@ fun ListingDetailScreen(
                                         onSignIn()
                                         return@ActionButton
                                     }
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            viewModel.repo.requestListing(listing.id)
-                                            notice = texts["requestSent"]
-                                            reloads += 1
-                                        } catch (failure: Exception) {
-                                            notice = errorText(texts, failure)
-                                        } finally {
-                                            busy = false
-                                        }
-                                    }
+                                    confirmRequest = true
                                 },
                             )
                             SecondaryButton(

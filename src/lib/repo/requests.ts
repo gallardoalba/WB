@@ -755,7 +755,25 @@ function assertCanMessage(
   userId: string,
 ): { requester_id: string; owner_id: string } {
   assertVerified(userId);
-  const request = assertParticipant(requestId, userId);
+  const request = getDb()
+    .prepare("SELECT requester_id, owner_id, status FROM requests WHERE id = ?")
+    .get(requestId) as
+    | { requester_id: string; owner_id: string; status: RequestStatus }
+    | undefined;
+  if (!request || (request.requester_id !== userId && request.owner_id !== userId)) {
+    throw new ApiError(404, "La solicitud no existe.");
+  }
+  // La conversación no existe hasta que hay intercambio: mientras la solicitud
+  // está pendiente no hay nada que coordinar, y cuando se rechaza o se cancela
+  // ya no queda nada que decir. El hilo se conserva para poder releerlo.
+  if (request.status !== "accepted") {
+    throw new ApiError(
+      409,
+      request.status === "pending"
+        ? "Todavía no podéis escribir: los mensajes se abren cuando se acepta el intercambio."
+        : "Este intercambio está cerrado: ya no se pueden enviar mensajes.",
+    );
+  }
   if (areBlocked(userId, otherParticipant(request, userId))) {
     throw new ApiError(409, "No puedes enviar mensajes a esta persona.");
   }

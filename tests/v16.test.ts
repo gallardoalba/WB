@@ -47,6 +47,8 @@ test("los mensajes cifrados no dejan texto plano en el servidor", async () => {
   repo.setPublicKey("usr_clara", publicB);
   assert.equal(repo.getPublicKey("usr_diego")?.x, publicA.x);
   assert.equal(repo.getPublicKeyRecord("usr_diego")?.keyId, keyIdA);
+  // La conversación solo existe con el intercambio aceptado.
+  repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted");
 
   const keyA = await e2e.deriveConversationKey(pairA.privateKey, publicB, "req_seed_2");
   const aad = e2e.messageAad("req_seed_2", "usr_diego", keyIdA);

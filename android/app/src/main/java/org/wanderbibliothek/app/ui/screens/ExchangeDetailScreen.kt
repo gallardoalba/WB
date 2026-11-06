@@ -447,24 +447,40 @@ fun ExchangeDetailScreen(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = draft,
-                        onValueChange = { draft = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text(texts["writeMessage"]) },
-                        maxLines = 4,
-                    )
-                    IconButton(
-                        onClick = { send() },
-                        enabled = draft.isNotBlank() && peerKeys.isNotEmpty() && !busy,
+                // La conversación no existe hasta que el intercambio se acepta:
+                // mientras está pendiente no hay nada que coordinar y, cuando se
+                // rechaza o se cancela, ya no queda nada que decir.
+                if (current.status == "accepted") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = texts["send"])
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text(texts["writeMessage"]) },
+                            maxLines = 4,
+                        )
+                        IconButton(
+                            onClick = { send() },
+                            enabled = draft.isNotBlank() && peerKeys.isNotEmpty() && !busy,
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = texts["send"])
+                        }
                     }
+                } else {
+                    Text(
+                        text = if (current.status == "pending") {
+                            texts["messagesOpenOnAccept"]
+                        } else {
+                            texts["messagesClosed"]
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
                 }
             }
         }

@@ -47,6 +47,7 @@ test("la búsqueda usa FTS5 y acepta prefijos", () => {
 
 test("los mensajes se cuentan como no leídos hasta abrir la conversación", () => {
   const request = repo.createRequest("usr_ana", "lst_3", "Me interesa");
+  repo.updateRequestStatus(request.id, "usr_lucia", "accepted");
   repo.addMessage(request.id, "usr_lucia", "Claro, ¿cuándo te viene bien?");
 
   assert.equal(repo.countUnreadMessages("usr_ana"), 1);

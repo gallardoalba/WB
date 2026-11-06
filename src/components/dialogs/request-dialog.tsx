@@ -4,16 +4,22 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Send } from "lucide-react";
 import { Dialog } from "../dialog";
 import { api } from "@/lib/client-api";
-import type { ListingView } from "@/lib/domain";
 import { useI18n } from "../i18n-provider";
 import type { BaseDialogProps } from "./shared";
+
+/** Lo mínimo para pedir un ejemplar desde su ficha. */
+export type RequestTarget = {
+  id: string;
+  title: string;
+  ownerName: string;
+};
 
 export function RequestDialog({
   open,
   onClose,
   listing,
   onCreated,
-}: BaseDialogProps & { listing: ListingView | null; onCreated: () => void }) {
+}: BaseDialogProps & { listing: RequestTarget | null; onCreated: () => void }) {
   const { t } = useI18n();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -52,7 +58,7 @@ export function RequestDialog({
       title={t("¿Te gustaría leerlo?")}
       description={t(
         "Enviarás una solicitud a {name} por “{title}”. Cuando la acepte, podréis acordar la entrega en la conversación cifrada.",
-        { name: listing.owner.name, title: listing.title },
+        { name: listing.ownerName, title: listing.title },
       )}
       overline={t("UNA HISTORIA CAMBIA DE MANOS")}
       icon={<Send size={20} />}

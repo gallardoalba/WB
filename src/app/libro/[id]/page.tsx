@@ -142,6 +142,7 @@ export default async function Page({ params }: PageProps) {
           bookId={listing.bookId}
           hasUploadedCover={listing.coverUrl?.startsWith("/api/cover/book/") ?? false}
           listingTitle={listing.title}
+          ownerName={listing.owner.name}
           status={listing.status}
           isMine={listing.isMine}
           isFavorite={listing.isFavorite}

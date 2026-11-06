@@ -473,12 +473,6 @@
     padding-left: 12px;
   }
 
-  /* A este ancho cada botón de la solicitud se queda en 161 px y «Enviar
-     solicitud» partía en dos líneas: se apilan. */
-  .request-inline .dialog-actions {
-    grid-template-columns: 1fr;
-  }
-
   /* Cinco destinos en 320–380 px: la barra reduce separación, no la letra. */
   .mobile-bottom-nav a,
   .mobile-bottom-nav button {
