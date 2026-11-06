@@ -145,14 +145,19 @@
 /* La barra de acciones cierra la ficha a todo el ancho. Antes vivía al final
    de la columna de los datos, que con la barra lateral abierta mide 266 px:
    «Pedir este libro» salía pequeño y pegado al borde derecho, como un enlace
-   más de la lista. */
+   más de la lista.
+
+   Dos columnas: lo que se viene a hacer (pedir, o el formulario de la
+   solicitud) a la izquierda, y guardar y denunciar siempre en el mismo sitio,
+   a la derecha. Todo al mismo alto: la acción principal se distingue por el
+   color y el ancho, no por ser más alta que las otras dos. */
 .book-detail > .detail-actions {
   grid-column: 1 / -1;
 }
 
 .detail-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: center;
   gap: 12px;
   margin-top: 4px;
@@ -162,14 +167,13 @@
   background: var(--surface);
 }
 
-/* Avisos, notas y formularios ocupan la barra entera. */
+/* Avisos y notas ocupan la barra entera. */
 .detail-actions > .action-feedback,
 .detail-actions > .form-error,
-.detail-actions > .request-inline,
 .detail-actions > .unavailable-note,
 .detail-actions > .owner-actions,
 .detail-actions > .edit-box {
-  flex: 1 1 100%;
+  grid-column: 1 / -1;
 }
 
 /* El enlace a la conversación va a su ancho, no como barra, y con aire
@@ -180,66 +184,79 @@
   margin-bottom: var(--space-5);
 }
 
-/* La acción principal de la ficha: alta, ancha y con el texto grande. Es lo
-   que se viene a hacer en esta página, así que se queda a la izquierda y
-   empuja las secundarias al otro extremo de la barra. */
+/* La acción principal de la ficha: ancha, con el texto grande y el color de
+   acento. Es lo que se viene a hacer en esta página. */
 .detail-actions > .share-button {
-  flex: 1 1 280px;
+  width: 100%;
   max-width: 420px;
   min-height: 54px;
   padding: 0 22px;
-  margin-right: auto;
   font-size: 15px;
   justify-content: center;
 }
 
-.detail-actions > .favorite-inline,
-.detail-actions .report-box > summary {
-  min-height: 46px;
-  padding: 0 16px;
+/* Guardar y denunciar, al alto de la acción principal: en una fila de botones
+   de tres alturas distintas no se sabe cuál es la importante. */
+.detail-actions .favorite-inline,
+.detail-actions .report-inline {
+  min-height: 54px;
+  min-width: 124px;
+  padding: 0 18px;
 }
 
-/* El formulario de la solicitud ya vive dentro de la barra: los botones van al
-   tamaño de los de al lado y sin el aire extra que se les da dentro de un
-   diálogo. */
+/* Solicitud en curso: los dos botones ocupan la columna principal, iguales y
+   al alto del resto, y la explicación va debajo en letra pequeña (encima
+   separaba el botón de pedir de lo que se acaba de abrir). */
 .request-inline {
-  margin-top: 0;
+  width: 100%;
+  max-width: 430px;
+  display: grid;
+  gap: 10px;
 }
 
 .request-inline .dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 0;
-  justify-content: flex-end;
 }
 
 .request-inline .dialog-actions .secondary-button,
 .request-inline .dialog-actions .share-button {
-  min-height: 46px;
-  padding: 0 18px;
+  min-height: 54px;
+  padding: 0 14px;
   font-size: 14px;
 }
 
-.request-inline {
-  width: 100%;
-  display: grid;
-  gap: 10px;
+/* La nota va sin la caja que lleva dentro de un diálogo: debajo de dos botones
+   ya se lee como pie, y el recuadro gris pesaba más que la acción. */
+.request-inline .form-note {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .secondary-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  align-items: center;
   gap: 10px;
   margin-top: 2px;
 }
 
+/* Guardar y denunciar ocupan la mitad de la columna cada uno. */
 .secondary-actions .favorite-inline,
-.secondary-actions .report-box > summary {
+.secondary-actions .report-inline {
   width: 100%;
   justify-content: center;
 }
 
-.secondary-actions .report-box[open] {
-  grid-column: 1 / -1;
+.secondary-actions .report-inline:hover {
+  border-color: var(--coral);
+  background: var(--paper-lift);
 }
 
 .favorite-inline {
@@ -267,6 +284,31 @@
   color: var(--coral);
 }
 
+/* «Denunciar»: mismo aspecto que guardar, pero en coral al pasar por encima
+   (es la acción con la que se avisa de un problema, no una acción amable).
+   El formulario vive en una ventana emergente. */
+.report-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.report-inline:hover {
+  border-color: var(--coral);
+  background: var(--paper-lift);
+}
+
+/* Desplegable de denuncia de otras pantallas (perfil, clubes, intercambios):
+   ahí sigue siendo un `<details>` en línea, no una ventana. */
 .report-box {
   display: grid;
   gap: 8px;

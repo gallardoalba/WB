@@ -18,6 +18,7 @@ import { api } from "@/lib/client-api";
 import { BookCoverUpload } from "./book-cover-upload";
 import { CityField } from "./city-field";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Dialog } from "./dialog";
 import { useI18n } from "./i18n-provider";
 import {
   BOOK_LANGUAGES,
@@ -91,6 +92,7 @@ export function ListingActions({
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   async function run(action: () => Promise<void>, success: string) {
     setPending(true);
@@ -184,23 +186,29 @@ export function ListingActions({
     );
   }
 
-  async function report(event: FormEvent<HTMLFormElement>) {
+  async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await run(
-      async () => {
-        await api("/api/reports", {
-          method: "POST",
-          body: {
-            targetType: "listing",
-            targetId: listingId,
-            reason: form.get("reason"),
-            details: form.get("details") ?? "",
-          },
-        });
-      },
-      t("Denuncia registrada. Gracias por avisar."),
-    );
+    setPending(true);
+    setError("");
+    try {
+      await api("/api/reports", {
+        method: "POST",
+        body: {
+          targetType: "listing",
+          targetId: listingId,
+          reason: form.get("reason"),
+          details: form.get("details") ?? "",
+        },
+      });
+      setReporting(false);
+      setFeedback(t("Denuncia registrada. Gracias por avisar."));
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("No se pudo completar la acción."));
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -369,22 +377,22 @@ export function ListingActions({
           </Link>
         ) : requesting ? (
           <form className="request-inline" onSubmit={submitRequest}>
-            <p className="form-note">
-              {t("Cuando la acepten podréis coordinar la entrega en la conversación cifrada del intercambio.")}
-            </p>
             <div className="dialog-actions">
               <button
                 type="button"
-                className="secondary-button small"
+                className="secondary-button"
                 onClick={() => setRequesting(false)}
                 disabled={pending}
               >
                 {t("Cancelar")}
               </button>
-              <button className="share-button small" type="submit" disabled={pending}>
-                {pending ? t("Enviando…") : t("Enviar solicitud")} <Send size={14} />
+              <button className="share-button" type="submit" disabled={pending}>
+                {pending ? t("Enviando…") : t("Enviar solicitud")} <Send size={15} />
               </button>
             </div>
+            <p className="form-note">
+              {t("Cuando la acepten podréis coordinar la entrega en la conversación cifrada del intercambio.")}
+            </p>
           </form>
         ) : (
           <button type="button" className="share-button" onClick={() => setRequesting(true)}>
@@ -412,28 +420,62 @@ export function ListingActions({
             {favorite ? t("Guardado") : t("Guardar")}
           </button>
 
-          <details className="report-box">
-            <summary>
-              <TriangleAlert size={14} /> {t("Denunciar")}
-            </summary>
-            <form onSubmit={report}>
-              <label htmlFor="report-reason">{t("Motivo")}</label>
-              <select id="report-reason" name="reason" defaultValue={REPORT_REASONS[0]}>
-                {REPORT_REASONS.map((reason) => (
-                  <option key={reason} value={reason}>
-                    {t(reason)}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="report-details">{t("Detalles (opcional)")}</label>
-              <textarea id="report-details" name="details" rows={2} maxLength={500} />
-              <button type="submit" className="secondary-button small" disabled={pending}>
-                {t("Enviar denuncia")}
-              </button>
-            </form>
-          </details>
+          <button
+            type="button"
+            className="report-inline"
+            disabled={pending}
+            onClick={() => setReporting(true)}
+          >
+            <TriangleAlert size={15} /> {t("Denunciar")}
+          </button>
         </div>
       )}
+
+      {/* La denuncia va en ventana emergente: es un formulario largo y dentro
+          de la barra obligaba a desplegarla en mitad de la ficha. */}
+      <Dialog
+        open={reporting}
+        onClose={() => setReporting(false)}
+        title={t("Denunciar este ejemplar")}
+        description={t(
+          "Cuéntanos qué ocurre con «{title}». Lo revisa el equipo y no se le avisa a quien lo publica.",
+          { title: listingTitle },
+        )}
+        icon={<TriangleAlert size={20} />}
+      >
+        <form className="listing-form" onSubmit={submitReport}>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <label htmlFor="report-reason">{t("Motivo")}</label>
+          <select id="report-reason" name="reason" defaultValue={REPORT_REASONS[0]}>
+            {REPORT_REASONS.map((reason) => (
+              <option key={reason} value={reason}>
+                {t(reason)}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="report-details">{t("Detalles (opcional)")}</label>
+          <textarea id="report-details" name="details" rows={3} maxLength={500} />
+
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setReporting(false)}
+              disabled={pending}
+            >
+              {t("Cancelar")}
+            </button>
+            <button type="submit" className="secondary-button danger" disabled={pending}>
+              {pending ? t("Enviando…") : t("Enviar denuncia")}
+            </button>
+          </div>
+        </form>
+      </Dialog>
 
       <ConfirmDialog
         open={confirmingRemove}

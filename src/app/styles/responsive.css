@@ -82,6 +82,25 @@
   }
 }
 
+/* La barra de acciones de la ficha necesita unos 620 px para poner la acción
+   principal y guardar/denunciar en la misma fila. Por debajo (portátil
+   pequeño, tableta con la barra lateral abierta) se queda en una columna: la
+   acción ocupa el ancho y las otras dos bajan a una fila de dos mitades, en vez
+   de dejar la principal en 200 px y partir «Enviar solicitud» en dos líneas. */
+@media (max-width: 940px) {
+  .detail-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-actions > .share-button {
+    max-width: none;
+  }
+
+  .secondary-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .app-shell {
     display: block;
@@ -302,16 +321,6 @@
     gap: 20px;
   }
 
-  /* En una columna no hay sitio para el botón y las acciones secundarias a la
-     vez: se apilan, y la de pedir sigue siendo la primera y la más alta. */
-  .detail-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .secondary-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .book-detail-cover {
     height: 300px;
   }
@@ -462,6 +471,12 @@
   .content-wrap {
     padding-right: 12px;
     padding-left: 12px;
+  }
+
+  /* A este ancho cada botón de la solicitud se queda en 161 px y «Enviar
+     solicitud» partía en dos líneas: se apilan. */
+  .request-inline .dialog-actions {
+    grid-template-columns: 1fr;
   }
 
   /* Cinco destinos en 320–380 px: la barra reduce separación, no la letra. */
