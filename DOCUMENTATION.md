@@ -90,7 +90,7 @@ The API has 73 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds 123 German cities and `city_distances` the precomputed distance matrix.
 
-Migrations are versioned with `PRAGMA user_version` (currently v40) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to all of Germany again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail.
+Migrations are versioned with `PRAGMA user_version` (currently v40) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail.
 
 Shipping data (`ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) is stored encrypted with `APP_ENCRYPTION_KEY`, and every value is bound to its request and its column through AAD (`ship:<request>:<field>`): a ciphertext moved to another row cannot be opened. It is only decrypted in the view of the two people in the exchange, and notifications never repeat the destination.
 

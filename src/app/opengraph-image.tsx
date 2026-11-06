@@ -45,7 +45,7 @@ export default function OpenGraphImage() {
             Libros que siguen viajando
           </div>
           <div style={{ display: "flex", fontSize: 32, opacity: 0.85 }}>
-            Comparte, descubre e intercambia libros en toda Alemania
+            Comparte, descubre e intercambia libros en toda Europa
           </div>
         </div>
 

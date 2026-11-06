@@ -29,7 +29,7 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Una plataforma para compartir e intercambiar libros impresos entre lectores de toda Alemania. Cada ejemplar tiene su ficha, cada persona puede pedir el que le interesa y la entrega se acuerda entre las dos partes, en mano o por correo.",
+          text: "Una plataforma para compartir e intercambiar libros impresos entre lectores de toda Europa. Cada ejemplar tiene su ficha, cada persona puede pedir el que le interesa y la entrega se acuerda entre las dos partes, en mano o por correo.",
         },
         {
           kind: "list",
@@ -150,7 +150,7 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Eine Plattform zum Teilen und Tauschen gedruckter Bücher zwischen Leser:innen in ganz Deutschland. Jedes Exemplar hat seinen Eintrag, jede Person kann das Buch anfragen, das ihr fehlt, und die Übergabe verabreden beide Seiten — persönlich oder per Post.",
+          text: "Eine Plattform zum Teilen und Tauschen gedruckter Bücher zwischen Leser:innen in ganz Europa. Jedes Exemplar hat seinen Eintrag, jede Person kann das Buch anfragen, das ihr fehlt, und die Übergabe verabreden beide Seiten — persönlich oder per Post.",
         },
         {
           kind: "list",
@@ -271,7 +271,7 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "A platform for sharing and swapping printed books between readers all over Germany. Every copy has its own entry, anyone can request the book they are missing, and the two sides agree the hand-over — in person or by post.",
+          text: "A platform for sharing and swapping printed books between readers all over Europe. Every copy has its own entry, anyone can request the book they are missing, and the two sides agree the hand-over — in person or by post.",
         },
         {
           kind: "list",

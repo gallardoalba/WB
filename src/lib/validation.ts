@@ -23,7 +23,7 @@ const cityField = z
   .string()
   .trim()
   .transform((value) => findCity(value)?.name ?? value)
-  .refine((value) => isKnownCity(value), "Elige una ciudad de Alemania.");
+  .refine((value) => isKnownCity(value), "Elige una ciudad de la lista.");
 
 /** Etiquetas: máximo 3, siempre de la lista curada. */
 const tagsField = z

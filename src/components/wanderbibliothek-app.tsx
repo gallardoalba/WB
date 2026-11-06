@@ -523,11 +523,10 @@ export default function WanderbibliothekApp({
                 <p>
                   {user
                     ? t(
-                        "Encuentra historias que ya tienen ganas de llegar a tus manos. Solo en {region}: elige tu ciudad y mira qué libros tienes al lado.",
-                        { region: REGION },
+                        "Encuentra historias que ya tienen ganas de llegar a tus manos. Elige tu ciudad y mira qué libros tienes al lado.",
                       )
                     : t(
-                        "Cada libro guarda algo de quien lo leyó. Comparte los que ya no necesitas, encuentra los que te faltan y conoce a lectores de toda Alemania: en cada intercambio viajan un libro, una historia y una conversación.",
+                        "Cada libro guarda algo de quien lo leyó. Comparte los que ya no necesitas, encuentra los que te faltan y conoce a lectores de toda Europa: en cada intercambio viajan un libro, una historia y una conversación.",
                       )}
                 </p>
                 <button
@@ -700,7 +699,7 @@ export default function WanderbibliothekApp({
                         aria-pressed={filters.scope === "region"}
                         onClick={() => navigate({ scope: "region", page: 1 })}
                       >
-                        {t("Toda Alemania")}
+                        {t("Toda Europa")}
                       </button>
                       <button
                         type="button"
@@ -1062,7 +1061,7 @@ export default function WanderbibliothekApp({
                           onClick={() => navigate({ radius, page: 1 })}
                         >
                           {radius === 0
-                            ? t("Toda Alemania")
+                            ? t("Sin límite")
                             : t("Hasta {n} km", { n: radius })}
                         </button>
                       ))}

@@ -53,9 +53,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${book.title} — ${book.author}`,
     description: pick(locale, {
-      es: `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en toda Alemania.`,
-      de: `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in ganz Deutschland.`,
-      en: `Discussion and available copies of «${book.title}» by ${book.author} across Germany.`,
+      es: `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en toda Europa.`,
+      de: `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in ganz Europa.`,
+      en: `Discussion and available copies of «${book.title}» by ${book.author} across Europe.`,
     }),
     alternates: { canonical: `/obra/${canonicalId}` },
     openGraph: {
@@ -200,7 +200,7 @@ export default async function Page({ params }: PageProps) {
         <div className="feed-header">
           <div>
             <strong id="copies-title">{t("Ejemplares disponibles")}</strong>
-            <span>{t("Este mismo libro en manos de otras personas de toda Alemania")}</span>
+            <span>{t("Este mismo libro en manos de otras personas de toda Europa")}</span>
           </div>
         </div>
         {copies.length === 0 ? (

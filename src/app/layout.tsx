@@ -16,9 +16,9 @@ export const viewport: Viewport = { themeColor: "#2f5741" };
 const SITE_TITLE = {
   // El título es lo que se ve en Google: lleva la consulta («Bücher tauschen»),
   // no solo el eslogan. La marca se añade con el `template` de las subpáginas.
-  de: `Bücher tauschen und teilen in Deutschland | ${BRAND}`,
-  es: `Intercambiar y compartir libros en Alemania | ${BRAND}`,
-  en: `Swap and share books in Germany | ${BRAND}`,
+  de: `Bücher tauschen und teilen in Europa | ${BRAND}`,
+  es: `Intercambiar y compartir libros en Europa | ${BRAND}`,
+  en: `Swap and share books in Europe | ${BRAND}`,
 } as const;
 
 const SITE_DESCRIPTION = {

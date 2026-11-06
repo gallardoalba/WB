@@ -4,9 +4,12 @@ import { normalizeText } from "./text";
 export type City = { name: string; lat: number; lng: number };
 
 /**
- * Ciudades de toda Alemania con coordenadas reales (GeoNames vía Open-Meteo).
- * La plataforma solo guarda la ciudad de cada persona, nunca la dirección ni el
- * distrito. La lista es cerrada para poder calcular distancias y validar.
+ * Ciudades con coordenadas reales (GeoNames vía Open-Meteo) para calcular
+ * distancias.
+ *
+ * La plataforma se dirige a toda Europa y hoy la lista es de ciudades alemanas:
+ * son los ejemplares que hay. La lista es cerrada para poder calcular distancias
+ * y validar; crece añadiendo filas.
  */
 export const CITIES: City[] = [
   { name: "Aachen", lat: 50.7766, lng: 6.0834 }, { name: "Aalen", lat: 48.8378, lng: 10.0933 },
@@ -73,11 +76,17 @@ export const CITIES: City[] = [
   { name: "Zwickau", lat: 50.7272, lng: 12.4884 },
 ];
 
-/** Nombre del país en cada idioma (la plataforma cubre toda Alemania). */
+/**
+ * Ámbito de la plataforma, en cada idioma. La plataforma se dirige a toda
+ * Europa; el catálogo de ciudades tiene hoy las alemanas porque es de donde
+ * salen los ejemplares reales (GeoNames vía Open-Meteo). Añadir un país es añadir
+ * filas a `CITIES`, que es la lista cerrada con la que se calculan distancias y
+ * se valida la ciudad de cada persona.
+ */
 export const COUNTRY_NAMES = {
-  es: "Alemania",
-  de: "Deutschland",
-  en: "Germany",
+  es: "Europa",
+  de: "Europa",
+  en: "Europe",
 } as const;
 
 /** Compatibilidad con textos que aún no pasan por el diccionario. */

@@ -148,12 +148,12 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds 123 cities in Germany and `city_distances` the precomputed distance matrix.",
+            "`cities` holds 123 cities and `city_distances` the precomputed distance matrix.",
           ],
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v40) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to the whole of Germany again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail.",
+          text: "Migrations are versioned with `PRAGMA user_version` (current: v40) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail.",
         },
         {
           kind: "p",

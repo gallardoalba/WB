@@ -1008,7 +1008,7 @@ export function ExchangeDialog({
                   </li>
                   <li>
                     {t(
-                      "Hay más de 19 000 Packstations y Poststations en Alemania y, en casi todas, puedes recoger a cualquier hora.",
+                      "DHL tiene más de 19 000 puntos Packstation y Poststation, y en casi todos puedes recoger a cualquier hora.",
                     )}
                   </li>
                   <li>
