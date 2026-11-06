@@ -204,11 +204,7 @@ fun ListingDetailScreen(
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             Text(
-                                text = if (listing.distanceKm != null) {
-                                    "${listing.city} · ${texts.format("distance", Fmt.distance(listing.distanceKm, lang))}"
-                                } else {
-                                    listing.city
-                                },
+                                text = listing.city,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

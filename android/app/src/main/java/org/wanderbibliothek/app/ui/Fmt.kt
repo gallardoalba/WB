@@ -67,8 +67,4 @@ object Fmt {
     fun number(value: Int, lang: String): String =
         NumberFormat.getIntegerInstance(locale(lang)).format(value)
 
-    fun distance(km: Double, lang: String): String {
-        val rounded = if (km < 10) String.format(locale(lang), "%.1f", km) else km.toInt().toString()
-        return rounded.replace('.', ',')
-    }
 }

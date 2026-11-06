@@ -51,7 +51,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.wanderbibliothek.app.data.ImageUrl
 import org.wanderbibliothek.app.data.Listing
-import org.wanderbibliothek.app.ui.Fmt
 import org.wanderbibliothek.app.ui.Labels
 import org.wanderbibliothek.app.ui.Texts
 import java.net.HttpURLConnection
@@ -254,13 +253,7 @@ fun ListingCard(
                     Pill(Labels.of(listing.condition, lang))
                 }
                 Text(
-                    text = buildString {
-                        append(listing.city)
-                        listing.distanceKm?.let {
-                            append(" · ")
-                            append(texts.format("distance", Fmt.distance(it, lang)))
-                        }
-                    },
+                    text = listing.city,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

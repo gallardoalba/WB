@@ -90,7 +90,6 @@ object TextCatalog {
         "clearFilters" to "Filter zurücksetzen",
         "results" to "%1\$s Bücher",
         "condition" to "Zustand",
-        "distance" to "%1\$s km entfernt",
         "offers" to "%1\$d Angebote",
 
         // Ficha del ejemplar
@@ -388,7 +387,6 @@ object TextCatalog {
         "clearFilters" to "Quitar filtros",
         "results" to "%1\$s libros",
         "condition" to "Estado",
-        "distance" to "a %1\$s km",
         "offers" to "%1\$d ofertas",
 
         "byAuthor" to "de %1\$s",
@@ -673,7 +671,6 @@ object TextCatalog {
         "clearFilters" to "Clear filters",
         "results" to "%1\$s books",
         "condition" to "Condition",
-        "distance" to "%1\$s km away",
         "offers" to "%1\$d offers",
         "byAuthor" to "by %1\$s",
         "owner" to "Offered by %1\$s",
