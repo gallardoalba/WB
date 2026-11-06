@@ -37,7 +37,11 @@ export function BookCoverUpload({
     event.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError(t("Elige un archivo de imagen (JPEG, PNG, WebP o GIF)."));
+      setError(t("La portada tiene que ser un archivo JPG."));
+      return;
+    }
+    if (file.type !== "image/jpeg" && !/\.jpe?g$/i.test(file.name)) {
+      setError(t("La portada tiene que ser un archivo JPG."));
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -91,7 +95,7 @@ export function BookCoverUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,.jpg,.jpeg"
         className="sr-only"
         onChange={upload}
         tabIndex={-1}
@@ -111,7 +115,7 @@ export function BookCoverUpload({
         </button>
       )}
       <p className="cover-upload-hint">
-        {t("Si nadie tiene la portada, sube una foto tuya (JPEG, PNG o WebP, máx. 4 MB).")}
+        {t("Si nadie tiene la portada, sube una foto tuya en JPG (máx. 4 MB).")}
       </p>
       {feedback && (
         <p className="action-feedback" role="status">

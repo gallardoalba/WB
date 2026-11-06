@@ -15,6 +15,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { BookCoverUpload } from "./book-cover-upload";
 import { CityField } from "./city-field";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useI18n } from "./i18n-provider";
@@ -29,6 +30,10 @@ import {
 
 type Props = {
   listingId: string;
+  /** Obra a la que pertenece el ejemplar: la portada subida es de la obra. */
+  bookId: string;
+  /** Ya hay una portada subida a mano (se puede quitar). */
+  hasUploadedCover: boolean;
   listingTitle: string;
   status: ListingStatus;
   isMine: boolean;
@@ -44,6 +49,8 @@ type Props = {
 
 export function ListingActions({
   listingId,
+  bookId,
+  hasUploadedCover,
   listingTitle,
   status,
   isMine,
@@ -267,6 +274,13 @@ export function ListingActions({
                 {t("Guardar cambios")}
               </button>
             </form>
+
+            {/* La portada no forma parte del formulario: se sube al momento, no
+                al guardar, y puede quitarse para volver a la del ISBN. */}
+            <div className="edit-cover">
+              <p className="edit-cover-title">{t("Portada del libro")}</p>
+              <BookCoverUpload bookId={bookId} hasUploaded={hasUploadedCover} />
+            </div>
           </details>
         </div>
       ) : myRequestStatus ? (

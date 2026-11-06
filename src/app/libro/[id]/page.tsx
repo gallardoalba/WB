@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { MapPin, MessageCircle } from "lucide-react";
 import { BookCover } from "@/components/book-cover";
-import { BookCoverUpload } from "@/components/book-cover-upload";
 import { ListingActions } from "@/components/listing-actions";
 import { SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
@@ -67,13 +66,6 @@ export default async function Page({ params }: PageProps) {
           <span className="condition-tag">{t(listing.condition)}</span>
         </div>
 
-        {listing.isMine && (
-          <BookCoverUpload
-            bookId={listing.bookId}
-            hasUploaded={listing.coverUrl?.startsWith("/api/cover/book/") ?? false}
-          />
-        )}
-
         <div className="book-detail-info">
           <span className="book-category">{t(listing.category)}</span>
           <h1>{listing.title}</h1>
@@ -129,6 +121,8 @@ export default async function Page({ params }: PageProps) {
 
           <ListingActions
             listingId={listing.id}
+            bookId={listing.bookId}
+            hasUploadedCover={listing.coverUrl?.startsWith("/api/cover/book/") ?? false}
             listingTitle={listing.title}
             status={listing.status}
             isMine={listing.isMine}

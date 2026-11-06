@@ -591,3 +591,28 @@
   font-size: 13px;
   line-height: 1.45;
 }
+
+/* Portada dentro del bloque de edición del ejemplar. */
+.edit-cover {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.edit-cover-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* `.cover-upload` colocaba la portada en la rejilla de la ficha; dentro de la
+   edición no hay rejilla y esas pistas la dejarían en la fila 2. */
+.edit-cover .cover-upload {
+  grid-column: auto;
+  grid-row: auto;
+  margin-top: 0;
+}

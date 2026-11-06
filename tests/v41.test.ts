@@ -24,6 +24,13 @@ function pngDe(bytes: number): Buffer {
   return buffer;
 }
 
+/** JPG de mentira: la firma `FF D8 FF` es lo único que se mira. */
+function jpegDe(bytes: number): Buffer {
+  const buffer = Buffer.alloc(bytes, 0x20);
+  Buffer.from([0xff, 0xd8, 0xff, 0xe0]).copy(buffer, 0);
+  return buffer;
+}
+
 function cacheNueva(): string {
   const dir = mkdtempSync(path.join(tmpdir(), "wb-covers-"));
   process.env.WANDERBIBLIOTHEK_COVER_CACHE = dir;
@@ -135,15 +142,18 @@ test("el título se prueba entero, sin volumen y sin subtítulo", () => {
 
 test("una portada subida se guarda y se lee como imagen", () => {
   const dir = cacheNueva();
-  assert.equal(covers.saveUploadedCover("../../etc", pngDe(2_000)), null, "id raro");
+  assert.equal(covers.saveUploadedCover("../../etc", jpegDe(2_000)), null, "id raro");
   assert.equal(covers.saveUploadedCover("bok_1", Buffer.from("no soy una imagen")), null);
+  // Solo JPG: un PNG con firma válida tampoco entra (lo dice la interfaz y lo
+  // vuelve a comprobar el servidor por los primeros bytes).
+  assert.equal(covers.saveUploadedCover("bok_1", pngDe(2_000)), null, "solo JPG");
 
-  const saved = covers.saveUploadedCover("bok_1", pngDe(2_000));
-  assert.equal(saved?.contentType, "image/png");
+  const saved = covers.saveUploadedCover("bok_1", jpegDe(2_000));
+  assert.equal(saved?.contentType, "image/jpeg");
   assert.deepEqual(readdirSync(dir), ["upload-bok_1.img"]);
 
   const read = covers.readUploadedCover("bok_1");
-  assert.equal(read?.contentType, "image/png");
+  assert.equal(read?.contentType, "image/jpeg");
   assert.equal(read?.data.length, 2_000);
 
   covers.removeUploadedCover("bok_1");
@@ -152,7 +162,7 @@ test("una portada subida se guarda y se lee como imagen", () => {
 
 test("la limpieza de la caché no borra las portadas subidas", () => {
   const dir = cacheNueva();
-  covers.saveUploadedCover("bok_2", pngDe(2_000));
+  covers.saveUploadedCover("bok_2", jpegDe(2_000));
   // Una portada cacheada y una marca de ausencia antiguas.
   writeFileSync(path.join(dir, "9788420412146.img"), pngDe(2_000));
   writeFileSync(path.join(dir, "9788420412146.miss"), "");

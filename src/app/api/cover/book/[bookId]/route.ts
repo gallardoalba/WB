@@ -82,7 +82,7 @@ export async function PUT(
     if (!saved) {
       throw new ApiError(
         422,
-        "El archivo no es una imagen válida: sube un JPEG, PNG, WebP o GIF de al menos 1 KB.",
+        "El archivo no es un JPG válido o pesa menos de 1 KB: sube una foto en JPG (máximo 4 MB).",
       );
     }
 

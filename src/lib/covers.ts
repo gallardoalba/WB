@@ -459,10 +459,23 @@ export function readUploadedCover(bookId: string): Cover | null {
   }
 }
 
+/**
+ * Las portadas subidas por las personas son JPG, y solo JPG.
+ *
+ * Se comprueba por los primeros bytes (`FF D8 FF`), no por la extensión ni por
+ * el `Content-Type` declarado: los dos los elige quien sube el archivo. Es la
+ * misma regla que enseña la interfaz, así que no hay dos políticas.
+ */
+export function isJpegCover(data: Buffer): boolean {
+  return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+}
+
 export function saveUploadedCover(bookId: string, data: Buffer): Cover | null {
   const file = uploadedCoverPath(bookId);
   const contentType = sniffImageType(data);
-  if (!file || !contentType) return null;
+  // Una sola política para la interfaz y para el servidor: JPG. Se mira el
+  // contenido, no la extensión ni el `Content-Type`, que los pone quien sube.
+  if (!file || !contentType || !isJpegCover(data)) return null;
   if (data.length < MIN_BYTES || data.byteLength > MAX_BYTES) return null;
   mkdirSync(coverCacheDir(), { recursive: true, mode: 0o700 });
   writeFileSync(file, data, { mode: 0o600 });

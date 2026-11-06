@@ -8,9 +8,27 @@ import { api } from "@/lib/client-api";
 import { CATEGORIES, CONDITIONS, BOOK_LANGUAGES, tagsForCategory } from "@/lib/domain";
 import { coverFromIsbn, isValidIsbn, normalizeIsbn } from "@/lib/text";
 import { CityField } from "./city-field";
+import { CoverFilePicker } from "./cover-file-picker";
 import { useI18n } from "./i18n-provider";
 
 const MAX_TAGS = 3;
+
+/**
+ * Sube la portada de una obra recién creada. El cuerpo va en crudo con
+ * `image/jpeg`; el servidor comprueba los primeros bytes, no lo declarado.
+ */
+async function uploadCover(bookId: string, file: File): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/cover/book/${bookId}`, {
+      method: "PUT",
+      headers: { "content-type": "image/jpeg" },
+      body: file,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 /** Ficha que ya existe en el catálogo con ese ISBN exacto. */
 type KnownBook = { id: string; title: string; author: string; category: string };
@@ -66,6 +84,12 @@ export function OfferForm({
   // Libros sin ISBN (antiguos, de autor, folletos): el campo se reserva y la
   // ficha se escribe a mano, sin datos de ningún catálogo.
   const [noIsbn, setNoIsbn] = useState(false);
+  // Portada elegida a mano. Se sube después de crear la obra: antes no hay
+  // `bookId` al que asociarla.
+  const [cover, setCover] = useState<File | null>(null);
+  // Si la obra se creó pero la portada no subió, se queda el id para no enviar
+  // el formulario otra vez (crearía un ejemplar duplicado) y poder enlazarlo.
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const authorRef = useRef<HTMLInputElement>(null);
   const lookupSeq = useRef(0);
@@ -206,21 +230,38 @@ export function OfferForm({
     setPending(true);
     setError("");
     try {
-      const result = await api<{ demand: number }>("/api/listings", {
-        method: "POST",
-        body: {
-          title: form.get("title"),
-          author: form.get("author"),
-          // Género e idioma salen del estado: cuando los pone el ISBN el
-          // desplegable está deshabilitado y `FormData` no los incluiría.
-          category,
-          language,
-          condition: form.get("condition"),
-          isbn: noIsbn ? undefined : form.get("isbn") || undefined,
-          city: form.get("city"),
-          tags: form.getAll("tags").map(String),
+      const result = await api<{ listing: { id: string; bookId: string }; demand: number }>(
+        "/api/listings",
+        {
+          method: "POST",
+          body: {
+            title: form.get("title"),
+            author: form.get("author"),
+            // Género e idioma salen del estado: cuando los pone el ISBN el
+            // desplegable está deshabilitado y `FormData` no los incluiría.
+            category,
+            language,
+            condition: form.get("condition"),
+            isbn: noIsbn ? undefined : form.get("isbn") || undefined,
+            city: form.get("city"),
+            tags: form.getAll("tags").map(String),
+          },
         },
-      });
+      );
+
+      if (cover) {
+        const uploaded = await uploadCover(result.listing.bookId, cover);
+        if (!uploaded) {
+          setCreatedListingId(result.listing.id);
+          setError(
+            t(
+              "El libro ya está publicado, pero la portada no se pudo subir. Puedes añadirla desde su ficha.",
+            ),
+          );
+          return;
+        }
+      }
+
       onCreated(result.demand);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo publicar el libro."));
@@ -326,6 +367,8 @@ export function OfferForm({
             </p>
           )}
         </div>
+
+        <CoverFilePicker file={cover} onChange={setCover} />
 
         <div className="form-row">
           <div className="field">
@@ -454,9 +497,19 @@ export function OfferForm({
           </p>
         )}
 
+        {createdListingId && (
+          <p className="form-hint">
+            <Link href={`/libro/${createdListingId}`}>{t("Ver la ficha del libro")}</Link>
+          </p>
+        )}
+
         <div className="offer-actions">
           <small>{t("Al publicar, confirmas que tienes derecho a compartir este ejemplar físico.")}</small>
-          <button className="share-button form-submit" type="submit" disabled={pending}>
+          <button
+            className="share-button form-submit"
+            type="submit"
+            disabled={pending || Boolean(createdListingId)}
+          >
             {pending ? t("Publicando…") : t("Publicar libro")}
             {!pending && <ArrowRight size={16} />}
           </button>

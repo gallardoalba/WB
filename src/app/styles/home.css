@@ -822,3 +822,38 @@
   min-width: 180px;
   margin: 0;
 }
+
+/* Elección de portada al publicar: solo guarda el archivo, la subida va después
+   de crear la obra (antes no hay `bookId` al que asociarla). */
+.cover-picker {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.cover-picker-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cover-picker-preview img {
+  width: 56px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--paper-sunk);
+}
+
+.cover-picker-name {
+  max-width: 32ch;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cover-picker .form-hint {
+  margin: 0;
+}
