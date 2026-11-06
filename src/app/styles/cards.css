@@ -331,17 +331,19 @@
    12,5 px en mayúsculas competía con el nombre de quien escribió el libro; a
    10 px es una etiqueta, no un dato que compita por la atención. */
 .book-details .book-category {
+  margin-bottom: 2px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
 
 /* El título abre la tarjeta: es lo que se busca al recorrer el catálogo, así
-   que pesa más que la autoría y que el género que van debajo. */
+   que pesa más que la autoría y que el género que van debajo. Sin altura
+   mínima: reservar dos líneas dejaba un renglón en blanco bajo los títulos
+   cortos, y las tarjetas ya se alinean por abajo con la fila de quien publica. */
 .book-details h3 {
   display: -webkit-box;
-  min-height: 44px;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;

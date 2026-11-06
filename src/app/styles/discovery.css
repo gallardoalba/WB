@@ -10,11 +10,14 @@
 }
 
 /* En las tarjetas del catálogo la fila de etiquetas ocupa siempre una sola
-   línea: así todas las tarjetas de la rejilla alinean título, persona y botón. */
+   línea: así todas las tarjetas de la rejilla alinean título, persona y botón.
+   El margen separa las etiquetas de la línea que abre la fila de quien
+   publica; sin él quedaban pegadas al borde. */
 .tag-row-cards {
   flex-wrap: nowrap;
   align-items: center;
   min-height: 22px;
+  margin-bottom: 10px;
   overflow: hidden;
 }
 
