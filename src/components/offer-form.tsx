@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { prepareCover } from "@/lib/cover-image";
 import { CATEGORIES, CONDITIONS, BOOK_LANGUAGES, tagsForCategory } from "@/lib/domain";
 import { coverFromIsbn, isValidIsbn, normalizeIsbn } from "@/lib/text";
 import { CityField } from "./city-field";
@@ -14,15 +15,18 @@ import { useI18n } from "./i18n-provider";
 const MAX_TAGS = 3;
 
 /**
- * Sube la portada de una obra recién creada. El cuerpo va en crudo con
- * `image/jpeg`; el servidor comprueba los primeros bytes, no lo declarado.
+ * Sube la portada de una obra recién creada. La foto se reduce antes en el
+ * navegador (una del móvil ocupa 8 MB y el servidor acepta 4), el cuerpo va en
+ * crudo con `image/jpeg` y el servidor comprueba los primeros bytes, no lo
+ * declarado.
  */
 async function uploadCover(bookId: string, file: File): Promise<boolean> {
   try {
+    const prepared = await prepareCover(file);
     const response = await fetch(`/api/cover/book/${bookId}`, {
       method: "PUT",
       headers: { "content-type": "image/jpeg" },
-      body: file,
+      body: prepared,
     });
     return response.ok;
   } catch {

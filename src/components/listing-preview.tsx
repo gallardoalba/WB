@@ -20,7 +20,7 @@ export function ListingPreview({
   onClose: () => void;
   onLogin: () => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   if (!listing) return null;
 
   return (
@@ -46,7 +46,6 @@ export function ListingPreview({
           <p className="preview-line">
             <MapPin size={14} />
             {listing.city}
-            {listing.distanceKm !== null && ` · ${listing.distanceKm.toLocaleString(locale)} km`}
           </p>
           {listing.tags.length > 0 && (
             <p className="preview-tags">

@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { ImagePlus, Trash2 } from "lucide-react";
+import { MAX_SOURCE_BYTES } from "@/lib/cover-image";
 import { useI18n } from "./i18n-provider";
-
-const MAX_BYTES = 4 * 1024 * 1024;
 
 /**
  * Elegir la portada antes de publicar.
@@ -43,8 +42,9 @@ export function CoverFilePicker({
     if (!chosen) return;
 
     setError("");
-    if (chosen.size > MAX_BYTES) {
-      setError(t("La imagen pesa demasiado (máximo 4 MB)."));
+    // Una foto de móvil puede pesar 10 MB: no se rechaza, se reduce al subirla.
+    if (chosen.size > MAX_SOURCE_BYTES) {
+      setError(t("La imagen es demasiado grande para procesarla (máximo 25 MB)."));
       onChange(null);
       return;
     }
@@ -94,7 +94,9 @@ export function CoverFilePicker({
         </p>
       )}
       <small className="form-hint">
-        {t("Opcional. Sin portada se usa la del ISBN, si existe. Solo JPG, máximo 4 MB.")}
+        {t(
+          "Opcional. Sin portada se usa la del ISBN, si existe. Solo JPG; si la foto es muy grande, se reduce sola.",
+        )}
       </small>
     </div>
   );

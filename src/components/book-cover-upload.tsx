@@ -3,9 +3,8 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Trash2 } from "lucide-react";
+import { prepareCover, MAX_SOURCE_BYTES } from "@/lib/cover-image";
 import { useI18n } from "./i18n-provider";
-
-const MAX_BYTES = 4 * 1024 * 1024;
 
 /**
  * Subir la portada de una obra.
@@ -44,8 +43,8 @@ export function BookCoverUpload({
       setError(t("La portada tiene que ser un archivo JPG."));
       return;
     }
-    if (file.size > MAX_BYTES) {
-      setError(t("La imagen pesa demasiado (máximo 4 MB)."));
+    if (file.size > MAX_SOURCE_BYTES) {
+      setError(t("La imagen es demasiado grande para procesarla (máximo 25 MB)."));
       return;
     }
 
@@ -53,10 +52,12 @@ export function BookCoverUpload({
     setError("");
     setFeedback("");
     try {
+      // La foto se reduce en el navegador: el servidor solo acepta JPG de 4 MB.
+      const prepared = await prepareCover(file);
       const response = await fetch(`/api/cover/book/${bookId}`, {
         method: "PUT",
-        headers: { "content-type": file.type || "application/octet-stream" },
-        body: file,
+        headers: { "content-type": "image/jpeg" },
+        body: prepared,
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -115,7 +116,9 @@ export function BookCoverUpload({
         </button>
       )}
       <p className="cover-upload-hint">
-        {t("Si nadie tiene la portada, sube una foto tuya en JPG (máx. 4 MB).")}
+        {t(
+          "Si nadie tiene la portada, sube una foto tuya en JPG; si es muy grande, se reduce sola.",
+        )}
       </p>
       {feedback && (
         <p className="action-feedback" role="status">

@@ -6,7 +6,7 @@ import { ArrowRight, MapPin } from "lucide-react";
 import { BookCover } from "./book-cover";
 import type { ListingView } from "@/lib/domain";
 import type { MessageKey } from "@/lib/i18n";
-import { formatDistance, initialsOf, toneForId } from "@/lib/text";
+import { initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 
 const STATUS_RIBBON: Record<string, MessageKey> = {
@@ -25,7 +25,7 @@ export function ListingCard({
   actions?: ReactNode;
   onPreview?: () => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const preview = (event: React.MouseEvent) => {
     if (!onPreview) return;
     event.preventDefault();
@@ -98,7 +98,6 @@ export function ListingCard({
           <span className="distance">
             <MapPin size={12} />
             {listing.city}
-            {listing.distanceKm !== null && ` · ${formatDistance(listing.distanceKm, locale)}`}
           </span>
         </div>
         <Link href={`/libro/${listing.id}`} className="request-button" onClick={preview}>
