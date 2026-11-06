@@ -1,11 +1,54 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { ArrowDownUp, ArrowRight, BookOpen, MessageCircle } from "lucide-react";
 import { REQUEST_STATUS_LABELS, type RequestView } from "@/lib/domain";
 import { formatWhen, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 import { EmptyState } from "./empty-state";
+
+/**
+ * Miniatura de la portada en la fila del intercambio.
+ *
+ * Muchos ISBN no tienen imagen: el servidor responde 404 y el navegador pintaba
+ * el icono de «imagen rota». Aquí se sustituye por el mismo libro dibujado que
+ * se usa cuando no hay portada, y el hueco entero lleva a la ficha.
+ */
+function MiniCover({ listing }: { listing: RequestView["listing"] }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <Link
+      href={`/libro/${listing.id}`}
+      className={`mini-cover tone-${toneForId(listing.id)}`}
+      // La fila ya tiene el enlace del título: este solo ahorra apuntar fino.
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      {listing.coverUrl && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={listing.coverUrl}
+          alt=""
+          // La imagen viaja en el HTML del servidor y puede fallar (404) antes
+          // de que React enganche `onError`: ahí el evento no llega nunca. Con
+          // esta comprobación al montar, el hueco se sustituye igualmente.
+          ref={(node) => {
+            if (node && node.complete && node.naturalWidth === 0) setFailed(true);
+          }}
+          onError={() => setFailed(true)}
+          onLoad={(event) => {
+            // Algunos proveedores contestan 200 con una imagen 1×1.
+            const image = event.currentTarget;
+            if (image.naturalWidth < 20 || image.naturalHeight < 30) setFailed(true);
+          }}
+        />
+      ) : (
+        <BookOpen size={18} aria-hidden />
+      )}
+    </Link>
+  );
+}
 
 /** Siguiente paso que corresponde a quien mira, si lo hay. */
 function nextAction(request: RequestView, t: (text: string) => string): string | null {
@@ -56,14 +99,7 @@ export function ExchangesList({
         const lastActivity = request.lastMessageAt ?? request.updatedAt;
         return (
         <article className="exchange-row" key={request.id}>
-          <div className={`mini-cover tone-${toneForId(request.listing.id)}`}>
-            {request.listing.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={request.listing.coverUrl} alt="" />
-            ) : (
-              <BookOpen size={18} />
-            )}
-          </div>
+          <MiniCover listing={request.listing} />
           <div className="exchange-info">
             <strong>
               <Link href={`/libro/${request.listing.id}`} className="card-link">

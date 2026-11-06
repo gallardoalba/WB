@@ -132,7 +132,7 @@
   border-radius: var(--radius-xs);
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -152,7 +152,7 @@
 .listing-form label,
 .listing-form .field > label {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -173,8 +173,47 @@
 
 .isbn-field > label {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
+}
+
+/* Salida para los libros sin ISBN (antiguos, de autor, folletos): una casilla
+   discreta bajo el campo, no un segundo botón que compita con el formulario.
+   Necesita dos clases para no perder contra `.listing-form label` (que pone las
+   etiquetas en columna). */
+.listing-form .no-isbn-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  min-height: 24px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.no-isbn-toggle:hover {
+  color: var(--ink-soft);
+}
+
+/* `.listing-form input` da 44 px de alto y ancho completo: la casilla necesita
+   ganarle por especificidad, no por orden de aparición. */
+.listing-form .no-isbn-toggle input {
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+/* Campo reservado: se ve que está ahí, pero no se puede escribir. */
+.isbn-input-row > input:disabled {
+  background: var(--paper);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 /* ISBN, botón de escáner y vista previa de la portada en una sola fila. */
@@ -272,7 +311,7 @@
 
 .city-list-empty {
   padding: 9px var(--space-2);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted-2);
 }
 
@@ -333,7 +372,7 @@
   border-radius: var(--radius-sm);
   background: var(--coral-soft);
   color: var(--coral);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -342,7 +381,7 @@
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .checkbox-row input {
@@ -354,7 +393,7 @@
 .form-hint {
   margin: 14px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -396,13 +435,13 @@
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .inbox-copy p {
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-style: italic;
   line-height: 1.5;
 }
@@ -447,7 +486,7 @@
 .message-author {
   display: block;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .message p {
@@ -501,7 +540,7 @@
 
 .handover-card strong {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -533,7 +572,7 @@
 .handover-code p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -567,7 +606,7 @@
   display: grid;
   gap: 5px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -596,7 +635,7 @@
   border-radius: var(--radius-sm);
   background: var(--paper-sunk);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .encryption-note {
@@ -605,7 +644,7 @@
   align-items: center;
   margin: 12px 0 0;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .key-warning {
@@ -617,7 +656,7 @@
   border-radius: var(--radius-sm);
   background: var(--coral-soft);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .key-warning p {
@@ -635,7 +674,7 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -648,7 +687,7 @@
 .message-report-form label {
   display: block;
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -660,7 +699,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .message-report-actions {
@@ -686,13 +725,13 @@
 
 .profile-facts dt {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .profile-facts dd {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
@@ -727,14 +766,14 @@
   background: var(--green-pale);
   color: var(--green-strong);
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   vertical-align: middle;
 }
 
 .profile-stats span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .hp-field {
@@ -751,7 +790,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--paper-sunk);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.08em;
   word-break: break-all;
 }
@@ -772,7 +811,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--ink-soft);
 }
@@ -814,7 +853,7 @@
   border-radius: var(--radius-sm);
   background: var(--paper-sunk);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -871,7 +910,7 @@
   display: block;
   margin-top: 4px;
   color: var(--muted-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .dm-unreadable {
@@ -879,7 +918,7 @@
   gap: 6px;
   align-items: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-style: italic;
 }
 
@@ -887,7 +926,7 @@
   margin: 0;
   padding: 14px 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
 }
 
@@ -937,7 +976,7 @@
   border-radius: var(--radius-pill);
   background: var(--coral);
   color: var(--on-fill);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
 }
 
@@ -989,7 +1028,7 @@
   border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -1035,7 +1074,7 @@
   margin-bottom: 6px !important;
   color: var(--muted);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -1048,7 +1087,7 @@
 .post-label-sender {
   margin-top: 8px !important;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .shipping-form {
@@ -1068,7 +1107,7 @@
   border-radius: var(--radius-sm);
   background: var(--green-pale);
   color: var(--green-strong);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1088,7 +1127,7 @@
   display: grid;
   gap: 4px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1107,7 +1146,7 @@
 
 .shipping-form small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
 }
 
@@ -1166,7 +1205,7 @@
   margin: 8px 0 6px;
   padding-left: 18px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -1184,12 +1223,12 @@
 .handover-code-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .handover-code-card .post-label-service {
   margin: 0 !important;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.12em;
 }
 
@@ -1211,7 +1250,7 @@
 .fingerprint-title {
   margin: 0 0 4px;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -1248,7 +1287,7 @@
 
 .fingerprint-list dt {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .fingerprint-list dd {

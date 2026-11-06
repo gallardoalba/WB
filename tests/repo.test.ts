@@ -283,3 +283,45 @@ test("al eliminar la cuenta se borran las notas personales de sus ejemplares", (
     .get(user.id) as { value: number };
   assert.equal(row.value, 0);
 });
+
+test("un libro sin ISBN se publica a mano y se agrupa por título y autoría", () => {
+  // Caso real: un libro antiguo o un folleto. No hay ISBN, así que no hay
+  // portada de catálogo; la ficha se escribe a mano y dos ejemplares del mismo
+  // título y la misma autoría comparten obra (sin pasar por `books.isbn`).
+  const first = repo.createUser({
+    name: "Primera sin ISBN",
+    email: "sin-isbn-1@wanderbibliothek.test",
+    city: "Leipzig",
+    passwordHash: "scrypt$00$00",
+  });
+  const second = repo.createUser({
+    name: "Segunda sin ISBN",
+    email: "sin-isbn-2@wanderbibliothek.test",
+    city: "Leipzig",
+    passwordHash: "scrypt$00$00",
+  });
+
+  const mine = repo.createListing(first.id, {
+    title: "Cuaderno de campo",
+    author: "Autora Local",
+    category: "Ficción",
+    condition: "Buen estado",
+    isbn: null,
+    city: "Leipzig",
+    tags: [],
+  });
+  assert.equal(mine.isbn, null);
+  assert.equal(mine.coverUrl, null);
+  assert.equal(mine.status, "available");
+
+  const other = repo.createListing(second.id, {
+    title: "  cuaderno de CAMPO ",
+    author: "Autora Local",
+    category: "Ficción",
+    condition: "Como nuevo",
+    isbn: null,
+    city: "Leipzig",
+    tags: [],
+  });
+  assert.equal(other.bookId, mine.bookId, "mismo título y autoría: misma obra");
+});

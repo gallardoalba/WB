@@ -18,7 +18,7 @@ The platform is deliberately built as a counter-model to commercial marketplaces
 
 ## Principles
 
-**Reciprocity.** Whoever gives a book away gets one back. There is no currency, no balance and no points pushing anyone to trade more, only the expectation that you give too.
+**Reciprocity.** Whoever gives a book away makes room for another one. This is not a one-to-one swap: anyone can ask for any copy and whoever owns it decides, so what one person gives today another person receives tomorrow. There is no currency, no balance and no points pushing anyone to trade more, only the expectation that you give too.
 
 **Free of charge.** No fees, no premium tier, no advertising, no handing data to third parties. What the platform does not cost it does not need to earn, and what it does not earn it cannot sell.
 

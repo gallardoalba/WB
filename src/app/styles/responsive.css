@@ -47,6 +47,25 @@
   }
 }
 
+/* Cuatro cifras seguidas piden ~190 px por columna: por debajo, rótulos como
+   «Registrierte Leser:innen» parten en dos líneas y la fila queda irregular
+   (una cifra con rótulo de una línea y otra con dos). En esa franja se pasa a
+   dos columnas, que siguen centradas. */
+@media (max-width: 1190px) {
+  .hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .hero-stat + .hero-stat {
+    border-left: 0;
+  }
+
+  .hero-stat:nth-child(2n) {
+    border-left: 1px solid var(--line);
+  }
+}
+
 @media (max-width: 768px) {
   .app-shell {
     display: block;
@@ -57,8 +76,11 @@
   }
 
   .topbar {
-    height: 60px;
-    padding: 0 16px;
+    /* Alto mínimo, no alto fijo: si el buscador necesita su línea, la cabecera
+       crece con él en vez de dejarle el campo fuera del borde. */
+    height: auto;
+    min-height: 60px;
+    padding: 8px 16px;
   }
 
   .topbar .topbar-home {
@@ -72,6 +94,12 @@
   /* En el móvil el buscador ocupa el hueco de la miga de pan: llegar a buscar
      no debería costar dos toques. */
   .topbar .breadcrumb {
+    display: none;
+  }
+
+  /* La marca se queda en su símbolo: el nombre a texto robaba al buscador
+     cien píxeles que necesita para no quedarse en dos palabras. */
+  .topbar .mobile-brand > span:last-child {
     display: none;
   }
 
@@ -99,7 +127,7 @@
 
   .eyebrow {
     padding: 4px 8px;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.05em;
   }
 
@@ -113,7 +141,7 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     overflow: hidden;
-    font-size: 13.5px;
+    font-size: 14.5px;
     line-height: 1.45;
   }
 
@@ -122,8 +150,8 @@
     margin-top: 10px;
   }
 
-  /* Cuatro cifras en dos filas cuando la columna se estrecha: la regla pasa a
-     separar solo las dos columnas de cada fila. */
+  /* Cuatro cifras en dos filas y alineadas a la izquierda: en una tarjeta
+     estrecha, centradas quedaban flotando. */
   .hero-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 12px;
@@ -147,6 +175,18 @@
 
   .hero-stat strong {
     font-size: 24px;
+  }
+
+  /* Los tres pasos, en vertical: en horizontal cada columna se queda con seis
+     palabras por renglón. */
+  .how-it-works {
+    margin-top: 18px;
+    padding: 16px 18px;
+  }
+
+  .how-it-works ol {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
 
   .section-heading {
@@ -304,7 +344,7 @@
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 10.5px;
+    font-size: 11px;
     line-height: 1.15;
     text-align: center;
     /* Si una etiqueta no cabe, ocupa dos líneas antes que cortarse con puntos
@@ -339,7 +379,7 @@
     border: 0;
     background: transparent;
     color: var(--green-strong);
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 700;
   }
 
@@ -351,6 +391,40 @@
     border-radius: 50%;
     background: var(--green-fill);
     color: var(--on-fill);
+  }
+}
+
+/* Con panel lateral el hueco de la cabecera es mucho menor que la ventana: por
+   debajo de ~740 px de armazón las migas y los accesos se quedan solos arriba y
+   el buscador baja a su línea, a todo el ancho. Antes se repartía el poco sitio
+   que sobraba y acababa en un campo de 60 px (solo se veía el icono). */
+@container (max-width: 740px) {
+  .topbar-actions {
+    order: 2;
+  }
+
+  .site-search {
+    order: 3;
+    flex: 1 0 100%;
+  }
+}
+
+/* Por debajo de 560 px no caben marca, buscador y accesos en una fila: el
+   buscador se quedaba en 22 px (solo el icono, sin campo donde escribir). Pasa
+   a ocupar su propia línea y la cabecera crece lo justo —el campo se lleva todo
+   el ancho, que es donde de verdad se agradece. */
+@media (max-width: 560px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 60px;
+    padding: 8px 12px;
+    row-gap: 8px;
+  }
+
+  .site-search {
+    order: 3;
+    flex: 1 0 100%;
   }
 }
 
@@ -423,7 +497,7 @@
   border-radius: 999px;
   background: var(--surface);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .shelf-tabs .category-tab:hover {
@@ -476,7 +550,7 @@
 }
 
 .review-form label {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 
@@ -561,7 +635,7 @@
 
 .admin-copy span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .admin-copy p {
@@ -610,7 +684,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   cursor: pointer;
   list-style: none;
@@ -642,7 +716,7 @@
 }
 
 .edit-box label {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 
@@ -703,7 +777,7 @@
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: color 0.15s;
 }
@@ -762,7 +836,7 @@
 
 .audit-list span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 @media (max-width: 768px) {
@@ -803,21 +877,21 @@
   border-radius: 999px;
   background: var(--green-pale);
   color: var(--green-strong);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .review-when {
   margin-left: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .review-footnote {
   display: inline-block;
   margin-top: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .inbox-actions {
@@ -832,7 +906,7 @@
 .auth-forgot {
   display: block;
   margin: 6px auto 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .auth-page {
@@ -903,7 +977,7 @@
 
 @media (max-width: 360px) {
   .topbar {
-    gap: 8px;
-    padding: 0 var(--space-2);
+    column-gap: 8px;
+    padding: 8px var(--space-2);
   }
 }

@@ -18,7 +18,7 @@
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: none;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
@@ -50,7 +50,7 @@
   border-radius: 999px;
   background: none;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -90,7 +90,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .reader-filters input {
@@ -118,7 +118,7 @@
   width: 44px;
   height: 44px;
   flex: none;
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: none;
 }
 
@@ -144,7 +144,7 @@
 .reader-meta,
 .reader-books {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .reader-books {
@@ -156,7 +156,7 @@
 .reader-bio {
   margin: 2px 0 4px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;

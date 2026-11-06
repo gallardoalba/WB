@@ -45,14 +45,16 @@ const RETIRED = [
   "Bestseller",
 ];
 
-test("el ISBN es obligatorio al publicar un libro", () => {
+test("el ISBN es opcional: sin él la ficha se escribe a mano", () => {
+  // Los libros antiguos, las ediciones de autor y los folletos no siempre
+  // llevan ISBN. El campo se puede dejar vacío; si viene, se valida.
   const missing = listingSchema.safeParse({ ...BASE, tags: [] });
-  assert.equal(missing.success, false);
-  assert.match(String(missing.error?.issues[0]?.message), /ISBN/i);
+  assert.equal(missing.success, true);
+  assert.equal(missing.data?.isbn, null);
 
   const empty = listingSchema.safeParse({ ...BASE, isbn: "   ", tags: [] });
-  assert.equal(empty.success, false);
-  assert.match(String(empty.error?.issues[0]?.message), /Escribe el ISBN/i);
+  assert.equal(empty.success, true);
+  assert.equal(empty.data?.isbn, null);
 });
 
 test("el ISBN se normaliza y se rechaza si el dígito de control no cuadra", () => {

@@ -63,6 +63,9 @@ export function OfferForm({
   const [editions, setEditions] = useState<OtherEdition[]>([]);
   const [looking, setLooking] = useState(false);
   const [missing, setMissing] = useState(false);
+  // Libros sin ISBN (antiguos, de autor, folletos): el campo se reserva y la
+  // ficha se escribe a mano, sin datos de ningún catálogo.
+  const [noIsbn, setNoIsbn] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const authorRef = useRef<HTMLInputElement>(null);
   const lookupSeq = useRef(0);
@@ -74,7 +77,7 @@ export function OfferForm({
   const coverPreview = typedIsbn && isValidIsbn(typedIsbn) ? coverFromIsbn(typedIsbn) : null;
   // El título y la autoría los pone el ISBN. Solo se escriben a mano cuando
   // ningún catálogo conoce la edición (autoeditados, ediciones antiguas…).
-  const manual = missing && !knownBook && !metadata;
+  const manual = noIsbn || (missing && !knownBook && !metadata);
   // Cuando el dato viene del ISBN, el desplegable se lee como un dato fijo.
   const autoCategory = Boolean(knownBook?.category ?? metadata?.category);
   const autoLanguage = Boolean(knownBook ?? metadata?.language);
@@ -121,6 +124,31 @@ export function OfferForm({
     setCategory(CATEGORIES[0]);
     setLanguage(BOOK_LANGUAGES[0]);
     setSelectedTags([]);
+  }
+
+  /**
+   * Marca que el ejemplar no tiene ISBN: se reserva el campo (queda vacío y
+   * deshabilitado) y el título y la autoría pasan a escribirse a mano. Lo que
+   * ya estuviera escrito se conserva: si alguien se da cuenta a mitad de
+   * escribir, no pierde la ficha.
+   */
+  function toggleNoIsbn(checked: boolean) {
+    setNoIsbn(checked);
+    if (!checked) {
+      resetFields();
+      return;
+    }
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    // Sin esto, una consulta en vuelo repintaría la ficha con datos del ISBN
+    // que la persona acaba de descartar.
+    lookupSeq.current += 1;
+    setScan("");
+    setKnownBook(null);
+    setMetadata(null);
+    setEditions([]);
+    setMissing(false);
+    setLooking(false);
+    setError("");
   }
 
   function onIsbnChange(value: string) {
@@ -188,7 +216,7 @@ export function OfferForm({
           category,
           language,
           condition: form.get("condition"),
-          isbn: form.get("isbn") || undefined,
+          isbn: noIsbn ? undefined : form.get("isbn") || undefined,
           city: form.get("city"),
           tags: form.getAll("tags").map(String),
         },
@@ -219,10 +247,12 @@ export function OfferForm({
             <input
               id="offer-isbn"
               name="isbn"
-              required
+              required={!noIsbn}
+              disabled={noIsbn}
               inputMode="numeric"
               placeholder="978…"
               maxLength={17}
+              value={scan}
               aria-describedby="offer-isbn-hint"
               onChange={(event) => onIsbnChange(event.target.value)}
             />
@@ -240,8 +270,23 @@ export function OfferForm({
               />
             )}
           </div>
+          {/* La salida para los libros que no llevan ISBN, justo debajo del
+              campo: quien tiene un libro antiguo o un folleto no debe quedarse
+              atascado en un campo obligatorio. */}
+          <label className="no-isbn-toggle">
+            <input
+              type="checkbox"
+              checked={noIsbn}
+              onChange={(event) => toggleNoIsbn(event.target.checked)}
+            />
+            <span>{t("Este libro no tiene ISBN")}</span>
+          </label>
           <small className="form-hint" id="offer-isbn-hint">
-            {t("Obligatorio: está en la contraportada o detrás de la portada.")}
+            {noIsbn
+              ? t(
+                  "Los libros antiguos, las ediciones de autor y los folletos no siempre lo llevan. Escribe el título y la autoría a mano: la ficha quedará sin verificar.",
+                )
+              : t("Obligatorio: está en la contraportada o detrás de la portada.")}
           </small>
           {looking && (
             <p className="form-hint" role="status">

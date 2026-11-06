@@ -63,7 +63,7 @@
   border-top: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-members {
@@ -85,13 +85,13 @@
 
 .club-member strong {
   display: block;
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--ink-soft);
 }
 
 .club-member small {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-member:hover strong {
@@ -141,7 +141,7 @@
 .club-form .book-picker-field {
   flex-direction: row;
   align-items: center;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 .club-form input[type="range"] {
@@ -167,7 +167,7 @@
   margin: 2px 0 0;
   max-width: 46ch;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.5;
 }
 
@@ -184,7 +184,7 @@
 
 .club-danger-confirm p {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* Relleno suave en vez de coral macizo: en modo oscuro `--coral` es un tono
@@ -210,7 +210,7 @@
   border-radius: 999px;
   background: none;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
   cursor: pointer;
 }
 
@@ -280,7 +280,7 @@
 .community-empty p {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .community-more {
@@ -289,7 +289,7 @@
   gap: 6px;
   margin-top: 14px;
   color: var(--green);
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: none;
 }
 
@@ -336,13 +336,13 @@
 
 .community-list-card span {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .community-list-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.45;
 }
 
@@ -415,12 +415,12 @@
 
 .club-progress small {
   color: var(--muted-2);
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .club-pending {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .club-card.compact {
@@ -452,7 +452,7 @@
   flex-direction: column;
   gap: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-invite select {
@@ -460,7 +460,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .club-attendance {
@@ -491,7 +491,7 @@
 .club-requests small {
   display: block;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* Arriba y a todo el ancho, así que la lista se reparte en columnas en vez de
@@ -535,14 +535,14 @@
   padding-left: 10px;
   border-left: 3px solid color-mix(in srgb, var(--coral) 45%, var(--line));
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.5;
 }
 
 .club-report-meta {
   margin: 0 0 8px;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-report-actions {
@@ -561,7 +561,7 @@
 
 .club-report-confirm p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 .club-report-confirm .dialog-actions {
@@ -594,7 +594,7 @@
   gap: 8px;
   margin-top: 12px;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-filters {
@@ -610,7 +610,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .club-mine {
@@ -618,17 +618,18 @@
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 .footer-links {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
 .footer-links a {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   text-decoration: none;
 }
 
@@ -647,7 +648,7 @@
 .reader-last-active {
   display: block;
   color: var(--muted-2);
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .admin-metrics {
@@ -798,7 +799,7 @@
   display: grid;
   gap: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-members-menu-panel select {
@@ -811,7 +812,7 @@
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .club-members-menu-actions {
@@ -839,7 +840,7 @@
 
 .club-field-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-selected-book {
@@ -857,13 +858,13 @@
 
 .club-selected-book strong {
   display: block;
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--ink-soft);
 }
 
 .club-selected-book small {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* Si el título es largo, «Quitar» baja de línea: que caiga a la derecha. */
@@ -897,7 +898,7 @@
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .book-picker-field input:focus-visible {
@@ -940,13 +941,13 @@
 }
 
 .book-picker-list strong {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-soft);
 }
 
 .book-picker-list small {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* Histórico de encuentros */
@@ -960,7 +961,7 @@
   display: block;
   margin-bottom: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -971,7 +972,7 @@
   padding: 0;
   list-style: none;
   color: var(--muted-2);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* Votación de la próxima lectura */
@@ -1045,13 +1046,13 @@
 }
 
 .club-poll-book strong {
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--ink-soft);
 }
 
 .club-poll-book small {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-poll-count {
@@ -1067,7 +1068,7 @@
   display: block;
   margin: 4px 0 0 2px;
   color: var(--muted-2);
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 
 .club-poll-footer {
@@ -1095,7 +1096,7 @@
   display: grid;
   gap: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-poll-form input {
@@ -1106,7 +1107,7 @@
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .club-poll-proposals {
@@ -1130,13 +1131,13 @@
 
 .club-poll-proposals strong {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-soft);
 }
 
 .club-poll-proposals small {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .club-poll-form-actions {

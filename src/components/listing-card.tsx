@@ -34,12 +34,23 @@ export function ListingCard({
   return (
     <article className="book-card">
       <div className={`cover-frame tone-${toneForId(listing.id)}`}>
-                  <BookCover
+        {/* La portada también abre la ficha: es lo primero que se pulsa. El
+            enlace va oculto para lectores de pantalla y fuera del tabulador
+            porque el título de al lado ya lleva al mismo sitio. */}
+        <Link
+          href={`/libro/${listing.id}`}
+          className="cover-link"
+          onClick={preview}
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          <BookCover
             id={listing.id}
             title={listing.title}
             author={listing.author}
             coverUrl={listing.coverUrl}
           />
+        </Link>
         <span className="condition-tag">{t(listing.condition)}</span>
         {actions}
         {listing.status !== "available" && (

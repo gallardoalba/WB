@@ -67,11 +67,12 @@
   /* Portadas sin imagen: tipos de imprenta antigua (ver `fonts.css`). */
   --font-cover: "Tangerine", "Apple Chancery", "Segoe Script", cursive;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* Escala tipográfica: seis pasos en vez de dieciocho tamaños sueltos. Por
-     debajo de 12 px solo quedan las iniciales de avatar, que no son texto
-     que haya que leer. */
-  --text-xs: 12px;
-  --text-sm: 13px;
+  /* Escala tipográfica: cinco pasos en vez de dieciocho tamaños sueltos. Los
+     metadatos suben al tamaño de lectura (13 px de mínimo para cualquier texto
+     que haya que leer); por debajo solo quedan las iniciales de avatar y el
+     contador de la campana. */
+  --text-xs: 13px;
+  --text-sm: 14px;
   --text-base: 14px;
   --text-md: 16px;
   --text-lg: 20px;

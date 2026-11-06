@@ -1026,10 +1026,14 @@ export function ExchangeDialog({
       <details className="exchange-help">
         <summary>{t("¿Cómo funciona el cifrado?")}</summary>
         <p>
-          {t("La clave privada se guarda solo en este navegador y nunca se envía al servidor. En otro dispositivo no se podrán leer los mensajes anteriores. Si cambias de dispositivo, pide a la otra persona que vuelva a escribirte desde el suyo.")}
+          {t(
+            "Los mensajes van cifrados de extremo a extremo: la clave privada se queda en este navegador y el servidor solo guarda sobres que no puede abrir. En otro dispositivo no se leen los mensajes anteriores; si cambias, pide a la otra persona que vuelva a escribirte.",
+          )}
         </p>
         <p>
-          {t("Los datos de envío se guardan cifrados: solo los ve la persona que te manda el libro. Si eliges una Packstation, ni siquiera ella necesita tu dirección.")}
+          {t(
+            "Los datos de envío son otra cosa: se guardan cifrados con la clave de la plataforma y solo se descifran para las dos personas del intercambio, dentro de la aplicación. El servidor de esta instancia sí puede leerlos; los mensajes no.",
+          )}
         </p>
 
         {/* Huella corta para comparar en persona: sin esto, `keyChanged` avisa

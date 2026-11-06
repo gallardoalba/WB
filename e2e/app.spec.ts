@@ -364,3 +364,64 @@ test("las cifras de la portada quedan al pie del panel también en pantallas anc
   // Y las cuatro cifras siguen en una fila, no en una columna lateral.
   expect(Math.round(stats!.width)).toBeGreaterThan(Math.round(hero!.width) * 0.85);
 });
+
+test("la portada del libro también abre la ficha", async ({ page }) => {
+  await loginAsDemo(page);
+
+  const cover = page.locator(".book-card .cover-link").first();
+  await expect(cover).toBeVisible();
+  // El botón que va encima (guardar en el estante) no puede quedar tapado por
+  // el enlace: se pulsa y la página no cambia.
+  const favorite = page.locator(".book-card .favorite-button").first();
+  if (await favorite.count()) {
+    await favorite.click();
+    await expect(page).toHaveURL(/\/$/);
+  }
+
+  await cover.click();
+  await expect(page).toHaveURL(/\/libro\/lst_/);
+});
+
+test("las miniaturas sin portada no dejan imágenes rotas", async ({ page }) => {
+  await loginAsDemo(page);
+  await page.goto("/intercambios");
+
+  // Los libros del seed no tienen imagen en los proveedores: el hueco se
+  // resuelve con el icono, no con el icono de «imagen rota» del navegador.
+  const rows = page.locator(".exchange-row");
+  await expect(rows.first()).toBeVisible();
+  const rotas = await page
+    .locator(".mini-cover img")
+    .evaluateAll((imgs) =>
+      imgs.filter((img) => {
+        const image = img as HTMLImageElement;
+        return image.complete && image.naturalWidth === 0;
+      }).length,
+    );
+  expect(rotas).toBe(0);
+
+  await page.locator(".mini-cover").first().click();
+  await expect(page).toHaveURL(/\/libro\/lst_/);
+});
+
+test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await loginAsDemo(page);
+
+  // Cuatro columnas piden ~190 px cada una: por debajo, «Registrierte
+  // Leser:innen» partía en dos líneas y la fila quedaba irregular.
+  await expect(async () => {
+    const cols = await page
+      .locator(".hero-stats")
+      .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    expect(cols).toBe(2);
+  }).toPass({ timeout: 10_000 });
+
+  const heights = await page
+    .locator(".hero-stat-label")
+    .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+  // Todos los rótulos en una línea: ninguna columna más alta que otra.
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(4);
+});

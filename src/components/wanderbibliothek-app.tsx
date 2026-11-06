@@ -565,6 +565,44 @@ export default function WanderbibliothekApp({
             </section>
           )}
 
+          {view === "home" && (
+            <section className="how-it-works" aria-labelledby="how-it-works-title">
+              <h2 id="how-it-works-title">{t("Cómo funciona")}</h2>
+              <ol>
+                <li>
+                  <span className="how-step" aria-hidden="true">
+                    1
+                  </span>
+                  <h3>{t("Comparte")}</h3>
+                  <p>{t("Publica un libro que ya hayas leído y deja que otros lo encuentren.")}</p>
+                </li>
+                <li>
+                  <span className="how-step" aria-hidden="true">
+                    2
+                  </span>
+                  <h3>{t("Encuentra")}</h3>
+                  <p>{t("Pide el ejemplar que buscas: quien lo tiene decide si te lo pasa.")}</p>
+                </li>
+                <li>
+                  <span className="how-step" aria-hidden="true">
+                    3
+                  </span>
+                  <h3>{t("Sigue viajando")}</h3>
+                  <p>
+                    {t(
+                      "Quedáis para la entrega, la confirmáis las dos partes y el libro sigue su camino.",
+                    )}
+                  </p>
+                </li>
+              </ol>
+              <p className="how-note">
+                {t(
+                  "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona de la comunidad.",
+                )}
+              </p>
+            </section>
+          )}
+
           <div className="section-heading">
             <div>
               {view === "home" ? (

@@ -76,6 +76,13 @@ export function BookCover({
       // tercero y no revela el ISBN de lo que está mirando.
       referrerPolicy="no-referrer"
       className="cover-image"
+      // Si el 404 llega antes de que React enganche `onError` (la imagen viene
+      // en el HTML del servidor), el evento se pierde y el navegador pinta su
+      // icono de imagen rota encima de la portadilla. Al montar se mira el
+      // estado real de la imagen y se retira igualmente.
+      ref={(node) => {
+        if (node && node.complete && node.naturalWidth === 0) setFailed(true);
+      }}
       onError={() => setFailed(true)}
       onLoad={(event) => {
         // El proveedor responde 200 con una imagen 1×1 cuando no tiene portada.

@@ -83,7 +83,7 @@
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
@@ -173,13 +173,13 @@
 }
 
 .city-picker strong {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .city-picker small {
   margin-top: 2px;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .city-chevron {
@@ -190,7 +190,7 @@
 .overline,
 .aside-kicker {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
@@ -234,7 +234,7 @@
   padding: 3px 7px;
   border-radius: var(--radius-pill);
   background: rgba(47, 87, 65, 0.12);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .sidebar-note {
@@ -276,7 +276,7 @@
   max-width: 180px;
   margin: 9px 0 14px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -289,7 +289,7 @@
   border: 0;
   background: transparent;
   color: var(--green);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -331,7 +331,7 @@
   border-radius: var(--radius-xs);
   background: transparent;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -349,7 +349,7 @@
 .account-menu-error {
   margin: 4px 6px 2px;
   color: var(--coral);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -369,7 +369,7 @@
   border-radius: 999px;
   background: var(--coral);
   color: var(--on-fill);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -407,7 +407,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -430,13 +430,13 @@
 }
 
 .profile-copy strong {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .profile-copy small {
   margin-top: 2px;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .profile-row > svg {
@@ -460,12 +460,20 @@
 }
 
 .topbar {
-  height: 72px;
-  padding: 0 clamp(20px, 5vw, 64px);
+  /* La barra se ajusta al hueco real: si migas + buscador + acciones no caben
+     en una línea, el buscador baja a la suya y ocupa todo el ancho. `container-type`
+     deja que las reglas de dentro pregunten por el ancho del propio armazón (que
+     no es el de la ventana cuando hay panel lateral). */
+  container-type: inline-size;
+  min-height: 72px;
+  padding: 10px clamp(20px, 5vw, 64px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  align-content: center;
   justify-content: space-between;
-  gap: 16px;
+  column-gap: 16px;
+  row-gap: 10px;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 82%, transparent);
 }
@@ -476,7 +484,7 @@
   gap: 10px;
   min-width: 0;
   color: var(--muted-2);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .breadcrumb > * {
@@ -498,6 +506,9 @@
   align-items: center;
   flex-shrink: 0;
   gap: 18px;
+  /* Orden explícito: migas, buscador, acciones. Al estrecharse el armazón se
+     intercambian los dos últimos (ver `responsive.css`). */
+  order: 3;
 }
 
 /* --- Buscador global de la cabecera ------------------------------------- */
@@ -505,9 +516,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Crece con el hueco que dejan la miga de pan y las acciones. Antes tenía un
+     tope fijo de 360 px: en ventanas anchas el buscador se quedaba pequeño y
+     flotaba entre dos vacíos iguales. Ahora ocupa lo que hay y se encoge (hasta
+     desaparecer el texto, nunca el icono) cuando la barra se estrecha. */
   flex: 1 1 240px;
-  max-width: 360px;
   min-width: 0;
+  order: 2;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -531,7 +546,7 @@
   background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .site-search input:focus-visible {
@@ -546,7 +561,7 @@
   background: none;
   color: var(--green);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -573,7 +588,7 @@
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .search-results {
@@ -594,7 +609,7 @@
   align-items: center;
   gap: 7px;
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -623,20 +638,20 @@
 }
 
 .search-group strong {
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 600;
 }
 
 .search-group span {
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .search-more {
   display: inline-block;
   margin-top: 10px;
   color: var(--green);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   text-decoration: none;
 }
@@ -745,7 +760,7 @@
   border-radius: 50%;
   background: var(--tone-self-bg);
   color: var(--tone-self-ink);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -841,7 +856,7 @@
   border-radius: var(--radius-xs);
   background: var(--paper-sunk);
   color: var(--muted-2);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
@@ -851,7 +866,7 @@
   background: transparent;
   color: var(--ink-soft);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -919,7 +934,7 @@
   }
 
   .topbar {
-    gap: 8px;
+    column-gap: 8px;
   }
 
   .topbar-actions {
@@ -977,7 +992,7 @@
 .verify-banner p {
   flex: 1 1 320px;
   margin: 0;
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.5;
 }
 
@@ -1007,7 +1022,7 @@
   gap: 5px;
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .preview-tags {
@@ -1020,14 +1035,14 @@
 .preview-notes {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.5;
 }
 
 .preview-owner {
   margin: 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* Progreso del intercambio. */
@@ -1045,7 +1060,7 @@
   align-items: center;
   gap: 6px;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1088,14 +1103,14 @@
 
 .exchange-confirm p {
   margin: 0 0 10px;
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.5;
 }
 
 .exchange-help {
   margin: 8px 0 12px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 .exchange-help summary {
@@ -1281,14 +1296,14 @@
   margin: 0;
   max-width: 60ch;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
 .admin-gate h3 {
   margin: 0 0 8px;
   color: var(--muted-2);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1300,7 +1315,7 @@
   margin: 0 0 12px;
   padding-left: 20px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   list-style: decimal;
 }
@@ -1308,7 +1323,7 @@
 .admin-gate-note {
   margin: 0 0 14px;
   color: var(--muted-2);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* Títulos que reciben el foco al cambiar de vista: no deben mostrar el anillo

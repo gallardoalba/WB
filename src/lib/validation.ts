@@ -127,13 +127,16 @@ export const listingSchema = z.object({
   category: z.enum(CATEGORIES, { error: "Elige una categoría de la lista." }),
   language: z.enum(BOOK_LANGUAGES, { error: "Elige un idioma de la lista." }).optional(),
   condition: z.enum(CONDITIONS, { error: "Elige un estado del ejemplar." }),
-  // Obligatorio: identifica la obra y da la portada servida por la app.
+  // Opcional: los libros antiguos, las ediciones de autor y los folletos no
+  // siempre llevan ISBN. Si viene, se normaliza y se comprueba el dígito de
+  // control; si no viene, la ficha se agrupa por título y autoría y queda sin
+  // verificar por ningún catálogo.
   isbn: z
-    .string({ error: "Escribe el ISBN del libro." })
+    .string({ error: "El ISBN no es válido." })
     .trim()
-    .min(1, "Escribe el ISBN del libro.")
+    .optional()
     .transform((value) => normalizeIsbn(value))
-    .refine((value) => value !== null && isValidIsbn(value), "El ISBN no es válido."),
+    .refine((value) => value === null || isValidIsbn(value), "El ISBN no es válido."),
   city: cityField.optional(),
   tags: tagsField,
 });
