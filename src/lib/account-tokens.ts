@@ -72,16 +72,19 @@ export function consumeAccountToken(raw: string, purpose: TokenPurpose): string 
 /** Encola el enlace de verificación; el outbox lo entrega con reintentos. */
 export async function sendVerificationEmail(userId: string, email: string): Promise<void> {
   const token = issueAccountToken(userId, "verify_email");
-  // El token va en el fragmento: el navegador no lo envía al servidor, así que
-  // no queda en los registros de accesos ni en los proxies.
-  const link = `${siteUrl()}/verificar#token=${token}`;
+  // El token va en la **query**, no en el fragmento: Brevo construye el enlace
+  // del correo sin el `#…` y el clic llegaba a `/verificar` sin token. Sigue sin
+  // acabar en el registro de accesos porque nginx anota `$uri` (sin query) y
+  // estas dos páginas se sirven con `Referrer-Policy: no-referrer`; la propia
+  // página lo borra de la barra en cuanto lo lee.
+  const link = `${siteUrl()}/verificar?token=${token}`;
   enqueueMail({ to: email, ...verificationMail(accountLocale(userId), link) });
 }
 
 /** Encola el enlace de recuperación. No revela si el correo existe. */
 export async function sendPasswordResetEmail(userId: string, email: string): Promise<void> {
   const token = issueAccountToken(userId, "reset_password");
-  const link = `${siteUrl()}/restablecer#token=${token}`;
+  const link = `${siteUrl()}/restablecer?token=${token}`;
   enqueueMail({ to: email, ...passwordResetMail(accountLocale(userId), link) });
 }
 

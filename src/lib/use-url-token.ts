@@ -5,13 +5,15 @@ import { useEffect, useSyncExternalStore } from "react";
 /**
  * Tokens de un solo uso en la URL.
  *
- * Van en el fragmento (`/restablecer#token=…`), que el navegador **no envía al
- * servidor**: así no acaban en los registros de nginx, en un proxy ni en el
- * `Referer` de ningún recurso. Antes viajaban como `?token=`, y un token de
- * restablecimiento quedaba escrito en el log de accesos de cada visita.
+ * Llegan como `?token=…`. Se probó el fragmento (`#token=…`), que el navegador
+ * no manda al servidor, pero el redireccionador del proveedor de correo corta
+ * el `#` y el clic aterrizaba en `/verificar` sin token. Se sigue aceptando
+ * para los enlaces que ya salieron.
  *
- * Se acepta también `?token=` para que los enlaces ya enviados por correo sigan
- * funcionando.
+ * Que el token no acabe en el registro lo resuelven tres cosas: el formato de
+ * log de nginx anota `$uri` (sin la query), estas dos páginas se sirven con
+ * `Referrer-Policy: no-referrer` y este hook borra el token de la barra en
+ * cuanto lo lee.
  *
  * `useSyncExternalStore` es lo que permite leerlo sin romper la hidratación: en
  * el servidor devuelve el valor del HTML y, en cuanto hidrata, el del navegador.
@@ -33,8 +35,8 @@ export function useUrlToken(initial = ""): { token: string; ready: boolean } {
     () => true,
     () => false,
   );
-  // Mismo patrón: el servidor solo conoce `?token=`, así que el fragmento se
-  // resuelve justo después de hidratar.
+  // Mismo patrón: en el HTML del servidor solo está lo que venga en la query,
+  // así que el fragmento (enlaces antiguos) se resuelve justo después de hidratar.
   const token = useSyncExternalStore(
     subscribe,
     () => readToken(initial),
@@ -49,7 +51,7 @@ export function useUrlToken(initial = ""): { token: string; ready: boolean } {
     }
   }, [ready, token]);
 
-  // `ready` evita enseñar «falta el enlace» mientras no se ha leído el
-  // fragmento: en el HTML del servidor el token no existe por diseño.
+  // `ready` evita enseñar «falta el enlace» mientras no se ha leído la URL: en
+  // el HTML del servidor el token no existe por diseño.
   return { token, ready };
 }

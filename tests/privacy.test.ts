@@ -194,16 +194,26 @@ test("escribir los datos legales respeta el resto del fichero de entorno", () =>
   assert.equal(result.includes('LEGAL_CONTROLLER="Viejo"'), false);
 });
 
-test("los enlaces de un solo uso viajan en el fragmento, no en la query", async () => {
+test("los enlaces de un solo uso van en la query, y ni el registro ni el Referer los recogen", async () => {
   const tokens = await import("../src/lib/account-tokens.ts");
   await tokens.sendPasswordResetEmail("usr_ana", "ana@wanderbibliothek.test");
   const row = dbModule
     .getDb()
     .prepare("SELECT body FROM mail_outbox ORDER BY created_at DESC LIMIT 1")
     .get() as { body: string };
-  // Lo que no está en la URL no acaba en el log de nginx ni en un proxy.
-  assert.match(row.body, /\/restablecer#token=[a-f0-9]{64}/);
-  assert.equal(row.body.includes("?token="), false);
+  // En el fragmento el enlace no sobrevivía: el redireccionador del proveedor
+  // de correo cortaba el `#` y el clic llegaba a /restablecer sin token.
+  assert.match(row.body, /\/restablecer\?token=[a-f0-9]{64}/);
+  assert.equal(row.body.includes("#token="), false);
+
+  // Que no acabe en el registro se sostiene en dos piezas, no en la suerte:
+  // nginx anota `$uri` (sin la query)…
+  assert.match(source("deploy/nginx.conf"), /\$request_method \$uri \$server_protocol/);
+  // …y las dos páginas que lo reciben no mandan referente.
+  const proxy = source("src/proxy.ts");
+  assert.match(proxy, /no-referrer/);
+  assert.match(proxy, /"\/verificar"/);
+  assert.match(proxy, /"\/restablecer"/);
 });
 
 test("un flujo en vivo por pestaña: se cortan las conexiones simultáneas de más", async () => {

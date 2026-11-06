@@ -49,7 +49,15 @@ export function proxy(request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Las páginas que reciben un enlace de un solo uso llevan el token en la
+  // query: sin `no-referrer`, los recursos de la propia página lo mandarían en
+  // el `Referer` y acabaría en el registro. En el resto basta el valor normal.
+  const unaSolaVez =
+    request.nextUrl.pathname === "/verificar" || request.nextUrl.pathname === "/restablecer";
+  response.headers.set(
+    "Referrer-Policy",
+    unaSolaVez ? "no-referrer" : "strict-origin-when-cross-origin",
+  );
   // Sin el escáner de ISBN no queda ninguna función que use la cámara: se
   // cierra también esa.
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
