@@ -178,7 +178,9 @@ del dominio, no solo en el panel del proveedor, y usar un remitente del propio
 dominio, no `no-reply@` de uno ajeno.
 
 **Probarlo** sin esperar a que alguien se registre: el script envía un correo de
-prueba por el mismo camino que los de verdad (no toca la base).
+prueba por el mismo camino que los de verdad (no toca la base). Lee
+`/etc/wanderbibliothek/env` por su cuenta —lo que exportes a mano manda—, así
+que no hay que repetir la clave en la orden:
 
 ```bash
 sudo -u wanderbibliothek npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo

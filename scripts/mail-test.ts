@@ -6,13 +6,34 @@
  * Existe para comprobar una clave de Brevo (o un webhook) recién puesta sin
  * esperar a que alguien se registre; si esto llega, el resto del flujo —la
  * cola, los enlaces de un solo uso— también funciona.
+ *
+ * El entorno se toma de `/etc/wanderbibliothek/env` (el mismo fichero que lee
+ * systemd) para lo que no venga ya exportado; con `--env` se puede apuntar a
+ * otro fichero.
  */
+import { loadEnvFile } from "../src/lib/env-file";
 import { sendMail } from "../src/lib/mailer";
 
-const destinatario = process.argv[2]?.trim();
+const ENTORNO_POR_DEFECTO = "/etc/wanderbibliothek/env";
+
+const argumentos = process.argv.slice(2);
+const indiceEntorno = argumentos.indexOf("--env");
+const ficheroEntorno = indiceEntorno === -1 ? ENTORNO_POR_DEFECTO : argumentos[indiceEntorno + 1];
+// El destinatario es el primer argumento que no sea una opción ni su valor.
+const destinatario = argumentos
+  .find((arg, index) => !arg.startsWith("--") && index !== indiceEntorno + 1)
+  ?.trim();
+
+if (!ficheroEntorno) {
+  console.error("Uso: npm run mail:test -- tu@correo [--env /ruta/al/entorno]");
+  process.exit(1);
+}
+
+const leidas = loadEnvFile(ficheroEntorno);
+if (leidas > 0) console.log(`Entorno leído de ${ficheroEntorno}.`);
 
 if (!destinatario || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
-  console.error("Uso: npm run mail:test -- tu@correo");
+  console.error("Uso: npm run mail:test -- tu@correo [--env /ruta/al/entorno]");
   process.exit(1);
 }
 
@@ -24,7 +45,8 @@ const proveedor = process.env.MAIL_WEBHOOK_URL?.trim()
 
 if (!proveedor) {
   console.error(
-    "No hay proveedor configurado: define BREVO_API_KEY y MAIL_FROM (o MAIL_WEBHOOK_URL).",
+    "No hay proveedor configurado: define BREVO_API_KEY y MAIL_FROM (o MAIL_WEBHOOK_URL),\n" +
+      `o comprueba que ${ficheroEntorno} contiene esas líneas (con --env se puede apuntar a otro fichero).`,
   );
   process.exit(1);
 }
