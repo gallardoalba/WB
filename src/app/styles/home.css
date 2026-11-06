@@ -249,9 +249,14 @@
   list-style: none;
 }
 
+/* Número y título en la misma línea; el texto, a todo el ancho debajo. Antes
+   el círculo ocupaba una fila propia y empujaba el título hacia abajo. */
 .how-it-works li {
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 9px;
+  row-gap: 5px;
   align-content: start;
   min-width: 0;
 }
@@ -262,7 +267,6 @@
   justify-content: center;
   width: 26px;
   height: 26px;
-  margin-bottom: 2px;
   border-radius: 50%;
   background: var(--green-pale);
   color: var(--green);
@@ -280,6 +284,7 @@
 }
 
 .how-it-works p {
+  grid-column: 1 / -1;
   margin: 0;
   color: var(--muted);
   font-size: var(--text-xs);
