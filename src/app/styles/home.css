@@ -152,6 +152,18 @@
   line-height: 1.6;
 }
 
+/* Lema de la marca bajo el titular, como en la app: va entre el h1 y el
+   párrafo, en la tipografía serif para que se lea como lema y no como texto. */
+.hero-banner .hero-tagline {
+  max-width: none;
+  margin: -2px 0 10px;
+  font-family: var(--serif);
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.3;
+  color: var(--ink);
+  text-shadow: var(--hero-text-halo);
+}
+
 .hero-button {
   display: inline-flex;
   align-items: center;

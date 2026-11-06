@@ -29,6 +29,8 @@ export const DE = {
   "Saltar al contenido": "Zum Inhalt springen",
   Inicio: "Start",
   "Hecho para que las historias sigan viajando.": "Damit Geschichten weiterreisen.",
+  // Lema de la marca: el mismo que la app muestra bajo el nombre.
+  "Libros que viajan. Personas que se encuentran.": "Bücher, die reisen. Menschen, die sich begegnen.",
   "Secciones de la comunidad": "Bereiche der Gemeinschaft",
   "Información y documentación": "Rechtliches und Dokumentation",
   "Código en GitHub": "Code auf GitHub",
@@ -1345,6 +1347,7 @@ export const EN = {
   "Saltar al contenido": "Skip to content",
   Inicio: "Home",
   "Hecho para que las historias sigan viajando.": "Made so stories keep travelling.",
+  "Libros que viajan. Personas que se encuentran.": "Books that travel. People who meet.",
   "Secciones de la comunidad": "Community sections",
   "Información y documentación": "Legal and documentation",
   "Código en GitHub": "Code on GitHub",

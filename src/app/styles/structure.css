@@ -36,8 +36,19 @@
 .sidebar .brand {
   gap: 8px;
   font-size: clamp(15px, 1.15vw, 18px);
-  /* Sin el rótulo «Tu espacio» el menú necesita su propio aire. */
-  margin-bottom: 26px;
+  /* Sin el rótulo «Tu espacio» el menú necesita su propio aire; el lema que va
+     justo debajo pone el resto, así que aquí solo quedan 2 px. */
+  margin-bottom: 2px;
+}
+
+/* Lema de la marca, el mismo de la app. Sangra hasta el nombre: la marca ocupa
+   36 px y el hueco del icono son 8 px más. */
+.brand-tagline {
+  margin: 0 0 22px;
+  padding-left: 44px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
 }
 
 .brand > span:last-child > span,

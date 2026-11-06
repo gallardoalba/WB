@@ -515,6 +515,9 @@ export default function WanderbibliothekApp({
                   <span className="hero-brand">{BRAND}:</span>{" "}
                   {t("Los libros siguen viajando.")}
                 </h1>
+                <p className="hero-tagline">
+                  {t("Libros que viajan. Personas que se encuentran.")}
+                </p>
                 <p>
                   {user
                     ? t(

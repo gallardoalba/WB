@@ -43,6 +43,9 @@ export function SiteRail({
           <b>{BRAND_SECOND}</b>
         </span>
       </Link>
+      <p className="brand-tagline">
+        {t("Libros que viajan. Personas que se encuentran.")}
+      </p>
 
       <nav className="primary-nav" aria-label={t("Navegación principal")}>
         <Link className={itemClass(false)} href="/descubrir">
