@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { ApiError } from "./errors";
+import { DEFAULT_LOCALE, type Locale } from "./locale";
+import { passwordResetMail, verificationMail } from "./mail-templates";
 import { siteUrl } from "./site";
 import { enqueueMail } from "./outbox";
 
@@ -73,24 +75,30 @@ export async function sendVerificationEmail(userId: string, email: string): Prom
   // El token va en el fragmento: el navegador no lo envía al servidor, así que
   // no queda en los registros de accesos ni en los proxies.
   const link = `${siteUrl()}/verificar#token=${token}`;
-  enqueueMail({
-    to: email,
-    subject: "Confirma tu correo en Wanderbibliothek",
-    // Con un dominio nuevo el primero puede caer en spam: decirlo aquí evita
-    // que alguien abandone pensando que la web no envía nada.
-    text: `Abre este enlace para confirmar tu correo (caduca en 24 horas):\n${link}\n\nSi no ves este mensaje en la bandeja de entrada, mira en la carpeta de spam.`,
-  });
+  enqueueMail({ to: email, ...verificationMail(accountLocale(userId), link) });
 }
 
 /** Encola el enlace de recuperación. No revela si el correo existe. */
 export async function sendPasswordResetEmail(userId: string, email: string): Promise<void> {
   const token = issueAccountToken(userId, "reset_password");
   const link = `${siteUrl()}/restablecer#token=${token}`;
-  enqueueMail({
-    to: email,
-    subject: "Restablece tu contraseña de Wanderbibliothek",
-    text: `Abre este enlace para elegir una contraseña nueva (caduca en 1 hora):\n${link}\n\nSi no ves este mensaje en la bandeja de entrada, mira en la carpeta de spam.`,
-  });
+  enqueueMail({ to: email, ...passwordResetMail(accountLocale(userId), link) });
+}
+
+/**
+ * Idioma del correo: el de la cuenta, no el de quien pide el envío. Un
+ * restablecimiento puede pedirse desde un navegador en otro idioma o sin
+ * cookie; la persona que lo recibe es la misma de siempre.
+ */
+function accountLocale(userId: string): Locale {
+  try {
+    const row = getDb()
+      .prepare("SELECT locale FROM users WHERE id = ?")
+      .get(userId) as { locale: string } | undefined;
+    return row?.locale === "es" ? "es" : DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
 }
 
 export function assertTokenShape(token: string): void {
