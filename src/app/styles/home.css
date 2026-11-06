@@ -96,11 +96,6 @@
 
 .hero-copy {
   min-width: 0;
-  /* El bloque se mide por el titular: en una pantalla ancha el h1 cabe en una
-     línea y el párrafo acaba exactamente donde acaba esa línea. En pantallas
-     estrechas el tope `100%` lo deja en el ancho de la columna. */
-  width: max-content;
-  max-width: 100%;
 }
 
 .eyebrow {
@@ -146,13 +141,11 @@
   font-weight: 600;
 }
 
-/* `width: 0` evita que el párrafo (mucho más largo) participe en el cálculo de
-   `max-content` del bloque; `min-width: 100%` lo estira al ancho ya decidido
-   por el titular. Sin esto, o se quedaba corto (56ch) o llegaba al borde de la
-   tarjeta. */
+/* Medida de lectura: el párrafo se corta en 56 caracteres (unos 470 px a
+   15 px) aunque la columna sea más ancha. Sin este tope las líneas se
+   estiran hasta el borde de la tarjeta y cuesta seguirlas. */
 .hero-banner p {
-  width: 0;
-  min-width: 100%;
+  max-width: 56ch;
   margin: 0;
   color: var(--muted);
   font-size: 15px;
