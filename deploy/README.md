@@ -150,7 +150,7 @@ sudo -e /etc/wanderbibliothek/env
 sudo systemctl restart wanderbibliothek
 ```
 
-Dos trampas que dan un 401/400 difícil de leer:
+Cuatro trampas que dan un 401/400 difícil de leer:
 
 - **IP no autorizada.** Si activas *Seguridad → IP autorizadas* en Brevo, la API
   solo acepta peticiones desde esas direcciones: añade la del servidor o deja la
@@ -158,6 +158,18 @@ Dos trampas que dan un 401/400 difícil de leer:
   unauthorized` y el mensaje ya apunta a esa pantalla.
 - **Remitente sin verificar.** `MAIL_FROM` tiene que salir de un dominio (o un
   remitente suelto) validado en la cuenta, nunca de un dominio ajeno.
+- **Remitente de dominio gratuito.** Un `MAIL_FROM` con `@gmail.com`,
+  `@protonmail.com` o similar no puede alinearse con DMARC —no controlas su SPF
+  ni su DKIM— y Gmail lo rechaza o lo manda a spam. El remitente debe ser del
+  dominio autenticado, aunque el buzón no exista (`no-reply@`).
+- **El código de Brevo va en la raíz.** El TXT `brevo-code:<hash>` se publica en
+  `@`, no en un subdominio llamado `brevo-code`: puesto ahí, Brevo lo da por
+  ausente aunque `dig` lo devuelva.
+- **«Los registros no coinciden» cuando el DNS ya está publicado.** Es caché
+  negativa: en el portátil, `systemd-resolved` (`sudo resolvectl flush-caches`);
+  en el verificador de Brevo, el `NXDOMAIN` que guardó antes de crear los
+  registros, con la vida del mínimo del SOA. Comprobar con `dig @1.1.1.1` antes
+  de tocar nada.
 
 `DMARC` mejor en `p=none` al principio: si algo falla, los correos llegan igual
 y el informe dice qué.
