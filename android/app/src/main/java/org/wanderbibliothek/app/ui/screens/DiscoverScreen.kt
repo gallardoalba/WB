@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +51,6 @@ import org.wanderbibliothek.app.ui.components.ErrorBox
 import org.wanderbibliothek.app.ui.components.FormField
 import org.wanderbibliothek.app.ui.components.ListingCard
 import org.wanderbibliothek.app.ui.components.LoadingBox
-import org.wanderbibliothek.app.ui.components.RemoteCover
 import org.wanderbibliothek.app.ui.components.SecondaryButton
 import org.wanderbibliothek.app.ui.components.SectionTitle
 import org.wanderbibliothek.app.ui.errorText
@@ -115,12 +113,7 @@ fun DiscoverScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            DiscoverHeader(
-                texts = texts,
-                covers = items.take(2).mapNotNull { listing ->
-                    listing.coverUrl?.let { it to listing.title }
-                },
-            )
+            DiscoverHeader(texts = texts)
         }
         item {
             FormField(
@@ -248,16 +241,15 @@ fun DiscoverScreen(
  *
  * Sin fondo ni tarjeta: tipografía sobre la superficie de la app, igual que el
  * resto de la pantalla. La versión anterior era una tarjeta con degradado que
- * competía visualmente con el catálogo.
+ * competía visualmente con el catálogo, y llevaba dos portadas de muestra que
+ * se han retirado: las miniaturas de libros no caben en una cabecera de texto y
+ * el catálogo empieza justo debajo.
  *
  * El idioma no se elige aquí: la app sigue el del teléfono, como el resto de
  * aplicaciones del sistema.
  */
 @Composable
-private fun DiscoverHeader(
-    texts: Texts,
-    covers: List<Pair<String, String>>,
-) {
+private fun DiscoverHeader(texts: Texts) {
     val colors = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // Medido con métricas reales: «Wanderbibliothek» a 28 sp en serif son
@@ -284,25 +276,11 @@ private fun DiscoverHeader(
             style = MaterialTheme.typography.titleSmall,
             color = colors.onSurface,
         )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = texts["heroSubtitle"],
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-                maxLines = 4,
-                modifier = Modifier.weight(1f),
-            )
-            covers.take(2).forEach { (url, title) ->
-                RemoteCover(
-                    url = url,
-                    title = title,
-                    author = "",
-                    modifier = Modifier.width(30.dp).height(42.dp),
-                )
-            }
-        }
+        Text(
+            text = texts["heroSubtitle"],
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant,
+            maxLines = 4,
+        )
     }
 }
