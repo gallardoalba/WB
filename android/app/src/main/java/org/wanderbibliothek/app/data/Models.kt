@@ -140,6 +140,9 @@ data class Listing(
     }
 }
 
+/** Página de una lista paginada del servidor (`hasMore` + elementos). */
+data class Page<T>(val items: List<T>, val hasMore: Boolean)
+
 data class ListingPage(
     val items: List<Listing>,
     val total: Int,

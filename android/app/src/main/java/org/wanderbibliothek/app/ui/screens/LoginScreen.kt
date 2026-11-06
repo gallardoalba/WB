@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -43,6 +44,7 @@ fun LoginScreen(
     var needsCode by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var notice by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun submit() {
         if (email.isBlank() || password.isBlank()) {
@@ -76,18 +78,21 @@ fun LoginScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         error?.let { Notice(it, isError = true) }
+        notice?.let { Notice(it) }
 
         FormField(
             value = email,
             onValueChange = { email = it },
             label = texts["email"],
             keyboardType = KeyboardType.Email,
+            imeAction = ImeAction.Next,
         )
         FormField(
             value = password,
             onValueChange = { password = it },
             label = texts["password"],
             password = true,
+            imeAction = ImeAction.Done,
         )
         if (needsCode) {
             FormField(
@@ -102,6 +107,29 @@ fun LoginScreen(
             loading = busy,
             onClick = { submit() },
         )
+        TextButton(
+            enabled = !busy,
+            onClick = {
+                if (email.isBlank()) {
+                    error = texts["emailRequiredForReset"]
+                    return@TextButton
+                }
+                scope.launch {
+                    busy = true
+                    error = null
+                    try {
+                        viewModel.repo.requestPasswordReset(email)
+                        // Mismo mensaje exista o no la cuenta: el servidor no
+                        // revela si el correo está registrado.
+                        notice = texts["resetSent"]
+                    } catch (failure: Exception) {
+                        error = errorText(texts, failure)
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+        ) { Text(texts["forgotPassword"]) }
         TextButton(onClick = onRegister) { Text(texts["noAccount"]) }
     }
 }

@@ -10,14 +10,22 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -25,10 +33,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -38,6 +49,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.wanderbibliothek.app.data.ImageUrl
+import org.wanderbibliothek.app.data.SessionBus
 import org.wanderbibliothek.app.data.ThemePreference
 import org.wanderbibliothek.app.ui.screens.AccountScreen
 import org.wanderbibliothek.app.ui.screens.ClubDetailScreen
@@ -63,13 +75,15 @@ import java.util.Locale
 enum class TopDestination(
     val route: String,
     val labelKey: String,
+    /** Etiqueta corta de la barra inferior: ahí solo caben ~9 caracteres. */
+    val navKey: String,
     val icon: ImageVector,
 ) {
-    DISCOVER("discover", "discover", Icons.Filled.Search),
-    SHELF("shelf", "shelf", Icons.AutoMirrored.Filled.List),
-    EXCHANGES("exchanges", "exchanges", Icons.AutoMirrored.Filled.Send),
-    CLUBS("clubs", "clubs", Icons.Filled.Star),
-    ACCOUNT("account", "account", Icons.Filled.Person),
+    DISCOVER("discover", "discover", "navDiscover", Icons.Filled.Search),
+    SHELF("shelf", "shelf", "navShelf", Icons.AutoMirrored.Filled.List),
+    EXCHANGES("exchanges", "exchanges", "navExchanges", Icons.AutoMirrored.Filled.Send),
+    CLUBS("clubs", "clubs", "navClubs", Icons.Filled.Star),
+    ACCOUNT("account", "account", "navAccount", Icons.Filled.Person),
 }
 
 @Composable
@@ -112,12 +126,31 @@ fun WanderApp(viewModel: AppViewModel = viewModel()) {
 private fun AppScaffold(viewModel: AppViewModel, session: SessionState) {
     val texts = LocalTexts.current
     val navController = rememberNavController()
+    val snackbar = remember { SnackbarHostState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route ?: TopDestination.DISCOVER.route
     val topDestination = TopDestination.entries.firstOrNull { it.route == route }
     val signedIn = session is SessionState.SignedIn
+    val currentTexts by rememberUpdatedState(texts)
+
+    // Si el servidor invalida la sesión, antes la pantalla se limitaba a no
+    // dejar entrar sin decir por qué; ahora se avisa y se ofrece volver a
+    // iniciar sesión desde donde estuviera.
+    LaunchedEffect(Unit) {
+        SessionBus.expired.collect {
+            val result = snackbar.showSnackbar(
+                message = currentTexts["sessionExpired"],
+                actionLabel = currentTexts["signIn"],
+                withDismissAction = true,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                navController.navigate("login") { launchSingleTop = true }
+            }
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text(titleFor(route, texts)) },
@@ -133,11 +166,24 @@ private fun AppScaffold(viewModel: AppViewModel, session: SessionState) {
                 },
                 actions = {
                     if (signedIn) {
+                        val unread by viewModel.unread.collectAsStateWithLifecycle()
                         IconButton(onClick = { navController.navigate("notifications") }) {
-                            Icon(
-                                imageVector = Icons.Filled.Notifications,
-                                contentDescription = texts["notifications"],
-                            )
+                            BadgedBox(
+                                badge = {
+                                    if (unread > 0) {
+                                        Badge { Text(if (unread > 99) "99+" else unread.toString()) }
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Notifications,
+                                    contentDescription = if (unread > 0) {
+                                        texts.format("unreadNotifications", unread)
+                                    } else {
+                                        texts["notifications"]
+                                    },
+                                )
+                            }
                         }
                     }
                 },
@@ -319,7 +365,27 @@ private fun BottomBar(navController: NavHostController, current: TopDestination)
                         contentDescription = texts[destination.labelKey],
                     )
                 },
-                label = { Text(texts[destination.labelKey]) },
+                label = {
+                    // La barra tiene cinco destinos (~72 dp cada uno en un móvil
+                    // de 360 dp): se usa la etiqueta corta y se ajusta el tamaño
+                    // al hueco sin partir en dos líneas ni añadir puntos
+                    // suspensivos. El nombre completo queda en el título de la
+                    // pantalla y en la descripción del icono (lector de pantalla).
+                    Text(
+                        text = texts[destination.navKey],
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip,
+                        textAlign = TextAlign.Center,
+                        autoSize = TextAutoSize.StepBased(
+                            minFontSize = 8.sp,
+                            maxFontSize = 12.sp,
+                            stepSize = 0.5.sp,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
             )
         }
     }

@@ -37,6 +37,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.wanderbibliothek.app.data.DecryptedMessage
 import org.wanderbibliothek.app.data.KeyEntry
@@ -60,6 +61,13 @@ import org.wanderbibliothek.app.ui.components.SecondaryButton
 import org.wanderbibliothek.app.ui.components.SectionTitle
 import org.wanderbibliothek.app.ui.components.StatusPill
 import org.wanderbibliothek.app.ui.errorText
+
+/**
+ * Cada cuánto se buscan mensajes nuevos mientras la conversación está abierta.
+ * Quince segundos es suficiente para un chat de intercambios y no castiga al
+ * servidor (una consulta por conversación abierta).
+ */
+private const val CHAT_REFRESH_MS = 15_000L
 
 @Composable
 fun ExchangeDetailScreen(
@@ -93,11 +101,13 @@ fun ExchangeDetailScreen(
     var postalCode by rememberSaveable { mutableStateOf("") }
     var shipCity by rememberSaveable { mutableStateOf("") }
 
-    LaunchedEffect(exchangeId, reloads) {
-        // El giro solo la primera vez: al recargar o enviar, la lista se queda
-        // en pantalla en vez de desaparecer bajo un indicador.
-        if (exchange == null) loading = true
-        error = null
+    suspend fun load(silent: Boolean) {
+        // El giro solo la primera vez: al recargar, enviar o refrescar en
+        // segundo plano, la lista se queda en pantalla.
+        if (!silent) {
+            loading = true
+            error = null
+        }
         try {
             val current = viewModel.repo.exchange(exchangeId)
             exchange = current
@@ -111,14 +121,30 @@ fun ExchangeDetailScreen(
             }
             val page = viewModel.repo.messages(exchangeId)
             peerKeys = page.keys.peerKeys
-            messages = viewModel.repo.decrypt(exchangeId, page, user?.id.orEmpty())
-            viewModel.repo.markExchangeRead(exchangeId)
+            val decrypted = viewModel.repo.decrypt(exchangeId, page, user?.id.orEmpty())
+            val grew = decrypted.size > messages.size
+            messages = decrypted
+            if (!silent || grew) viewModel.repo.markExchangeRead(exchangeId)
         } catch (failure: Exception) {
-            // Sin nada en pantalla el fallo es la vista; con datos, un aviso.
-            val text = errorText(texts, failure)
-            if (exchange == null) error = text else notice = text
+            // Sin nada en pantalla el fallo es la vista; con datos, un aviso. Un
+            // refresco en segundo plano que falle no debe tapar la conversación.
+            if (!silent) {
+                val text = errorText(texts, failure)
+                if (exchange == null) error = text else notice = text
+            }
         } finally {
-            loading = false
+            if (!silent) loading = false
+        }
+    }
+
+    LaunchedEffect(exchangeId, reloads) { load(silent = exchange != null) }
+
+    // Mensajes del otro dispositivo: sin este sondeo había que salir de la
+    // conversación y volver a entrar para verlos.
+    LaunchedEffect(exchangeId) {
+        while (true) {
+            delay(CHAT_REFRESH_MS)
+            if (!busy && exchange != null) load(silent = true)
         }
     }
 

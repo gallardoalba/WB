@@ -69,12 +69,25 @@ fun ListsScreen(
     var newDescription by remember { mutableStateOf("") }
     var showOwner by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var pageError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(tab, reloads) {
         loading = true
         error = null
+        pageError = null
         try {
-            items = if (tab == "mine") viewModel.repo.myLists() else viewModel.repo.publicLists()
+            if (tab == "mine") {
+                items = viewModel.repo.myLists()
+                hasMore = false
+            } else {
+                val result = viewModel.repo.publicLists(page = 1)
+                items = result.items
+                hasMore = result.hasMore
+            }
+            page = 1
         } catch (failure: Exception) {
             error = errorText(texts, failure)
         } finally {
@@ -162,28 +175,62 @@ fun ListsScreen(
                 )
             }
             items.isEmpty() -> item { EmptyBox(texts["emptyLists"]) }
-            else -> items(items, key = { it.id }) { list ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { onOpenList(list.id) },
-                ) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = list.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        if (list.description.isNotBlank()) {
-                            Text(list.description, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Pill(texts.format("booksInList", list.items))
-                            if (list.showOwner || list.isMine) {
-                                Pill(texts.format("listBy", list.ownerName))
-                            } else {
-                                Pill(texts["anonymousOwner"])
+            else -> {
+                items(items, key = { it.id }) { list ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onOpenList(list.id) },
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = list.title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            if (list.description.isNotBlank()) {
+                                Text(list.description, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Pill(texts.format("booksInList", list.items))
+                                if (list.showOwner || list.isMine) {
+                                    Pill(texts.format("listBy", list.ownerName))
+                                } else {
+                                    Pill(texts["anonymousOwner"])
+                                }
                             }
                         }
+                    }
+                }
+                if (hasMore || pageError != null) {
+                    item {
+                        pageError?.let {
+                            ErrorBox(
+                                message = it,
+                                retry = texts["retry"],
+                                onRetry = { pageError = null },
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
+                        SecondaryButton(
+                            text = texts["loadMore"],
+                            enabled = !loadingMore,
+                            onClick = {
+                                loadingMore = true
+                                pageError = null
+                                scope.launch {
+                                    try {
+                                        val next = viewModel.repo.publicLists(page = page + 1)
+                                        items = items + next.items
+                                        page += 1
+                                        hasMore = next.hasMore
+                                    } catch (failure: Exception) {
+                                        pageError = errorText(texts, failure)
+                                    } finally {
+                                        loadingMore = false
+                                    }
+                                }
+                            },
+                        )
                     }
                 }
             }

@@ -1,5 +1,5 @@
 import { json } from "@/lib/api";
-import { listNotifications } from "@/lib/repo";
+import { countUnreadNotifications, listNotifications } from "@/lib/repo";
 import { route } from "@/lib/route";
 
 const PAGE = 25;
@@ -23,6 +23,7 @@ export const GET = route(
       notifications: rows.slice(0, PAGE),
       hasMore: rows.length > PAGE,
       offset: safeOffset,
+      unread: countUnreadNotifications(user.id),
     });
   },
 );

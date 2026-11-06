@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.wanderbibliothek.app.data.Club
 import org.wanderbibliothek.app.data.Community
 import org.wanderbibliothek.app.ui.AppViewModel
@@ -40,6 +42,7 @@ import org.wanderbibliothek.app.ui.components.FormField
 import org.wanderbibliothek.app.ui.components.LoadingBox
 import org.wanderbibliothek.app.ui.components.Pill
 import org.wanderbibliothek.app.ui.components.SectionTitle
+import org.wanderbibliothek.app.ui.components.SecondaryButton
 import org.wanderbibliothek.app.ui.errorText
 
 @Composable
@@ -51,6 +54,7 @@ fun ClubsScreen(
 ) {
     val texts = LocalTexts.current
     val lang = LocalLang.current
+    val scope = rememberCoroutineScope()
 
     if (session !is SessionState.SignedIn) {
         SignInPrompt(texts, text = texts["signInToSee"], onSignIn = onSignIn)
@@ -64,13 +68,22 @@ fun ClubsScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var reloads by remember { mutableIntStateOf(0) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var pageError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(query, reloads) {
-        if (reloads == 0) delay(250)
+        // Espera también tras un «Reintentar»: si no, cada tecla pedía la lista.
+        delay(250)
         loading = true
         error = null
+        pageError = null
         try {
-            clubs = viewModel.repo.clubs(query)
+            val result = viewModel.repo.clubs(query, page = 1)
+            clubs = result.items
+            page = 1
+            hasMore = result.hasMore
         } catch (failure: Exception) {
             error = errorText(texts, failure)
         } finally {
@@ -122,8 +135,42 @@ fun ClubsScreen(
                     )
                 }
                 clubs.isEmpty() -> item { EmptyBox(texts["emptyClubs"]) }
-                else -> items(clubs, key = { it.id }) { club ->
-                    ClubCard(club = club, texts = texts, lang = lang, onClick = { onOpenClub(club.id) })
+                else -> {
+                    items(clubs, key = { it.id }) { club ->
+                        ClubCard(club = club, texts = texts, lang = lang, onClick = { onOpenClub(club.id) })
+                    }
+                    if (hasMore || pageError != null) {
+                        item {
+                            pageError?.let {
+                                ErrorBox(
+                                    message = it,
+                                    retry = texts["retry"],
+                                    onRetry = { pageError = null },
+                                    modifier = Modifier.padding(bottom = 8.dp),
+                                )
+                            }
+                            SecondaryButton(
+                                text = texts["loadMore"],
+                                enabled = !loadingMore,
+                                onClick = {
+                                    loadingMore = true
+                                    pageError = null
+                                    scope.launch {
+                                        try {
+                                            val next = viewModel.repo.clubs(query, page = page + 1)
+                                            clubs = clubs + next.items
+                                            page += 1
+                                            hasMore = next.hasMore
+                                        } catch (failure: Exception) {
+                                            pageError = errorText(texts, failure)
+                                        } finally {
+                                            loadingMore = false
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
         } else {

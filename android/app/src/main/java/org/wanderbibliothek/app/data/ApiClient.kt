@@ -84,6 +84,7 @@ class ApiClient(private val prefs: Prefs) {
         maxBytes: Int,
     ): Raw = withContext(Dispatchers.IO) {
         val base = prefs.serverUrl().trimEnd('/')
+        val host = runCatching { java.net.URL(base).host }.getOrNull().orEmpty()
         val suffix = if (query.isEmpty()) {
             ""
         } else {
@@ -103,7 +104,7 @@ class ApiClient(private val prefs: Prefs) {
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("User-Agent", "Wanderbibliothek-Android/0.2.0")
-            val (cookie, hadSession) = cookieHeader()
+            val (cookie, hadSession) = cookieHeader(host)
             cookie?.let { connection.setRequestProperty("Cookie", it) }
             if (body != null) {
                 connection.doOutput = true
@@ -113,7 +114,7 @@ class ApiClient(private val prefs: Prefs) {
 
             val status = connection.responseCode
             if (status in 300..399) throw ApiException(status, "redirect", null)
-            prefs.storeCookies(setCookies(connection))
+            prefs.storeCookies(host, setCookies(connection))
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             Raw(status, readCapped(stream, maxBytes), hadSession)
         } catch (error: ApiException) {
@@ -127,9 +128,9 @@ class ApiClient(private val prefs: Prefs) {
         }
     }
 
-    /** Sesión + idioma elegido, para que los errores del servidor lleguen traducidos. */
-    private suspend fun cookieHeader(): Pair<String?, Boolean> {
-        val session = prefs.cookieHeader()
+    /** Sesión del servidor [host] + idioma elegido, para que los errores lleguen traducidos. */
+    private suspend fun cookieHeader(host: String): Pair<String?, Boolean> {
+        val session = prefs.cookieHeader(host)
         val parts = mutableListOf<String>()
         session?.let(parts::add)
         val language = prefs.language()

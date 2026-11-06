@@ -67,11 +67,19 @@ test("la exportación incluye la capa social y el recorrido", () => {
     "readingListItems",
     "clubsOwned",
     "clubMemberships",
+    "clubPosts",
+    "directThreads",
+    "directMessages",
+    "directEnvelopes",
     "journey",
   ]) {
     assert.ok(key in data, `falta ${key} en la exportación`);
   }
   assert.ok(Array.isArray(data.following));
+  // La portabilidad tiene que cubrir también la mensajería directa y los
+  // mensajes de club, que se quedaban fuera.
+  assert.ok(Array.isArray(data.directMessages));
+  assert.ok(Array.isArray(data.clubPosts));
 });
 
 test("borrar la cuenta elimina el contenido personal y deja hueco en los hilos", () => {

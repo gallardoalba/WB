@@ -22,15 +22,24 @@ WebView.
   correo), avisos con enlace a su pantalla, listas, idioma, tema, servidor,
   cambio de contraseña, verificación en dos pasos (con QR), exportación de los
   datos, enlaces legales y baja de la cuenta.
-- Interfaz en **alemán y castellano** (el alemán es el idioma por defecto de la
-  plataforma; el castellano se elige en Ajustes o sigue al sistema).
+- **Conversación viva**: el chat de un intercambio busca mensajes nuevos cada
+  15 s mientras está abierto, y la campana lleva el número de avisos sin leer.
+- **Listas paginadas**: clubes y listas públicas cargan de 12 en 12 con «cargar
+  más»; el resto de listas ya venía paginado.
+- **¿Olvidaste la contraseña?** en la pantalla de entrada: pide el enlace de
+  recuperación (el mismo mensaje exista o no la cuenta).
 
 ## Seguridad del cliente
 
 - La cookie de sesión y la clave privada del cifrado **no se guardan en claro**:
   van cifradas con AES-GCM y una clave del Keystore de Android
   (`data/SecretBox.kt`). Una copia del almacén de preferencias sin el Keystore
-  del dispositivo no sirve para nada.
+  del dispositivo no sirve para nada. Si el Keystore no deja cifrar, **no se
+  escribe nada en disco** (la sesión sigue viva en memoria) en vez de degradar a
+  texto plano.
+- La sesión se guarda **por host**: cambiar de servidor no reenvía la cookie del
+  anterior, y un valor sin el prefijo `enc1:` se descarta aunque esté en el
+  almacén.
 - Las copias de seguridad y la transferencia entre teléfonos están desactivadas
   (`android:allowBackup="false"` y `res/xml/data_extraction_rules.xml`):
   restaurar una clave cifrada con un Keystore que ya no existe dejaría un estado
@@ -73,13 +82,12 @@ nombre propio en `dist/`.
 ```sh
 ./scripts/build-apk.sh --debug                          # para tu teléfono
 ./scripts/build-apk.sh                                  # release firmado
-./scripts/build-apk.sh --bundle                         # AAB para Google Play
 ./scripts/build-apk.sh --bump --version 0.2.0           # release con versión nueva
 ```
 
-Para publicar en Play Store (cuenta de desarrollador, AAB, Play App Signing,
-declaraciones y lo que aún falta en la app) está `PUBLISHING.md`, en esta misma
-carpeta.
+Para publicar en el catálogo libre, `FDROID.md` (F-Droid compila desde el código
+y firma con su propia clave; el APK de `dist/` sirve para instalarlo tú y para
+repositorios que acepten tu firma, como IzzyOnDroid).
 
 Pruebas JVM:
 
@@ -125,7 +133,7 @@ huella RSA de este equipo; sin aceptarla, `adb devices` lo muestra como
 **Sin cable**: copia `dist/wanderbibliothek-0.1.0-debug.apk` al teléfono (correo,
 Drive, almacenamiento USB) y ábrelo con el gestor de archivos. Android pedirá
 permitir «instalar apps desconocidas» para esa aplicación; es lo normal al no
-venir de Play Store.
+venir de una tienda de aplicaciones.
 
 ⚠ **La clave de depuración es de este equipo**: una actualización compilada en
 otra máquina no se instala encima (error `INSTALL_FAILED_UPDATE_INCOMPATIBLE`).

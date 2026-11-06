@@ -1,7 +1,9 @@
 package org.wanderbibliothek.app.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -43,5 +45,22 @@ class TextsTest {
         val texts = TextCatalog.forLanguage("de")
         // `votes` usa `%d`; pasar texto no debe lanzar, solo degradar.
         assertEquals("3 Stimmen", texts.format("votes", "3"))
+    }
+
+    /**
+     * La barra inferior reparte cinco destinos en el ancho del móvil. Con
+     * «Intercambios» (76 dp a 12 sp) no cabe en 360 dp y partía en dos líneas;
+     * esta prueba obliga a que las etiquetas cortas sigan siéndolo.
+     */
+    @Test
+    fun `las etiquetas de la barra caben en un movil estrecho`() {
+        val keys = listOf("navDiscover", "navShelf", "navExchanges", "navClubs", "navAccount")
+        for (catalog in listOf(TextCatalog.de, TextCatalog.es)) {
+            keys.forEach { key ->
+                val label = catalog.getValue(key)
+                assertTrue("demasiado larga para la barra: «$label»", label.length <= 9)
+                assertFalse("sin puntos suspensivos: «$label»", label.contains("…"))
+            }
+        }
     }
 }

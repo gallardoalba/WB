@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 #
-# Construye un APK o un AAB listo para publicar: comprueba la firma, sube el
-# versionCode si se pide y lo deja con un nombre propio en `dist/`.
+# Construye un APK listo para instalar o subir a F-Droid: comprueba la firma,
+# sube el versionCode si se pide y lo deja con un nombre propio en `dist/`.
 #
 #   ./scripts/build-apk.sh                      # release firmado
 #   ./scripts/build-apk.sh --bump               # release con versionCode + 1
 #   ./scripts/build-apk.sh --bump --version 0.2.0
-#   ./scripts/build-apk.sh --bundle             # AAB para Google Play
 #   ./scripts/build-apk.sh --debug              # APK de depuración (sin firma propia)
 #
 # El release se firma con ANDROID_SIGNING_STORE_FILE y ANDROID_SIGNING_KEY_ALIAS;
@@ -14,25 +13,25 @@
 # almacén se comprueba con keytool antes de gastar un minuto compilando.
 set -euo pipefail
 
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Ruta absoluta del propio script: `usage()` lo lee con sed y el directorio de
+# trabajo cambia más abajo, así que una ruta relativa dejaría de resolver.
+self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+here="$(cd "$(dirname "$self")/.." && pwd)"
 cd "$here"
 
 gradle_file="app/build.gradle.kts"
 variant="release"
-kind="apk"
-ext="apk"
 bump=0
 new_version=""
 out_dir="dist"
 
 usage() {
-  sed -n '3,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '3,13p' "$self" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --debug) variant="debug" ;;
-    --bundle) kind="aab" ;;
     --bump) bump=1 ;;
     --version)
       new_version="${2:?falta el número de versión después de --version}"
@@ -61,11 +60,6 @@ for tool in ./gradlew python3; do
     exit 1
   }
 done
-
-if [[ "$kind" == "aab" && "$variant" == "debug" ]]; then
-  echo "--bundle no combina con --debug: un AAB de depuración no sirve para Play." >&2
-  exit 64
-fi
 
 # Lee `versionCode`/`versionName` de `defaultConfig`. El APK se llama igual sin
 # tocar el fichero, así que se lee y se escribe con el mismo criterio.
@@ -218,15 +212,6 @@ else
   suffix="-debug"
 fi
 
-if [[ "$kind" == "aab" ]]; then
-  # Un AAB no se instala: es el paquete que Play divide por dispositivo. Se
-  # firma con la misma clave de subida.
-  task=":app:bundleRelease"
-  built="app/build/outputs/bundle/release/app-release.aab"
-  suffix=""
-  ext="aab"
-fi
-
 echo "Compilando $variant · $version_name (versionCode $version_code)"
 if ! ./gradlew "$task"; then
   cat >&2 <<EOF
@@ -245,8 +230,7 @@ fi
   exit 1
 }
 
-# Comprobar la firma aquí evita descubrir en el teléfono (o en Play) que el
-# paquete no sirve. El AAB va firmado como JAR, no con el esquema de APK.
+# Comprobar la firma aquí evita descubrir en el teléfono que el APK no sirve.
 sdk_dir="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [[ -z "$sdk_dir" && -f local.properties ]]; then
   sdk_dir="$(sed -n 's/^sdk\.dir=//p' local.properties)"
@@ -258,19 +242,7 @@ fi
 if [[ -z "$apksigner_bin" ]] && command -v apksigner >/dev/null 2>&1; then
   apksigner_bin="$(command -v apksigner)"
 fi
-if [[ "$ext" == "aab" ]]; then
-  # Sin `-strict`: el certificado de firma de Android es autofirmado y `-strict`
-  # lo cuenta como error (código 4) aunque el JAR esté bien firmado.
-  if command -v jarsigner >/dev/null 2>&1; then
-    jarsigner -verify "$built" >/dev/null 2>&1 || {
-      echo "El AAB no está firmado correctamente: Play lo rechazaría." >&2
-      exit 1
-    }
-  elif ! unzip -l "$built" 2>/dev/null | grep -qE 'META-INF/[^/]+\.(RSA|EC|DSA)$'; then
-    echo "El AAB no lleva bloque de firma: Play lo rechazaría." >&2
-    exit 1
-  fi
-elif [[ -z "$apksigner_bin" ]]; then
+if [[ -z "$apksigner_bin" ]]; then
   echo "Aviso: no encuentro apksigner; no compruebo la firma." >&2
 else
   "$apksigner_bin" verify --print-certs "$built" >/dev/null || {
@@ -282,18 +254,14 @@ fi
 mkdir -p "$out_dir"
 # Ruta absoluta: con `--out /tmp/x` la ruta relativa no sirve para el mensaje.
 out_abs="$(cd "$out_dir" && pwd)"
-target="$out_abs/wanderbibliothek-$version_name$suffix.$ext"
+target="$out_abs/wanderbibliothek-$version_name$suffix.apk"
 cp "$built" "$target"
 
 echo
-echo "paquete $target"
+echo "APK     $target"
 echo "versión $version_name (versionCode $version_code)"
 echo "tamaño  $(du -h "$target" | cut -f1 | tr -d '[:space:]')"
 echo "sha256  $(sha256sum "$target" | cut -d' ' -f1)"
 echo
-if [[ "$ext" == "aab" ]]; then
-  echo "Subir a Play Console → Pruebas → Prueba interna (el AAB no se instala a mano)."
-else
-  echo "Instalar con cable:  adb install -r \"$target\""
-  echo "Sin cable: copia ese fichero al teléfono y ábrelo con el gestor de archivos."
-fi
+echo "Instalar con cable:  adb install -r \"$target\""
+echo "Sin cable: copia ese fichero al teléfono y ábrelo con el gestor de archivos."

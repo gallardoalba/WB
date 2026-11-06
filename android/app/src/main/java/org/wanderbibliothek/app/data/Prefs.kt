@@ -81,27 +81,46 @@ class Prefs(context: Context) {
 
     /* ---------------------------- sesión (cookies) --------------------------- */
 
-    suspend fun cookies(): Map<String, String> {
-        val raw = dataStore.data.first()[COOKIES]?.let(SecretBox::open) ?: return emptyMap()
-        return raw.split(';')
-            .mapNotNull { part ->
-                val trimmed = part.trim()
-                val index = trimmed.indexOf('=')
-                if (index <= 0) null else trimmed.substring(0, index) to trimmed.substring(index + 1)
+    /**
+     * Sesión en memoria para cuando el Keystore no deja cifrar: la app sigue
+     * funcionando en esta ejecución, pero no se escribe nada en disco.
+     */
+    @Volatile
+    private var sessionFallback: Pair<String, String>? = null
+
+    /**
+     * Tarros de cookies **por host**.
+     *
+     * La sesión pertenece a un servidor concreto: guardar un único tarro y
+     * reenviarlo tras cambiar de dirección mandaría el token a otro sitio. Se
+     * guarda como `{"<host>": "<cabecera>"}` cifrado.
+     */
+    private suspend fun cookieJars(): MutableMap<String, String> {
+        val raw = dataStore.data.first()[COOKIES]?.let(SecretBox::open)
+            ?: return mutableMapOf()
+        val parsed = runCatching { JSONObject(raw) }.getOrNull()
+        if (parsed == null) {
+            // Formato anterior a la v0.1.1: una sola cabecera, del servidor
+            // que estuviera configurado entonces.
+            val host = hostOf(dataStore.data.first()[SERVER_URL] ?: DEFAULT_SERVER_URL)
+            return if (host != null) mutableMapOf(host to raw) else mutableMapOf()
+        }
+        return mutableMapOf<String, String>().apply {
+            parsed.keys().forEach { host ->
+                parsed.optString(host).takeIf { it.isNotBlank() }?.let { put(host, it) }
             }
-            .toMap()
+        }
     }
 
-    suspend fun cookieHeader(): String? {
-        val all = cookies()
-        if (all.isEmpty()) return null
-        return all.entries.joinToString("; ") { "${it.key}=${it.value}" }
-    }
+    /** Cookies de ese servidor, o `null` si no hay sesión guardada. */
+    suspend fun cookieHeader(host: String): String? =
+        cookieJars()[host] ?: sessionFallback?.takeIf { it.first == host }?.second
 
-    /** Aplica las cabeceras `Set-Cookie` de una respuesta. */
-    suspend fun storeCookies(setCookies: List<String>) {
+    /** Aplica las cabeceras `Set-Cookie` de una respuesta del servidor [host]. */
+    suspend fun storeCookies(host: String, setCookies: List<String>) {
         if (setCookies.isEmpty()) return
-        val current = cookies().toMutableMap()
+        val jars = cookieJars()
+        val current = parseCookies(jars[host].orEmpty()).toMutableMap()
         setCookies.forEach { raw ->
             val parts = raw.split(';')
             val pair = parts.firstOrNull()?.trim().orEmpty()
@@ -112,33 +131,83 @@ class Prefs(context: Context) {
             val expired = parts.any { it.trim().startsWith("Max-Age=0", ignoreCase = true) }
             if (expired || value.isEmpty()) current.remove(name) else current[name] = value
         }
+        val header = current.entries.joinToString("; ") { "${it.key}=${it.value}" }
+        if (header.isEmpty()) jars.remove(host) else jars[host] = header
+
+        val payload = JSONObject().apply {
+            jars.forEach { (jarHost, jar) -> put(jarHost, jar) }
+        }.toString()
+        val sealed = SecretBox.sealOrNull(payload)
+        if (sealed == null) {
+            // Sin Keystore la sesión no se persiste, pero sigue viva en memoria.
+            sessionFallback = host to header
+            return
+        }
         dataStore.edit { preferences ->
-            if (current.isEmpty()) {
+            if (jars.isEmpty()) {
                 preferences.remove(COOKIES)
             } else {
-                preferences[COOKIES] =
-                    SecretBox.seal(current.entries.joinToString("; ") { "${it.key}=${it.value}" })
+                preferences[COOKIES] = sealed
             }
         }
     }
 
     suspend fun clearSession() {
+        sessionFallback = null
         dataStore.edit { it.remove(COOKIES) }
     }
+
+    private fun parseCookies(header: String): Map<String, String> =
+        header.split(';')
+            .mapNotNull { part ->
+                val trimmed = part.trim()
+                val index = trimmed.indexOf('=')
+                if (index <= 0) {
+                    null
+                } else {
+                    trimmed.substring(0, index) to trimmed.substring(index + 1)
+                }
+            }
+            .toMap()
+
+    private fun hostOf(url: String): String? =
+        runCatching { java.net.URL(url).host.ifBlank { null } }.getOrNull()
 
     /* ------------------------------ identidad E2E ---------------------------- */
 
     /**
      * Identidad E2E de una cuenta. Es **por cuenta**: dos personas que usen el
      * mismo móvil no comparten clave privada ni quedan vinculadas por la misma
-     * clave pública. Se migra la identidad única de versiones anteriores.
+     * clave pública.
+     *
+     * La identidad única de la v0.1 no se adopta aquí: no dice de qué cuenta
+     * era y entregarla a la primera que entre podría publicarla en otra. La
+     * reclama [WanderRepository.ensureIdentity] solo si el servidor ya tiene esa
+     * clave en la ranura del móvil.
      */
     suspend fun identity(userId: String): IdentityRecord? {
         val preferences = dataStore.data.first()
-        preferences[identityKey(userId)]?.let(SecretBox::open)?.let { stored ->
-            decodeIdentity(stored)?.let { return it }
-        }
-        return migrateLegacyIdentity(userId)
+        return preferences[identityKey(userId)]?.let(SecretBox::open)?.let(::decodeIdentity)
+    }
+
+    /** Identidad sin dueño de la v0.1, si esta instalación todavía la tiene. */
+    suspend fun legacyIdentity(): IdentityRecord? {
+        val preferences = dataStore.data.first()
+        val keyId = preferences[E2E_KEY_ID] ?: return null
+        val privateKey = preferences[E2E_PRIVATE_KEY] ?: return null
+        val publicJwk = preferences[E2E_PUBLIC_JWK] ?: return null
+        return runCatching {
+            IdentityRecord(
+                keyId = keyId,
+                publicJwk = JSONObject(publicJwk),
+                privateKeyPkcs8 = Base64.decode(privateKey, Base64.NO_WRAP),
+            )
+        }.getOrNull()
+    }
+
+    /** Borra la identidad antigua una vez reclamada o descartada. */
+    suspend fun clearLegacyIdentity() {
+        dataStore.edit { it.remove(E2E_KEY_ID); it.remove(E2E_PRIVATE_KEY); it.remove(E2E_PUBLIC_JWK) }
     }
 
     suspend fun saveIdentity(
@@ -162,23 +231,6 @@ class Prefs(context: Context) {
     }
 
     /** La identidad única de antes de la v0.2 pasa a la primera cuenta que la use. */
-    private suspend fun migrateLegacyIdentity(userId: String): IdentityRecord? {
-        val preferences = dataStore.data.first()
-        val keyId = preferences[E2E_KEY_ID] ?: return null
-        val privateKey = preferences[E2E_PRIVATE_KEY] ?: return null
-        val publicJwk = preferences[E2E_PUBLIC_JWK] ?: return null
-        val record = runCatching {
-            IdentityRecord(
-                keyId = keyId,
-                publicJwk = JSONObject(publicJwk),
-                privateKeyPkcs8 = Base64.decode(privateKey, Base64.NO_WRAP),
-            )
-        }.getOrNull() ?: return null
-        saveIdentity(userId, record.keyId, record.publicJwk, record.privateKeyPkcs8)
-        dataStore.edit { it.remove(E2E_KEY_ID); it.remove(E2E_PRIVATE_KEY); it.remove(E2E_PUBLIC_JWK) }
-        return record
-    }
-
     private fun decodeIdentity(value: String): IdentityRecord? = runCatching {
         val json = JSONObject(value)
         IdentityRecord(

@@ -33,6 +33,14 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
         return User.from(user)
     }
 
+    /**
+     * Pide el enlace de recuperación. El servidor responde siempre lo mismo
+     * (exista o no la cuenta), así que aquí no se puede distinguir.
+     */
+    suspend fun requestPasswordReset(email: String) {
+        api.post("/api/auth/forgot", JSONObject().put("email", email.trim()))
+    }
+
     suspend fun login(email: String, password: String, code: String?): LoginOutcome {
         val body = JSONObject().put("email", email.trim()).put("password", password)
         if (!code.isNullOrBlank()) body.put("code", code.trim())
@@ -350,6 +358,10 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
 
     /* -------------------------------- avisos -------------------------------- */
 
+    /** Avisos sin leer, para el distintivo de la campana. */
+    suspend fun unreadNotifications(): Int =
+        api.get("/api/notifications", mapOf("offset" to "0")).optInt("unread")
+
     suspend fun notifications(offset: Int): Pair<List<AppNotification>, Boolean> {
         val json = api.get("/api/notifications", mapOf("offset" to offset.toString()))
         val list = json.optJSONArray("notifications")
@@ -373,14 +385,12 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
 
     /* -------------------------------- clubes -------------------------------- */
 
-    suspend fun clubs(query: String = "", city: String = "", page: Int = 1): List<Club> {
+    suspend fun clubs(query: String = "", city: String = "", page: Int = 1): Page<Club> {
         val params = mutableMapOf("page" to page.toString())
         if (query.isNotBlank()) params["q"] = query
         if (city.isNotBlank()) params["city"] = city
-        return api.get("/api/clubs", params).optJSONArray("clubs")
-            ?.let { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it) } }
-            ?.map(Club::from)
-            .orEmpty()
+        val json = api.get("/api/clubs", params)
+        return Page(json.objects("clubs").map(Club::from), json.bool("hasMore"))
     }
 
     suspend fun club(id: String): ClubBundle =
@@ -426,13 +436,11 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
             ?.map(ReadingList::from)
             .orEmpty()
 
-    suspend fun publicLists(query: String = "", page: Int = 1): List<ReadingList> {
+    suspend fun publicLists(query: String = "", page: Int = 1): Page<ReadingList> {
         val params = mutableMapOf("scope" to "public", "page" to page.toString())
         if (query.isNotBlank()) params["q"] = query
-        return api.get("/api/lists", params).optJSONArray("lists")
-            ?.let { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it) } }
-            ?.map(ReadingList::from)
-            .orEmpty()
+        val json = api.get("/api/lists", params)
+        return Page(json.objects("lists").map(ReadingList::from), json.bool("hasMore"))
     }
 
     suspend fun listDetail(id: String): ReadingListDetail =
@@ -460,9 +468,25 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
     suspend fun ensureIdentity(userId: String): IdentityRecord {
         val scope = identityScope(userId)
         prefs.identity(scope)?.let { return it }
+        adoptLegacyIdentity(scope)?.let { return it }
         val (identity, privateKey) = MessageCrypto.generateIdentity()
         prefs.saveIdentity(scope, identity.keyId, identity.publicJwk, privateKey)
         return prefs.identity(scope) ?: error("No se pudo guardar la identidad.")
+    }
+
+    /**
+     * La identidad de la v0.1 no decía de qué cuenta era. Se adopta solo si el
+     * servidor ya la tiene publicada en la ranura del móvil (es decir, si esa
+     * cuenta es la que la publicó); en cualquier otro caso se descarta, porque
+     * publicarla en otra cuenta entregaría la clave a quien no es.
+     */
+    private suspend fun adoptLegacyIdentity(scope: String): IdentityRecord? {
+        val legacy = prefs.legacyIdentity() ?: return null
+        val published = runCatching { serverKeyId("android") }.getOrNull()
+        prefs.clearLegacyIdentity()
+        if (published == null || published != legacy.keyId) return null
+        prefs.saveIdentity(scope, legacy.keyId, legacy.publicJwk, legacy.privateKeyPkcs8)
+        return prefs.identity(scope)
     }
 
     /** La identidad se guarda por servidor y cuenta: cambiar de servidor no la reutiliza. */

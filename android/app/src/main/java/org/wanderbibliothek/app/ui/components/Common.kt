@@ -42,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -358,6 +359,7 @@ fun FormField(
     keyboardType: KeyboardType = KeyboardType.Text,
     password: Boolean = false,
     enabled: Boolean = true,
+    imeAction: ImeAction = ImeAction.Default,
     supportingText: String? = null,
 ) {
     OutlinedTextField(
@@ -367,7 +369,7 @@ fun FormField(
         modifier = modifier,
         singleLine = singleLine,
         enabled = enabled,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         visualTransformation = if (password) {
             PasswordVisualTransformation()
         } else {
@@ -404,8 +406,16 @@ fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth(),
     enabled: Boolean = true,
+    loading: Boolean = false,
 ) {
-    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled) {
+    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled && !loading) {
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
         Text(text)
     }
 }

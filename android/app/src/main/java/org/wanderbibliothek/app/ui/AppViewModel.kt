@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.wanderbibliothek.app.data.ApiClient
@@ -39,13 +40,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _session = MutableStateFlow<SessionState>(SessionState.Loading)
     val session: StateFlow<SessionState> = _session.asStateFlow()
 
+    /** Avisos sin leer: se refresca solo para el distintivo de la campana. */
+    private val _unread = MutableStateFlow(0)
+    val unread: StateFlow<Int> = _unread.asStateFlow()
+
     init {
         // Cualquier 401 de la API deja la app en «sin sesión» sin esperar a que
         // el usuario reinicie.
         viewModelScope.launch {
             SessionBus.expired.collect { _session.value = SessionState.SignedOut }
         }
+        // El contador se refresca al arrancar y cada minuto mientras haya
+        // sesión: sin esto el distintivo nunca aparecía.
+        viewModelScope.launch {
+            while (true) {
+                if (_session.value is SessionState.SignedIn) refreshUnread()
+                delay(60_000)
+            }
+        }
         refreshSession()
+    }
+
+    suspend fun refreshUnread() {
+        _unread.value = runCatching {
+            if (_session.value is SessionState.SignedIn) repo.unreadNotifications() else 0
+        }.getOrDefault(0)
     }
 
     fun refreshSession() {

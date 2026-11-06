@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -93,18 +94,20 @@ fun RegisterScreen(
         )
         error?.let { Notice(it, isError = true) }
 
-        FormField(name, { name = it }, texts["name"])
+        FormField(name, { name = it }, texts["name"], imeAction = ImeAction.Next)
         FormField(
             value = email,
             onValueChange = { email = it },
             label = texts["email"],
+            imeAction = ImeAction.Next,
             keyboardType = KeyboardType.Email,
         )
-        FormField(city, { city = it }, texts["city"])
+        FormField(city, { city = it }, texts["city"], imeAction = ImeAction.Next)
         FormField(
             value = password,
             onValueChange = { password = it },
             label = texts["password"],
+            imeAction = ImeAction.Next,
             password = true,
             supportingText = texts["passwordMin"],
         )
@@ -113,6 +116,7 @@ fun RegisterScreen(
             onValueChange = { repeat = it },
             label = texts["passwordRepeat"],
             password = true,
+            imeAction = ImeAction.Done,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = ageConfirmed, onCheckedChange = { ageConfirmed = it })

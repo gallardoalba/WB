@@ -216,6 +216,7 @@ fun AccountScreen(
             text = texts["exportData"],
             onClick = { shareExport() },
             enabled = !exporting,
+            loading = exporting,
         )
 
         SectionTitle(texts["legal"])

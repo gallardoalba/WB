@@ -264,6 +264,51 @@ export function exportAccountData(userId: string) {
     )
     .all(userId);
 
+  // Mensajería directa: hilos en los que participa la cuenta. Como la de los
+  // intercambios, va cifrada de extremo a extremo; aquí solo se exportan los
+  // sobres, que el servidor no puede abrir.
+  const directThreads = db
+    .prepare(
+      `SELECT t.id, t.created_at, t.last_message_at,
+              CASE WHEN t.user_a = ? THEN ub.name ELSE ua.name END AS with
+         FROM dm_threads t
+         JOIN users ua ON ua.id = t.user_a
+         JOIN users ub ON ub.id = t.user_b
+        WHERE t.user_a = ? OR t.user_b = ?
+        ORDER BY t.last_message_at DESC`,
+    )
+    .all(userId, userId, userId);
+
+  const directMessages = db
+    .prepare(
+      `SELECT m.id, m.thread_id, m.body, m.ciphertext, m.iv, m.key_id,
+              m.encrypted, m.created_at, s.name AS sender
+         FROM dm_messages m
+         JOIN dm_threads t ON t.id = m.thread_id
+         JOIN users s ON s.id = m.sender_id
+        WHERE t.user_a = ? OR t.user_b = ?
+        ORDER BY m.created_at DESC`,
+    )
+    .all(userId, userId);
+
+  const directEnvelopes = db
+    .prepare(
+      `SELECT e.message_id, e.key_id, e.ciphertext, e.iv
+         FROM dm_message_envelopes e
+         JOIN dm_messages m ON m.id = e.message_id
+         JOIN dm_threads t ON t.id = m.thread_id
+        WHERE t.user_a = ? OR t.user_b = ?`,
+    )
+    .all(userId, userId);
+
+  const clubPosts = db
+    .prepare(
+      `SELECT p.id, p.club_id, c.name AS club, p.body, p.status, p.created_at
+         FROM club_posts p JOIN clubs c ON c.id = p.club_id
+        WHERE p.author_id = ? ORDER BY p.created_at DESC`,
+    )
+    .all(userId);
+
   return {
     exportedAt: nowIso(),
     // Los mensajes cifrados van como sobre (`ciphertext` + `iv`): solo se
@@ -292,6 +337,10 @@ export function exportAccountData(userId: string) {
     readingListItems,
     clubsOwned,
     clubMemberships,
+    clubPosts,
+    directThreads,
+    directMessages,
+    directEnvelopes,
     journey: getReaderJourney(userId),
   };
 }

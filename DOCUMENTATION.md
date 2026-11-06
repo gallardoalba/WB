@@ -114,7 +114,7 @@ Messages within an exchange and direct messages are encrypted in the browser (EC
 - Directory `0700` and database `0600`; `npm run db:backup` uses SQLite's `.backup()` API and encrypts with AES-256-GCM when `WANDERBIBLIOTHEK_BACKUP_KEY` is set.
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
 - Account tokens are single-use, hashed and expire; changing the password ends every session.
-- `GET /api/account/export` returns all data as JSON, and deleting the account removes its own content without tearing other people's threads.
+- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received, direct messages with their envelopes, club posts and memberships, reviews, lists, follows, blocks, reports and notifications), and deleting the account removes its own content without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
 ## Environment variables
 

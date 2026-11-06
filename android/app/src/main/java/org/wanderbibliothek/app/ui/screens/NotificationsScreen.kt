@@ -76,6 +76,7 @@ fun NotificationsScreen(
             val page = viewModel.repo.notifications(0)
             items = page.first
             hasMore = page.second
+            viewModel.refreshUnread()
         } catch (failure: Exception) {
             error = errorText(texts, failure)
         } finally {
@@ -104,6 +105,7 @@ fun NotificationsScreen(
                 scope.launch {
                     try {
                         viewModel.repo.markAllNotificationsRead()
+                        viewModel.refreshUnread()
                         reloads += 1
                     } catch (failure: Exception) {
                         notice = errorText(texts, failure)

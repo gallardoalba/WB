@@ -18,6 +18,9 @@ import javax.crypto.spec.GCMParameterSpec
  * funcionando y se migra la próxima vez que se escribe.
  */
 object SecretBox {
+    /** El Keystore no está disponible: no se puede guardar nada sensible. */
+    class Unavailable : Exception("El almacén de claves del sistema no está disponible.")
+
     private const val ALIAS = "wanderbibliothek-secrets"
     private const val PREFIX = "enc1:"
     private const val IV_BYTES = 12
@@ -43,8 +46,8 @@ object SecretBox {
         return generator.generateKey()
     }
 
-    /** Cifra un texto. Si el Keystore fallara, se guarda sin prefijo. */
-    fun seal(plain: String): String = runCatching {
+    /** Cifra un texto. **Nunca** devuelve el texto en claro. */
+    fun seal(plain: String): String = try {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val iv = cipher.iv
@@ -53,11 +56,27 @@ object SecretBox {
         System.arraycopy(iv, 0, merged, 0, iv.size)
         System.arraycopy(data, 0, merged, iv.size, data.size)
         PREFIX + Base64.encodeToString(merged, Base64.NO_WRAP)
-    }.getOrDefault(plain)
+    } catch (error: Exception) {
+        // Antes se devolvía el texto tal cual: la cookie y la clave privada
+        // acababan escritas en claro sin que nadie lo supiera. Ahora se avisa.
+        throw Unavailable().apply { initCause(error) }
+    }
 
-    /** Abre un valor cifrado. Devuelve null si la clave ya no sirve. */
+    /**
+     * Igual que [seal] pero devuelve `null` en vez de lanzar. Para lo que puede
+     * seguir funcionando sin persistirse (la sesión en curso).
+     */
+    fun sealOrNull(plain: String): String? = runCatching { seal(plain) }.getOrNull()
+
+    /**
+     * Abre un valor cifrado. Devuelve null si la clave ya no sirve.
+     *
+     * Un valor **sin** el prefijo `enc1:` no se acepta: devolverlo tal cual
+     * permitía que algo escrito a mano —con acceso al almacén de la app— se
+     * colara como cookie o como clave. Lo que no se puede descifrar, no vale.
+     */
     fun open(stored: String): String? {
-        if (!stored.startsWith(PREFIX)) return stored
+        if (!stored.startsWith(PREFIX)) return null
         return runCatching {
             val merged = Base64.decode(stored.removePrefix(PREFIX), Base64.NO_WRAP)
             require(merged.size > IV_BYTES) { "valor cifrado incompleto" }
