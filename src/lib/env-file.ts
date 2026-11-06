@@ -1,15 +1,18 @@
 /**
  * Lectura del `EnvironmentFile` de systemd.
  *
- * Los scripts de operación se lanzan a mano (`sudo -u wanderbibliothek npm run
- * mail:test -- …`) y en ese proceso **no** está el entorno que systemd inyecta
- * al servicio. Sin esto, una clave de Brevo recién puesta parecería «no
- * configurada» y se buscaría el fallo donde no está.
+ * Los scripts de operación se lanzan a mano (`sudo npm run mail:test -- …`) y
+ * en ese proceso **no** está el entorno que systemd inyecta al servicio. Sin
+ * esto, una clave de Brevo recién puesta parecería «no configurada» y se
+ * buscaría el fallo donde no está.
+ *
+ * Ojo con el usuario: el fichero es de root (600), así que lanzarlo con
+ * `sudo -u wanderbibliothek` falla al leerlo; para eso está `envFileProblem`.
  *
  * Solo se rellenan las variables que faltan: exportar algo en la línea de
  * órdenes siempre gana sobre el fichero.
  */
-import { readFileSync } from "node:fs";
+import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 
 /** `KEY=valor`, con `export` opcional delante. */
 const LINEA = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
@@ -48,6 +51,26 @@ export function parseEnvFile(text: string): Record<string, string> {
   }
 
   return values;
+}
+
+/**
+ * Explica por qué no se puede leer el fichero, o `null` si no hay problema.
+ *
+ * El `EnvironmentFile` del servicio es de root (600), así que lanzar un script
+ * con `sudo -u wanderbibliothek` lo deja sin entorno **sin avisar**: el error
+ * de permisos se confundía con «no hay proveedor configurado» y se buscaba el
+ * fallo en la clave.
+ */
+export function envFileProblem(path: string): string | null {
+  if (!existsSync(path)) {
+    return `${path} no existe: define las variables en el entorno o pasa --env con otra ruta.`;
+  }
+  try {
+    accessSync(path, constants.R_OK);
+    return null;
+  } catch {
+    return `${path} existe pero este usuario no puede leerlo (suele ser 600 de root): ejecuta la orden con sudo.`;
+  }
 }
 
 /**

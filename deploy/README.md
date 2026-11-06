@@ -192,10 +192,12 @@ dominio, no `no-reply@` de uno ajeno.
 **Probarlo** sin esperar a que alguien se registre: el script envía un correo de
 prueba por el mismo camino que los de verdad (no toca la base). Lee
 `/etc/wanderbibliothek/env` por su cuenta —lo que exportes a mano manda—, así
-que no hay que repetir la clave en la orden:
+que no hay que repetir la clave en la orden. Va con `sudo` a secas: con
+`sudo -u wanderbibliothek` no puede leer el fichero (es 600 de root) y diría
+«no hay proveedor configurado» con la clave puesta.
 
 ```bash
-sudo -u wanderbibliothek npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo
+sudo npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo
 ```
 
 Si sale `Aceptado por el proveedor`, el resto —la cola, los enlaces de un solo

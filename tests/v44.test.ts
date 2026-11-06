@@ -8,13 +8,12 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { loadEnvFile, parseEnvFile } from "../src/lib/env-file.ts";
+import { envFileProblem, loadEnvFile, parseEnvFile } from "../src/lib/env-file.ts";
 import { parseMailTestArgs } from "../src/lib/mail-test-args.ts";
-
 function ficheroTemporal(contenido: string): string {
   const dir = mkdtempSync(path.join(tmpdir(), "wanderbibliothek-env-"));
   const file = path.join(dir, "env");
@@ -68,6 +67,22 @@ test("un fichero inexistente no es un error", () => {
   const destino: Record<string, string | undefined> = {};
   assert.equal(loadEnvFile("/no/existe/wanderbibliothek/env", destino), 0);
   assert.deepEqual(destino, {});
+});
+
+test("un fichero que no se puede leer se explica, no se confunde con «sin clave»", () => {
+  assert.match(envFileProblem("/no/existe/wanderbibliothek/env") ?? "", /no existe/);
+
+  // El caso real: /etc/wanderbibliothek/env es 600 de root y el script se lanza
+  // como otro usuario, así que leerlo falla con EACCES.
+  const file = ficheroTemporal("BREVO_API_KEY=xkeysib-abc\n");
+  chmodSync(file, 0o000);
+  try {
+    assert.match(envFileProblem(file) ?? "", /no puede leerlo[\s\S]*sudo/);
+  } finally {
+    chmodSync(file, 0o600);
+  }
+
+  assert.equal(envFileProblem(file), null, "un fichero legible no es un problema");
 });
 
 test("mail:test toma el destinatario cuando no hay --env", () => {

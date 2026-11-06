@@ -442,7 +442,7 @@ ${BOLD}Falta lo que ningún script puede adivinar:${NC}
      y reinicia (sudo systemctl restart $SERVICE). Sin esto nadie puede
      confirmar su cuenta, y en producción la confirmación es obligatoria.
      Comprueba la clave sin esperar a un registro:
-       sudo -u $APP_USER npm --prefix $CURRENT_LINK run mail:test -- tu@correo
+       sudo npm --prefix $CURRENT_LINK run mail:test -- tu@correo
   2. Impressum: LEGAL_CONTROLLER, LEGAL_ADDRESS y LEGAL_CONTACT_EMAIL
      (obligatorio en Alemania; ver deploy/README.md, apartado 13).
   3. Cuenta de administración:

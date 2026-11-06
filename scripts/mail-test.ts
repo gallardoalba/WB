@@ -1,7 +1,7 @@
 /**
  * Envía un correo de prueba con el proveedor configurado. No toca la base.
  *
- *   sudo -u wanderbibliothek npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo
+ *   sudo npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo
  *
  * Existe para comprobar una clave de Brevo (o un webhook) recién puesta sin
  * esperar a que alguien se registre; si esto llega, el resto del flujo —la
@@ -9,9 +9,11 @@
  *
  * El entorno se toma de `/etc/wanderbibliothek/env` (el mismo fichero que lee
  * systemd) para lo que no venga ya exportado; con `--env` se puede apuntar a
- * otro fichero.
+ * otro fichero. Como ese fichero es de root (600), la orden va con `sudo`:
+ * con `sudo -u wanderbibliothek` no se puede leer y solo se vería «no hay
+ * proveedor configurado».
  */
-import { loadEnvFile } from "../src/lib/env-file";
+import { envFileProblem, loadEnvFile } from "../src/lib/env-file";
 import { parseMailTestArgs } from "../src/lib/mail-test-args";
 import { sendMail } from "../src/lib/mailer";
 
@@ -22,7 +24,8 @@ if (!ficheroEntorno) {
   process.exit(1);
 }
 
-const leidas = loadEnvFile(ficheroEntorno);
+const problemaEntorno = envFileProblem(ficheroEntorno);
+const leidas = problemaEntorno ? 0 : loadEnvFile(ficheroEntorno);
 if (leidas > 0) console.log(`Entorno leído de ${ficheroEntorno}.`);
 
 if (!destinatario || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
@@ -38,9 +41,12 @@ const proveedor = process.env.MAIL_WEBHOOK_URL?.trim()
 
 if (!proveedor) {
   console.error(
-    "No hay proveedor configurado: define BREVO_API_KEY y MAIL_FROM (o MAIL_WEBHOOK_URL),\n" +
-      `o comprueba que ${ficheroEntorno} contiene esas líneas (con --env se puede apuntar a otro fichero).`,
+    "No hay proveedor configurado: define BREVO_API_KEY y MAIL_FROM (o MAIL_WEBHOOK_URL),",
   );
+  console.error(
+    `o comprueba que ${ficheroEntorno} contiene esas líneas (con --env se puede apuntar a otro fichero).`,
+  );
+  if (problemaEntorno) console.error(problemaEntorno);
   process.exit(1);
 }
 
