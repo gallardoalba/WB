@@ -291,6 +291,14 @@ EOF
     chown root:root "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     ok "$ENV_FILE con secretos nuevos (solo root)"
+    # El correo es obligatorio en producción: mientras falte, la aplicación
+    # responde 500 a propósito (ver src/lib/env-check.ts). Mejor decirlo aquí
+    # que dejar que lo descubra quien abra el navegador.
+    if ! grep -qE '^MAIL_WEBHOOK_URL=.+' "$ENV_FILE"; then
+      warn "sin MAIL_WEBHOOK_URL el sitio responderá 500 hasta que la rellenes"
+      printf '    %sEs el aviso del comprobador de entorno, no un fallo de la instalación.\n' "$DIM"
+      printf '    Para verlo funcionando sin correo: añade WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1%s\n' "$NC"
+    fi
   fi
 fi
 
@@ -399,7 +407,16 @@ else
     ok "la aplicación responde en 127.0.0.1:3000"
   else
     fail "no responde; mira: journalctl -u $SERVICE -n 40"
-    journalctl -u "$SERVICE" -n 15 --no-pager 2>/dev/null | grep -F '[env]' || true
+    ENV_LINES="$(journalctl -u "$SERVICE" -n 40 --no-pager 2>/dev/null | grep -F '[env]' || true)"
+    [ -n "$ENV_LINES" ] && printf '%s\n' "$ENV_LINES"
+    # Un 500 aquí casi siempre es el comprobador de entorno, no un fallo del
+    # servicio: se distingue para no mandar a nadie a depurar el lugar equivocado.
+    if printf '%s' "$ENV_LINES" | grep -q 'MAIL_WEBHOOK_URL'; then
+      warn "es lo esperado sin proveedor de correo: rellena MAIL_WEBHOOK_URL en $ENV_FILE"
+      printf '    %sSe puede arrancar sin él con WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1 (solo para probar)%s\n' "$DIM" "$NC"
+    elif printf '%s' "$ENV_LINES" | grep -q 'NEXT_PUBLIC_SITE_URL'; then
+      warn "revisa NEXT_PUBLIC_SITE_URL en $ENV_FILE: debe empezar por https://"
+    fi
   fi
 fi
 
