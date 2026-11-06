@@ -645,7 +645,9 @@ export function ExchangeDialog({
               {status === "completed"
                 ? t("Confirmar entrega")
                 : status === "cancelled"
-                  ? t("Cancelar el intercambio")
+                  ? request.status === "pending"
+                    ? t("Retirar la solicitud")
+                    : t("Cancelar el intercambio")
                   : t(ACTION_LABELS[status] ?? status)}
             </button>
           ))}
@@ -654,7 +656,11 @@ export function ExchangeDialog({
 
       {confirmStatus && (
         <div className="exchange-confirm" role="group" aria-label={t("CONFIRMAR ACCIÓN")}>
-          <p role="alert">{t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}</p>
+          <p role="alert">
+            {confirmStatus === "cancelled" && request.status === "pending"
+              ? t("Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.")
+              : t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}
+          </p>
           <div className="dialog-actions">
             <button
               type="button"
@@ -1198,7 +1204,11 @@ export function ExchangeDialog({
           </button>
         )}
         {!loading && messages.length === 0 && (
-          <p className="empty-note">{t("Todavía no hay mensajes. Escribe el primero para coordinar la entrega.")}</p>
+          <p className="empty-note">
+            {request.status === "accepted"
+              ? t("Todavía no hay mensajes. Escribe el primero para coordinar la entrega.")
+              : t("Aquí aparecerán los mensajes cuando se acepte el intercambio.")}
+          </p>
         )}
         {messages.map((message) => (
           <div key={message.id} className={message.isMine ? "message mine" : "message"}>

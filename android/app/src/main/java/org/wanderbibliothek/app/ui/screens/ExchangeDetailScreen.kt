@@ -336,6 +336,19 @@ fun ExchangeDetailScreen(
                         }
                     }
 
+                    // Cancelar un intercambio ya aceptado sigue siendo posible
+                    // (el servidor lo permite a las dos partes) y cierra la
+                    // conversación.
+                    if (current.status == "accepted") {
+                        item {
+                            SecondaryButton(
+                                text = texts["cancelExchange"],
+                                enabled = !busy,
+                                onClick = { changeStatus("cancelled") },
+                            )
+                        }
+                    }
+
                     if (current.handoverCode != null) {
                         item {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
