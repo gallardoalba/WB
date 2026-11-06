@@ -53,11 +53,17 @@ export function BookCoverUpload({
     setFeedback("");
     try {
       // La foto se reduce en el navegador: el servidor solo acepta JPG de 4 MB.
-      const prepared = await prepareCover(file);
+      // Si no se puede decodificar aquí, se intenta con el original.
+      let body: Blob = file;
+      try {
+        body = await prepareCover(file);
+      } catch {
+        body = file;
+      }
       const response = await fetch(`/api/cover/book/${bookId}`, {
         method: "PUT",
         headers: { "content-type": "image/jpeg" },
-        body: prepared,
+        body,
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;

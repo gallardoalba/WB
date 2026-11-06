@@ -19,18 +19,31 @@ const MAX_TAGS = 3;
  * navegador (una del móvil ocupa 8 MB y el servidor acepta 4), el cuerpo va en
  * crudo con `image/jpeg` y el servidor comprueba los primeros bytes, no lo
  * declarado.
+ *
+ * Devuelve el motivo cuando falla: «no se pudo subir» a secas obliga a mirar
+ * el registro del servidor para algo que casi siempre explica la respuesta.
  */
-async function uploadCover(bookId: string, file: File): Promise<boolean> {
+async function uploadCover(bookId: string, file: File): Promise<{ ok: true } | { ok: false; reason: string }> {
+  // Reducir es una comodidad: si el navegador no sabe decodificar la imagen,
+  // se intenta con el original antes de darla por perdida.
+  let body: Blob = file;
   try {
-    const prepared = await prepareCover(file);
+    body = await prepareCover(file);
+  } catch {
+    body = file;
+  }
+
+  try {
     const response = await fetch(`/api/cover/book/${bookId}`, {
       method: "PUT",
       headers: { "content-type": "image/jpeg" },
-      body: prepared,
+      body,
     });
-    return response.ok;
-  } catch {
-    return false;
+    if (response.ok) return { ok: true };
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    return { ok: false, reason: payload?.error ?? `HTTP ${response.status}` };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : "sin conexión" };
   }
 }
 
@@ -255,12 +268,12 @@ export function OfferForm({
 
       if (cover) {
         const uploaded = await uploadCover(result.listing.bookId, cover);
-        if (!uploaded) {
+        if (!uploaded.ok) {
           setCreatedListingId(result.listing.id);
           setError(
             t(
               "El libro ya está publicado, pero la portada no se pudo subir. Puedes añadirla desde su ficha.",
-            ),
+            ) + ` (${uploaded.reason})`,
           );
           return;
         }
