@@ -12,17 +12,10 @@
  * otro fichero.
  */
 import { loadEnvFile } from "../src/lib/env-file";
+import { parseMailTestArgs } from "../src/lib/mail-test-args";
 import { sendMail } from "../src/lib/mailer";
 
-const ENTORNO_POR_DEFECTO = "/etc/wanderbibliothek/env";
-
-const argumentos = process.argv.slice(2);
-const indiceEntorno = argumentos.indexOf("--env");
-const ficheroEntorno = indiceEntorno === -1 ? ENTORNO_POR_DEFECTO : argumentos[indiceEntorno + 1];
-// El destinatario es el primer argumento que no sea una opción ni su valor.
-const destinatario = argumentos
-  .find((arg, index) => !arg.startsWith("--") && index !== indiceEntorno + 1)
-  ?.trim();
+const { destinatario, entorno: ficheroEntorno } = parseMailTestArgs(process.argv.slice(2));
 
 if (!ficheroEntorno) {
   console.error("Uso: npm run mail:test -- tu@correo [--env /ruta/al/entorno]");

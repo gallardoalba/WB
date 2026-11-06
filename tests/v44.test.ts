@@ -1,9 +1,10 @@
 /**
- * Lectura del `EnvironmentFile` del servicio para los scripts de operación.
+ * Argumentos de `mail:test` y lectura del `EnvironmentFile` del servicio.
  *
  * Lo que se protege aquí es un diagnóstico: si el fichero se interpreta mal
- * (comillas, `export`, comentarios al final), `mail:test` dirá «no hay
- * proveedor configurado» justo cuando la clave sí está puesta.
+ * (comillas, `export`, comentarios al final), o si el destinatario se pierde
+ * por un índice mal calculado, `mail:test` responde «Uso: …» justo cuando la
+ * orden era correcta.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +13,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { loadEnvFile, parseEnvFile } from "../src/lib/env-file.ts";
+import { parseMailTestArgs } from "../src/lib/mail-test-args.ts";
 
 function ficheroTemporal(contenido: string): string {
   const dir = mkdtempSync(path.join(tmpdir(), "wanderbibliothek-env-"));
@@ -66,4 +68,35 @@ test("un fichero inexistente no es un error", () => {
   const destino: Record<string, string | undefined> = {};
   assert.equal(loadEnvFile("/no/existe/wanderbibliothek/env", destino), 0);
   assert.deepEqual(destino, {});
+});
+
+test("mail:test toma el destinatario cuando no hay --env", () => {
+  // Regresión: `indiceEntorno + 1` valía 0 sin `--env` y descartaba el primer
+  // argumento, así que una orden correcta acababa en el mensaje de uso.
+  assert.deepEqual(parseMailTestArgs(["tu@correo.de"]), {
+    destinatario: "tu@correo.de",
+    entorno: "/etc/wanderbibliothek/env",
+  });
+});
+
+test("mail:test acepta --env antes o después del destinatario", () => {
+  assert.deepEqual(parseMailTestArgs(["tu@correo.de", "--env", "/tmp/otro"]), {
+    destinatario: "tu@correo.de",
+    entorno: "/tmp/otro",
+  });
+  assert.deepEqual(parseMailTestArgs(["--env", "/tmp/otro", "tu@correo.de"]), {
+    destinatario: "tu@correo.de",
+    entorno: "/tmp/otro",
+  });
+});
+
+test("mail:test distingue un --env sin valor de un destinatario ausente", () => {
+  assert.deepEqual(parseMailTestArgs(["tu@correo.de", "--env"]), {
+    destinatario: "tu@correo.de",
+    entorno: "",
+  });
+  assert.deepEqual(parseMailTestArgs([]), {
+    destinatario: null,
+    entorno: "/etc/wanderbibliothek/env",
+  });
 });
