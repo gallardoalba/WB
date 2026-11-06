@@ -327,12 +327,13 @@
   white-space: nowrap;
 }
 
-/* En la tarjeta el género pesa menos que la autoría: es el tercer nivel, y a
-   12,5 px en mayúsculas competía con el nombre de quien escribió el libro. */
+/* En la tarjeta el género pesa menos que la autoría: es el tercer nivel. A
+   12,5 px en mayúsculas competía con el nombre de quien escribió el libro; a
+   10 px es una etiqueta, no un dato que compita por la atención. */
 .book-details .book-category {
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 /* El título abre la tarjeta: es lo que se busca al recorrer el catálogo, así
