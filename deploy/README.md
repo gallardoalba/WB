@@ -48,9 +48,10 @@ Funciona igual, con tres detalles que cambian respecto a Debian 12:
 - El `nodejs` de los repositorios es la 20 y aquí hace falta la 22: instálala
   desde NodeSource (`curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -`)
   o con nvm de sistema, y comprueba que `node -v` da 22 antes del `npm ci`.
-- nginx es 1.26: `listen 443 ssl http2;` sigue valiendo pero avisa de que está
-  obsoleto (`nginx -t` lo dice). En `deploy/nginx.conf`, cambia esas dos líneas
-  por `listen 443 ssl;` + `http2 on;`.
+- nginx es 1.26 o superior: `listen 443 ssl http2;` está obsoleto y `nginx -t`
+  avisa en cada recarga. `deploy/nginx.conf` ya trae la forma buena
+  (`listen 443 ssl;` + `http2 on;`); en una instalación anterior, cambia esas
+  dos líneas a mano.
 - Con 1 GB de RAM, `npm run build` es lo más hambriento del proceso: añade 2 GB
   de swap antes de compilar en el servidor
   (`fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`,
