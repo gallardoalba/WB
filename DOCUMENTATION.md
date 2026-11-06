@@ -35,7 +35,7 @@ deploy/                systemd, nginx, environment template and guide
 
 **Rendering.** The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, header, footer and mobile navigation arrive already rendered, and only the interactive islands hydrate (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`, `repository-link` is a plain link).
 
-**Interface language.** The German dictionary never ships wholesale: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. German is the default; Spanish is chosen with the switcher. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
+**Interface language.** The German dictionary never ships wholesale: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
 
 **Data access.** `getDb()` hooks `prepare` to reuse compiled statements (FIFO cache of 400 per connection). Public aggregates are served through `use cache` with the `public-data` tag, invalidated by the routes that mutate.
 
@@ -199,7 +199,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - Four breakpoints (480, 768, 1120 and 1400/1800 px), spacing scale from 4 to 48 px and controls at 40 px, 44 px on mobile.
 - Dialogs with trapped focus, closing on `Escape` and focus restoration; a "Skip to content" link, `aria-current` in navigation, filters with `aria-pressed` and errors with `role="alert"`.
 - Minimum AA contrast, type from 12 px, 44 px touch targets on phones and `prefers-reduced-motion` respected.
-- The interface is trilingual with German as default: Spanish and English come through the switcher, which sets the `wanderbibliothek-locale` cookie and, with a session, the account preference used for notifications and mail.
+- The interface is trilingual: the switcher wins, setting the `wanderbibliothek-locale` cookie and, with a session, the account preference used for notifications and mail. Without a preference the browser language (`Accept-Language`) decides; German is the last resort. Mail links carry `?lang=…` so the page they open speaks the language of the message.
 
 ## Further reading
 

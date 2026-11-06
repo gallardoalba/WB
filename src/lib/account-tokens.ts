@@ -77,14 +77,14 @@ export async function sendVerificationEmail(userId: string, email: string): Prom
   // acabar en el registro de accesos porque nginx anota `$uri` (sin query) y
   // estas dos páginas se sirven con `Referrer-Policy: no-referrer`; la propia
   // página lo borra de la barra en cuanto lo lee.
-  const link = `${siteUrl()}/verificar?token=${token}`;
+  const link = `${siteUrl()}/verificar?token=${token}&lang=${accountLocale(userId)}`;
   enqueueMail({ to: email, ...verificationMail(accountLocale(userId), link) });
 }
 
 /** Encola el enlace de recuperación. No revela si el correo existe. */
 export async function sendPasswordResetEmail(userId: string, email: string): Promise<void> {
   const token = issueAccountToken(userId, "reset_password");
-  const link = `${siteUrl()}/restablecer?token=${token}`;
+  const link = `${siteUrl()}/restablecer?token=${token}&lang=${accountLocale(userId)}`;
   enqueueMail({ to: email, ...passwordResetMail(accountLocale(userId), link) });
 }
 

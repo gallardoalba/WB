@@ -325,7 +325,7 @@ export const EN: TechnicalDocument = {
             "Four breakpoints (480, 768, 1120 and 1400/1800 px), a spacing scale from 4 to 48 px and controls at 40 px, 44 on mobile.",
             "Dialogs with trapped focus, closing on `Escape` and focus restoration; a “Skip to content” link, `aria-current` in the navigation, filters with `aria-pressed` and errors with `role=\"alert\"`.",
             "Minimum AA contrast, type from 12 px, 44 px touch targets on mobile and `prefers-reduced-motion` respected.",
-            "The interface is trilingual and German is the default language: Spanish and English are chosen with the switcher, which stores the `wanderbibliothek-locale` cookie and, if there is a session, the account preference for notifications and mail.",
+            "The interface is trilingual: the switcher wins, storing the `wanderbibliothek-locale` cookie and, if there is a session, the account preference for notifications and mail; without a preference the browser language (`Accept-Language`) decides, and German if none of the three matches.",
           ],
         },
       ],

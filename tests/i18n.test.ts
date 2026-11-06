@@ -105,6 +105,24 @@ test("el idioma de la interfaz acepta inglés y su variante regional", async () 
   assert.equal(normalizeLocale(undefined), DEFAULT_LOCALE);
 });
 
+test("sin cookie manda el idioma del navegador", async () => {
+  // Es lo que decide el idioma de una primera visita, el de la cuenta que se
+  // crea en ella y, por tanto, el de los correos. Antes caía siempre al alemán.
+  const { matchLocale, DEFAULT_LOCALE } = await import("../src/lib/locale.ts");
+  assert.equal(matchLocale("es-ES,es;q=0.9,en;q=0.8"), "es");
+  assert.equal(matchLocale("en-US,en;q=0.9"), "en");
+  assert.equal(matchLocale("de-DE,de;q=0.9,en-US;q=0.8"), "de");
+  // Lo que no hablamos se salta y se sigue con la preferencia siguiente.
+  assert.equal(matchLocale("fr-FR,fr;q=0.9,en;q=0.5"), "en");
+  // `q=0` significa «este no».
+  assert.equal(matchLocale("es-ES;q=0,en;q=0.9"), "en");
+  // Sin nada reconocible, ni idioma ni invención: quien llama decide el base.
+  assert.equal(matchLocale("fr-FR,it;q=0.8"), null);
+  assert.equal(matchLocale("*"), DEFAULT_LOCALE);
+  assert.equal(matchLocale(""), null);
+  assert.equal(matchLocale(null), null);
+});
+
 test("los documentos largos también existen en inglés", async () => {
   // Avisos, privacidad, aviso legal y documentación técnica se componen por
   // idioma; si alguno se quedara en dos, el inglés vería texto alemán.

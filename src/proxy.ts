@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { LOCALE_COOKIE, matchLocale } from "@/lib/locale";
 import { requestIdFrom, REQUEST_ID_HEADER } from "@/lib/observability";
 
 /**
@@ -67,7 +68,29 @@ export function proxy(request: NextRequest) {
   // a las rutas de API (que lo usan en el cuerpo del error) y al registro.
   requestHeaders.set(REQUEST_ID_HEADER, requestIdFrom(request.headers));
 
+  // Los correos llevan el idioma en el que se escribieron (`?lang=es`): la
+  // página del token se abre en ese idioma aunque el navegador no tenga la
+  // cookie, y la preferencia se queda guardada para el resto del flujo. Se
+  // reescribe también la cabecera de la petición para que este primer render
+  // ya salga en ese idioma.
+  const requestedLocale = matchLocale(request.nextUrl.searchParams.get("lang"));
+  if (requestedLocale) {
+    const kept = (request.headers.get("cookie") ?? "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0 && !part.startsWith(`${LOCALE_COOKIE}=`));
+    requestHeaders.set("cookie", [...kept, `${LOCALE_COOKIE}=${requestedLocale}`].join("; "));
+  }
+
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+  if (requestedLocale) {
+    response.cookies.set(LOCALE_COOKIE, requestedLocale, {
+      path: "/",
+      maxAge: 31536000,
+      sameSite: "lax",
+      secure: !isDev,
+    });
+  }
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");

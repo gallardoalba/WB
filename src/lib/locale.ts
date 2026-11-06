@@ -24,7 +24,31 @@ export function normalizeLocale(value: string | null | undefined): Locale {
   return base === "es" || base === "de" || base === "en" ? base : DEFAULT_LOCALE;
 }
 
-/** Etiqueta BCP-47 que espera `Intl` para números, fechas y horas. */
+/**
+ * Primer idioma admitido de una cabecera `Accept-Language` (o de cualquier
+ * lista de etiquetas), o `null` si ninguno de los que pide lo está.
+ *
+ * Se respeta el orden —que ya es el de preferencia— y se descartan las entradas
+ * con `q=0`, que significan «este no». Así una primera visita en un navegador
+ * castellano ve la interfaz en castellano, y el alta guarda ese idioma en la
+ * cuenta para los correos.
+ */
+export function matchLocale(header: string | null | undefined): Locale | null {
+  for (const part of (header ?? "").split(",")) {
+    const [rawTag, ...params] = part.split(";");
+    const tag = (rawTag ?? "").trim().toLowerCase();
+    if (!tag) continue;
+    if (params.some((param) => /^\s*q\s*=\s*0(\.0*)?\s*$/.test(param))) continue;
+    const base = tag.split("-")[0];
+    if (base === "es" || base === "de" || base === "en") return base;
+    if (tag === "*") return DEFAULT_LOCALE;
+  }
+  return null;
+}
+
+/**
+ * Etiqueta BCP-47 que espera `Intl` para números, fechas y horas.
+ */
 export function localeTag(locale: Locale): string {
   if (locale === "de") return "de-DE";
   if (locale === "en") return "en-GB";

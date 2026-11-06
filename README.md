@@ -1,6 +1,6 @@
 # Wanderbibliothek
 
-**Books that keep travelling.**
+**Books that travel. People who meet.**
 
 Wanderbibliothek brings together people who don't want the books they have read to gather dust on a shelf. Publish a book and it becomes findable for readers nearby; look for one and you ask for it, and the two of you agree on the hand-over.
 

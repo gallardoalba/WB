@@ -11,11 +11,19 @@ import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE,
   LOCALES,
+  matchLocale,
   normalizeLocale,
   type Locale,
 } from "./locale";
 
-export { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALES, normalizeLocale, type Locale };
+export {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  LOCALES,
+  matchLocale,
+  normalizeLocale,
+  type Locale,
+};
 
 type Dictionary = Record<string, string>;
 

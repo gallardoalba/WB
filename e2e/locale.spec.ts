@@ -5,8 +5,11 @@ import { waitForHydration } from "./helpers";
 // navegan como quien llega por primera vez, sin ninguna preferencia guardada.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test.describe("idioma por defecto", () => {
-  test("sin cookie la interfaz llega en alemán", async ({ page }) => {
+// Sin cookie manda el navegador: cada bloque se declara el suyo.
+test.describe("idioma por defecto: el del navegador", () => {
+  test.use({ locale: "de-DE" });
+
+  test("un navegador en alemán recibe la interfaz en alemán", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
     await expect(page.locator(".hero-tagline")).toHaveText(
@@ -14,7 +17,9 @@ test.describe("idioma por defecto", () => {
     );
 
     await page.goto("/documentacion");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Technische Dokumentation");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Technische Dokumentation",
+    );
   });
 
   test("el selector cambia a castellano y lo recuerda al recargar", async ({ page }) => {
@@ -39,5 +44,28 @@ test.describe("idioma por defecto", () => {
     await expect(page.locator(".hero-tagline")).toHaveText(
       "Books that travel. People who meet.",
     );
+  });
+});
+
+test.describe("idioma por defecto: navegador en inglés y enlaces del correo", () => {
+  test.use({ locale: "en-US" });
+
+  test("un navegador en inglés recibe la interfaz en inglés", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.locator(".hero-tagline")).toHaveText(
+      "Books that travel. People who meet.",
+    );
+  });
+
+  test("un enlace con ?lang=es abre en castellano y lo deja guardado", async ({ page }) => {
+    // Es lo que llevan los correos: la página del token se abre en el idioma en
+    // el que se escribió el aviso, no en el del navegador.
+    await page.goto("/?lang=es");
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+
+    // Y queda como preferencia: la navegación siguiente sigue en castellano.
+    await page.goto("/listas");
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
   });
 });

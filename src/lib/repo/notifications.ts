@@ -85,7 +85,11 @@ function enqueueNotificationEmail(
       .get(recipient.email) as { count: number };
     if (recent.count >= 5) return;
 
-    const link = input.link ? `${siteUrl()}${input.link}` : siteUrl();
+    // El enlace lleva el idioma del aviso para que la página se abra en el
+    // mismo idioma del correo, aunque el navegador tenga otra preferencia.
+    const target = new URL(input.link ? `${siteUrl()}${input.link}` : siteUrl());
+    target.searchParams.set("lang", locale);
+    const link = target.toString();
     enqueueMail({
       to: recipient.email,
       subject: `Wanderbibliothek · ${input.title}`,
