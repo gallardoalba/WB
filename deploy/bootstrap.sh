@@ -407,15 +407,19 @@ else
     ok "la aplicación responde en 127.0.0.1:3000"
   else
     fail "no responde; mira: journalctl -u $SERVICE -n 40"
-    ENV_LINES="$(journalctl -u "$SERVICE" -n 40 --no-pager 2>/dev/null | grep -F '[env]' || true)"
+    # El entorno incompleto no se ve como `[env] …` en todos los casos: al
+    # abortar el arranque, Next registra su propio mensaje («Entorno de
+    # producción incompleto (…»). Se miran las dos formas.
+    LOG_TAIL="$(journalctl -u "$SERVICE" -n 40 --no-pager 2>/dev/null || true)"
+    ENV_LINES="$(printf '%s\n' "$LOG_TAIL" | grep -F '[env]' || true)"
     [ -n "$ENV_LINES" ] && printf '%s\n' "$ENV_LINES"
-    # Un 500 aquí casi siempre es el comprobador de entorno, no un fallo del
-    # servicio: se distingue para no mandar a nadie a depurar el lugar equivocado.
-    if printf '%s' "$ENV_LINES" | grep -q 'MAIL_WEBHOOK_URL'; then
+    if printf '%s' "$LOG_TAIL" | grep -q 'MAIL_WEBHOOK_URL'; then
       warn "es lo esperado sin proveedor de correo: rellena MAIL_WEBHOOK_URL en $ENV_FILE"
       printf '    %sSe puede arrancar sin él con WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1 (solo para probar)%s\n' "$DIM" "$NC"
-    elif printf '%s' "$ENV_LINES" | grep -q 'NEXT_PUBLIC_SITE_URL'; then
+    elif printf '%s' "$LOG_TAIL" | grep -q 'NEXT_PUBLIC_SITE_URL'; then
       warn "revisa NEXT_PUBLIC_SITE_URL en $ENV_FILE: debe empezar por https://"
+    elif printf '%s' "$LOG_TAIL" | grep -q 'Entorno de producción incompleto'; then
+      warn "el entorno está incompleto: mira la línea «Entorno de producción incompleto (…» de arriba"
     fi
   fi
 fi
