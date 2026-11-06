@@ -525,10 +525,8 @@ export default function WanderbibliothekApp({
                   type="button"
                   className="hero-button"
                   onClick={() => {
-                    // El catálogo pide sesión: sin ella esto abría la ventana
-                    // de acceso *por dentro* del redirect del servidor y no se
-                    // veía nada. Se pregunta antes de navegar.
-                    if (!requireAuth()) return;
+                    // El catálogo es público: se puede ojear sin cuenta. Pedir
+                    // un libro concreto sí abrirá el acceso más adelante.
                     navigate({ view: "discover", page: 1 });
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
@@ -1258,8 +1256,10 @@ export default function WanderbibliothekApp({
               className="footer-links legal-links"
               aria-label={t("Información y documentación")}
             >
+              <Link href="/descubrir">{t("Descubrir todos los libros")}</Link>
               <Link href="/privacidad">{t("Privacidad")}</Link>
               <Link href="/aviso-legal">{t("Aviso legal")}</Link>
+              <Link href="/projekt">{t("El proyecto")}</Link>
               <Link href="/documentacion">{t("Documentación")}</Link>
             </nav>
             <span>

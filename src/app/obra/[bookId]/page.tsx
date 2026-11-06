@@ -127,6 +127,12 @@ export default async function Page({ params }: PageProps) {
               {thread.total === 1 ? t("1 comentario") : t("{n} comentarios", { n: thread.total })}
             </li>
             {book.isbn && <li>ISBN {book.isbn}</li>}
+            {(book.publisher || book.year) && (
+              <li>
+                {[book.publisher, book.year].filter(Boolean).join(", ")}
+              </li>
+            )}
+            {book.series && <li>{book.series}</li>}
             {otherVersions.length > 0 && (
               <li>
                 {otherVersions.length === 1

@@ -1168,7 +1168,6 @@ export const DE = {
   "{n} caracteres": "{n} Zeichen",
   "{n} de 5": "{n} von 5",
   "{n} libros": "{n} Bücher",
-  "{n} libros en la lista «{title}» de {name}.": "{n} Bücher in der Liste „{title}“ von {name}.",
   "{n} pendientes": "{n} offen",
   "{n} sin leer": "{n} ungelesen",
   "«{title}» dejará de aparecer en el catálogo y se cerrarán las solicitudes pendientes.": "„{title}“ erscheint nicht mehr im Katalog und offene Anfragen werden geschlossen.",
@@ -1302,6 +1301,33 @@ export const DE = {
   "Quedad donde os venga bien: un café, la biblioteca del barrio, la puerta del trabajo.": "Trefft euch, wo es euch passt: in einem Café, in der Stadtteilbibliothek, vor der Arbeit.",
   "Si prefiere el correo normal, guarda su dirección en esta ventana. Es igual de válida y también va cifrada.": "Wer lieber per normaler Post schickt, speichert hier die eigene Adresse. Sie ist genauso gültig und ebenfalls verschlüsselt.",
   "a tu dirección": "an deine Adresse",
+  // Catálogo público (lo que indexan los buscadores)
+  "1 ejemplar disponible": "1 Exemplar verfügbar",
+  "{n} ejemplares disponibles": "{n} Exemplare verfügbar",
+  "Este libro no está en el catálogo": "Dieses Buch ist nicht im Katalog",
+  "«{title}» de {author}: {n} ejemplares para intercambiar en {cities}.": "„{title}“ von {author}: {n} Exemplare zum Tauschen in {cities}.",
+  "«{title}» de {author}: ahora mismo no hay ejemplares disponibles.": "„{title}“ von {author}: derzeit sind keine Exemplare verfügbar.",
+  "Ruta de navegación": "Navigationspfad",
+  "Ejemplares": "Exemplare",
+  "Editorial": "Verlag",
+  "Año de edición": "Erschienen",
+  "Colección": "Reihe",
+  "Ciudades con ejemplares": "Städte mit Exemplaren",
+  "Este libro todavía no tiene ejemplares disponibles. Si tienes uno, puedes ofrecerlo.": "Für dieses Buch gibt es noch kein verfügbares Exemplar. Wenn du eins hast, kannst du es anbieten.",
+  "Ver en el catálogo": "Im Katalog ansehen",
+  "Autoría": "Autor:in",
+  "Los cambios de la ficha valen para todas las copias de este título.": "Änderungen an den Buchdaten gelten für alle Exemplare dieses Titels.",
+  // Portada: la retirada pide confirmación
+  "Quitar la portada": "Cover wirklich entfernen?",
+  "La foto desaparece para todas las copias de este libro. Si su ISBN tiene portada de catálogo, se volverá a mostrar esa.": "Das Foto verschwindet für alle Exemplare dieses Buchs. Hat die ISBN ein Katalogcover, erscheint wieder dieses.",
+  // El proyecto
+  "El proyecto": "Über das Projekt",
+  "Qué es Wanderbibliothek, por qué existe y qué hay detrás: un proyecto comunitario sin ánimo de lucro, con el código abierto y la privacidad como decisiones de diseño.": "Was Wanderbibliothek ist, warum es das Projekt gibt und was dahintersteckt: ein Gemeinschaftsprojekt ohne kommerziellen Zweck, mit offenem Code und Datenschutz als Entwurfsentscheidung.",
+  "Una persona de la comunidad": "Eine Person aus der Gemeinschaft",
+  "Mostrar mi nombre en la lista pública": "Meinen Namen in der öffentlichen Liste zeigen",
+  " de {name}": " von {name}",
+  "{n} libros en la lista «{title}»{signature}.": "{n} Bücher in der Liste „{title}“{signature}.",
+  "{n} libros recomendados.": "{n} empfohlene Bücher.",
 } satisfies Dictionary;
 
 /** Textos con traducción alemana (las claves del diccionario). */

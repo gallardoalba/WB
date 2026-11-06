@@ -606,12 +606,16 @@
 .edit-cover {
   display: grid;
   gap: 6px;
-  padding-top: 12px;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  /* `fieldset` trae borde y relleno propios: aquí solo hace de grupo con una
+     línea que lo separa del resto de campos. */
+  border: 0;
   border-top: 1px solid var(--line);
 }
 
 .edit-cover-title {
-  margin: 0;
+  padding: 0;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;

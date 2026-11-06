@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { prepareCover, MAX_SOURCE_BYTES } from "@/lib/cover-image";
+import { ConfirmDialog } from "./confirm-dialog";
 import { useI18n } from "./i18n-provider";
 
 /**
@@ -29,6 +30,8 @@ export function BookCoverUpload({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+  // Quitar la portada afecta a todas las copias de la obra: se confirma antes.
+  const [confirming, setConfirming] = useState(false);
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -83,6 +86,7 @@ export function BookCoverUpload({
   }
 
   async function remove() {
+    setConfirming(false);
     setBusy(true);
     setError("");
     setFeedback("");
@@ -121,7 +125,12 @@ export function BookCoverUpload({
         <ImagePlus size={14} /> {busy ? t("Subiendo…") : hasUploaded ? t("Cambiar portada") : t("Subir portada")}
       </button>
       {hasUploaded && (
-        <button type="button" className="message-report" disabled={busy} onClick={() => void remove()}>
+        <button
+          type="button"
+          className="message-report"
+          disabled={busy}
+          onClick={() => setConfirming(true)}
+        >
           <Trash2 size={14} /> {t("Quitar portada")}
         </button>
       )}
@@ -140,6 +149,17 @@ export function BookCoverUpload({
           {error}
         </p>
       )}
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={() => void remove()}
+        title={t("Quitar la portada")}
+        description={t(
+          "La foto desaparece para todas las copias de este libro. Si su ISBN tiene portada de catálogo, se volverá a mostrar esa.",
+        )}
+        confirmLabel={t("Quitar portada")}
+        pending={busy}
+      />
     </div>
   );
 }

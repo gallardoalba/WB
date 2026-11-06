@@ -239,7 +239,7 @@ export function createListing(ownerId: string, input: ListingInput): ListingView
       const newBookId = `bok_${randomUUID()}`;
       try {
         db.prepare(
-          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, publisher, year, series, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         ).run(
           newBookId,
           input.title,
@@ -250,6 +250,10 @@ export function createListing(ownerId: string, input: ListingInput): ListingView
           language,
           coverUrl,
           workKey,
+          // Ficha bibliográfica de la edición, tal como la dio el catálogo.
+          cached?.publisher ?? null,
+          cached?.year ?? null,
+          cached?.series ?? null,
           now,
         );
         bookId = newBookId;
@@ -353,30 +357,76 @@ export function setListingStatus(
 export function editListing(
   ownerId: string,
   listingId: string,
-  patch: { condition: string; city: string; notes: string; tags: string[] },
+  patch: {
+    condition: string;
+    city: string;
+    notes: string;
+    tags: string[];
+    /** Ficha de la obra: solo se toca lo que llega. */
+    title?: string;
+    author?: string;
+    category?: string;
+    language?: string;
+    publisher?: string;
+    year?: string;
+    series?: string;
+  },
 ): void {
   const db = getDb();
   const row = db
     .prepare(
-      `SELECT l.owner_id, l.status, b.title, b.author
+      `SELECT l.owner_id, l.status, l.book_id, b.title, b.author
        FROM listings l JOIN books b ON b.id = l.book_id
        WHERE l.id = ? AND l.status <> 'removed'`,
     )
     .get(listingId) as
-    | { owner_id: string; status: ListingStatus; title: string; author: string }
+    | { owner_id: string; status: ListingStatus; book_id: string; title: string; author: string }
     | undefined;
 
   if (!row) throw new ApiError(404, "El ejemplar no existe.");
   if (row.owner_id !== ownerId) throw new ApiError(403, "Solo puedes editar tus publicaciones.");
 
+  const title = patch.title?.trim() || row.title;
+  const author = patch.author?.trim() || row.author;
+
   db.transaction(() => {
+    // La ficha cuelga de la **obra**, así que corregirla afecta a todas sus
+    // copias: es lo que se espera de una errata, pero conviene tenerlo claro.
+    const bookFields: [string, string | null][] = [];
+    if (patch.title !== undefined) {
+      bookFields.push(["title", title], ["title_key", normalizeText(title)]);
+    }
+    if (patch.author !== undefined) bookFields.push(["author", author]);
+    if (patch.category !== undefined) bookFields.push(["category", patch.category]);
+    if (patch.language !== undefined) bookFields.push(["language", patch.language]);
+    if (patch.publisher !== undefined) bookFields.push(["publisher", patch.publisher.trim() || null]);
+    if (patch.year !== undefined) bookFields.push(["year", patch.year.trim() || null]);
+    if (patch.series !== undefined) bookFields.push(["series", patch.series.trim() || null]);
+
+    if (bookFields.length > 0) {
+      db.prepare(
+        `UPDATE books SET ${bookFields.map(([column]) => `${column} = ?`).join(", ")} WHERE id = ?`,
+      ).run(...bookFields.map(([, value]) => value), row.book_id);
+
+      // `search_key` es el texto plano de la búsqueda: se recalcula en todas
+      // las copias de la obra, no solo en esta.
+      const copies = db.prepare("SELECT id, city FROM listings WHERE book_id = ?").all(row.book_id) as {
+        id: string;
+        city: string;
+      }[];
+      const updateSearch = db.prepare("UPDATE listings SET search_key = ? WHERE id = ?");
+      for (const copy of copies) {
+        updateSearch.run(normalizeText(`${title} ${author} ${copy.city}`), copy.id);
+      }
+    }
+
     db.prepare(
       "UPDATE listings SET condition = ?, city = ?, notes = ?, search_key = ? WHERE id = ?",
     ).run(
       patch.condition,
       patch.city,
       patch.notes,
-      normalizeText(`${row.title} ${row.author} ${patch.city}`),
+      normalizeText(`${title} ${author} ${patch.city}`),
       listingId,
     );
     writeListingTags(db, listingId, patch.tags);
@@ -442,6 +492,10 @@ export type BookView = {
   category: string;
   language: string;
   coverUrl: string | null;
+  /** Verlag, Erscheinungsjahr y Reihe de la edición (ficha de la DNB). */
+  publisher: string | null;
+  year: string | null;
+  series: string | null;
 };
 
 type BookRow = {
@@ -452,6 +506,9 @@ type BookRow = {
   category: string;
   language: string;
   cover_url: string | null;
+  publisher: string | null;
+  year: string | null;
+  series: string | null;
 };
 
 function toBookView(row: BookRow): BookView {
@@ -463,6 +520,9 @@ function toBookView(row: BookRow): BookView {
     category: row.category,
     language: row.language,
     coverUrl: row.cover_url,
+    publisher: row.publisher ?? null,
+    year: row.year ?? null,
+    series: row.series ?? null,
   };
 }
 
@@ -514,7 +574,9 @@ export function searchBooks(query: string, limit = 8): { id: string; title: stri
 /** Obra canónica: es donde vive la conversación de un título. */
 export function getBook(bookId: string): BookView | null {
   const row = getDb()
-    .prepare("SELECT id, title, author, isbn, category, language, cover_url FROM books WHERE id = ?")
+    .prepare(
+      "SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books WHERE id = ?",
+    )
     .get(bookId) as BookRow | undefined;
   return row ? toBookView(row) : null;
 }
@@ -525,7 +587,9 @@ export function getBook(bookId: string): BookView | null {
  */
 export function bookByIsbn(isbn: string): BookView | null {
   const row = getDb()
-    .prepare("SELECT id, title, author, isbn, category, language, cover_url FROM books WHERE isbn = ?")
+    .prepare(
+      "SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books WHERE isbn = ?",
+    )
     .get(isbn) as BookRow | undefined;
   return row ? toBookView(row) : null;
 }
@@ -622,12 +686,14 @@ export function workBooks(bookId: string): BookView[] {
     | { work_key: string | null }
     | undefined;
   const self = db
-    .prepare("SELECT id, title, author, isbn, category, language, cover_url FROM books WHERE id = ?")
+    .prepare(
+      "SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books WHERE id = ?",
+    )
     .get(bookId) as BookRow | undefined;
   if (!row?.work_key || !self) return self ? [toBookView(self)] : [];
   const rows = db
     .prepare(
-      `SELECT id, title, author, isbn, category, language, cover_url FROM books
+      `SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books
         WHERE work_key = ?
         ORDER BY created_at ASC, id ASC`,
     )
@@ -651,41 +717,11 @@ export function booksForWorkKeys(keys: readonly string[]): BookView[] {
   });
   const rows = db
     .prepare(
-      `SELECT id, title, author, isbn, category, language, cover_url FROM books
+      `SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books
         WHERE work_key IN (${placeholders.join(",")})
         ORDER BY created_at ASC
         LIMIT 10`,
     )
     .all(params) as BookRow[];
   return rows.map(toBookView);
-}
-
-export function listSitemapEntries() {
-  const db = getDb();
-  const listings = db
-    .prepare(
-      `SELECT l.id, l.created_at FROM listings l
-         JOIN users u ON u.id = l.owner_id
-        WHERE l.status = 'available' AND u.is_suspended = 0
-        ORDER BY l.created_at DESC LIMIT 500`,
-    )
-    .all() as { id: string; created_at: string }[];
-  const users = db
-    .prepare(
-      `SELECT u.id FROM users u
-       WHERE u.is_suspended = 0
-         AND EXISTS (SELECT 1 FROM listings l WHERE l.owner_id = u.id AND l.status = 'available')
-       ORDER BY u.created_at DESC LIMIT 500`,
-    )
-    .all() as { id: string }[];
-  // Cada obra tiene su propia conversación: también se indexa.
-  const books = db
-    .prepare(
-      `SELECT b.id FROM books b
-       WHERE EXISTS (SELECT 1 FROM listings l JOIN users u ON u.id = l.owner_id
-                      WHERE l.book_id = b.id AND l.status = 'available' AND u.is_suspended = 0)
-       ORDER BY b.created_at DESC LIMIT 500`,
-    )
-    .all() as { id: string }[];
-  return { listings, users, books };
 }

@@ -6,20 +6,23 @@ import type { DocBlock, TechnicalDocument } from "@/lib/technical";
 import { LocaleSwitcher } from "./locale-switcher";
 
 /**
- * Pinta un texto con los fragmentos entre acentos graves como `código`, igual
- * que los escribiría un README sin necesidad de un motor de Markdown.
+ * Pinta un texto con los fragmentos entre acentos graves como `código` y los
+ * que van entre dobles asteriscos en negrita, igual que los escribiría un
+ * README sin necesidad de un motor de Markdown.
  */
 function Inline({ text }: { text: string }) {
-  const parts = text.split(/(`[^`]+`)/g);
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
   return (
     <>
-      {parts.map((part, index) =>
-        part.startsWith("`") && part.endsWith("`") && part.length > 2 ? (
-          <code key={index}>{part.slice(1, -1)}</code>
-        ) : (
-          <span key={index}>{part}</span>
-        ),
-      )}
+      {parts.map((part, index) => {
+        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+          return <code key={index}>{part.slice(1, -1)}</code>;
+        }
+        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+          return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        return <span key={index}>{part}</span>;
+      })}
     </>
   );
 }
@@ -38,6 +41,18 @@ function Block({ block }: { block: DocBlock }) {
         {block.items.map((item) => (
           <li key={item}>
             <Inline text={item} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (block.kind === "terms") {
+    return (
+      <ul className="doc-terms">
+        {block.items.map((item) => (
+          <li key={item.label}>
+            <strong>{item.label}</strong>{" "}
+            <Inline text={item.text} />
           </li>
         ))}
       </ul>

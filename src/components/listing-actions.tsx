@@ -20,6 +20,8 @@ import { CityField } from "./city-field";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useI18n } from "./i18n-provider";
 import {
+  BOOK_LANGUAGES,
+  CATEGORIES,
   CONDITIONS,
   REPORT_REASONS,
   REQUEST_STATUS_LABELS,
@@ -45,6 +47,12 @@ type Props = {
   city: string;
   notes: string;
   tags: string[];
+  /** Ficha de la obra: se puede corregir sin volver a publicar. */
+  author: string;
+  language: string;
+  publisher: string | null;
+  year: string | null;
+  series: string | null;
 };
 
 export function ListingActions({
@@ -62,6 +70,11 @@ export function ListingActions({
   city,
   notes,
   tags,
+  author,
+  language,
+  publisher,
+  year,
+  series,
 }: Props) {
   const { t } = useI18n();
   // Las etiquetas ya guardadas se muestran siempre, aunque el género haya
@@ -157,6 +170,13 @@ export function ListingActions({
             city: form.get("city"),
             notes: form.get("notes") ?? "",
             tags: form.getAll("tags").map(String),
+            title: form.get("title"),
+            author: form.get("author"),
+            category: form.get("category"),
+            language: form.get("language"),
+            publisher: form.get("publisher") ?? "",
+            year: form.get("year") ?? "",
+            series: form.get("series") ?? "",
           },
         });
       },
@@ -242,6 +262,59 @@ export function ListingActions({
               <Pencil size={14} /> {t("Editar detalles")}
             </summary>
             <form onSubmit={submitEdit}>
+              <label htmlFor="edit-title">{t("Título")}</label>
+              <input
+                id="edit-title"
+                name="title"
+                defaultValue={listingTitle}
+                required
+                minLength={2}
+                maxLength={120}
+              />
+              <label htmlFor="edit-author">{t("Autoría")}</label>
+              <input
+                id="edit-author"
+                name="author"
+                defaultValue={author}
+                required
+                minLength={2}
+                maxLength={90}
+              />
+              <label htmlFor="edit-category">{t("Género")}</label>
+              <select id="edit-category" name="category" defaultValue={category}>
+                {CATEGORIES.map((option) => (
+                  <option key={option} value={option}>
+                    {t(option)}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="edit-language">{t("Idioma del libro")}</label>
+              <select id="edit-language" name="language" defaultValue={language}>
+                {BOOK_LANGUAGES.map((option) => (
+                  <option key={option} value={option}>
+                    {t(option)}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="edit-publisher">{t("Editorial")}</label>
+              <input
+                id="edit-publisher"
+                name="publisher"
+                defaultValue={publisher ?? ""}
+                maxLength={80}
+              />
+              <label htmlFor="edit-year">{t("Año de edición")}</label>
+              <input id="edit-year" name="year" defaultValue={year ?? ""} maxLength={12} />
+              <label htmlFor="edit-series">{t("Colección")}</label>
+              <input
+                id="edit-series"
+                name="series"
+                defaultValue={series ?? ""}
+                maxLength={80}
+              />
+              <p className="form-note">
+                {t("Los cambios de la ficha valen para todas las copias de este título.")}
+              </p>
               <label htmlFor="edit-condition">{t("Estado")}</label>
               <select id="edit-condition" name="condition" defaultValue={condition}>
                 {CONDITIONS.map((option) => (
@@ -270,17 +343,19 @@ export function ListingActions({
               </fieldset>
               <label htmlFor="edit-notes">{t("Notas para quien lo recoja")}</label>
               <textarea id="edit-notes" name="notes" defaultValue={notes} rows={2} maxLength={300} />
+
+              {/* La portada vive dentro de la edición, pero se guarda al
+                  momento (no al enviar el formulario): es una imagen, no un
+                  campo de texto. Los botones son `type="button"`. */}
+              <fieldset className="edit-cover">
+                <legend className="edit-cover-title">{t("Portada del libro")}</legend>
+                <BookCoverUpload bookId={bookId} hasUploaded={hasUploadedCover} />
+              </fieldset>
+
               <button className="secondary-button small" type="submit" disabled={pending}>
                 {t("Guardar cambios")}
               </button>
             </form>
-
-            {/* La portada no forma parte del formulario: se sube al momento, no
-                al guardar, y puede quitarse para volver a la del ISBN. */}
-            <div className="edit-cover">
-              <p className="edit-cover-title">{t("Portada del libro")}</p>
-              <BookCoverUpload bookId={bookId} hasUploaded={hasUploadedCover} />
-            </div>
           </details>
         </div>
       ) : myRequestStatus ? (

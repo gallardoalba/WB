@@ -1,6 +1,22 @@
+import type { Metadata } from "next";
 import { renderAppView, type AppViewPageProps } from "../app-view";
+import { translate } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n-server";
 
 export const instant = false;
+
+/**
+ * Formulario de publicación: útil para quien ya tiene cuenta, ruido para un
+ * buscador (sin sesión solo hay una redirección al acceso). Se rastrea el
+ * enlace pero no se indexa.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    title: translate(locale, "Ofrecer un libro"),
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Publicar un libro, en su propia página.

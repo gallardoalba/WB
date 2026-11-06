@@ -55,7 +55,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   const locale = await getLocale();
   const profile = getPublicProfile(id, null);
-  if (!profile) return { title: locale === "de" ? "Profil nicht gefunden" : "Perfil no encontrado" };
+  if (!profile) {
+    // Un perfil que no existe responde en streaming (200 + esta página), así
+    // que el «no indexar» tiene que venir en los metadatos, no en el estado.
+    return {
+      title: locale === "de" ? "Profil nicht gefunden" : "Perfil no encontrado",
+      robots: { index: false, follow: false },
+    };
+  }
   return {
     title: profile.user.name,
     description:

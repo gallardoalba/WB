@@ -21,6 +21,7 @@ export * from "./repo/comments";
 export * from "./repo/direct";
 export * from "./repo/lists";
 export * from "./repo/profile";
+export * from "./repo/public-works";
 export * from "./repo/reading";
 export * from "./repo/journey";
 export * from "./repo/maintenance";

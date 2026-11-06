@@ -190,6 +190,10 @@ export type ListingView = {
   isMine: boolean;
   isFavorite: boolean;
   myRequestStatus: RequestStatus | null;
+  /** Ficha bibliográfica de la edición (editable por quien publica). */
+  publisher: string | null;
+  year: string | null;
+  series: string | null;
 };
 
 export type RequestView = {
@@ -522,6 +526,8 @@ export type ReadingListView = {
   items: number;
   owner: { id: string; name: string };
   isMine: boolean;
+  /** Quien firma aceptó que su nombre se vea fuera de la sesión. */
+  showOwner: boolean;
 };
 
 export type ReadingListBook = {

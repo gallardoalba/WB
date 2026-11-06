@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Library } from "lucide-react";
 import { PageHeader, SiteShell } from "@/components/site-shell";
-import { requirePageUser } from "@/lib/page-auth";
+import { getSessionUser } from "@/lib/auth";
 import { regionName } from "@/lib/cities";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
@@ -35,7 +35,7 @@ export default async function Page({ searchParams }: PageProps) {
   const query = (firstValue(raw.q) ?? "").trim().slice(0, 60);
   const page = Math.max(1, Number.parseInt(firstValue(raw.page) ?? "1", 10) || 1);
 
-  const viewer = await requirePageUser("/listas");
+  const viewer = await getSessionUser();
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
   if (!(await allowPageView(240, 60_000, viewer?.id ?? null))) {
@@ -118,7 +118,8 @@ export default async function Page({ searchParams }: PageProps) {
               <Link href={`/listas/${list.id}`} className="community-list-card">
                 <strong>{list.title}</strong>
                 <span>
-                  {list.owner.name} · {list.items === 1 ? t("1 obra") : t("{n} obras", { n: list.items })}
+                  {viewer || list.showOwner ? list.owner.name : t("Una persona de la comunidad")} ·{" "}
+                  {list.items === 1 ? t("1 obra") : t("{n} obras", { n: list.items })}
                 </span>
                 {list.description && <p>{list.description}</p>}
               </Link>

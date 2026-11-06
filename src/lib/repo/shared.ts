@@ -62,10 +62,14 @@ export type ListingRow = {
   is_mine: number;
   is_favorite: number;
   my_request_status: RequestStatus | null;
+  publisher: string | null;
+  year: string | null;
+  series: string | null;
 };
 
 export const listingSelect = (distanceExpression = "l.distance_km") => `
   SELECT l.id, b.id AS book_id, b.title, b.author, b.isbn, b.category, b.language, l.condition AS book_condition,
+         b.publisher, b.year, b.series,
          l.city, ${distanceExpression} AS distance_km, l.status, l.created_at,
          l.notes, b.cover_url,
          (SELECT group_concat(lt.tag, '|') FROM listing_tags lt WHERE lt.listing_id = l.id) AS tags,
@@ -163,6 +167,9 @@ export function toListingView(row: ListingRow): ListingView {
     isMine: Boolean(row.is_mine),
     isFavorite: Boolean(row.is_favorite),
     myRequestStatus: row.my_request_status ?? null,
+    publisher: row.publisher ?? null,
+    year: row.year ?? null,
+    series: row.series ?? null,
   };
 }
 

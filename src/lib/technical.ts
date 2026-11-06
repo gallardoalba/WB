@@ -17,6 +17,8 @@ import type { Locale } from "./i18n";
 export type DocBlock =
   | { kind: "p"; text: string }
   | { kind: "list"; items: string[] }
+  /** Lista con una etiqueta en negrita delante: no depende de Markdown. */
+  | { kind: "terms"; items: { label: string; text: string }[] }
   | { kind: "code"; lines: string[] }
   | { kind: "table"; head: string[]; rows: string[][] }
   | { kind: "links"; items: { label: string; href: string; note: string }[] };
@@ -31,7 +33,7 @@ export type TechnicalDocument = {
 };
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-05";
+const UPDATED = "2026-11-06";
 
 const ES: TechnicalDocument = {
   title: "Documentación técnica",
@@ -115,14 +117,15 @@ const ES: TechnicalDocument = {
           head: ["Ruta", "Contenido"],
           rows: [
             ["`/`", "Portada pública: hero, cuatro cifras y una fila de libros."],
-            ["`/descubrir`", "Catálogo completo con búsqueda, categorías, orden y paginación en la URL. Exige sesión."],
+            ["`/descubrir`", "Catálogo completo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión; pedir un libro sí la exige."],
+            ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`: la URL que se indexa."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
             ["`/buscar`", "Buscador global: obras, clubes, lectores y listas."],
             ["`/estanteria`, `/intercambios`", "Secciones privadas: ejemplares propios y solicitudes con su siguiente paso."],
             ["`/comunidad`", "Hub con pestañas (conversaciones, actividad, clubes, lectores, listas) y ámbito en `?scope=`."],
             ["`/lectores`", "Directorio con búsqueda, ciudad y orden por cercanía o actividad."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubes por ciudad: solicitudes, lectura en curso, votación, asistencia y foro privado."],
-            ["`/listas`, `/listas/[listId]`", "Listas de lectura públicas, editables solo por su dueño."],
+            ["`/listas`, `/listas/[listId]`", "Listas de lectura: se leen sin sesión (la firma solo aparece si su autor la autoriza) y solo las edita su dueño."],
             ["`/libro/[id]`", "Ficha del ejemplar con metadatos y JSON-LD `Book`/`Offer`."],
             ["`/obra/[bookId]`", "Obra canónica: conversación del título, ejemplares y recomendaciones."],
             ["`/u/[id]`", "Perfil público: biografía, métricas, reseñas, estantería y seguimiento."],
@@ -131,8 +134,9 @@ const ES: TechnicalDocument = {
             ["`/privacidad`, `/aviso-legal`", "Política de privacidad (art. 13 RGPD) y aviso legal (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "Confirmación de correo y contraseña nueva desde el enlace."],
             ["`/documentacion`", "Esta página."],
+            ["`/projekt`", "Qué es el proyecto, por qué existe, que no tiene ánimo de lucro y qué demuestra."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap solo publica la portada."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, el catálogo público y las fichas de obra."],
           ],
         },
         {
@@ -479,14 +483,15 @@ const DE: TechnicalDocument = {
           head: ["Route", "Inhalt"],
           rows: [
             ["`/`", "Öffentliche Startseite: Hero, vier Kennzahlen und eine Reihe Bücher."],
-            ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Braucht eine Sitzung."],
+            ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
+            ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`: die URL, die indexiert wird."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
             ["`/buscar`", "Globale Suche: Werke, Clubs, Leser:innen und Listen."],
             ["`/estanteria`, `/intercambios`", "Private Bereiche: eigene Exemplare und Anfragen mit dem nächsten Schritt."],
             ["`/comunidad`", "Hub mit Tabs (Gespräche, Aktivität, Clubs, Leser:innen, Listen) und Umfang über `?scope=`."],
             ["`/lectores`", "Verzeichnis mit Suche, Stadt und Sortierung nach Nähe oder Aktivität."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubs je Stadt: Anfragen, laufende Lektüre, Abstimmung, Teilnahme und privates Forum."],
-            ["`/listas`, `/listas/[listId]`", "Öffentliche Leselisten, nur von der eigenen Person bearbeitbar."],
+            ["`/listas`, `/listas/[listId]`", "Leselisten: ohne Sitzung lesbar (die Unterschrift erscheint nur mit Zustimmung), bearbeitbar nur von der Eigentümerin."],
             ["`/libro/[id]`", "Exemplarseite mit Metadaten und JSON-LD `Book`/`Offer`."],
             ["`/obra/[bookId]`", "Kanonisches Werk: Gespräch zum Titel, Exemplare und Empfehlungen."],
             ["`/u/[id]`", "Öffentliches Profil: Biografie, Kennzahlen, Rezensionen, Regal und Folgen."],
@@ -495,8 +500,9 @@ const DE: TechnicalDocument = {
             ["`/privacidad`, `/aviso-legal`", "Datenschutzerklärung (Art. 13 DSGVO) und Impressum (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "E-Mail bestätigen und neues Passwort über den Link setzen."],
             ["`/documentacion`", "Diese Seite."],
+            ["`/projekt`", "Was das Projekt ist, warum es existiert, dass es keinen kommerziellen Zweck hat und was es zeigt."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht nur die Startseite."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht die Startseite, den öffentlichen Katalog und die Werkseiten."],
           ],
         },
         {

@@ -98,8 +98,10 @@ export async function SiteShell({
               className="footer-links legal-links"
               aria-label={t("Información y documentación")}
             >
+              <Link href="/descubrir">{t("Descubrir todos los libros")}</Link>
               <Link href="/privacidad">{t("Privacidad")}</Link>
               <Link href="/aviso-legal">{t("Aviso legal")}</Link>
+              <Link href="/projekt">{t("El proyecto")}</Link>
               <Link href="/documentacion">{t("Documentación")}</Link>
             </nav>
             <span>

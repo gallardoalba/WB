@@ -61,10 +61,12 @@ export function ListEditForm({
   listId,
   title,
   description,
+  showOwner,
 }: {
   listId: string;
   title: string;
   description: string;
+  showOwner: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -81,7 +83,11 @@ export function ListEditForm({
     try {
       await api(`/api/lists/${listId}`, {
         method: "PATCH",
-        body: { title: form.get("title"), description: form.get("description") ?? "" },
+        body: {
+          title: form.get("title"),
+          description: form.get("description") ?? "",
+          showOwner: form.get("showOwner") !== null,
+        },
       });
       setDone(true);
       setOpen(false);
@@ -126,6 +132,10 @@ export function ListEditForm({
             maxLength={280}
             placeholder={t("Descripción (opcional)")}
           />
+          <label className="checkbox-row">
+            <input type="checkbox" name="showOwner" defaultChecked={showOwner} />
+            <span>{t("Mostrar mi nombre en la lista pública")}</span>
+          </label>
           <button type="submit" className="secondary-button small" disabled={pending}>
             {t("Guardar")}
           </button>

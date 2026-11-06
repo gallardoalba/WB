@@ -6,7 +6,8 @@ import {
   languageFromCodes,
   mergeSources,
   parseDnbCreator,
-  parseDnbTitle,
+  parseMarcRecord,
+  stripQuotes,
   tagsFromSubjects,
 } from "../src/lib/isbn-metadata.ts";
 import { workKeyFromOpenLibrary, workKeyFromTitle } from "../src/lib/work.ts";
@@ -83,15 +84,37 @@ test("las etiquetas propuestas respetan el género elegido", () => {
   assert.ok(tagsFromSubjects(["Geschichte", "Politik", "Philosophie", "Kunst"], ["Historia", "Política", "Filosofía", "Arte"]).length <= 3);
 });
 
-test("el título de la DNB se limpia: sin título original ni mención de responsabilidad", () => {
-  assert.deepEqual(parseDnbTitle("Gegen den Hass / Carolin Emcke"), {
-    title: "Gegen den Hass",
-    subtitle: null,
-  });
-  assert.deepEqual(
-    parseDnbTitle("[De moeder van Ikabod] ; So viele Hähne, so nah beim Haus : Erzählungen / Maarten 't Hart"),
-    { title: "So viele Hähne, so nah beim Haus", subtitle: "Erzählungen" },
-  );
+test("el registro MARC de la DNB da título, editorial, año y colección", () => {
+  // Recorte real de un registro de la DNB: las comillas bibliográficas viajan
+  // como referencias numéricas de Windows-1252 (`&#152;` = „, `&#156;` = “).
+  const marc = parseMarcRecord(`
+    <record>
+      <datafield tag="082" ind1="0" ind2="4"><subfield code="a">830</subfield></datafield>
+      <datafield tag="041"><subfield code="a">ger</subfield></datafield>
+      <datafield tag="100"><subfield code="a">Ricks, James</subfield><subfield code="e">Verfasser</subfield></datafield>
+      <datafield tag="245"><subfield code="a">&#152;Elf Monate in Bunbury&#156;</subfield><subfield code="b">Roman</subfield><subfield code="c">James Ricks. Dt. von Katja Rudnik</subfield></datafield>
+      <datafield tag="264"><subfield code="a">Reinbek bei Hamburg</subfield><subfield code="b">&#152;Rowohlt&#156;-Taschenbuch-Verl.</subfield><subfield code="c">2000</subfield></datafield>
+      <datafield tag="490"><subfield code="a">Rororo</subfield><subfield code="v">22530</subfield></datafield>
+      <datafield tag="700"><subfield code="a">Rudnik, Katja</subfield><subfield code="e">Übersetzer</subfield></datafield>
+    </record>
+  `);
+  assert.ok(marc);
+  assert.equal(marc.title, "Elf Monate in Bunbury: Roman");
+  assert.deepEqual(marc.authors, ["James Ricks"]);
+  assert.equal(marc.publisher, "Rowohlt-Taschenbuch-Verl.");
+  assert.equal(marc.year, "2000");
+  assert.equal(marc.series, "Rororo 22530");
+  assert.equal(languageFromCodes(marc.languages ?? []), "Alemán");
+  // La DDC (830) manda: es una novela.
+  assert.equal(categoryFromSubjects(marc.subjects ?? []), "Ficción");
+  // Sin 245 no hay ficha, aunque haya otros campos.
+  assert.equal(parseMarcRecord(`<datafield tag="264"><subfield code="b">x</subfield></datafield>`), null);
+});
+
+test("las comillas bibliográficas no ensucian el título ni el sello", () => {
+  assert.equal(stripQuotes("„Der eindimensionale Mensch“"), "Der eindimensionale Mensch");
+  assert.equal(stripQuotes('"Gegen den Hass"'), "Gegen den Hass");
+  assert.equal(stripQuotes("Suhrkamp"), "Suhrkamp");
 });
 
 test("la autoría de la DNB se ordena y descarta traductores", () => {

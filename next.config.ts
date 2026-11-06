@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  /**
+   * El catálogo público vive ahora en «Descubrir», dentro de la aplicación.
+   * `/buecher` se anunció unos días en el sitemap, así que se redirige para
+   * siempre en vez de desaparecer.
+   */
+  async redirects() {
+    return [{ source: "/buecher", destination: "/descubrir", permanent: true }];
+  },
   // El indicador flotante del desarrollo (la «N» de la esquina con bundler,
   // caché y componentes) no aporta nada aquí y confunde al mirar la interfaz.
   // Solo existe en `next dev`: en la compilación de producción no se pinta.

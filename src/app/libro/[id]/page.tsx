@@ -20,7 +20,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   const locale = await getLocale();
   const listing = getListing(id, null);
-  if (!listing) return { title: locale === "de" ? "Buch nicht verfügbar" : "Libro no disponible" };
+  if (!listing) {
+    // Igual que en los perfiles: la respuesta se emite antes de saber que el
+    // ejemplar no existe, así que se resuelve con `noindex` en los metadatos.
+    return {
+      title: locale === "de" ? "Buch nicht verfügbar" : "Libro no disponible",
+      robots: { index: false, follow: false },
+    };
+  }
   return {
     title: `${listing.title} — ${listing.author}`,
     description:
@@ -137,6 +144,11 @@ export default async function Page({ params }: PageProps) {
             city={listing.city}
             notes={listing.notes}
             tags={listing.tags}
+            author={listing.author}
+            language={listing.language}
+            publisher={listing.publisher}
+            year={listing.year}
+            series={listing.series}
           />
         </div>
       </article>

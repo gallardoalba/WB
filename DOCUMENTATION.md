@@ -43,19 +43,20 @@ deploy/                systemd, nginx, environment template and guide
 
 ## Routes
 
-Internal pages require a session; without one they redirect to `/?auth=1&next=…`. The home page, the legal pages, the flows with their own link and the technical documentation are public. `robots.txt` blocks the catalogue and profiles so that readers' names and cities do not end up in search engines.
+Internal pages require a session; without one they redirect to `/?auth=1&next=…`. The home page, the catalogue (`/descubrir`), the public work pages (`/werk/[id]`), the reading lists, the legal pages, the flows with their own link and the technical documentation are public. `robots.txt` blocks the app catalogue, the copy pages and the profiles so that readers' names and cities do not end up in search engines; the public work pages publish the title, the figures and the cities, never who owns a copy.
 
 | Route | Content |
 | --- | --- |
 | `/` | Public home page: hero, four figures and a single row of books. |
-| `/descubrir` | Full catalogue with search, categories, sorting and pagination in the URL. Requires a session. |
+| `/descubrir` | Full catalogue with search, categories, sorting and pagination in the URL. Visible without a session; requesting a copy does require one. |
+| `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; the URL search engines index. (`/buecher` redirects here to `/descubrir`.) |
 | `/ofrecer` | Publish a copy; the ISBN fills in the bibliographic record. |
 | `/buscar` | Global search: works, reading circles, readers and lists. |
 | `/estanteria`, `/intercambios` | Private sections: own copies and requests with their next step. |
 | `/comunidad` | Hub with tabs (conversations, activity, circles, readers, lists) and scope in `?scope=`. |
 | `/lectores` | Directory with search, city and sorting by distance or activity. |
 | `/clubes`, `/clubes/[clubId]` | Reading circles by city: requests, current read, vote, attendance and members-only forum. |
-| `/listas`, `/listas/[listId]` | Public reading lists, editable only by their owner. |
+| `/listas`, `/listas/[listId]` | Reading lists: readable without a session (the signature only appears if the owner allows it), editable only by their owner. |
 | `/libro/[id]` | Copy page with metadata and JSON-LD `Book`/`Offer`. |
 | `/obra/[bookId]` | Canonical work: conversation about the title, copies and recommendations. |
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
@@ -64,8 +65,9 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/privacidad`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
 | `/documentacion` | Technical documentation page (Spanish and German). |
+| `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
 | `/api/health` | Service and database status. |
-| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap only publishes the home page. |
+| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the public catalogue and the work pages. |
 
 The API has 71 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 

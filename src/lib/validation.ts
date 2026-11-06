@@ -298,6 +298,8 @@ export const readingListSchema = z.object({
     .max(280, "La descripción no puede superar 280 caracteres.")
     .optional()
     .default(""),
+  // Firma en la versión pública: por defecto la lista se lee sin nombre.
+  showOwner: z.boolean().optional().default(false),
 });
 
 export const readingListItemSchema = z.object({
@@ -531,6 +533,15 @@ export const listingEditSchema = z.object({
     .max(300, "Las notas no pueden superar 300 caracteres.")
     .optional()
     .default(""),
+  // Ficha de la obra. Todo opcional: si un campo no llega, se conserva el que
+  // había, y así el formulario puede crecer sin romper a nadie.
+  title: trimmed(2, 120, "El título").optional(),
+  author: trimmed(2, 90, "El autor").optional(),
+  category: z.enum(CATEGORIES, { error: "Elige una categoría de la lista." }).optional(),
+  language: z.enum(BOOK_LANGUAGES, { error: "Elige un idioma de la lista." }).optional(),
+  publisher: z.string().trim().max(80, "La editorial no puede superar 80 caracteres.").optional(),
+  year: z.string().trim().max(12, "El año no puede superar 12 caracteres.").optional(),
+  series: z.string().trim().max(80, "La colección no puede superar 80 caracteres.").optional(),
 });
 
 export const listingPatchSchema = z.union([

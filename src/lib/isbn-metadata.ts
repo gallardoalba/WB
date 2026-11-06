@@ -32,6 +32,8 @@ export type IsbnMetadata = {
   tags: string[];
   publisher: string | null;
   year: string | null;
+  /** Colección de la editorial («Rororo 22530»), si la edición está en una. */
+  series: string | null;
   /** Obra de Open Library: agrupa ediciones que son el mismo libro. */
   workId: string | null;
   /** De dónde salió el dato, para poder explicarlo en la interfaz. */
@@ -285,8 +287,16 @@ export function tagsFromSubjects(
 
 /* ----------------------------------- DNB --------------------------------- */
 
+/**
+ * La DNB entrega el MARC21 en UTF-8, pero las comillas bibliográficas alemanas
+ * viajan como referencias numéricas de Windows-1252 (`&#152;` = „, `&#156;` =
+ * “). No se pueden descodificar como Unicode: U+0098 es un carácter de control.
+ */
 function decode(value: string): string {
   return value
+    .replace(/&#152;/g, "„")
+    .replace(/&#156;/g, "“")
+    .replace(/&#150;/g, "–")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -295,21 +305,15 @@ function decode(value: string): string {
     .trim();
 }
 
-/**
- * La DNB escribe «[Título original] ; Título : subtítulo / mención de
- * responsabilidad». Se queda el título de la edición, sin el original, sin la
- * mención de responsabilidad y con el subtítulo si lo hay.
- */
-export function parseDnbTitle(raw: string): { title: string; subtitle: string | null } {
-  let text = decode(raw);
-  const slash = text.lastIndexOf(" / ");
-  if (slash > 3) text = text.slice(0, slash);
-  const parallel = text.lastIndexOf(" ; ");
-  if (parallel > 0) text = text.slice(parallel + 3);
-  const parts = text.split(" : ");
-  const title = (parts[0] ?? "").trim();
-  const subtitle = parts.slice(1).join(" : ").trim();
-  return { title, subtitle: subtitle || null };
+/** «„Der eindimensionale Mensch“» → «Der eindimensionale Mensch». */
+export function stripQuotes(value: string): string {
+  return value
+    // Las comillas bibliográficas alemanas no son parte del título ni del
+    // sello: la DNB las pone para delimitar el nombre, no para citarlo.
+    .replace(/[„“‚‘«»]/g, "")
+    .replace(/^"/, "")
+    .replace(/"$/, "")
+    .trim();
 }
 
 /** «Emcke, Carolin [Verfasser]» → «Carolin Emcke». Traductores fuera. */
@@ -333,46 +337,105 @@ type PartialMetadata = {
   subjects?: string[];
   publisher?: string | null;
   year?: string | null;
+  series?: string | null;
   workId?: string | null;
 };
+
+type MarcSubfield = { code: string; value: string };
+type MarcField = { tag: string; subfields: MarcSubfield[] };
+
+/** Campos `<datafield tag="NNN">` de un registro MARC21-xml, ya descodificados. */
+export function marcFields(xml: string): MarcField[] {
+  const fields: MarcField[] = [];
+  for (const field of xml.matchAll(/<datafield tag="(\d{3})"[^>]*>([\s\S]*?)<\/datafield>/g)) {
+    const subfields = [
+      ...(field[2] ?? "").matchAll(/<subfield code="([^"]*)">([\s\S]*?)<\/subfield>/g),
+    ].map((subfield) => ({ code: subfield[1] ?? "", value: decode(subfield[2] ?? "") }));
+    fields.push({ tag: field[1] ?? "", subfields });
+  }
+  return fields;
+}
+
+function subfieldsOf(fields: readonly MarcField[], tag: string, code: string): string[] {
+  return fields
+    .filter((field) => field.tag === tag)
+    .flatMap((field) => field.subfields.filter((sub) => sub.code === code).map((sub) => sub.value))
+    .map(stripQuotes)
+    .filter(Boolean);
+}
+
+function firstSubfield(fields: readonly MarcField[], tag: string, code: string): string | null {
+  return subfieldsOf(fields, tag, code)[0] ?? null;
+}
+
+/**
+ * Registro MARC21 de la DNB → ficha de la edición.
+ *
+ * MARC da el título y el subtítulo por separado (245 $a/$b), la mención de
+ * editorial y año (264 $a/$b/$c), la colección con su número (490/830 $a/$v)
+ * y la clasificación DDC (082/083), que es de donde sale el género. Antes se
+ * leía `oai_dc`, que no tiene Reihe: la colección se perdía.
+ */
+export function parseMarcRecord(xml: string): PartialMetadata | null {
+  const fields = marcFields(xml);
+  const title = firstSubfield(fields, "245", "a");
+  if (!title) return null;
+
+  const subtitle = firstSubfield(fields, "245", "b");
+  const creators = [
+    ...new Set(
+      fields
+        .filter((field) => field.tag === "100" || field.tag === "700")
+        .map((field) => {
+          const name = field.subfields.find((sub) => sub.code === "a")?.value ?? "";
+          const role = field.subfields.find((sub) => sub.code === "e")?.value ?? "";
+          return name ? stripQuotes(`${name}${role ? ` [${role}]` : ""}`) : "";
+        })
+        .map(parseDnbCreator)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+
+  const publisher = firstSubfield(fields, "264", "b");
+  const rawYear = firstSubfield(fields, "264", "c");
+  const seriesName = firstSubfield(fields, "490", "a") ?? firstSubfield(fields, "830", "a");
+  const seriesNumber = firstSubfield(fields, "490", "v") ?? firstSubfield(fields, "830", "v");
+
+  // 082/083 traen la DDC («301»), 650/689 las materias: las dos alimentan la
+  // misma deducción de categoría y etiquetas que ya existía. La Sachgruppe de
+  // la DNB (`689 $A`) dice si es ficción incluso cuando no hay DDC.
+  const sachgruppen = fields
+    .filter((field) => field.tag === "689")
+    .flatMap((field) => field.subfields.filter((sub) => sub.code === "A").map((sub) => sub.value));
+  const subjects = [
+    ...subfieldsOf(fields, "082", "a"),
+    ...subfieldsOf(fields, "083", "a"),
+    ...subfieldsOf(fields, "650", "a"),
+    ...subfieldsOf(fields, "689", "a"),
+    ...(sachgruppen.includes("f") ? ["Belletristik"] : []),
+  ];
+
+  return {
+    // Un subtítulo largo suele ser texto promocional: se queda fuera para no
+    // ensuciar la ficha.
+    title: subtitle && subtitle.length <= 70 ? `${title}: ${subtitle}` : title,
+    authors: creators.slice(0, 3),
+    languages: subfieldsOf(fields, "041", "a"),
+    subjects,
+    publisher,
+    year: rawYear ? (rawYear.match(/\d{4}/)?.[0] ?? rawYear) : null,
+    series: seriesName ? (seriesNumber ? `${seriesName} ${seriesNumber}` : seriesName) : null,
+  };
+}
 
 async function fromDnb(isbn: string): Promise<PartialMetadata | null> {
   const query = encodeURIComponent(`ISBN=${isbn}`);
   const xml = await fetchText(
-    `https://services.dnb.de/sru/dnb?version=1.1&operation=searchRetrieve&query=${query}&recordSchema=oai_dc&maximumRecords=1`,
+    `https://services.dnb.de/sru/dnb?version=1.1&operation=searchRetrieve&query=${query}&recordSchema=MARC21-xml&maximumRecords=1`,
     "application/xml",
   );
   if (!xml || !xml.includes("<numberOfRecords>1</numberOfRecords>")) return null;
-  const titleTag = xml.match(/<dc:title>([\s\S]*?)<\/dc:title>/);
-  if (!titleTag) return null;
-  const { title, subtitle } = parseDnbTitle(titleTag[1] ?? "");
-  if (!title) return null;
-  const creators = [...xml.matchAll(/<dc:creator>([\s\S]*?)<\/dc:creator>/g)]
-    .map((match) => parseDnbCreator(match[1] ?? ""))
-    .filter((name): name is string => Boolean(name));
-  const languages = [...xml.matchAll(/<dc:language>([\s\S]*?)<\/dc:language>/g)].map((match) =>
-    decode(match[1] ?? ""),
-  );
-  const publisher = xml.match(/<dc:publisher>([\s\S]*?)<\/dc:publisher>/);
-  const date = xml.match(/<dc:date>([\s\S]*?)<\/dc:date>/);
-  const subjects = [...xml.matchAll(/<dc:subject>([\s\S]*?)<\/dc:subject>/g)].map((match) =>
-    decode(match[1] ?? ""),
-  );
-  const rawPublisher = publisher ? decode(publisher[1] ?? "") : "";
-  // «Frankfurt am Main : S. Fischer» → «S. Fischer».
-  const publisherName = rawPublisher.includes(" : ")
-    ? rawPublisher.split(" : ").slice(1).join(" : ")
-    : rawPublisher;
-  return {
-    // Un subtítulo largo suele ser texto promocional («…: Roman - »Eine
-    // witzige Heldenreise««): se queda fuera para no ensuciar la ficha.
-    title: subtitle && subtitle.length <= 70 ? `${title}: ${subtitle}` : title,
-    authors: creators.slice(0, 3),
-    languages,
-    subjects,
-    publisher: publisherName || null,
-    year: date ? decode(date[1] ?? "") : null,
-  };
+  return parseMarcRecord(xml);
 }
 
 /* ------------------------------ Open Library ----------------------------- */
@@ -477,6 +540,8 @@ export function mergeSources(
     tags: tagsFor(category, subjects),
     publisher: dnb?.publisher ?? openLibrary?.publisher ?? null,
     year: dnb?.year ?? openLibrary?.year ?? null,
+    // La Reihe solo la da un catálogo nacional: Open Library no la modela.
+    series: dnb?.series ?? null,
     workId: openLibrary?.workId ?? null,
     source: dnb && openLibrary ? "dnb+openlibrary" : dnb ? "dnb" : "openlibrary",
   };

@@ -17,10 +17,10 @@ import { catalogParamsSchema } from "@/lib/validation";
  */
 
 /** Vistas que se pueden ver sin sesión. */
-// Solo la portada es pública. El catálogo (nombre y ciudad de cada lector
-// junto a sus libros) exige sesión: era accesible sin cuenta y, aunque
-// robots.txt ya evita indexarlo, cualquiera podía recorrerlo entero.
-const PUBLIC_VIEWS: readonly View[] = ["home"];
+// La portada y el catálogo (Bücher entdecken) son públicos: enseñan obras y
+// ejemplares, y quien no tiene cuenta puede ojear qué hay antes de registrarse.
+// El resto (estantería, intercambios, comunidad) sigue pidiendo sesión.
+const PUBLIC_VIEWS: readonly View[] = ["home", "discover"];
 
 type RawParams = Record<string, string | string[] | undefined>;
 

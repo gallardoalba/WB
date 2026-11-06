@@ -1232,6 +1232,31 @@ function migrateToV38(db: Db) {
 }
 
 /**
+ * v39: ficha bibliográfica de la edición y autoría visible en las listas.
+ *
+ * La DNB (MARC21) da Verlag, Erscheinungsjahr y Reihe: son los datos que
+ * convierten una ficha en una «Titelaufnahme» y los que se enseñan en la obra.
+ * `show_owner` es la única pieza que decide si el nombre de quien firma una
+ * lista aparece en la versión pública: por defecto, no.
+ */
+function migrateToV39(db: Db) {
+  const columns = (table: string) =>
+    (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
+  const add = (table: string, column: string, ddl: string) => {
+    if (!columns(table).includes(column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+    }
+  };
+
+  add("books", "publisher", "TEXT");
+  add("books", "year", "TEXT");
+  add("books", "series", "TEXT");
+  add("reading_lists", "show_owner", "INTEGER NOT NULL DEFAULT 0");
+
+  db.pragma("user_version = 39");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1354,6 +1379,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 36) migrateToV36(db);
   if (userVersion(db) < 37) migrateToV37(db);
   if (userVersion(db) < 38) migrateToV38(db);
+  if (userVersion(db) < 39) migrateToV39(db);
 
   backfillSearchKeys(db);
 }

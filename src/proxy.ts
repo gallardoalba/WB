@@ -2,6 +2,28 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requestIdFrom, REQUEST_ID_HEADER } from "@/lib/observability";
 
 /**
+ * Rutas que no deben indexarse: la misma lista que el `disallow` de
+ * `robots.txt`, más `/buscar` (que ya lleva `noindex` en sus metadatos).
+ */
+const PRIVATE_PREFIXES = [
+  "/api/",
+  "/descubrir",
+  "/libro/",
+  "/obra/",
+  "/u/",
+  "/lectores",
+  "/comunidad",
+  "/clubes",
+  "/estanteria",
+  "/intercambios",
+  "/cuenta",
+  "/ofrecer",
+  "/verificar",
+  "/restablecer",
+  "/buscar",
+];
+
+/**
  * Cabeceras de seguridad para todas las rutas.
  *
  * La CSP usa un nonce por petición: Next lo propaga a sus propios scripts y así
@@ -62,6 +84,13 @@ export function proxy(request: NextRequest) {
   // cierra también esa.
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  // Vistas con sesión: `robots.txt` ya las bloquea, pero sin sesión responden
+  // 200 con una redirección en el cliente (Next no puede cambiar el estado una
+  // vez emitido el shell). La cabecera cierra el caso de la URL descubierta por
+  // un enlace externo: Google no la indexa aunque llegue a pedirla.
+  if (PRIVATE_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   if (request.nextUrl.pathname.startsWith("/admin")) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }

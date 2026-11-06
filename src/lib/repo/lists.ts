@@ -13,11 +13,12 @@ type ListRow = {
   created_at: string;
   owner_id: string;
   owner_name: string;
+  show_owner: number;
   items: number;
 };
 
 const LIST_SELECT = `
-  SELECT rl.id, rl.title, rl.description, rl.created_at,
+  SELECT rl.id, rl.title, rl.description, rl.created_at, rl.show_owner,
          u.id AS owner_id, u.name AS owner_name,
          (SELECT COUNT(*) FROM reading_list_items i WHERE i.list_id = rl.id) AS items
   FROM reading_lists rl
@@ -33,6 +34,7 @@ function toListRow(row: ListRow, viewerId: string | null): ReadingListView {
     items: row.items,
     owner: { id: row.owner_id, name: row.owner_name },
     isMine: row.owner_id === viewerId,
+    showOwner: Boolean(row.show_owner),
   };
 }
 
@@ -46,7 +48,7 @@ function assertListOwner(db: Db, listId: string, userId: string): void {
 
 export function createReadingList(
   ownerId: string,
-  input: { title: string; description: string },
+  input: { title: string; description: string; showOwner?: boolean },
 ): ReadingListView {
   const db = getDb();
   const total = (
@@ -58,8 +60,15 @@ export function createReadingList(
 
   const id = `lst_${randomUUID()}`;
   db.prepare(
-    "INSERT INTO reading_lists (id, owner_id, title, description, created_at) VALUES (?, ?, ?, ?, ?)",
-  ).run(id, ownerId, input.title, input.description, nowIso());
+    "INSERT INTO reading_lists (id, owner_id, title, description, show_owner, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(
+    id,
+    ownerId,
+    input.title,
+    input.description,
+    input.showOwner ? 1 : 0,
+    nowIso(),
+  );
 
   const row = db.prepare(`${LIST_SELECT} WHERE rl.id = ?`).get(id) as ListRow;
   return toListRow(row, ownerId);
@@ -192,15 +201,13 @@ export function addToList(userId: string, listId: string, bookId: string): void 
 export function updateReadingList(
   userId: string,
   listId: string,
-  input: { title: string; description: string },
+  input: { title: string; description: string; showOwner?: boolean },
 ): void {
   const db = getDb();
   assertListOwner(db, listId, userId);
-  db.prepare("UPDATE reading_lists SET title = ?, description = ? WHERE id = ?").run(
-    input.title,
-    input.description,
-    listId,
-  );
+  db.prepare(
+    "UPDATE reading_lists SET title = ?, description = ?, show_owner = ? WHERE id = ?",
+  ).run(input.title, input.description, input.showOwner ? 1 : 0, listId);
 }
 
 export function removeFromList(userId: string, listId: string, bookId: string): void {
