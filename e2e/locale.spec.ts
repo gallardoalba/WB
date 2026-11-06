@@ -10,7 +10,7 @@ test.describe("idioma por defecto", () => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
     await expect(page.getByRole("heading", { level: 1 }).first()).toContainText(
-      "Bücher bleiben nicht stehen.",
+      "Bücher, die weiterreisen",
     );
 
     await page.goto("/documentacion");

@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(siteUrl()),
     title: {
-      default: `${BRAND} | ${de ? "Bücher, die weiterreisen" : "Libros que siguen viajando"}`,
+      default: `${BRAND}: ${de ? "Bücher, die weiterreisen" : "Libros que siguen viajando"}`,
       template: `%s | ${BRAND}`,
     },
     description,
@@ -49,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       locale: de ? "de_DE" : "es_ES",
       siteName: BRAND,
-      title: `${BRAND} | ${de ? "Bücher, die weiterreisen" : "Libros que siguen viajando"}`,
+      title: `${BRAND}: ${de ? "Bücher, die weiterreisen" : "Libros que siguen viajando"}`,
       description,
       url: "/",
     },
