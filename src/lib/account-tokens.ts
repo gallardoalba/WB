@@ -76,7 +76,9 @@ export async function sendVerificationEmail(userId: string, email: string): Prom
   enqueueMail({
     to: email,
     subject: "Confirma tu correo en Wanderbibliothek",
-    text: `Abre este enlace para confirmar tu correo (caduca en 24 horas):\n${link}`,
+    // Con un dominio nuevo el primero puede caer en spam: decirlo aquí evita
+    // que alguien abandone pensando que la web no envía nada.
+    text: `Abre este enlace para confirmar tu correo (caduca en 24 horas):\n${link}\n\nSi no ves este mensaje en la bandeja de entrada, mira en la carpeta de spam.`,
   });
 }
 
@@ -87,7 +89,7 @@ export async function sendPasswordResetEmail(userId: string, email: string): Pro
   enqueueMail({
     to: email,
     subject: "Restablece tu contraseña de Wanderbibliothek",
-    text: `Abre este enlace para elegir una contraseña nueva (caduca en 1 hora):\n${link}`,
+    text: `Abre este enlace para elegir una contraseña nueva (caduca en 1 hora):\n${link}\n\nSi no ves este mensaje en la bandeja de entrada, mira en la carpeta de spam.`,
   });
 }
 

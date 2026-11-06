@@ -314,6 +314,14 @@ export function AuthDialog({
                   : t("Enviar enlace")}
           {!pending && <ArrowRight size={16} />}
         </button>
+
+        {mode === "register" && (
+          <p className="form-hint auth-hint">
+            {t(
+              "Te enviaremos un correo para confirmar la cuenta. Si no llega en unos minutos, mira en la carpeta de spam.",
+            )}
+          </p>
+        )}
       </form>
 
       {mode === "login" && (

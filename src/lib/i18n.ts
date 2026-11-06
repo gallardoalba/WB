@@ -206,6 +206,7 @@ export const DE = {
   "Portada de {title}": "Cover von {title}",
   "Seguir explorando": "Weiter entdecken",
   "Te enviamos un enlace a {email}.": "Wir haben einen Link an {email} gesendet.",
+  "Te enviaremos un correo para confirmar la cuenta. Si no llega en unos minutos, mira en la carpeta de spam.": "Wir schicken dir eine E-Mail zur Bestätigung des Kontos. Falls sie nach ein paar Minuten nicht ankommt, schau im Spam-Ordner nach.",
   "Texto libre para el día y la hora que soléis quedar.": "Freitext für den Tag und die Uhrzeit, zu der ihr euch normalerweise trefft.",
   "Ver detalles": "Details ansehen",
   "{label} · {text}": "{label} · {text}",

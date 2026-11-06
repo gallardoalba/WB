@@ -397,6 +397,12 @@
   line-height: 1.5;
 }
 
+/* Aviso bajo el botón de registro: sin este margen se pegaba a la línea de la
+   cuenta de demostración. */
+.form-hint.auth-hint {
+  margin-bottom: 12px;
+}
+
 .form-hint code {
   padding: 1px 5px;
   border-radius: var(--radius-xs);
