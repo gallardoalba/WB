@@ -103,7 +103,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         {
           heading: "4. Empfänger und Drittanbieter",
           body: [
-            "E-Mail-Anbieter: erhält Adresse und Inhalt der Benachrichtigungs-E-Mail, niemals den Inhalt verschlüsselter Nachrichten.",
+            "E-Mail-Anbieter: In diesem Dienst Brevo (Sendinblue SAS, Paris), der die Daten weisungsgebunden und innerhalb der EU verarbeitet; erhält Adresse und Inhalt der Benachrichtigungs-E-Mail, niemals den Inhalt verschlüsselter Nachrichten.",
             "Buchcover: Die Bilder werden über unseren Server geladen und zwischengespeichert; die Open Library (Internet Archive) sieht dabei die IP des Servers und die ISBN, nicht die IP der Besucherin oder des Besuchers.",
             "Cloudflare Turnstile: nur wenn aktiviert, beim Registrieren.",
             "Hosting: der Anbieter, bei dem dieser Dienst läuft.",
@@ -204,7 +204,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
       {
         heading: "4. Destinatarios y terceros",
         body: [
-          "Proveedor de correo: recibe la dirección y el texto del aviso, nunca el contenido de los mensajes cifrados.",
+          "Proveedor de correo: en este servicio, Brevo (Sendinblue SAS, París), que trata los datos por nuestra cuenta y dentro de la UE; recibe la dirección y el texto del aviso, nunca el contenido de los mensajes cifrados.",
           "Portadas de libros: se descargan a través de nuestro servidor y se cachean; Open Library (Internet Archive) ve la IP del servidor y el ISBN, no la de quien navega.",
           "Cloudflare Turnstile: solo si está activado, al registrarse.",
           "Alojamiento: el proveedor donde se ejecuta el servicio.",
