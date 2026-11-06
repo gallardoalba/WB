@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
-import { I18nProvider } from "@/components/i18n-provider";
+import { I18nProvider, type Messages } from "@/components/i18n-provider";
 import { PwaRegister } from "@/components/pwa-register";
-import { DE } from "@/lib/i18n";
+import { DE, EN } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { LOCALES, pick, type Locale } from "@/lib/locale";
 import { messagesById } from "@/lib/message-id";
 import { BRAND, REPOSITORY } from "@/lib/brand";
 import { siteUrl } from "@/lib/site";
@@ -17,11 +18,13 @@ const SITE_TITLE = {
   // no solo el eslogan. La marca se añade con el `template` de las subpáginas.
   de: `Bücher tauschen und teilen in Deutschland | ${BRAND}`,
   es: `Intercambiar y compartir libros en Alemania | ${BRAND}`,
+  en: `Swap and share books in Germany | ${BRAND}`,
 } as const;
 
 const SITE_DESCRIPTION = {
   de: "Kostenlose Tauschbörse für gedruckte Bücher: Buch einstellen, Bücher in deiner Stadt finden und persönlich oder per Post weitergeben.",
   es: "Mercado gratuito de intercambio de libros físicos: publica un ejemplar, encuentra libros en tu ciudad y entrégalos en mano o por correo.",
+  en: "Free exchange for printed books: list a copy, find books in your city and pass them on in person or by post.",
 } as const;
 
 /**
@@ -31,8 +34,9 @@ const SITE_DESCRIPTION = {
  * tratarlo como un sitio huérfano; `sameAs` enlaza la entidad con el repositorio
  * público del proyecto.
  */
-function siteSchema(de: boolean) {
+function siteSchema(locale: Locale) {
   const base = siteUrl();
+  const description = pick(locale, SITE_DESCRIPTION);
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -41,8 +45,9 @@ function siteSchema(de: boolean) {
         "@id": `${base}/#website`,
         url: `${base}/`,
         name: BRAND,
-        description: SITE_DESCRIPTION[de ? "de" : "es"],
-        inLanguage: ["de", "es"],
+        description,
+        // El sitio se publica en todos los idiomas de la interfaz.
+        inLanguage: [...LOCALES],
         publisher: { "@id": `${base}/#organization` },
       },
       {
@@ -50,7 +55,7 @@ function siteSchema(de: boolean) {
         "@id": `${base}/#organization`,
         name: BRAND,
         url: `${base}/`,
-        description: SITE_DESCRIPTION[de ? "de" : "es"],
+        description,
         logo: { "@type": "ImageObject", url: `${base}/icons/icon-512.png` },
         sameAs: [REPOSITORY],
       },
@@ -63,12 +68,20 @@ function siteSchema(de: boolean) {
  * y es lo que viaja al navegador. Ver `src/lib/message-id.ts`.
  */
 const DE_MESSAGES = messagesById(DE);
+/** Lo mismo con el diccionario inglés: solo viaja a quien lee en inglés. */
+const EN_MESSAGES = messagesById(EN);
+
+/** Textos de cliente por idioma; el español es el origen y llega vacío. */
+const MESSAGES: Record<Locale, Messages> = {
+  es: {},
+  de: DE_MESSAGES,
+  en: EN_MESSAGES,
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
-  const de = locale === "de";
-  const title = SITE_TITLE[de ? "de" : "es"];
-  const description = SITE_DESCRIPTION[de ? "de" : "es"];
+  const title = pick(locale, SITE_TITLE);
+  const description = pick(locale, SITE_DESCRIPTION);
   return {
     metadataBase: new URL(siteUrl()),
     title: {
@@ -95,7 +108,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // anunciarían «esta página es un duplicado de /».
     openGraph: {
       type: "website",
-      locale: de ? "de_DE" : "es_ES",
+      locale: pick(locale, { es: "es_ES", de: "de_DE", en: "en_GB" }),
       siteName: BRAND,
       title,
       description,
@@ -132,10 +145,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(siteSchema(locale === "de")).replace(/</g, "\\u003c"),
+            __html: JSON.stringify(siteSchema(locale)).replace(/</g, "\\u003c"),
           }}
         />
-        <I18nProvider locale={locale} messages={locale === "de" ? DE_MESSAGES : {}}>
+        <I18nProvider locale={locale} messages={MESSAGES[locale]}>
           <PwaRegister />
           {children}
         </I18nProvider>

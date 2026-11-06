@@ -27,8 +27,6 @@ enum class ThemePreference(val storageValue: String) {
 
 data class AppSettings(
     val serverUrl: String,
-    /** `system`, `de` o `es`. */
-    val language: String,
     val theme: ThemePreference,
 )
 
@@ -56,7 +54,6 @@ class Prefs(context: Context) {
     val settings: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
             serverUrl = preferences[SERVER_URL] ?: DEFAULT_SERVER_URL,
-            language = preferences[LANGUAGE] ?: "system",
             theme = ThemePreference.fromStorage(preferences[THEME]),
         )
     }
@@ -68,12 +65,6 @@ class Prefs(context: Context) {
     suspend fun setServerUrl(value: String) {
         dataStore.edit { it[SERVER_URL] = value }
     }
-
-    suspend fun setLanguage(value: String) {
-        dataStore.edit { it[LANGUAGE] = value }
-    }
-
-    suspend fun language(): String = dataStore.data.first()[LANGUAGE] ?: "system"
 
     suspend fun setTheme(value: ThemePreference) {
         dataStore.edit { it[THEME] = value.storageValue }
@@ -244,7 +235,6 @@ class Prefs(context: Context) {
 
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
-        val LANGUAGE = stringPreferencesKey("language")
         val THEME = stringPreferencesKey("theme")
         val COOKIES = stringPreferencesKey("cookies")
         val E2E_KEY_ID = stringPreferencesKey("e2e_key_id")

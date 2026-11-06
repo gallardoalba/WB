@@ -104,14 +104,10 @@ fun WanderApp(viewModel: AppViewModel = viewModel()) {
     }
     ImageUrl.baseUrl = settings.serverUrl
 
-    // «system» sigue al idioma del teléfono; por defecto, alemán, igual que la
-    // plataforma. El castellano se elige en Ajustes o si el sistema está en es.
-    val language = remember(settings.language) {
-        when (settings.language) {
-            "de", "es" -> settings.language
-            else -> if (Locale.getDefault().language == "es") "es" else "de"
-        }
-    }
+    // El idioma sigue siempre al del teléfono: no hay selector. Si el sistema
+    // está en castellano o en inglés se usa ese; cualquier otro cae al alemán,
+    // que es el idioma por defecto de la plataforma.
+    val language = remember { TextCatalog.languageFor(Locale.getDefault().language) }
     val texts = remember(language) { TextCatalog.forLanguage(language) }
 
     WanderTheme(preference = settings.theme) {
@@ -367,20 +363,20 @@ private fun BottomBar(navController: NavHostController, current: TopDestination)
                 },
                 label = {
                     // La barra tiene cinco destinos (~72 dp cada uno en un móvil
-                    // de 360 dp): se usa la etiqueta corta y se ajusta el tamaño
-                    // al hueco sin partir en dos líneas ni añadir puntos
-                    // suspensivos. El nombre completo queda en el título de la
-                    // pantalla y en la descripción del icono (lector de pantalla).
+                    // de 360 dp). «Intercambios» mide 70,8 dp a 12 sp y 59 dp a
+                    // 10 sp, así que la barra va a 10 sp fijos (todos iguales) y
+                    // solo baja de ahí si el hueco es muy estrecho o el texto del
+                    // sistema es enorme. Nunca se parte ni lleva puntos suspensivos.
                     Text(
                         text = texts[destination.navKey],
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Clip,
                         textAlign = TextAlign.Center,
                         autoSize = TextAutoSize.StepBased(
                             minFontSize = 8.sp,
-                            maxFontSize = 12.sp,
+                            maxFontSize = 10.sp,
                             stepSize = 0.5.sp,
                         ),
                         modifier = Modifier.fillMaxWidth(),

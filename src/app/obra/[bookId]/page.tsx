@@ -12,6 +12,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
+import { pick } from "@/lib/locale";
 import { ListPicker } from "@/components/list-picker";
 import {
   countBookWants,
@@ -37,24 +38,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { bookId } = await params;
   const locale = await getLocale();
   const book = getBook(bookId);
-  if (!book) return { title: locale === "de" ? "Buch nicht gefunden" : "Libro no encontrado" };
+  if (!book) {
+    return {
+      title: pick(locale, {
+        es: "Libro no encontrado",
+        de: "Buch nicht gefunden",
+        en: "Book not found",
+      }),
+    };
+  }
   // Las ediciones comparten obra: la canónica es la primera, para no repartir
   // el posicionamiento entre varias URL del mismo libro.
   const canonicalId = workBooks(book.id)[0]?.id ?? book.id;
   return {
     title: `${book.title} — ${book.author}`,
-    description:
-      locale === "de"
-        ? `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in ganz Deutschland.`
-        : `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en toda Alemania.`,
+    description: pick(locale, {
+      es: `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en toda Alemania.`,
+      de: `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in ganz Deutschland.`,
+      en: `Discussion and available copies of «${book.title}» by ${book.author} across Germany.`,
+    }),
     alternates: { canonical: `/obra/${canonicalId}` },
     openGraph: {
       type: "book",
       title: `${book.title} — ${book.author}`,
-      description:
-        locale === "de"
-          ? `Sprich über «${book.title}» und entdecke, wer es in deiner Nähe hat.`
-          : `Comenta «${book.title}» y descubre quién lo tiene cerca.`,
+      description: pick(locale, {
+        es: `Comenta «${book.title}» y descubre quién lo tiene cerca.`,
+        de: `Sprich über «${book.title}» und entdecke, wer es in deiner Nähe hat.`,
+        en: `Talk about «${book.title}» and find out who has it near you.`,
+      }),
       url: `/obra/${book.id}`,
       images: book.coverUrl ? [book.coverUrl] : undefined,
     },

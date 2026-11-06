@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE } from "./locale";
+import { DEFAULT_LOCALE, localeTag, type Locale } from "./locale";
 
 const TONES = ["sage", "ochre"] as const;
 
@@ -84,17 +84,21 @@ export function toneForId(id: string): (typeof TONES)[number] {
 }
 
 /** Número con el formato del idioma (1.234 en español, 1.234 en alemán). */
-export function formatNumber(value: number, locale: "es" | "de"): string {
-  return new Intl.NumberFormat(locale === "de" ? "de-DE" : "es-ES").format(value);
+export function formatNumber(value: number, locale: Locale): string {
+  return new Intl.NumberFormat(localeTag(locale)).format(value);
 }
 
 const DATE_FORMATTERS = {
   es: new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }),
   de: new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }),
+  en: new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }),
 } as const;
 
 /** Deterministic date label so server and client render the same text. */
-export function formatWhen(isoDate: string, locale: "es" | "de" = DEFAULT_LOCALE): string {
+export function formatWhen(
+  isoDate: string,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return "";
   return DATE_FORMATTERS[locale].format(date);
@@ -102,10 +106,14 @@ export function formatWhen(isoDate: string, locale: "es" | "de" = DEFAULT_LOCALE
 
 export function formatDistance(
   distanceKm: number | null,
-  locale: "es" | "de" = DEFAULT_LOCALE,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
   // Sin ciudad conocida no se inventa una distancia.
-  if (distanceKm === null) return locale === "de" ? "Ohne Angabe" : "Sin distancia";
+  if (distanceKm === null) {
+    if (locale === "de") return "Ohne Angabe";
+    if (locale === "en") return "No distance";
+    return "Sin distancia";
+  }
   return `${distanceKm.toFixed(1).replace(".", ",")} km`;
 }
 
@@ -126,6 +134,14 @@ const MEETING_FORMATTERS = {
     minute: "2-digit",
     timeZone: "Europe/Berlin",
   }),
+  en: new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Berlin",
+  }),
 } as const;
 
 /**
@@ -135,7 +151,7 @@ const MEETING_FORMATTERS = {
 export function formatMeeting(
   meetsAt: string,
   meetsOn: string,
-  locale: "es" | "de" = DEFAULT_LOCALE,
+  locale: Locale = DEFAULT_LOCALE,
 ): string {
   if (meetsAt) {
     const date = new Date(meetsAt);

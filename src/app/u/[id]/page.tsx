@@ -17,6 +17,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import type { MessageKey } from "@/lib/i18n";
+import { localeTag, pick } from "@/lib/locale";
 import { ReaderCard } from "@/components/reader-card";
 import {
   getPublicProfile,
@@ -59,24 +60,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Un perfil que no existe responde en streaming (200 + esta página), así
     // que el «no indexar» tiene que venir en los metadatos, no en el estado.
     return {
-      title: locale === "de" ? "Profil nicht gefunden" : "Perfil no encontrado",
+      title: pick(locale, {
+        es: "Perfil no encontrado",
+        de: "Profil nicht gefunden",
+        en: "Profile not found",
+      }),
       robots: { index: false, follow: false },
     };
   }
   return {
     title: profile.user.name,
-    description:
-      locale === "de"
-        ? `${profile.published} geteilte Bücher von ${profile.user.name} in ${profile.user.city}.`
-        : `${profile.published} libros compartidos por ${profile.user.name} en ${profile.user.city}.`,
+    description: pick(locale, {
+      es: `${profile.published} libros compartidos por ${profile.user.name} en ${profile.user.city}.`,
+      de: `${profile.published} geteilte Bücher von ${profile.user.name} in ${profile.user.city}.`,
+      en: `${profile.published} shared books by ${profile.user.name} in ${profile.user.city}.`,
+    }),
     alternates: { canonical: `/u/${profile.user.id}` },
     openGraph: {
       type: "profile",
-      title: `${profile.user.name} auf Wanderbibliothek`,
-      description:
-        locale === "de"
-          ? `Teile Bücher mit ${profile.user.name} in ${profile.user.city}.`
-          : `Comparte libros con ${profile.user.name} en ${profile.user.city}.`,
+      title: pick(locale, {
+        es: `${profile.user.name} en Wanderbibliothek`,
+        de: `${profile.user.name} auf Wanderbibliothek`,
+        en: `${profile.user.name} on Wanderbibliothek`,
+      }),
+      description: pick(locale, {
+        es: `Comparte libros con ${profile.user.name} en ${profile.user.city}.`,
+        de: `Teile Bücher mit ${profile.user.name} in ${profile.user.city}.`,
+        en: `Share books with ${profile.user.name} in ${profile.user.city}.`,
+      }),
       url: `/u/${profile.user.id}`,
     },
   };
@@ -101,7 +112,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     Boolean(viewer) && !profile.isMe && mutualFollow(viewer!.id, profile.user.id);
   const openMessages = firstValue(raw.dm) === "1";
 
-  const memberSince = new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "es-ES", {
+  const memberSince = new Intl.DateTimeFormat(localeTag(locale), {
     month: "long",
     year: "numeric",
   }).format(new Date(profile.memberSince));

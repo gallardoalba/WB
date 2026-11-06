@@ -8,11 +8,12 @@
  * Igual que `legal.ts`, el texto se compone por idioma en lugar de pasar por el
  * diccionario: son párrafos largos y `i18n.ts` solo debe llevar textos de
  * interfaz. Los identificadores (rutas, ficheros, variables) son los mismos en
- * las dos versiones.
+ * las tres versiones.
  */
 
 import { REPOSITORY } from "./brand";
 import type { Locale } from "./i18n";
+import { EN } from "./technical-en";
 
 export type DocBlock =
   | { kind: "p"; text: string }
@@ -348,7 +349,7 @@ const ES: TechnicalDocument = {
             "Cuatro breakpoints (480, 768, 1120 y 1400/1800 px), escala de espacio de 4 a 48 px y controles de 40 px, 44 en móvil.",
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
             "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado.",
-            "La interfaz es bilingüe y el alemán es el idioma por defecto: el castellano se elige con el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo.",
+            "La interfaz es trilingüe y el alemán es el idioma por defecto: el castellano y el inglés se eligen con el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo.",
           ],
         },
       ],
@@ -715,7 +716,7 @@ const DE: TechnicalDocument = {
             "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
             "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert.",
-            "Die Oberfläche ist zweisprachig mit Deutsch als Standard: Spanisch kommt über den Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert.",
+            "Die Oberfläche ist dreisprachig mit Deutsch als Standard: Spanisch und Englisch kommen über den Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert.",
           ],
         },
       ],
@@ -771,5 +772,7 @@ const DE: TechnicalDocument = {
 
 /** Documento técnico en el idioma activo. */
 export function technicalDocument(locale: Locale): TechnicalDocument {
-  return locale === "de" ? DE : ES;
+  if (locale === "de") return DE;
+  if (locale === "en") return EN;
+  return ES;
 }

@@ -108,8 +108,8 @@ const ES = (contact: string): TechnicalDocument => ({
               text: "contraste suficiente, foco visible, objetivos táctiles de 44 px, navegación con teclado y etiquetas para lectores de pantalla.",
             },
             {
-              label: "Alemán y castellano",
-              text: "la interfaz completa en los dos idiomas, con el contenido largo compuesto por idioma.",
+              label: "Alemán, castellano e inglés",
+              text: "la interfaz completa en los tres idiomas, con el contenido largo compuesto por idioma.",
             },
           ],
         },
@@ -229,8 +229,8 @@ const DE = (contact: string): TechnicalDocument => ({
               text: "ausreichender Kontrast, sichtbarer Fokus, 44-px-Ziele für Finger, Bedienung per Tastatur und Beschriftungen für Screenreader.",
             },
             {
-              label: "Deutsch und Spanisch",
-              text: "die Oberfläche vollständig in beiden Sprachen, lange Texte je Sprache verfasst.",
+              label: "Deutsch, Spanisch und Englisch",
+              text: "die Oberfläche vollständig in den drei Sprachen, lange Texte je Sprache verfasst.",
             },
           ],
         },
@@ -257,7 +257,130 @@ const DE = (contact: string): TechnicalDocument => ({
   ],
 });
 
+const EN = (contact: string): TechnicalDocument => ({
+  title: "The project",
+  updated: UPDATED,
+  intro: [
+    "Wanderbibliothek is a community project with no commercial purpose: books that have already been read keep circulating instead of gathering dust on a shelf.",
+    "This page explains what it is, why it exists and what is behind how it is built.",
+  ],
+  sections: [
+    {
+      id: "what-it-is",
+      heading: "What it is",
+      blocks: [
+        {
+          kind: "p",
+          text: "A platform for sharing and swapping printed books between readers all over Germany. Every copy has its own entry, anyone can request the book they are missing, and the two sides agree the hand-over — in person or by post.",
+        },
+        {
+          kind: "list",
+          items: [
+            "List a copy by ISBN: title, author, publisher and series fill themselves in.",
+            "Search by title, author, city or subject, and request the book you are missing.",
+            "Agree the hand-over, confirm it on both sides and let the book travel on.",
+          ],
+        },
+      ],
+    },
+    {
+      id: "why",
+      heading: "Why it exists",
+      blocks: [
+        {
+          kind: "p",
+          text: "Almost every household has a box of books nobody will read again. Selling them one by one is a chore, throwing them away is a waste. What was missing was not a place to advertise them, but an answer to the question: who nearby is looking for exactly this title?",
+        },
+        {
+          kind: "p",
+          text: "Nothing is sold here. Books are lent, swapped and given away. A platform for the community needs no commission to work.",
+        },
+      ],
+    },
+    {
+      id: "non-profit",
+      heading: "Non-profit and open source",
+      blocks: [
+        {
+          kind: "p",
+          text: "The project costs nothing, shows no advertising and sells no data. The code is published: anyone can read it, audit it or run their own instance. The instance serving this page describes exactly the code it runs.",
+        },
+        {
+          kind: "links",
+          items: [
+            {
+              label: "Code on GitHub",
+              href: REPOSITORY,
+              note: "MIT licence, public history and deployment guide.",
+            },
+            {
+              label: "Technical documentation",
+              href: "/documentacion",
+              note: "Architecture, data, security and operation.",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "how-it-is-built",
+      heading: "How it is built",
+      blocks: [
+        {
+          kind: "p",
+          text: "The visible part is the smaller half. What counts is what the service does not do with other people's data.",
+        },
+        {
+          kind: "terms",
+          items: [
+            {
+              label: "Privacy by default",
+              text: "the name, the city and the email address are stored, nothing else. The catalogue is not served to search engines with names; only works, with book data and figures, are indexed.",
+            },
+            {
+              label: "End-to-end encrypted messaging",
+              text: "the private key stays in the browser and the server carries only opaque envelopes. Shipping details are stored encrypted with the instance key.",
+            },
+            {
+              label: "Careful cataloguing",
+              text: "records are filled from the DNB (MARC21) and Open Library — with publisher, year, series and classification.",
+            },
+            {
+              label: "Accessibility",
+              text: "sufficient contrast, visible focus, 44 px touch targets, keyboard operation and screen-reader labels.",
+            },
+            {
+              label: "German, Spanish and English",
+              text: "the whole interface in the three languages, with long-form text written per language.",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "contact",
+      heading: "Contact",
+      blocks: [
+        {
+          kind: "p",
+          text: `For suggestions, moderation reports or to run your own instance: ${contact || "open an issue in the repository"}.`,
+        },
+        {
+          kind: "links",
+          items: [
+            { label: "Repository", href: REPOSITORY, note: "Issues and proposals." },
+            { label: "Privacy", href: "/privacidad", note: "Which data is processed and for how long." },
+            { label: "Legal notice", href: "/aviso-legal", note: "Who is responsible for this instance." },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
 /** Texto de la página del proyecto en el idioma activo. */
 export function projectDocument(locale: Locale, contact: string): TechnicalDocument {
-  return locale === "de" ? DE(contact) : ES(contact);
+  if (locale === "de") return DE(contact);
+  if (locale === "en") return EN(contact);
+  return ES(contact);
 }

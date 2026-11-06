@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import org.wanderbibliothek.app.data.ApiClient
 import org.wanderbibliothek.app.data.AppSettings
 import org.wanderbibliothek.app.data.ImageUrl
+import org.wanderbibliothek.app.data.Languages
 import org.wanderbibliothek.app.data.LoginOutcome
 import org.wanderbibliothek.app.data.Prefs
 import org.wanderbibliothek.app.data.SessionBus
@@ -94,6 +95,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             // toca: cambiar la clave exige contraseña y lo pide Ajustes.
             prepareEncryption(user.id, password)
             _session.value = SessionState.SignedIn(user)
+            syncLocale()
         }
         return outcome
     }
@@ -108,6 +110,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val user = repo.register(name, email, city, password, ageConfirmed)
         prepareEncryption(user.id, password)
         _session.value = SessionState.SignedIn(user)
+        syncLocale()
         return user
     }
 
@@ -141,13 +144,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _session.value = SessionState.SignedIn(user)
     }
 
-    suspend fun setLanguage(language: String) {
-        prefs.setLanguage(language)
-        if (language != "system" && _session.value is SessionState.SignedIn) {
-            runCatching { repo.updateLocale(language) }
-        }
-    }
-
     suspend fun setTheme(theme: ThemePreference) {
         prefs.setTheme(theme)
     }
@@ -175,5 +171,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 repo.publishKey(userId, password, "android")
             }
         }
+    }
+
+    /**
+     * La app no tiene selector de idioma: sigue al del teléfono. Al entrar se
+     * guarda esa preferencia en la cuenta para que los avisos y los correos
+     * lleguen en el mismo idioma que se está viendo. El fallo se ignora: es una
+     * comodidad, no un requisito para usar la app.
+     */
+    private suspend fun syncLocale() {
+        runCatching { repo.updateLocale(Languages.fromSystem()) }
     }
 }

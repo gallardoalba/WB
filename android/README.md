@@ -19,7 +19,7 @@ WebView.
   votaciones y foro.
 - **Listas de lectura**: escaparate público, listas propias y creación.
 - **Cuenta**: perfil, editar perfil (nombre, ciudad, presentación y avisos por
-  correo), avisos con enlace a su pantalla, listas, idioma, tema, servidor,
+  correo), avisos con enlace a su pantalla, listas, tema, servidor,
   cambio de contraseña, verificación en dos pasos (con QR), exportación de los
   datos, enlaces legales y baja de la cuenta.
 - **Conversación viva**: el chat de un intercambio busca mensajes nuevos cada
@@ -221,14 +221,14 @@ app/src/main/java/org/wanderbibliothek/app/
 │   ├── Models.kt             DTO y lectura de JSON
 │   ├── WanderRepository.kt   toda la API, tipada
 │   ├── MessageCrypto.kt      E2E compatible con la web
-│   ├── Prefs.kt              DataStore: servidor, idioma, tema, sesión, clave
+│   ├── Prefs.kt              DataStore: servidor, tema, sesión, clave
 │   ├── SecretBox.kt          cifra secretos con una clave del Keystore
 │   ├── SessionBus.kt         avisa a la interfaz de que la sesión caducó
 │   ├── Catalogs.kt            categorías, idiomas, estados y etiquetas
 │   └── ImageUrl.kt           resuelve las portadas relativas
 └── ui/
     ├── WanderApp.kt          navegación y barra inferior
-    ├── Texts.kt              diccionario alemán/castellano
+    ├── Texts.kt              diccionario alemán/castellano/inglés
     ├── Local.kt              idioma y textos por composición
     ├── Fmt.kt / Labels.kt    fechas, números y enumeraciones
     ├── components/           portadas, tarjetas y estados comunes

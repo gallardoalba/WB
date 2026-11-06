@@ -5,6 +5,7 @@ import { getDb } from "./db";
 import { ApiError } from "./errors";
 import type { SessionUser } from "./domain";
 import { getTotpState } from "./repo/totp";
+import { normalizeLocale } from "./locale";
 
 const BASE_COOKIE = "b2p_session";
 const HOST_COOKIE = "__Host-b2p_session";
@@ -130,7 +131,7 @@ export function userForToken(token: string | undefined): SessionUser | null {
     emailVerified: Boolean(row.email_verified_at),
     emailNotifications: row.email_notifications !== 0,
     // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
-    locale: row.locale === "es" ? "es" : "de",
+    locale: normalizeLocale(row.locale),
   };
 }
 

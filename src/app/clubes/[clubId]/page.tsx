@@ -19,6 +19,7 @@ import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { pick } from "@/lib/locale";
 import {
   getActiveClubPoll,
   getClub,
@@ -45,13 +46,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { clubId } = await params;
   const locale = await getLocale();
   const club = getClub(clubId, null);
-  if (!club) return { title: locale === "de" ? "Lesekreis nicht gefunden" : "Club no encontrado" };
+  if (!club) {
+    return {
+      title: pick(locale, {
+        es: "Club no encontrado",
+        de: "Lesekreis nicht gefunden",
+        en: "Club not found",
+      }),
+    };
+  }
   return {
     title: club.name,
-    description:
-      locale === "de"
-        ? `Lesekreis in ${club.city}${club.book ? `, liest «${club.book.title}»` : ""}.`
-        : `Club de lectura en ${club.city}${club.book ? `, leyendo «${club.book.title}»` : ""}.`,
+    description: pick(locale, {
+      es: `Club de lectura en ${club.city}${club.book ? `, leyendo «${club.book.title}»` : ""}.`,
+      de: `Lesekreis in ${club.city}${club.book ? `, liest «${club.book.title}»` : ""}.`,
+      en: `Reading club in ${club.city}${club.book ? `, reading «${club.book.title}»` : ""}.`,
+    }),
     alternates: { canonical: `/clubes/${club.id}` },
   };
 }

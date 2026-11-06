@@ -639,7 +639,7 @@ export const adminActionSchema = z.object({
 });
 
 export const localeSchema = z.object({
-  locale: z.enum(["es", "de"], { error: "Ese idioma no existe." }),
+  locale: z.enum(["es", "de", "en"], { error: "Ese idioma no existe." }),
 });
 
 export const moderationSchema = z.object({

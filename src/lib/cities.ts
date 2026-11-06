@@ -1,3 +1,4 @@
+import type { Locale } from "./locale";
 import { normalizeText } from "./text";
 
 export type City = { name: string; lat: number; lng: number };
@@ -73,12 +74,16 @@ export const CITIES: City[] = [
 ];
 
 /** Nombre del país en cada idioma (la plataforma cubre toda Alemania). */
-export const COUNTRY_NAMES = { es: "Alemania", de: "Deutschland" } as const;
+export const COUNTRY_NAMES = {
+  es: "Alemania",
+  de: "Deutschland",
+  en: "Germany",
+} as const;
 
 /** Compatibilidad con textos que aún no pasan por el diccionario. */
 export const REGION = COUNTRY_NAMES.es;
 
-export function regionName(locale: "es" | "de"): string {
+export function regionName(locale: Locale): string {
   return COUNTRY_NAMES[locale];
 }
 

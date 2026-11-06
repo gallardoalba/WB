@@ -3,6 +3,7 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { NotificationView } from "../domain";
 import { DEFAULT_LOCALE, translate, type Locale } from "../i18n";
+import { normalizeLocale } from "../locale";
 import { localizeNotification } from "../notification-locale";
 import { enqueueMail } from "../outbox";
 import { siteUrl } from "../site";
@@ -38,7 +39,7 @@ export function notify(input: {
     const row = getDb()
       .prepare("SELECT locale FROM users WHERE id = ?")
       .get(input.userId) as { locale: string } | undefined;
-    if (row?.locale === "es") locale = "es";
+    locale = normalizeLocale(row?.locale);
   } catch {
     // Si falla la lectura, el aviso se guarda en el idioma base.
   }

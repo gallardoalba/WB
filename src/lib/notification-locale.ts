@@ -1,4 +1,9 @@
 import type { Locale } from "./i18n";
+import {
+  BODY_RULES_EN,
+  STATIC_BODIES_EN,
+  TITLES_EN,
+} from "./notification-locale-en";
 
 /**
  * Los avisos se guardan como texto (no como plantilla) para que sobrevivan a
@@ -114,11 +119,35 @@ function translateBody(body: string): string {
   return body;
 }
 
+/** Los avisos guardados están en castellano: las reglas casan con ese texto. */
+function translateTitleEN(title: string): string {
+  if (TITLES_EN[title]) return TITLES_EN[title];
+  for (const [rule, replacement] of BODY_RULES_EN) {
+    if (rule.test(title)) return title.replace(rule, replacement);
+  }
+  return title;
+}
+
+function translateBodyEN(body: string): string {
+  if (!body) return body;
+  if (STATIC_BODIES_EN[body]) return STATIC_BODIES_EN[body];
+  for (const [rule, replacement] of BODY_RULES_EN) {
+    if (rule.test(body)) return body.replace(rule, replacement);
+  }
+  return body;
+}
+
 export function localizeNotification(
   locale: Locale,
   title: string,
   body: string,
 ): { title: string; body: string } {
+  if (locale === "en") {
+    return {
+      title: translateTitleEN(title),
+      body: translateBodyEN(body),
+    };
+  }
   if (locale !== "de") return { title, body };
   return { title: translateTitle(title), body: translateBody(body) };
 }

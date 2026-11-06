@@ -16,9 +16,15 @@ function walk(dir: string): string[] {
 
 /** Claves del diccionario alemán: `"texto": "…"` o `identificador: "…"`. */
 function dictionaryKeys(source: string): Set<string> {
-  const start = source.indexOf("const DE");
-  assert.ok(start >= 0, "no se encuentra el diccionario DE en i18n.ts");
-  const end = source.indexOf("\n};", start);
+  return dictionaryKeysOf(source, "DE");
+}
+
+/** Claves de un diccionario concreto (`DE`, `EN`) de i18n.ts. */
+function dictionaryKeysOf(source: string, name: string): Set<string> {
+  const start = source.indexOf(`const ${name} = {`);
+  assert.ok(start >= 0, `no se encuentra el diccionario ${name} en i18n.ts`);
+  const end = source.indexOf("\n} satisfies Dictionary;", start);
+  assert.ok(end > start, `no se cierra el diccionario ${name}`);
   const block = source.slice(start, end);
   const keys = new Set<string>();
   for (const line of block.split("\n")) {
@@ -55,6 +61,73 @@ test("toda cadena usada con t() o translate() tiene traducción alemana", () => 
     missing.map(([key, file]) => `${key} (${file})`),
     [],
     `faltan ${missing.length} traducciones en el diccionario DE`,
+  );
+});
+
+test("el diccionario inglés cubre exactamente las mismas claves que el alemán", () => {
+  // Si una clave faltara en inglés, `translate("en", …)` devolvería el
+  // castellano sin avisar: media interfaz en español y nadie se enteraría.
+  const source = readFileSync(DICTIONARY, "utf8");
+  const de = dictionaryKeysOf(source, "DE");
+  const en = dictionaryKeysOf(source, "EN");
+
+  const missing = [...de].filter((key) => !en.has(key));
+  const extra = [...en].filter((key) => !de.has(key));
+  assert.deepEqual(
+    missing.slice(0, 20),
+    [],
+    `faltan ${missing.length} traducciones en inglés`,
+  );
+  assert.deepEqual(
+    extra.slice(0, 20),
+    [],
+    `sobran ${extra.length} claves en inglés`,
+  );
+});
+
+test("el inglés traduce y cae al castellano cuando falta una clave", async () => {
+  const { translate } = await import("../src/lib/i18n.ts");
+  assert.equal(translate("en", "Descubrir"), "Discover");
+  assert.equal(
+    translate("en", "Un texto que no está en el diccionario"),
+    "Un texto que no está en el diccionario",
+  );
+});
+
+test("el idioma de la interfaz acepta inglés y su variante regional", async () => {
+  const { normalizeLocale, DEFAULT_LOCALE } = await import(
+    "../src/lib/locale.ts"
+  );
+  assert.equal(normalizeLocale("en"), "en");
+  assert.equal(normalizeLocale("en-GB"), "en");
+  assert.equal(normalizeLocale(" ES-es "), "es");
+  assert.equal(normalizeLocale("fr"), DEFAULT_LOCALE);
+  assert.equal(normalizeLocale(undefined), DEFAULT_LOCALE);
+});
+
+test("los documentos largos también existen en inglés", async () => {
+  // Avisos, privacidad, aviso legal y documentación técnica se componen por
+  // idioma; si alguno se quedara en dos, el inglés vería texto alemán.
+  const { localizeNotification } = await import(
+    "../src/lib/notification-locale.ts"
+  );
+  assert.deepEqual(localizeNotification("en", "Nueva solicitud de intercambio", ""), {
+    title: "New swap request",
+    body: "",
+  });
+
+  const { legalConfig, privacyDocument, imprintDocument } = await import(
+    "../src/lib/legal.ts"
+  );
+  const config = legalConfig({});
+  assert.equal(privacyDocument("en", config).title, "Privacy policy");
+  assert.equal(imprintDocument("en", config).title, "Legal notice");
+
+  const { technicalDocument } = await import("../src/lib/technical.ts");
+  assert.equal(technicalDocument("en").title, "Technical documentation");
+  assert.equal(
+    technicalDocument("en").sections.length,
+    technicalDocument("es").sections.length,
   );
 });
 

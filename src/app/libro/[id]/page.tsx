@@ -9,6 +9,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
+import { pick } from "@/lib/locale";
 import { getListing, countBookComments } from "@/lib/repo";
 import { formatDistance, formatWhen, initialsOf, toneForId } from "@/lib/text";
 
@@ -24,24 +25,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Igual que en los perfiles: la respuesta se emite antes de saber que el
     // ejemplar no existe, así que se resuelve con `noindex` en los metadatos.
     return {
-      title: locale === "de" ? "Buch nicht verfügbar" : "Libro no disponible",
+      title: pick(locale, {
+        es: "Libro no disponible",
+        de: "Buch nicht verfügbar",
+        en: "Book not available",
+      }),
       robots: { index: false, follow: false },
     };
   }
   return {
     title: `${listing.title} — ${listing.author}`,
-    description:
-      locale === "de"
-        ? `Teile «${listing.title}» von ${listing.author} mit ${listing.owner.name} in ${listing.city}.`
-        : `Comparte «${listing.title}» de ${listing.author} con ${listing.owner.name} en ${listing.city}.`,
+    description: pick(locale, {
+      es: `Comparte «${listing.title}» de ${listing.author} con ${listing.owner.name} en ${listing.city}.`,
+      de: `Teile «${listing.title}» von ${listing.author} mit ${listing.owner.name} in ${listing.city}.`,
+      en: `Share «${listing.title}» by ${listing.author} with ${listing.owner.name} in ${listing.city}.`,
+    }),
     alternates: { canonical: `/libro/${listing.id}` },
     openGraph: {
       type: "book",
       title: `${listing.title} — ${listing.author}`,
-      description:
-        locale === "de"
-          ? `Exemplar von ${listing.owner.name} in ${listing.city}.`
-          : `Ejemplar compartido por ${listing.owner.name} en ${listing.city}.`,
+      description: pick(locale, {
+        es: `Ejemplar compartido por ${listing.owner.name} en ${listing.city}.`,
+        de: `Exemplar von ${listing.owner.name} in ${listing.city}.`,
+        en: `Copy shared by ${listing.owner.name} in ${listing.city}.`,
+      }),
       url: `/libro/${listing.id}`,
       images: listing.coverUrl ? [listing.coverUrl] : undefined,
     },

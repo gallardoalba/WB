@@ -128,15 +128,12 @@ class ApiClient(private val prefs: Prefs) {
         }
     }
 
-    /** Sesión del servidor [host] + idioma elegido, para que los errores lleguen traducidos. */
+    /** Sesión del servidor [host] + idioma del teléfono, para que los errores lleguen traducidos. */
     private suspend fun cookieHeader(host: String): Pair<String?, Boolean> {
         val session = prefs.cookieHeader(host)
         val parts = mutableListOf<String>()
         session?.let(parts::add)
-        val language = prefs.language()
-        if (language == "de" || language == "es") {
-            parts.add("wanderbibliothek-locale=$language")
-        }
+        parts.add("wanderbibliothek-locale=${Languages.fromSystem()}")
         return parts.takeIf { it.isNotEmpty() }?.joinToString("; ") to (session != null)
     }
 

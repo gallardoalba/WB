@@ -12,6 +12,7 @@
  * asuma la responsabilidad legal y ajustarlo a la forma jurídica real.
  */
 
+import { imprintDocumentEN, privacyDocumentEN } from "./legal-en";
 import type { Locale } from "./i18n";
 
 export type LegalSection = { heading: string; body: string[] };
@@ -61,6 +62,7 @@ const CONTROLLER_PLACEHOLDER_DE =
   "Noch nicht konfiguriert: LEGAL_CONTROLLER, LEGAL_ADDRESS und LEGAL_CONTACT_EMAIL in der Dienstumgebung setzen.";
 
 export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocument {
+  if (locale === "en") return privacyDocumentEN(config);
   const responsible = config.complete
     ? [config.controller, config.address, config.contact].filter(Boolean)
     : [locale === "de" ? CONTROLLER_PLACEHOLDER_DE : CONTROLLER_PLACEHOLDER_ES];
@@ -267,6 +269,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
 }
 
 export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocument {
+  if (locale === "en") return imprintDocumentEN(config);
   const de = locale === "de";
   // § 5 DDG pide nombre, dirección y un medio de contacto rápido; el registro y
   // el NIF/IVA solo cuando existan.

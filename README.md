@@ -68,7 +68,7 @@ Lint, type checking, more than 320 automated tests, browser tests, a production 
 
 ## Contributing
 
-Bug reports, suggestions and pull requests are welcome. A look at [`CONTRIBUTING.md`](CONTRIBUTING.md) first is worthwhile: it lists the commands a change has to pass and the rule that new strings always arrive in both languages.
+Bug reports, suggestions and pull requests are welcome. A look at [`CONTRIBUTING.md`](CONTRIBUTING.md) first is worthwhile: it lists the commands a change has to pass and the rule that new strings always arrive in all three languages.
 
 ## Security
 

@@ -1,6 +1,5 @@
 package org.wanderbibliothek.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,9 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,8 +27,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.text.TextAutoSize
@@ -120,13 +115,11 @@ fun DiscoverScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            DiscoverHero(
+            DiscoverHeader(
                 texts = texts,
-                language = settings?.language ?: "system",
                 covers = items.take(2).mapNotNull { listing ->
                     listing.coverUrl?.let { it to listing.title }
                 },
-                onLanguage = { chosen -> scope.launch { viewModel.setLanguage(chosen) } },
             )
         }
         item {
@@ -251,87 +244,64 @@ fun DiscoverScreen(
 }
 
 /**
- * Portada de la app: la marca, la idea de comunidad y el idioma, todo antes de
- * buscar y sin necesidad de sesión.
+ * Cabecera de la pantalla de inicio: nombre, lema y presentación.
  *
- * El degradado va del verde del bosque al ocre de la plataforma y las portadas
- * de los primeros ejemplares dan color real: la pantalla de inicio no decía ni
- * cómo se llamaba la app.
+ * Sin fondo ni tarjeta: tipografía sobre la superficie de la app, igual que el
+ * resto de la pantalla. La versión anterior era una tarjeta con degradado que
+ * competía visualmente con el catálogo.
+ *
+ * El idioma no se elige aquí: la app sigue el del teléfono, como el resto de
+ * aplicaciones del sistema.
  */
 @Composable
-private fun DiscoverHero(
+private fun DiscoverHeader(
     texts: Texts,
-    language: String,
     covers: List<Pair<String, String>>,
-    onLanguage: (String) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = colors.primary,
-    ) {
-        Box(
-            modifier = Modifier
-                .background(Brush.linearGradient(listOf(colors.primary, colors.tertiary)))
-                .padding(18.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Medido con métricas reales: «Wanderbibliothek» a 28 sp en serif son
+        // 288 dp; se ajusta al ancho disponible sin partirse ni recortarse.
+        Text(
+            text = texts["brandName"],
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+            ),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 20.sp,
+                maxFontSize = 30.sp,
+                stepSize = 0.5.sp,
+            ),
+            modifier = Modifier.fillMaxWidth().semantics { heading() },
+        )
+        Text(
+            text = texts["brandTagline"],
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.onSurface,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Medido con métricas reales: «Wanderbibliothek» a 28 sp en
-                // serif son 288 dp y no cabe en un móvil de 360; se ajusta al
-                // ancho disponible sin partirse ni recortarse con puntos.
-                Text(
-                    text = texts["brandName"],
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.4.sp,
-                    ),
-                    color = colors.onPrimary,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                    autoSize = TextAutoSize.StepBased(
-                        minFontSize = 20.sp,
-                        maxFontSize = 30.sp,
-                        stepSize = 0.5.sp,
-                    ),
-                    modifier = Modifier.fillMaxWidth().semantics { heading() },
+            Text(
+                text = texts["heroSubtitle"],
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                maxLines = 4,
+                modifier = Modifier.weight(1f),
+            )
+            covers.take(2).forEach { (url, title) ->
+                RemoteCover(
+                    url = url,
+                    title = title,
+                    author = "",
+                    modifier = Modifier.width(30.dp).height(42.dp),
                 )
-                Text(
-                    text = texts["brandTagline"],
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.onPrimary,
-                )
-                Text(
-                    text = texts["heroSubtitle"],
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onPrimary.copy(alpha = 0.9f),
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    ChoiceChips(
-                        options = listOf(
-                            "system" to texts["languageAuto"],
-                            "de" to texts["german"],
-                            "es" to texts["spanish"],
-                        ),
-                        selected = language,
-                        onSelect = onLanguage,
-                        modifier = Modifier.weight(1f),
-                    )
-                    // Portadas reales del catálogo: color sin tapar el texto.
-                    covers.take(2).forEach { (url, title) ->
-                        RemoteCover(
-                            url = url,
-                            title = title,
-                            author = "",
-                            modifier = Modifier.width(30.dp).height(44.dp),
-                        )
-                    }
-                }
             }
         }
     }

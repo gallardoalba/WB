@@ -25,6 +25,19 @@ function FlagDE() {
   );
 }
 
+/** Union Jack simplificado: aspas blancas con la roja encima y la cruz central. */
+function FlagEN() {
+  return (
+    <svg className="locale-flag" viewBox="0 0 20 14" aria-hidden="true">
+      <rect width="20" height="14" fill="#012169" />
+      <path d="M0 0 20 14M20 0 0 14" stroke="#FFFFFF" strokeWidth="2.8" />
+      <path d="M0 0 20 14M20 0 0 14" stroke="#C8102E" strokeWidth="1.2" />
+      <path d="M10 0V14M0 7H20" stroke="#FFFFFF" strokeWidth="4.6" />
+      <path d="M10 0V14M0 7H20" stroke="#C8102E" strokeWidth="2.8" />
+    </svg>
+  );
+}
+
 /**
  * Cambia el idioma con una cookie y refresca el árbol de servidor. Si hay
  * sesión, también se guarda en la cuenta para los correos.
@@ -52,7 +65,7 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
 
   return (
     <div className="locale-switcher">
-      {locale === "es" ? <FlagES /> : <FlagDE />}
+      {locale === "es" ? <FlagES /> : locale === "de" ? <FlagDE /> : <FlagEN />}
       <select
         className="locale-select"
         value={locale}
@@ -62,6 +75,7 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
       >
         <option value="de">DE</option>
         <option value="es">ES</option>
+        <option value="en">EN</option>
       </select>
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
 import { translate } from "@/lib/i18n";
+import { pick } from "@/lib/locale";
 import type { DocBlock, TechnicalDocument } from "@/lib/technical";
 import { LocaleSwitcher } from "./locale-switcher";
 
@@ -145,7 +146,12 @@ export function TechnicalDoc({
         <article className="tech-doc">
           <h1>{document.title}</h1>
           <p className="doc-updated">
-            {locale === "de" ? "Stand" : "Última revisión"}: {document.updated}
+            {pick(locale, {
+              es: "Última revisión",
+              de: "Stand",
+              en: "Last reviewed",
+            })}
+            : {document.updated}
           </p>
 
           {document.intro.map((paragraph) => (

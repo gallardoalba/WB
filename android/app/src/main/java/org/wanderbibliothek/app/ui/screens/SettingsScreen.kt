@@ -41,7 +41,7 @@ fun SettingsScreen(viewModel: AppViewModel, session: SessionState) {
     val texts = LocalTexts.current
     val settingsValue by viewModel.settings.collectAsStateWithLifecycle()
     val settings = settingsValue
-        ?: AppSettings(DEFAULT_SERVER_URL, "system", ThemePreference.SYSTEM)
+        ?: AppSettings(DEFAULT_SERVER_URL, ThemePreference.SYSTEM)
     val user = (session as? SessionState.SignedIn)?.user
     val scope = rememberCoroutineScope()
 
@@ -114,17 +114,6 @@ fun SettingsScreen(viewModel: AppViewModel, session: SessionState) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         notice?.let { Notice(it, isError = isError) }
-
-        SectionTitle(texts["appLanguage"])
-        ChoiceChips(
-            options = listOf(
-                "system" to texts["languageSystem"],
-                "de" to texts["german"],
-                "es" to texts["spanish"],
-            ),
-            selected = settings.language,
-            onSelect = { language -> scope.launch { viewModel.setLanguage(language) } },
-        )
 
         SectionTitle(texts["theme"])
         ChoiceChips(

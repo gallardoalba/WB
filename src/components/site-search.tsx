@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { translate } from "@/lib/i18n";
+import type { Locale } from "@/lib/locale";
 
 /**
  * Buscador global de la cabecera.
@@ -13,7 +14,7 @@ export function SiteSearch({
   locale,
   defaultValue = "",
 }: {
-  locale: "es" | "de";
+  locale: Locale;
   defaultValue?: string;
 }) {
   const t = (text: string) => translate(locale, text);

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { ApiError } from "./errors";
-import { DEFAULT_LOCALE, type Locale } from "./locale";
+import { DEFAULT_LOCALE, normalizeLocale, type Locale } from "./locale";
 import { passwordResetMail, verificationMail } from "./mail-templates";
 import { siteUrl } from "./site";
 import { enqueueMail } from "./outbox";
@@ -98,7 +98,7 @@ function accountLocale(userId: string): Locale {
     const row = getDb()
       .prepare("SELECT locale FROM users WHERE id = ?")
       .get(userId) as { locale: string } | undefined;
-    return row?.locale === "es" ? "es" : DEFAULT_LOCALE;
+    return normalizeLocale(row?.locale);
   } catch {
     return DEFAULT_LOCALE;
   }

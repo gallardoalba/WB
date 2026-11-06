@@ -28,4 +28,16 @@ test.describe("idioma por defecto", () => {
       "Los libros siguen viajando.",
     );
   });
+
+  test("el selector cambia a inglés y lo recuerda al recargar", async ({ page }) => {
+    await page.goto("/");
+    await waitForHydration(page);
+    await page.locator(".locale-select").selectOption("en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 }).first()).toContainText(
+      "Books keep travelling.",
+    );
+  });
 });

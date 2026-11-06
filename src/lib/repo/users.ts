@@ -4,7 +4,7 @@ import { ApiError } from "../errors";
 import type { KeyPlatform, SessionUser } from "../domain";
 import { KEY_PLATFORMS } from "../domain";
 import { keyIdFromJwk } from "../key-id";
-import { DEFAULT_LOCALE, type Locale } from "../locale";
+import { DEFAULT_LOCALE, normalizeLocale, type Locale } from "../locale";
 import { verifyPassword } from "../password";
 import { assertPublicName, isConstraintError, nowIso } from "./shared";
 
@@ -50,7 +50,7 @@ function toSessionUser(row: UserRow): SessionUser {
     emailVerified: Boolean(row.email_verified_at),
     emailNotifications: row.email_notifications !== 0,
     // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
-    locale: row.locale === "es" ? "es" : "de",
+    locale: normalizeLocale(row.locale),
   };
 }
 
@@ -76,7 +76,7 @@ export function getUserWithPassword(
 }
 
 /** Guarda el idioma elegido para que los correos salgan en el idioma correcto. */
-export function setUserLocale(userId: string, locale: "es" | "de"): void {
+export function setUserLocale(userId: string, locale: Locale): void {
   getDb().prepare("UPDATE users SET locale = ? WHERE id = ?").run(locale, userId);
 }
 

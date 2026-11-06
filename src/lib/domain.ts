@@ -1,4 +1,5 @@
 import type { MessageKey } from "./i18n";
+import type { Locale } from "./locale";
 
 /**
  * Categorías principales (una por ejemplar). Son deliberadamente amplias para
@@ -161,7 +162,7 @@ export type SessionUser = {
   emailVerified: boolean;
   emailNotifications: boolean;
   /** Idioma preferido para la interfaz y los correos. */
-  locale: "es" | "de";
+  locale: Locale;
 };
 
 /** Datos que pueden exponerse en una página pública (sin correo ni rol). */
