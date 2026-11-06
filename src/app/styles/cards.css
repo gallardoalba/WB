@@ -317,6 +317,7 @@
 
 .book-category {
   overflow: hidden;
+  margin-bottom: 10px;
   color: var(--muted);
   font-size: 12.5px;
   font-weight: 800;
@@ -326,17 +327,19 @@
   white-space: nowrap;
 }
 
+/* El título abre la tarjeta: es lo que se busca al recorrer el catálogo, así
+   que pesa más que la autoría y que el género que van debajo. */
 .book-details h3 {
   display: -webkit-box;
-  min-height: 40px;
-  margin: 6px 0 3px;
+  min-height: 44px;
+  margin: 0 0 4px;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   font-family: var(--serif);
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 500;
-  line-height: 1.18;
+  line-height: 1.16;
 }
 
 .card-link {
@@ -350,7 +353,7 @@
 }
 
 .book-author {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   overflow: hidden;
   color: var(--muted);
   font-size: 14px;

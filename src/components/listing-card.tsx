@@ -60,9 +60,15 @@ export function ListingCard({
         )}
       </div>
       <div className="book-details">
+        <h3>
+          <Link href={`/libro/${listing.id}`} className="card-link" onClick={preview}>
+            {listing.title}
+          </Link>
+        </h3>
+        <p className="book-author">{listing.author}</p>
         <span className="book-category">{t(listing.category)}</span>
-        {/* El hueco de etiquetas se reserva siempre: así los títulos, la persona
-            y el botón quedan a la misma altura en toda la fila del catálogo. */}
+        {/* El hueco de etiquetas se reserva siempre: así la persona y el botón
+            quedan a la misma altura en toda la fila del catálogo. */}
         <div
           className={
             listing.tags.length > 0
@@ -82,12 +88,6 @@ export function ListingCard({
             </Link>
           ))}
         </div>
-        <h3>
-          <Link href={`/libro/${listing.id}`} className="card-link" onClick={preview}>
-            {listing.title}
-          </Link>
-        </h3>
-        <p className="book-author">{listing.author}</p>
         <div className="owner-row">
           <span className={`avatar owner-avatar tone-${toneForId(listing.owner.id)}`}>
             {initialsOf(listing.owner.name)}
