@@ -255,7 +255,8 @@
   color: var(--ink-soft);
 }
 
-/* Autocompletado de ciudad: lista propia, funciona en móvil y con teclado. */
+/* Campo de ciudad: texto libre con el icono dentro (antes era un combobox con
+   la lista alemana, que ya no tiene sentido). */
 .city-field {
   position: relative;
 }
@@ -276,43 +277,6 @@
   left: 11px;
   color: var(--muted-2);
   pointer-events: none;
-}
-
-.city-list {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  margin: 0;
-  padding: var(--space-1);
-  list-style: none;
-  max-height: 244px;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-}
-
-.city-list li[role="option"] {
-  padding: 9px var(--space-2);
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--ink);
-}
-
-.city-list li[role="option"]:hover,
-.city-list li[aria-selected="true"] {
-  background: var(--green-pale);
-  color: var(--ink);
-}
-
-.city-list-empty {
-  padding: 9px var(--space-2);
-  font-size: 14px;
-  color: var(--muted-2);
 }
 
 .listing-form input,
