@@ -12,8 +12,8 @@ con su propia clave. Eso condiciona la lista de tareas.
 | Servidor también libre | ✔ el servidor es MIT: no hay *anti-feature* `NonFreeNet` |
 | Compila desde una copia limpia | ✔ `./gradlew :app:assembleRelease` sin `ANDROID_SIGNING_*` produce `app-release-unsigned.apk` (lo que F-Droid firma) |
 | Sin anuncios, rastreo ni cuentas de terceros | ✔ |
-| Metadatos de la ficha | ⬜ `fastlane/metadata/android/{de-DE,es-ES}/` creado; **faltan capturas e icono 512** |
-| Etiquetas de versión | ⬜ el repositorio no tiene ningún tag todavía |
+| Metadatos de la ficha | ✔ `fastlane/metadata/android/{de-DE,es-ES,en-US}/` con resumen, descripción, icono de 512 px y registro de cambios; ⬜ faltan las capturas de móvil |
+| Etiquetas de versión | ✔ `v0.1.2` y `v0.1.5` publicadas (la receta apunta a `v0.1.5`) |
 
 ## Paso 1 · Etiquetar la versión
 
@@ -22,9 +22,9 @@ y el `versionName` del tag tienen que coincidir con el YAML:
 
 ```sh
 cd /home/nouser/Desktop/wanderbibliothek
-grep -n 'versionCode\|versionName' android/app/build.gradle.kts   # 2 / 0.1.2
-git tag -a v0.1.2 -m "Wanderbibliothek 0.1.2 para F-Droid"
-git push origin v0.1.2
+grep -n 'versionCode\|versionName' android/app/build.gradle.kts   # 8 / 0.1.5
+git tag -a v0.1.5 -m "Wanderbibliothek 0.1.5 para F-Droid"
+git push origin v0.1.5
 ```
 
 Para cada versión nueva:
@@ -117,8 +117,10 @@ Y una revisión de privacidad que F-Droid mira con lupa:
 ## Resumen del orden recomendado
 
 1. Publicar en **IzzyOnDroid** ya (misma firma, misma app, sin esperar).
-2. Completar icono y capturas en `fastlane/`.
-3. Etiquetar `v0.1.2` y abrir la MR en `fdroiddata`.
+2. Sacar las capturas de móvil y dejarlas en `fastlane/…/images/phoneScreenshots/`.
+3. Abrir la MR en `fdroiddata` con la receta de `android/fdroid/` (ya apunta a
+   `v0.1.5` y trae `UpdateCheckMode: Tags`, así que las versiones siguientes se
+   abren solas al empujar la etiqueta).
 4. Avisar en la web de que F-Droid usa otra firma antes de que aparezca.
 
 ## Notas

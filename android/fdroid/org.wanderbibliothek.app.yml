@@ -18,7 +18,7 @@ Changelog: https://github.com/gallardoalba/wanderbibliothek/releases
 
 AutoName: Wanderbibliothek
 # Entre comillas: los dos puntos seguidos de espacio parten un escalar YAML.
-Summary: "Bücher teilen, Menschen treffen: deine Stadt als große Leihbibliothek."
+Summary: "Bücher teilen, Menschen treffen: deine Stadt als große Leihbibliothek"
 Description: |
   Wanderbibliothek ist eine von der Gemeinschaft getragene Bibliothek: Bücher,
   die bei dir zu Hause stehen, finden neue Lesende, und Lesen verbindet
@@ -26,7 +26,7 @@ Description: |
 
   · Teilen statt horten: stelle deine Bücher ein und sieh, wer sie sucht.
   · Menschen statt Algorithmen: tausch mit Nachbarinnen und Nachbarn, nicht mit
-    einem Lagerhaus.
+  einem Lagerhaus.
   · Clubs und Leselisten: verabredet euch und stimmt über das nächste Buch ab.
   · Nachrichten und Übergabedaten sind Ende-zu-Ende-verschlüsselt.
   · Kostenlos, ohne Werbung und ohne Tracking.
