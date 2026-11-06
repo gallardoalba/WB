@@ -201,6 +201,22 @@ export function distanceParts(viewerId: string | null | undefined) {
   };
 }
 
+/**
+ * Ciudades que hay de verdad en los datos, para los filtros de la comunidad.
+ *
+ * Antes salían de una lista fija de municipios alemanes; con la plataforma
+ * abierta a Europa es más útil ofrecer solo las que tienen lectores o clubes.
+ */
+export function citiesInUse(kind: "readers" | "clubs", limit = 200): string[] {
+  const sql =
+    kind === "clubs"
+      ? `SELECT city FROM clubs WHERE city <> '' GROUP BY city ORDER BY city LIMIT ?`
+      : `SELECT city FROM users WHERE is_suspended = 0 AND city <> ''
+           GROUP BY city ORDER BY city LIMIT ?`;
+  const rows = getDb().prepare(sql).all(limit) as { city: string }[];
+  return rows.map((row) => row.city);
+}
+
 export function ftsQuery(tokens: string[]): string {
   if (tokens.length === 0) return "";
   return tokens.map((token) => `"${token.replace(/"/g, "")}"*`).join(" ");

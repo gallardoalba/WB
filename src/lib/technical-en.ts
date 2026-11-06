@@ -148,7 +148,7 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds 123 cities and `city_distances` the precomputed distance matrix.",
+            "`cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. A city typed in a form is checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list simply shows no kilometres.",
           ],
         },
         {

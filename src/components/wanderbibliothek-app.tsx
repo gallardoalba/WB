@@ -526,7 +526,7 @@ export default function WanderbibliothekApp({
                         "Encuentra historias que ya tienen ganas de llegar a tus manos. Elige tu ciudad y mira qué libros tienes al lado.",
                       )
                     : t(
-                        "Cada libro guarda algo de quien lo leyó. Comparte los que ya no necesitas, encuentra los que te faltan y conoce a lectores de toda Europa: en cada intercambio viajan un libro, una historia y una conversación.",
+                        "Cada libro guarda algo de quien lo leyó. Comparte aquellos que te han marcado y sé parte de la comunidad: en cada intercambio viajan un libro, una historia y una conversación.",
                       )}
                 </p>
                 <button

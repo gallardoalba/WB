@@ -5,6 +5,7 @@ import { sendVerificationEmail } from "@/lib/account-tokens";
 import { processOutbox } from "@/lib/outbox";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { assertHuman } from "@/lib/captcha";
+import { cityName } from "@/lib/city-name";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { getLocale } from "@/lib/i18n-server";
 import { hashPassword } from "@/lib/password";
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     const user = createUser({
       name: input.name,
       email: input.email,
-      city: input.city,
+      city: await cityName(input.city),
       passwordHash: await hashPassword(input.password),
       // La cuenta arranca en el idioma en que se está viendo la plataforma: es
       // la única pista fiable de lo que entiende quien se registra.

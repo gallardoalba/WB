@@ -172,7 +172,7 @@ const ES: TechnicalDocument = {
             "Estados de ejemplar: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Estados de solicitud: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Búsqueda con FTS5 (`listings_fts`) mantenida por disparadores; `unaccent()` pliega las tildes para que «Lucía» se encuentre escribiendo «lucia».",
-            "`cities` guarda 123 ciudades y `city_distances` la matriz de distancias precalculada.",
+            "`cities` guarda las ciudades conocidas con sus coordenadas (la semilla alemana) y `city_distances` su matriz de distancias. La ciudad que escribe una persona se comprueba contra OpenStreetMap: `resolveCity()` pregunta a Nominatim, limitado a países europeos, y guarda el nombre con el que lo conoce el mapa. La distancia es un dato secundario: una ciudad fuera de la lista no muestra kilómetros.",
           ],
         },
         {
@@ -539,7 +539,7 @@ const DE: TechnicalDocument = {
             "Zustände eines Exemplars: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Zustände einer Anfrage: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Suche über FTS5 (`listings_fts`), von Triggern gepflegt; `unaccent()` faltet Akzente, damit „Lucía“ auch als „lucia“ gefunden wird.",
-            "`cities` enthält 123 Städte, `city_distances` die vorberechnete Distanzmatrix.",
+            "`cities` hält die bekannten Städte mit ihren Koordinaten (der deutsche Grundstock), `city_distances` deren Distanzmatrix. Die eingegebene Stadt wird gegen OpenStreetMap geprüft: `resolveCity()` fragt Nominatim, begrenzt auf europäische Länder, und speichert den Namen, den die Karte kennt. Die Entfernung ist Nebensache: eine Stadt außerhalb der Liste zeigt keine Kilometer.",
           ],
         },
         {

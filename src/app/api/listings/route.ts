@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { invalidatePublicData } from "@/lib/revalidate";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { getSessionUser, requireUser } from "@/lib/auth";
+import { cityName } from "@/lib/city-name";
 import { getCover } from "@/lib/covers";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
@@ -42,7 +43,10 @@ export async function POST(request: Request) {
       limit: 10,
       windowMs: 24 * 60 * 60 * 1000,
     });
-    const listing = createListing(user.id, input);
+    const listing = createListing(
+      user.id,
+      input.city ? { ...input, city: await cityName(input.city) } : input,
+    );
     invalidatePublicData();
     // La portada se descarga ahora, no cuando la pida la primera visita: el
     // navegador ya no habla con Open Library, así que ese segundo de espera no

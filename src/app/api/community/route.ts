@@ -1,6 +1,5 @@
 import { handleApiError, json } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { CITIES } from "@/lib/cities";
 import {
   getStats,
   listActivity,
@@ -26,7 +25,7 @@ export async function GET(request: Request) {
     hit({ bucket: "community:panel", key: user.id, limit: 240, windowMs: 60 * 60 * 1000 });
     const url = new URL(request.url);
     const rawCity = url.searchParams.get("city") ?? "";
-    const requestedCity = CITIES.some((entry) => entry.name === rawCity) ? rawCity : null;
+    const requestedCity = rawCity.trim().slice(0, 80) || null;
     const scopeCity = url.searchParams.get("scope") === "city" ? user.city : requestedCity;
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 60);
     const viewer = { id: user.id, isAdmin: user.isAdmin };

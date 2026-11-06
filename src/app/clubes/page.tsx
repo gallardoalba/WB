@@ -5,11 +5,12 @@ import { ClubCreate } from "@/components/club-board";
 import { ClubCard } from "@/components/club-card";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
-import { CITIES, regionName } from "@/lib/cities";
+import { regionName } from "@/lib/cities";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { allowPageView } from "@/lib/page-throttle";
 import { getBook, listClubs } from "@/lib/repo";
+import { citiesInUse } from "@/lib/repo/shared";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -35,7 +36,7 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 export default async function Page({ searchParams }: PageProps) {
   const raw = await searchParams;
   const rawCity = firstValue(raw.city) ?? "";
-  const city = CITIES.some((entry) => entry.name === rawCity) ? rawCity : "";
+  const city = rawCity.trim().slice(0, 80);
   const q = (firstValue(raw.q) ?? "").trim().slice(0, 60);
   const rawSort = firstValue(raw.sort) ?? "";
   const sort = (["members", "meeting", "recent", "near"] as const).find(
@@ -117,9 +118,9 @@ export default async function Page({ searchParams }: PageProps) {
           </label>
           <select id="club-city" name="city" defaultValue={city}>
             <option value="">{t("Toda Europa")}</option>
-            {CITIES.map((entry) => (
-              <option key={entry.name} value={entry.name}>
-                {entry.name}
+            {citiesInUse("clubs").map((name) => (
+              <option key={name} value={name}>
+                {name}
               </option>
             ))}
           </select>

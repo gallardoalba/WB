@@ -88,7 +88,7 @@ The API has 73 handlers under `src/app/api`. Almost all are declared with `route
 - Copy states: `available`, `reserved`, `given`, `paused`, `removed`.
 - Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
-- `cities` holds 123 German cities and `city_distances` the precomputed distance matrix.
+- `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
 Migrations are versioned with `PRAGMA user_version` (currently v40) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail.
 

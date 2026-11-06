@@ -104,11 +104,6 @@ export function findCity(value: string | null | undefined): City | null {
   return INDEX.get(normalizeText(value)) ?? null;
 }
 
-/** True cuando el texto es una de las ciudades admitidas. */
-export function isKnownCity(value: string): boolean {
-  return INDEX.has(normalizeText(value));
-}
-
 /** Distancia en kilómetros entre dos coordenadas (haversine). */
 export function distanceKm(a: City, b: City): number {
   const toRad = (degrees: number) => (degrees * Math.PI) / 180;

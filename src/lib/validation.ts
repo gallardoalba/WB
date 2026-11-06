@@ -14,16 +14,23 @@ import {
   TAGS,
   VIEWS,
 } from "./domain";
-import { findCity, isKnownCity } from "./cities";
+import { findCity } from "./cities";
 import { isCommonPassword } from "./passwords";
 import { isValidIsbn, normalizeIsbn } from "./text";
 
-/** Solo se admiten ciudades del catálogo alemán (se guarda el nombre canónico). */
+/**
+ * Ciudad: texto libre.
+ *
+ * El catálogo cubre toda Europa, así que aquí solo se comprueba la forma; que
+ * la ciudad exista lo resuelve `resolveCity()` contra OpenStreetMap al guardar
+ * (y las del catálogo de siempre se reconocen sin red).
+ */
 const cityField = z
-  .string()
+  .string("Escribe tu ciudad.")
   .trim()
-  .transform((value) => findCity(value)?.name ?? value)
-  .refine((value) => isKnownCity(value), "Elige una ciudad de la lista.");
+  .min(2, "El nombre de la ciudad es demasiado corto.")
+  .max(80, "El nombre de la ciudad es demasiado largo.")
+  .transform((value) => findCity(value)?.name ?? value);
 
 /** Etiquetas: máximo 3, siempre de la lista curada. */
 const tagsField = z

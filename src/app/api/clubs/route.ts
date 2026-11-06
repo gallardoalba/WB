@@ -1,6 +1,6 @@
 import { handleApiError, json, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { CITIES } from "@/lib/cities";
+import { cityName } from "@/lib/city-name";
 import { createClub, listClubs } from "@/lib/repo";
 import { invalidatePublicData } from "@/lib/revalidate";
 import { guard, hit } from "@/lib/throttle";
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     hit({ bucket: "clubs:list", key: user.id, limit: 240, windowMs: 60 * 60 * 1000 });
     const url = new URL(request.url);
     const rawCity = url.searchParams.get("city") ?? "";
-    const city = CITIES.some((entry) => entry.name === rawCity) ? rawCity : null;
+    const city = rawCity.trim().slice(0, 80) || null;
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 60);
     const rawSort = url.searchParams.get("sort") ?? "";
     const sort = CLUB_SORTS.find((value) => value === rawSort);
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const input = clubSchema.parse(await readJson(request));
     const club = createClub(user.id, {
       name: input.name,
-      city: input.city,
+      city: await cityName(input.city),
       description: input.description,
       bookId: input.bookId,
       meetsOn: input.meetsOn,

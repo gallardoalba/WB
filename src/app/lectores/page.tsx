@@ -4,10 +4,11 @@ import { Users } from "lucide-react";
 import { ReaderCard } from "@/components/reader-card";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
-import { CITIES, regionName } from "@/lib/cities";
+import { regionName } from "@/lib/cities";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { allowPageView } from "@/lib/page-throttle";
+import { citiesInUse } from "@/lib/repo/shared";
 import { listReaders } from "@/lib/repo";
 
 type PageProps = {
@@ -35,7 +36,7 @@ export default async function Page({ searchParams }: PageProps) {
   const raw = await searchParams;
   const query = (firstValue(raw.q) ?? "").trim().slice(0, 60);
   const rawCity = firstValue(raw.city) ?? "";
-  const city = CITIES.some((entry) => entry.name === rawCity) ? rawCity : "";
+  const city = rawCity.trim().slice(0, 80);
   const rawSort = firstValue(raw.sort) ?? "";
   const sort = (["followers", "near", "active"] as const).find((value) => value === rawSort);
   const page = Math.max(1, Number.parseInt(firstValue(raw.page) ?? "1", 10) || 1);
@@ -105,9 +106,9 @@ export default async function Page({ searchParams }: PageProps) {
         </label>
         <select id="reader-city" name="city" defaultValue={city}>
           <option value="">{t("Toda Europa")}</option>
-          {CITIES.map((entry) => (
-            <option key={entry.name} value={entry.name}>
-              {entry.name}
+          {citiesInUse("readers").map((name) => (
+            <option key={name} value={name}>
+              {name}
             </option>
           ))}
         </select>

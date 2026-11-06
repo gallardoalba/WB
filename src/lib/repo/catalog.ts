@@ -39,12 +39,14 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
   const viewer = userId ?? "";
   const page = Math.max(1, params.page);
   const tokens = normalizeText(params.q).split(" ").filter(Boolean);
-  // Sin sesión no hay ciudad desde la que medir: el radio se ignora.
-  const radius = userId ? params.radius : 0;
 
   // Distancia real: ciudad de quien mira → ciudad del ejemplar (matriz
   // precalculada en `city_distances`).
   const distance = distanceParts(viewer);
+  // Sin sesión no hay ciudad desde la que medir, y con una ciudad fuera del
+  // catálogo tampoco: en ese caso el radio se ignora en vez de devolver una
+  // lista vacía (la distancia es un dato secundario, no un filtro obligatorio).
+  const radius = userId && distance.expression !== "NULL" ? params.radius : 0;
 
   const clauses = [
     VISIBILITY,
