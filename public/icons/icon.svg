@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Wanderbibliothek">
+  <rect width="64" height="64" rx="14" fill="#2f5741" />
+  <!-- Libro abierto, con la lomera visible en el centro (2 unidades de hueco):
+       es el mismo dibujo que el icono de Android. Sin cifras ni barras que no
+       signifiquen nada a 48 px. -->
+  <g fill="#f7f6f1">
+    <path d="M31 17.33C25.33 13.07 16.67 12.53 10.67 14.13v33.07c6-1.6 14.67-1.07 20.33 3.2V17.33z" />
+    <path d="M33 17.33c5.67-4.26 14.33-4.8 20.33-3.2v33.07c-6-1.6-14.67-1.07-20.33 3.2V17.33z" />
+  </g>
+</svg>
