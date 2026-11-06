@@ -152,11 +152,10 @@
     font-size: 28px;
   }
 
+  /* Sin recorte: en el móvil el párrafo se lee entero. Antes se limitaba a
+     tres líneas y la frase acababa en «…» justo donde empieza a explicar el
+     proyecto. Solo se ajusta el tamaño, no la longitud. */
   .hero-banner p {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
     font-size: 14.5px;
     line-height: 1.45;
   }
