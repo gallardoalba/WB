@@ -19,9 +19,10 @@ fun errorText(texts: Texts, error: Throwable): String {
             "forbidden" -> texts["forbidden"]
             "notFound" -> texts["notFound"]
             "serverOutdated" -> texts["serverOutdated"]
+            "redirect" -> texts["serverRedirect"]
             "signInRequired" -> texts["signInRequired"]
             "tooManyRequests" -> texts["errorGeneric"]
-            "redirect", "tooLarge" -> texts["errorGeneric"]
+            "tooLarge" -> texts["errorGeneric"]
             "encryptionUnavailable" -> texts["encryptionUnavailable"]
             else -> error.message.takeIf { it.isNotBlank() } ?: texts["errorGeneric"]
         }

@@ -68,6 +68,7 @@ object TextCatalog {
         "notFound" to "Das gibt es nicht (mehr).",
         "forbidden" to "Dazu fehlt dir die Berechtigung.",
         "serverOutdated" to "Der Server ist älter als diese App: Aktualisiere ihn oder wähle in den Einstellungen einen anderen Server.",
+        "serverRedirect" to "Der Server antwortet mit einer Weiterleitung. Prüfe die Serveradresse in den Einstellungen.",
         "signInRequired" to "Dafür musst du angemeldet sein.",
 
         // Entdecken
@@ -365,6 +366,7 @@ object TextCatalog {
         "notFound" to "Eso no existe (o ya no).",
         "forbidden" to "No tienes permiso para eso.",
         "serverOutdated" to "El servidor es anterior a esta versión de la app: actualízalo o elige otro en Ajustes.",
+        "serverRedirect" to "El servidor responde con una redirección. Revisa la dirección del servidor en Ajustes.",
         "signInRequired" to "Para ver esto hay que iniciar sesión.",
 
         "brandName" to "Wanderbibliothek",
@@ -649,6 +651,7 @@ object TextCatalog {
         "notFound" to "That doesn't exist (any more).",
         "forbidden" to "You don't have permission for that.",
         "serverOutdated" to "The server is older than this app: update it or choose another server in Settings.",
+        "serverRedirect" to "The server answers with a redirect. Check the server address in Settings.",
         "signInRequired" to "You need to be signed in for that.",
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Books that travel. People who meet.",

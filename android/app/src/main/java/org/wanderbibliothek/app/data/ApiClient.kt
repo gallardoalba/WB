@@ -82,6 +82,7 @@ class ApiClient(private val prefs: Prefs) {
         query: Map<String, String>,
         body: JSONObject?,
         maxBytes: Int,
+        redirects: Int = 0,
     ): Raw = withContext(Dispatchers.IO) {
         val base = prefs.serverUrl().trimEnd('/')
         val host = runCatching { java.net.URL(base).host }.getOrNull().orEmpty()
@@ -113,7 +114,25 @@ class ApiClient(private val prefs: Prefs) {
             }
 
             val status = connection.responseCode
-            if (status in 300..399) throw ApiException(status, "redirect", null)
+            if (status in 300..399) {
+                // Un proxy puede normalizar la barra final
+                // (`/api/requests` ⇄ `/api/requests/`) con un 301/308. Seguir
+                // la redirección a mano solo es seguro si es el mismo host: la
+                // cookie de sesión no viaja fuera.
+                val retry = if (redirects == 0) {
+                    slashVariant(
+                        base = base,
+                        location = connection.getHeaderField("Location"),
+                    )
+                } else {
+                    null
+                }
+                if (retry != null) {
+                    connection.disconnect()
+                    return@withContext execute(method, retry, query, body, maxBytes, redirects + 1)
+                }
+                throw ApiException(status, "redirect", null)
+            }
             prefs.storeCookies(host, setCookies(connection))
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             Raw(status, readCapped(stream, maxBytes), hadSession)
@@ -128,8 +147,7 @@ class ApiClient(private val prefs: Prefs) {
         }
     }
 
-    /** Sesión del servidor [host] + idioma del teléfono, para que los errores lleguen traducidos. */
-    private suspend fun cookieHeader(host: String): Pair<String?, Boolean> {
+    /** Sesión del servidor [host] + idioma del teléfono, para que los errores lleguen traducidos. */    private suspend fun cookieHeader(host: String): Pair<String?, Boolean> {
         val session = prefs.cookieHeader(host)
         val parts = mutableListOf<String>()
         session?.let(parts::add)
@@ -163,6 +181,32 @@ class ApiClient(private val prefs: Prefs) {
             .filterKeys { it?.equals("Set-Cookie", ignoreCase = true) == true }
             .values
             .flatten()
+
+    /**
+     * Ruta corregida cuando el 3xx solo añade o quita la barra final.
+     *
+     * Un proxy delante de Next puede normalizar `/api/requests` a
+     * `/api/requests/` (o al revés) con un 301/308. La app no sigue
+     * redirecciones porque la cookie de sesión no debe viajar a otro origen,
+     * pero esta sí es segura: mismo esquema, mismo host y mismo puerto. Si el
+     * destino es otro sitio o la ruta cambia, devuelve `null` y el error sube.
+     */
+    private fun slashVariant(base: String, location: String?): String? {
+        if (location.isNullOrBlank()) return null
+        val origin = runCatching { java.net.URI(base) }.getOrNull() ?: return null
+        val target = runCatching { origin.resolve(location) }.getOrNull() ?: return null
+        if (target.scheme?.equals(origin.scheme, ignoreCase = true) != true) return null
+        if (target.host == null || !target.host.equals(origin.host, ignoreCase = true)) return null
+        if (portOf(target) != portOf(origin)) return null
+        if (target.rawQuery != null) return null
+        val path = target.rawPath.orEmpty()
+        return path.takeIf { it.trimEnd('/').isNotEmpty() }
+    }
+
+    private fun portOf(uri: java.net.URI): Int {
+        if (uri.port > 0) return uri.port
+        return if (uri.scheme?.equals("https", ignoreCase = true) == true) 443 else 80
+    }
 
     private fun messageFrom(payload: JSONObject?, status: Int): String {
         val issues = payload?.optJSONArray("issues")
