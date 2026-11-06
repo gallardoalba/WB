@@ -100,10 +100,15 @@ jobs:
           java-version: 21
           cache: gradle
 
-      - uses: android-actions/setup-android@v3
+      # v3 intentaba instalar el paquete obsoleto «tools», que ya no existe en
+      # el repositorio del SDK, y el trabajo moría en «Failed to find package
+      # 'tools'». v4 usa las cmdline-tools actuales.
+      - uses: android-actions/setup-android@v4
 
-      - name: Instalar la plataforma del SDK
-        run: sdkmanager "platforms;android-37"
+      - name: Instalar plataforma y build-tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
 
       - uses: gradle/actions/setup-gradle@v4
 
