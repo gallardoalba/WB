@@ -1,10 +1,12 @@
-# Plantilla para fdroiddata: copiar como metadata/org.wanderbibliothek.app.yml
+# Receta para fdroiddata: copiar como metadata/org.wanderbibliothek.app.yml
 # en una bifurcación de https://gitlab.com/fdroid/fdroiddata y abrir una MR.
 #
 # Lo que hay que revisar en cada versión:
 #   · versionName / versionCode deben coincidir EXACTAMENTE con
 #     android/app/build.gradle.kts en el commit etiquetado.
 #   · commit: la etiqueta del repositorio (no el hash a mano).
+#   Con `UpdateCheckMode: Tags` y `AutoUpdateMode: Version` basta con empujar la
+#   etiqueta: F-Droid abre sola la MR de la versión siguiente.
 Categories:
   - Reading
 License: MIT
@@ -18,14 +20,17 @@ AutoName: Wanderbibliothek
 # Entre comillas: los dos puntos seguidos de espacio parten un escalar YAML.
 Summary: "Bücher teilen, Menschen treffen: deine Stadt als große Leihbibliothek."
 Description: |
-  Wanderbibliothek ist eine Gemeinschaft von Leserinnen und Lesern: Bücher, die
-  bei dir zu Hause stehen, finden neue Lesende in deiner Stadt.
+  Wanderbibliothek ist eine von der Gemeinschaft getragene Bibliothek: Bücher,
+  die bei dir zu Hause stehen, finden neue Lesende, und Lesen verbindet
+  Menschen.
 
-  · Teile deine Bücher und sieh, wer sie sucht.
-  · Tausch mit Nachbarinnen und Nachbarn statt mit einem Lagerhaus.
+  · Teilen statt horten: stelle deine Bücher ein und sieh, wer sie sucht.
+  · Menschen statt Algorithmen: tausch mit Nachbarinnen und Nachbarn, nicht mit
+    einem Lagerhaus.
   · Clubs und Leselisten: verabredet euch und stimmt über das nächste Buch ab.
   · Nachrichten und Übergabedaten sind Ende-zu-Ende-verschlüsselt.
   · Kostenlos, ohne Werbung und ohne Tracking.
+  · Drei Sprachen: Spanisch, Deutsch und Englisch.
 
   Offenes Projekt: der Code ist einsehbar und die Daten lassen sich exportieren
   oder mit dem Konto löschen.
@@ -33,19 +38,28 @@ Description: |
 RepoType: git
 Repo: https://github.com/gallardoalba/wanderbibliothek
 
+UpdateCheckMode: Tags ^v[0-9.]+$
+AutoUpdateMode: Version
+
 Builds:
-  - versionName: 0.1.2
-    versionCode: 2
-    commit: v0.1.2
+  - versionName: 0.1.5
+    versionCode: 8
+    commit: v0.1.5
     subdir: android
     gradle:
       - yes
 
 # Notas para el revisor (no son campos del YAML):
-#   · El módulo `:app` usa el SDK 37 y JDK 17; no hay dependencias propietarias
-#     ni Play Services. `org.json` solo se usa en las pruebas de JVM.
+#   · El módulo `:app` usa compileSdk/targetSdk 37, Gradle 9.8.2 y AGP 9.4, con
+#     `sourceCompatibility`/`targetCompatibility` 17. Si la imagen del
+#     buildserver aún no trae el SDK 37 o un JDK lo bastante nuevo, hará falta
+#     `sudo`/`prebuild` o una imagen más reciente.
+#   · No hay dependencias propietarias ni Play Services. `org.json` solo se usa
+#     en las pruebas de JVM.
 #   · Sin las variables ANDROID_SIGNING_* Gradle genera
 #     app-release-unsigned.apk, que es lo que F-Droid firma con su clave.
 #   · La app habla con https://wanderbibliothek.org por defecto, pero el
 #     servidor también es software libre (MIT) y la dirección se puede cambiar
 #     en Ajustes: no es una dependencia de un servicio no libre.
+#   · Metadatos de ficha en android/fastlane/metadata/android/{de-DE,es-ES,en-US};
+#     faltan las capturas (images/phoneScreenshots), que se toman del teléfono.

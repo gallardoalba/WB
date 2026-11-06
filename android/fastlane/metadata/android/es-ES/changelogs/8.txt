@@ -1,0 +1,7 @@
+· Tres idiomas: castellano, alemán e inglés. La app sigue el idioma del
+  teléfono.
+· Nueva portada: marca, lema y presentación, sin tarjetas ni degradados.
+· Ciudades de toda Europa: la ciudad se comprueba contra OpenStreetMap.
+· Intercambios: corregido el error al abrir la lista contra servidores que
+  redirigen la barra final.
+· Mensajes sin leer en la barra y aviso cuando la sesión caduca.

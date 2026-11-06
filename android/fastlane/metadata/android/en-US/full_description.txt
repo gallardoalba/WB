@@ -1,0 +1,14 @@
+Wanderbibliothek is a library driven by its community: the books already on your
+shelf find new readers nearby, and what others are reading is just around the
+corner.
+
+· Share instead of hoard: list your copies and see who is looking for them.
+· People instead of algorithms: swap with neighbours, not with a warehouse.
+· Reading circles and lists: meet up, vote on the next book and keep writing
+  together.
+· Private stays private: messages and handover details are end-to-end encrypted;
+  whoever runs the platform cannot read them.
+· Free, without ads and without tracking.
+
+Wanderbibliothek is an open project: the code is public, your data is yours, and
+you can export or delete your account at any time.
