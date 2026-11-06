@@ -109,6 +109,7 @@ export function OfferForm({
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const authorRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const lookupSeq = useRef(0);
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,6 +123,31 @@ export function OfferForm({
   // Cuando el dato viene del ISBN, el desplegable se lee como un dato fijo.
   const autoCategory = Boolean(knownBook?.category ?? metadata?.category);
   const autoLanguage = Boolean(knownBook ?? metadata?.language);
+
+  /**
+   * Deja el formulario como recién abierto tras publicar.
+   *
+   * Los campos de texto son no controlados, así que no basta con vaciar el
+   * estado de React: el navegador conserva lo escrito en el `<form>` y, al
+   * volver a la página, reaparecía la ficha del libro anterior.
+   */
+  function resetForm() {
+    formRef.current?.reset();
+    setScan("");
+    setFailedPreview(null);
+    setKnownBook(null);
+    setMetadata(null);
+    setEditions([]);
+    setMissing(false);
+    setLooking(false);
+    setNoIsbn(false);
+    setCover(null);
+    setSelectedTags([]);
+    setCategory(CATEGORIES[0]);
+    setLanguage(BOOK_LANGUAGES[0]);
+    setCreatedListingId(null);
+    setError("");
+  }
 
   /** Al cambiar de género se dejan solo las etiquetas que ese género propone. */
   function changeCategory(next: string, tags?: string[]) {
@@ -279,6 +305,7 @@ export function OfferForm({
         }
       }
 
+      resetForm();
       onCreated(result.demand);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo publicar el libro."));
@@ -295,7 +322,7 @@ export function OfferForm({
         : t("Datos de la DNB y Open Library.");
 
   return (
-      <form className="listing-form offer-form" onSubmit={submit}>
+      <form className="listing-form offer-form" ref={formRef} onSubmit={submit}>
         <div className="offer-grid">
         <section className="offer-block">
           <h2 className="offer-block-title">{t("El libro")}</h2>
