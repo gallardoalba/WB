@@ -511,9 +511,11 @@ export default function WanderbibliothekApp({
           {view === "home" && (
             <section className="hero-banner">
               <div className="hero-copy">
+                {/* La portada abre con la marca y su lema; el titular largo
+                    («Los libros siguen viajando») repetía la idea del lema y
+                    se ha retirado: una sola frase de marca y el párrafo. */}
                 <h1 tabIndex={-1}>
-                  <span className="hero-brand">{BRAND}:</span>{" "}
-                  {t("Los libros siguen viajando.")}
+                  <span className="hero-brand">{BRAND}</span>
                 </h1>
                 <p className="hero-tagline">
                   {t("Libros que viajan. Personas que se encuentran.")}

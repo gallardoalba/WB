@@ -9,8 +9,8 @@ test.describe("idioma por defecto", () => {
   test("sin cookie la interfaz llega en alemán", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
-    await expect(page.getByRole("heading", { level: 1 }).first()).toContainText(
-      "Bücher, die weiterreisen",
+    await expect(page.locator(".hero-tagline")).toHaveText(
+      "Bücher, die reisen. Menschen, die sich begegnen.",
     );
 
     await page.goto("/documentacion");
@@ -24,8 +24,8 @@ test.describe("idioma por defecto", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
 
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1 }).first()).toContainText(
-      "Los libros siguen viajando.",
+    await expect(page.locator(".hero-tagline")).toHaveText(
+      "Libros que viajan. Personas que se encuentran.",
     );
   });
 
@@ -36,8 +36,8 @@ test.describe("idioma por defecto", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1 }).first()).toContainText(
-      "Books keep travelling.",
+    await expect(page.locator(".hero-tagline")).toHaveText(
+      "Books that travel. People who meet.",
     );
   });
 });
