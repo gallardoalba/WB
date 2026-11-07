@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { TechnicalDoc } from "@/components/technical-doc";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 import { legalConfig } from "@/lib/legal";
 import { projectDocument } from "@/lib/project";
 
@@ -15,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
       locale,
       "Qué es Wanderbibliothek, por qué existe y qué hay detrás: un proyecto comunitario sin ánimo de lucro, con el código abierto y la privacidad como decisiones de diseño.",
     ),
-    alternates: { canonical: "/projekt" },
+    alternates: alternatesFor(locale, "/projekt"),
   };
 }
 

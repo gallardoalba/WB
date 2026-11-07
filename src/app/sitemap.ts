@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { connection } from "next/server";
+import { HREFLANG, LOCALES, localePath } from "@/lib/locale";
 import { listPublicReadingLists, listPublicWorks } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
 
@@ -32,25 +33,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (!result.hasMore || lists.length >= MAX_LISTS) break;
   }
 
+  // Cada página se anuncia en los tres idiomas, con la misma relación de
+  // alternativas que llevan sus `hreflang`: así Google descubre `/es/…` y
+  // `/en/…` sin esperar a que alguien enlace a ellas. La URL sin prefijo es la
+  // alemana y también el `x-default`.
+  const entry = (
+    path: string,
+    changeFrequency: NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>,
+    priority: number,
+  ): MetadataRoute.Sitemap[number] => {
+    const languages: Record<string, string> = {};
+    for (const alternate of LOCALES) {
+      languages[HREFLANG[alternate]] = `${base}${localePath(alternate, path)}`;
+    }
+    languages["x-default"] = `${base}${localePath("de", path)}`;
+    return {
+      url: `${base}${localePath("de", path)}`,
+      changeFrequency,
+      priority,
+      alternates: { languages },
+    };
+  };
+
   return [
-    { url: base, changeFrequency: "daily", priority: 1 },
-    ...works.map((work) => ({
-      url: `${base}/werk/${work.id}`,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    })),
-    { url: `${base}/listas`, changeFrequency: "weekly", priority: 0.6 },
+    entry("/", "daily", 1),
+    ...works.map((work) => entry(`/werk/${work.id}`, "weekly", 0.7)),
+    entry("/listas", "weekly", 0.6),
     ...lists
       // Una lista vacía no aporta nada al índice.
       .filter((list) => list.items > 0)
-      .map((list) => ({
-        url: `${base}/listas/${list.id}`,
-        changeFrequency: "monthly" as const,
-        priority: 0.5,
-      })),
-    { url: `${base}/projekt`, changeFrequency: "yearly", priority: 0.4 },
-    { url: `${base}/documentacion`, changeFrequency: "monthly", priority: 0.4 },
-    { url: `${base}/privacidad`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${base}/aviso-legal`, changeFrequency: "yearly", priority: 0.3 },
+      .map((list) => entry(`/listas/${list.id}`, "monthly", 0.5)),
+    entry("/projekt", "yearly", 0.4),
+    entry("/documentacion", "monthly", 0.4),
+    entry("/privacidad", "yearly", 0.3),
+    entry("/aviso-legal", "yearly", 0.3),
   ];
 }

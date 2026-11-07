@@ -199,7 +199,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - Four breakpoints (480, 768, 1120 and 1400/1800 px), spacing scale from 4 to 48 px and controls at 40 px, 44 px on mobile.
 - Dialogs with trapped focus, closing on `Escape` and focus restoration; a "Skip to content" link, `aria-current` in navigation, filters with `aria-pressed` and errors with `role="alert"`.
 - Minimum AA contrast, type from 12 px, 44 px touch targets on phones and `prefers-reduced-motion` respected.
-- The interface is trilingual: the switcher wins, setting the `wanderbibliothek-locale` cookie and, with a session, the account preference used for notifications and mail. Without a preference the browser language (`Accept-Language`) decides; German is the last resort. Mail links carry `?lang=…` so the page they open speaks the language of the message.
+- The interface is trilingual and every language has its own URL: German is the default and stays unprefixed (`/werk/x`), while Spanish and English are published under `/es/…` and `/en/…`, each with its own `hreflang` and canonical so search engines index them separately (the proxy rewrites the prefix away and passes the language in a header). Inside a prefixed URL the prefix wins; otherwise the switcher does, setting the `wanderbibliothek-locale` cookie and, with a session, the account preference used for notifications and mail. Without a preference the browser language (`Accept-Language`) decides; German is the last resort. Mail links carry `?lang=…` so the page they open speaks the language of the message.
 
 ## Further reading
 

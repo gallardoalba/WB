@@ -7,6 +7,7 @@ import { SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 import { getPublicWork } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
 import { toneForId } from "@/lib/text";
@@ -54,7 +55,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${work.title} — ${work.author}`,
     description,
-    alternates: { canonical: `/werk/${work.id}` },
+    alternates: alternatesFor(locale, `/werk/${work.id}`),
     // Sin ejemplares la página no aporta nada nuevo: se deja rastrear el enlace
     // pero no se indexa una ficha vacía.
     robots: work.copies > 0 ? { index: true, follow: true } : { index: false, follow: true },

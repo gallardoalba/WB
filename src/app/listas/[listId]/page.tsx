@@ -7,6 +7,7 @@ import { PageHeader, SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 import { getReadingList } from "@/lib/repo";
 import { formatWhen } from "@/lib/text";
 
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: list.title,
       signature,
     }),
-    alternates: { canonical: `/listas/${list.id}` },
+    alternates: alternatesFor(locale, `/listas/${list.id}`),
     robots: list.items > 0 ? { index: true, follow: true } : { index: false, follow: true },
     openGraph: {
       type: "article",

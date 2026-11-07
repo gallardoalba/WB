@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { regionName } from "@/lib/cities";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 import { allowPageView } from "@/lib/page-throttle";
 import { listPublicReadingLists } from "@/lib/repo";
 
@@ -20,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: translate(locale, "Listas de lectura"),
     description: translate(locale, "Listas de lectura compartidas por la comunidad de {region}.", { region: regionName(locale) }),
-    alternates: { canonical: "/listas" },
+    alternates: alternatesFor(locale, "/listas"),
   };
 }
 

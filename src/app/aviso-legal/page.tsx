@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalDoc } from "@/components/legal-doc";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 import { translate } from "@/lib/i18n";
 import { imprintDocument, legalConfig } from "@/lib/legal";
 
@@ -10,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
     title: translate(locale, "Aviso legal"),
-    alternates: { canonical: "/aviso-legal" },
+    alternates: alternatesFor(locale, "/aviso-legal"),
   };
 }
 

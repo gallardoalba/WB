@@ -80,6 +80,7 @@ import { ensureIdentity, isEncryptionSupported } from "@/lib/e2e";
 import { formatNumber } from "@/lib/text";
 import type { MessageKey } from "@/lib/i18n";
 import { regionName } from "@/lib/cities";
+import { localePath } from "@/lib/locale";
 import { formatWhen, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 
@@ -140,6 +141,9 @@ export default function WanderbibliothekApp({
   const { user, view, filters, listings, total, page, pageSize, hasMore, requests, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
   const { t, locale } = useI18n();
   const REGION = regionName(locale);
+  // Los enlaces conservan el prefijo del idioma de la página (`/es/…`): en una
+  // versión en castellano el pie no puede llevar a la alemana.
+  const href = (path: string) => localePath(locale, path);
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
@@ -445,7 +449,7 @@ export default function WanderbibliothekApp({
 
       <section className="main-panel">
         <header className="topbar">
-          <Link href="/" className="mobile-brand" aria-label="Wanderbibliothek">
+          <Link href={href("/")} className="mobile-brand" aria-label="Wanderbibliothek">
             <span className="brand-mark">
               <BookOpen size={17} strokeWidth={2.2} />
             </span>
@@ -455,7 +459,7 @@ export default function WanderbibliothekApp({
             </span>
           </Link>
           <div className="breadcrumb">
-            <Link href="/" className="crumb-home">
+            <Link href={href("/")} className="crumb-home">
               {t("Inicio")}
             </Link>
             {view !== "home" && (
@@ -749,7 +753,7 @@ export default function WanderbibliothekApp({
                     {filters.feed === "following" ? (
                       <>
                         {t("Aquí aparecerá lo que publiquen las cuentas que sigues.")}{" "}
-                        <Link href="/lectores" className="inline-link">
+                        <Link href={href("/lectores")} className="inline-link">
                           {t("Encuentra lectores de tu región")}
                         </Link>
                         .
@@ -832,7 +836,7 @@ export default function WanderbibliothekApp({
                         ))}
                       </div>
                     )}
-                    <Link href="/clubes" className="community-more">
+                    <Link href={href("/clubes")} className="community-more">
                       {clubsTotal > clubs.length
                         ? t("Ver los {n} clubes", { n: clubsTotal })
                         : t("Ir al directorio de clubes")}{" "}
@@ -859,7 +863,7 @@ export default function WanderbibliothekApp({
                         ))}
                       </div>
                     )}
-                    <Link href="/lectores" className="community-more">
+                    <Link href={href("/lectores")} className="community-more">
                       {t("Ver {n} lectores", { n: readersTotal })}{" "}
                       <ArrowRight size={15} />
                     </Link>
@@ -893,7 +897,7 @@ export default function WanderbibliothekApp({
                         ))}
                       </ul>
                     )}
-                    <Link href="/listas" className="community-more">
+                    <Link href={href("/listas")} className="community-more">
                       {t("Todas las listas")} <ArrowRight size={15} />
                     </Link>
                   </div>
@@ -1250,9 +1254,9 @@ export default function WanderbibliothekApp({
             <span>{t("Hecho para que las historias sigan viajando.")}</span>
             {user && (
               <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
-                <Link href="/clubes">{t("Clubes")}</Link>
-                <Link href="/lectores">{t("Lectores")}</Link>
-                <Link href="/listas">{t("Listas")}</Link>
+                <Link href={href("/clubes")}>{t("Clubes")}</Link>
+                <Link href={href("/lectores")}>{t("Lectores")}</Link>
+                <Link href={href("/listas")}>{t("Listas")}</Link>
               </nav>
             )}
             {/* Sin sesión también: la política de privacidad hay que poder
@@ -1262,11 +1266,11 @@ export default function WanderbibliothekApp({
               className="footer-links legal-links"
               aria-label={t("Información y documentación")}
             >
-              <Link href="/descubrir">{t("Descubrir todos los libros")}</Link>
-              <Link href="/privacidad">{t("Privacidad")}</Link>
-              <Link href="/aviso-legal">{t("Aviso legal")}</Link>
-              <Link href="/projekt">{t("El proyecto")}</Link>
-              <Link href="/documentacion">{t("Documentación")}</Link>
+              <Link href={href("/descubrir")}>{t("Descubrir todos los libros")}</Link>
+              <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
+              <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
+              <Link href={href("/projekt")}>{t("El proyecto")}</Link>
+              <Link href={href("/documentacion")}>{t("Documentación")}</Link>
             </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {stats.cities}{" "}

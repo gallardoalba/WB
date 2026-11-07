@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { LOCALE_COOKIE, matchLocale } from "@/lib/locale";
+import { LOCALE_COOKIE, LOCALE_HEADER, matchLocale, splitLocalePath } from "@/lib/locale";
 import { requestIdFrom, REQUEST_ID_HEADER } from "@/lib/observability";
 
 /**
@@ -73,14 +73,7 @@ export function proxy(request: NextRequest) {
   // cookie, y la preferencia se queda guardada para el resto del flujo. Se
   // reescribe también la cabecera de la petición para que este primer render
   // ya salga en ese idioma.
-  const requestedLocale = matchLocale(request.nextUrl.searchParams.get("lang"));
-  if (requestedLocale) {
-    const kept = (request.headers.get("cookie") ?? "")
-      .split(";")
-      .map((part) => part.trim())
-      .filter((part) => part.length > 0 && !part.startsWith(`${LOCALE_COOKIE}=`));
-    requestHeaders.set("cookie", [...kept, `${LOCALE_COOKIE}=${requestedLocale}`].join("; "));
-  }
+  const fromQuery = matchLocale(request.nextUrl.searchParams.get("lang"));
 
   // Un proxy por delante (nginx) puede normalizar la barra final: la petición
   // a `/api/requests` acaba llegando como `/api/requests/`. Antes de esto Next
@@ -103,9 +96,46 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(clean, 308);
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  if (requestedLocale) {
-    response.cookies.set(LOCALE_COOKIE, requestedLocale, {
+  // Idioma por URL (`/es/...`, `/en/...`). El alemán es el idioma por defecto y
+  // su URL canónica no lleva prefijo, así que `/de/...` redirige a `/...` para
+  // no servir el mismo contenido en dos direcciones.
+  //
+  // La página se sirve con la ruta interna (sin prefijo) vía `rewrite`: el
+  // navegador conserva la URL con el idioma, que es la que Google indexa. El
+  // idioma viaja en una cabecera porque es lo que `getLocale()` puede leer en el
+  // render, y además se guarda en la cookie para que al navegar dentro de la
+  // aplicación (que no cambia de ruta) se siga viendo en el mismo idioma.
+  const prefijo = esApi ? null : splitLocalePath(request.nextUrl.pathname);
+  const usaPrefijo = prefijo !== null && !prefijo.path.startsWith("/_next/");
+
+  if (usaPrefijo && prefijo.locale === "de") {
+    const clean = new URL(request.url);
+    clean.pathname = prefijo.path;
+    return NextResponse.redirect(clean, 308);
+  }
+
+  const idiomaForzado = usaPrefijo ? prefijo.locale : fromQuery;
+  if (idiomaForzado) {
+    const kept = (request.headers.get("cookie") ?? "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0 && !part.startsWith(`${LOCALE_COOKIE}=`));
+    requestHeaders.set("cookie", [...kept, `${LOCALE_COOKIE}=${idiomaForzado}`].join("; "));
+    requestHeaders.set(LOCALE_HEADER, idiomaForzado);
+  }
+
+  const response = usaPrefijo
+    ? NextResponse.rewrite(
+        (() => {
+          const inner = request.nextUrl.clone();
+          inner.pathname = prefijo.path;
+          return inner;
+        })(),
+        { request: { headers: requestHeaders } },
+      )
+    : NextResponse.next({ request: { headers: requestHeaders } });
+  if (idiomaForzado) {
+    response.cookies.set(LOCALE_COOKIE, idiomaForzado, {
       path: "/",
       maxAge: 31536000,
       sameSite: "lax",
@@ -118,8 +148,9 @@ export function proxy(request: NextRequest) {
   // Las páginas que reciben un enlace de un solo uso llevan el token en la
   // query: sin `no-referrer`, los recursos de la propia página lo mandarían en
   // el `Referer` y acabaría en el registro. En el resto basta el valor normal.
-  const unaSolaVez =
-    request.nextUrl.pathname === "/verificar" || request.nextUrl.pathname === "/restablecer";
+  // Se mira la ruta interna: con `/es/verificar` el prefijo sobraba.
+  const rutaInterna = usaPrefijo ? prefijo.path : request.nextUrl.pathname;
+  const unaSolaVez = rutaInterna === "/verificar" || rutaInterna === "/restablecer";
   response.headers.set(
     "Referrer-Policy",
     unaSolaVez ? "no-referrer" : "strict-origin-when-cross-origin",
@@ -132,10 +163,10 @@ export function proxy(request: NextRequest) {
   // 200 con una redirección en el cliente (Next no puede cambiar el estado una
   // vez emitido el shell). La cabecera cierra el caso de la URL descubierta por
   // un enlace externo: Google no la indexa aunque llegue a pedirla.
-  if (PRIVATE_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
+  if (PRIVATE_PREFIXES.some((prefix) => rutaInterna.startsWith(prefix))) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (rutaInterna.startsWith("/admin")) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   response.headers.set("Cross-Origin-Resource-Policy", "same-origin");

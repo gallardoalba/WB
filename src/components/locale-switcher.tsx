@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LOCALE_COOKIE, type Locale } from "@/lib/locale";
+import { LOCALE_COOKIE, localePath, splitLocalePath, type Locale } from "@/lib/locale";
 import { useI18n } from "./i18n-provider";
 
 /** Banderas dibujadas en SVG: no dependen de la fuente de emojis del sistema. */
@@ -41,6 +41,11 @@ function FlagEN() {
 /**
  * Cambia el idioma con una cookie y refresca el árbol de servidor. Si hay
  * sesión, también se guarda en la cuenta para los correos.
+ *
+ * Cuando la página se abrió con el idioma en la URL (`/es/…`, `/en/…`) hay que
+ * moverse a la dirección del idioma elegido: ahí manda el prefijo, y sin el
+ * cambio de URL el selector parecería no hacer nada. El alemán es el idioma por
+ * defecto y su URL no lleva prefijo.
  */
 export function LocaleSwitcher({ locale }: { locale: Locale }) {
   const { t } = useI18n();
@@ -60,7 +65,21 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
     }).catch(() => {
       // Sin sesión el endpoint devuelve 401: la cookie sigue mandando.
     });
-    startTransition(() => router.refresh());
+    const conPrefijo = splitLocalePath(window.location.pathname);
+    const interno = conPrefijo ? conPrefijo.path : window.location.pathname;
+    const destino = `${localePath(next, interno)}${window.location.search}`;
+    startTransition(() => {
+      // Recarga completa, no `router.push`: el idioma vive en el layout raíz
+      // (`<html lang>`, el proveedor de textos), que no se vuelve a pintar en
+      // una navegación de cliente. Solo así cambian de verdad el idioma y la
+      // dirección con su prefijo.
+      if (destino === `${window.location.pathname}${window.location.search}`) {
+        router.refresh();
+      } else {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- el idioma vive en el layout raíz: solo una recarga completa lo aplica
+        window.location.assign(destino);
+      }
+    });
   }
 
   return (

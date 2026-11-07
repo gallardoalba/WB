@@ -104,8 +104,9 @@ test("cualquier edición resuelve a la obra y un id desconocido no revienta", ()
 
 test("la portada declara canonical y el layout ya no lo hereda", () => {
   // Con `alternates` en el layout, toda página que no lo definía se anunciaba
-  // como duplicado de la portada.
-  assert.match(read("src/app/page.tsx"), /canonical: "\/"/);
+  // como duplicado de la portada. Ahora la portada lo pide al ayudante de SEO,
+  // que añade además los `hreflang` de los tres idiomas.
+  assert.match(read("src/app/page.tsx"), /alternatesFor\(await getLocale\(\), "\/"\)/);
   assert.doesNotMatch(read("src/app/layout.tsx"), /^\s*alternates:/m);
 });
 

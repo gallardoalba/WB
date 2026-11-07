@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { renderAppView, type AppViewPageProps } from "./app-view";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 
 // Depende de la sesión y de los filtros: se renderiza en el servidor por petición.
 export const instant = false;
@@ -13,8 +14,7 @@ export const instant = false;
  * portada y quedaban fuera del índice. El `openGraph` se hereda del layout.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  await getLocale();
-  return { alternates: { canonical: "/" } };
+  return { alternates: alternatesFor(await getLocale(), "/") };
 }
 
 export default async function Page({ searchParams }: AppViewPageProps) {

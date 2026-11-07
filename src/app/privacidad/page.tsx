@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalDoc } from "@/components/legal-doc";
 import { getLocale } from "@/lib/i18n-server";
+import { alternatesFor } from "@/lib/seo";
 import { translate } from "@/lib/i18n";
 import { legalConfig, privacyDocument } from "@/lib/legal";
 
@@ -14,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       locale,
       "Qué datos trata Wanderbibliothek, durante cuánto tiempo y con quién se comparten.",
     ),
-    alternates: { canonical: "/privacidad" },
+    alternates: alternatesFor(locale, "/privacidad"),
   };
 }
 

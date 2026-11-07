@@ -12,6 +12,11 @@ export type Locale = (typeof LOCALES)[number];
 /** Idioma de la interfaz cuando nadie ha elegido: el alemán. */
 export const DEFAULT_LOCALE: Locale = "de";
 export const LOCALE_COOKIE = "wanderbibliothek-locale";
+/**
+ * Cabecera interna con el idioma que fija la URL (`/es/...`). La pone el proxy
+ * y la lee `getLocale()` en el servidor; no sale al navegador.
+ */
+export const LOCALE_HEADER = "x-wb-locale";
 
 /**
  * Cualquier valor de cookie o cabecera se reduce a un idioma soportado. Se
@@ -65,3 +70,41 @@ export function localeTag(locale: Locale): string {
 export function pick(locale: Locale, values: Record<Locale, string>): string {
   return values[locale] ?? values[DEFAULT_LOCALE];
 }
+
+/**
+ * Prefijo de URL de cada idioma.
+ *
+ * El alemán es el idioma por defecto y va **sin** prefijo (`/werk/x`), que es
+ * también el `x-default` para los buscadores. Los otros dos se publican en su
+ * propia URL (`/es/werk/x`, `/en/werk/x`) para que Google pueda indexarlos: con
+ * el idioma solo en una cookie, el rastreador ve siempre la versión alemana y
+ * las otras dos no existen para él.
+ */
+export const LOCALE_PREFIX: Record<Locale, string> = { de: "", es: "/es", en: "/en" };
+
+/** Ruta pública de un idioma: `localePath("es", "/werk/x")` → `/es/werk/x`. */
+export function localePath(locale: Locale, path: string): string {
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  const prefix = LOCALE_PREFIX[locale];
+  if (!prefix) return clean;
+  return clean === "/" ? prefix : `${prefix}${clean}`;
+}
+
+/**
+ * Separa el prefijo de idioma de una ruta: `/es/werk/x` → `{ locale: "es", path: "/werk/x" }`.
+ * Devuelve `null` si la ruta no lleva prefijo (o si el primer segmento solo lo
+ * empieza, como `/escribir`).
+ */
+export function splitLocalePath(pathname: string): { locale: Locale; path: string } | null {
+  const match = /^\/(es|en|de)(?=\/|$)/.exec(pathname);
+  if (!match) return null;
+  const rest = pathname.slice(match[0].length);
+  return { locale: match[1] as Locale, path: rest === "" ? "/" : rest };
+}
+
+/** Etiqueta `hreflang` de cada idioma, la que espera Google. */
+export const HREFLANG: Record<Locale, string> = {
+  de: "de-DE",
+  es: "es-ES",
+  en: "en-GB",
+};

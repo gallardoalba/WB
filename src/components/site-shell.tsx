@@ -5,6 +5,7 @@ import type { SessionUser } from "@/lib/domain";
 import { regionName } from "@/lib/cities";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { getLocale } from "@/lib/i18n-server";
+import { localePath } from "@/lib/locale";
 import { translate } from "@/lib/i18n";
 import { countActiveRequests, countUnreadMessages, countUnreadNotifications } from "@/lib/repo";
 import { SiteRail, type RailSection } from "./site-rail";
@@ -35,6 +36,12 @@ export async function SiteShell({
   // interactivas (menú de cuenta, tema, idioma), no la cabecera entera.
   const locale = await getLocale();
   const t = (text: string) => translate(locale, text);
+  // Los enlaces del armazón respetan el idioma de la URL: desde `/es/…` el pie
+  // no debe devolver a la versión alemana, o Google ve las dos mezcladas.
+  const href = (path: string) => {
+    const [base, query] = path.split("?");
+    return `${localePath(locale, base)}${query ? `?${query}` : ""}`;
+  };
   // Los mismos contadores que el catálogo: el menú no puede cambiar de número
   // según la página en la que estés.
   const unreadMessages = user ? countUnreadMessages(user.id) : 0;
@@ -56,7 +63,7 @@ export async function SiteShell({
 
       <section className="main-panel">
         <header className="topbar">
-          <Link href="/" className="mobile-brand" aria-label="Wanderbibliothek">
+          <Link href={href("/")} className="mobile-brand" aria-label="Wanderbibliothek">
             <span className="brand-mark">
               <BookOpen size={17} strokeWidth={2.2} />
             </span>
@@ -66,7 +73,7 @@ export async function SiteShell({
             </span>
           </Link>
           <div className="breadcrumb">
-            <Link href="/" className="crumb-home">
+            <Link href={href("/")} className="crumb-home">
               {t("Inicio")}
             </Link>
             <span className="crumb-slash">/</span>
@@ -90,19 +97,19 @@ export async function SiteShell({
           <footer className="page-footer">
             <span>{t("Hecho para que las historias sigan viajando.")}</span>
             <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
-              <Link href="/clubes">{t("Clubes")}</Link>
-              <Link href="/lectores">{t("Lectores")}</Link>
-              <Link href="/listas">{t("Listas")}</Link>
+              <Link href={href("/clubes")}>{t("Clubes")}</Link>
+              <Link href={href("/lectores")}>{t("Lectores")}</Link>
+              <Link href={href("/listas")}>{t("Listas")}</Link>
             </nav>
             <nav
               className="footer-links legal-links"
               aria-label={t("Información y documentación")}
             >
-              <Link href="/descubrir">{t("Descubrir todos los libros")}</Link>
-              <Link href="/privacidad">{t("Privacidad")}</Link>
-              <Link href="/aviso-legal">{t("Aviso legal")}</Link>
-              <Link href="/projekt">{t("El proyecto")}</Link>
-              <Link href="/documentacion">{t("Documentación")}</Link>
+              <Link href={href("/descubrir")}>{t("Descubrir todos los libros")}</Link>
+              <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
+              <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
+              <Link href={href("/projekt")}>{t("El proyecto")}</Link>
+              <Link href={href("/documentacion")}>{t("Documentación")}</Link>
             </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {regionName(locale)}
@@ -112,23 +119,23 @@ export async function SiteShell({
       </section>
 
       <nav className="mobile-bottom-nav" aria-label={t("Navegación móvil")}>
-        <Link href="/descubrir">
+        <Link href={href("/descubrir")}>
           <Compass size={19} />
           <span>{t("Descubrir")}</span>
         </Link>
-        <Link href="/estanteria">
+        <Link href={href("/estanteria")}>
           <Heart size={19} />
           <span>{t("Estantería")}</span>
         </Link>
-        <Link href="/?offer=1" className="mobile-add" aria-label={t("Ofrecer un libro")}>
+        <Link href={href("/?offer=1")} className="mobile-add" aria-label={t("Ofrecer un libro")}>
           <Plus size={21} />
         </Link>
-        <Link href="/intercambios">
+        <Link href={href("/intercambios")}>
           <ArrowDownUp size={19} />
           <span>{t("Intercambios")}</span>
         </Link>
         <Link
-          href="/comunidad"
+          href={href("/comunidad")}
           className={
             section === "clubes" || section === "lectores" || section === "listas"
               ? "mobile-active"
