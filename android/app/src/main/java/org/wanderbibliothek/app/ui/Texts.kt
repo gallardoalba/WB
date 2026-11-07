@@ -75,7 +75,7 @@ object TextCatalog {
         // Entdecken
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Bücher, die reisen. Menschen, die sich begegnen.",
-        "heroSubtitle" to "Eine von der Gemeinschaft getragene Bibliothek, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden.",
+        "heroSubtitle" to "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden.",
         "searchPlaceholder" to "Titel, Autor:in oder Stichwort",
         "filters" to "Filter",
         "category" to "Kategorie",
@@ -354,7 +354,7 @@ object TextCatalog {
 
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Libros que viajan. Personas que se encuentran.",
-        "heroSubtitle" to "Una biblioteca impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
+        "heroSubtitle" to "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
         "searchPlaceholder" to "Título, autoría o palabra clave",
         "filters" to "Filtros",
         "category" to "Categoría",
@@ -620,7 +620,7 @@ object TextCatalog {
         "signInRequired" to "You need to be signed in for that.",
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Books that travel. People who meet.",
-        "heroSubtitle" to "A community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared.",
+        "heroSubtitle" to "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared.",
         "searchPlaceholder" to "Title, author or keyword",
         "filters" to "Filters",
         "category" to "Category",
