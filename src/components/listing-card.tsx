@@ -5,16 +5,9 @@ import type { ReactNode } from "react";
 import { ArrowRight, MapPin } from "lucide-react";
 import { BookCover } from "./book-cover";
 import type { ListingView } from "@/lib/domain";
-import type { MessageKey } from "@/lib/i18n";
+import { STATUS_RIBBON } from "@/lib/listing-status";
 import { initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
-
-const STATUS_RIBBON: Record<string, MessageKey> = {
-  reserved: "Reservado",
-  given: "Entregado",
-  paused: "Pausado",
-  removed: "Retirado",
-};
 
 export function ListingCard({
   listing,

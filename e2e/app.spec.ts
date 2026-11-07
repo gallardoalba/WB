@@ -49,6 +49,11 @@ test("sin sesión el catálogo se puede ojear, pero pedir pide acceso", async ({
   await page.locator(".book-card:visible .card-link").first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  // La vista previa no es un cartel de «entra»: enseña la ficha del ejemplar y
+  // qué pasa si se pide, que es lo que decide si merece la pena registrarse.
+  await expect(dialog).toContainText("Estado");
+  await expect(dialog).toContainText("Ciudad");
+  await expect(dialog).toContainText("Cómo funciona el intercambio");
   await expect(dialog.getByRole("button", { name: "Entrar para pedirlo" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Seguir explorando" })).toBeVisible();
 });
