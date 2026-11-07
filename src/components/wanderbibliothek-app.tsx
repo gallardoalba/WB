@@ -76,7 +76,7 @@ import {
   type View,
 } from "@/lib/domain";
 import { api } from "@/lib/client-api";
-import { ensureIdentity } from "@/lib/e2e";
+import { ensureIdentity, isEncryptionSupported } from "@/lib/e2e";
 import { formatNumber } from "@/lib/text";
 import type { MessageKey } from "@/lib/i18n";
 import { regionName } from "@/lib/cities";
@@ -215,18 +215,22 @@ export default function WanderbibliothekApp({
 
   // Al iniciar sesión se crea (o recupera) el par de claves del navegador y se
   // publica solo la mitad pública. La privada no sale de IndexedDB.
+  //
+  // Se ejecuta una vez por cuenta, no en cada render: `router.refresh()`
+  // devuelve un objeto `user` nuevo y, con la limpieza anterior, el efecto se
+  // repetía en cada refresco (por ejemplo al aceptar un intercambio) y un corte
+  // pasajero de esa petición hacía saltar el aviso de «no se pudo activar el
+  // cifrado» aunque la clave ya estuviera publicada.
   const keysPublished = useRef<string | null>(null);
   useEffect(() => {
     if (!user || keysPublished.current === user.id) return;
     keysPublished.current = user.id;
-    let cancelled = false;
     void (async () => {
       try {
         const identity = await ensureIdentity();
         const stored = await api<{
           keys: { platform: string; keyId: string }[];
         }>("/api/account/keys");
-        if (cancelled) return;
         // Solo se publica la **primera** clave de la ranura web. Sustituir una
         // existente exige la contraseña y se hace desde el perfil, nunca en
         // silencio al entrar. La app móvil publica su propia ranura.
@@ -238,18 +242,16 @@ export default function WanderbibliothekApp({
           });
         }
       } catch {
+        // Se deja reintentar en la próxima visita. No se avisa con un toast:
+        // casi siempre es un corte pasajero, y la propia conversación ya dice
+        // si de verdad falta la clave. Solo se avisa cuando el navegador no
+        // puede cifrar, que sí se puede arreglar cambiando de navegador.
         keysPublished.current = null;
-        if (!cancelled) notify(t("No se pudo activar el cifrado de mensajes en este navegador."), "error");
+        if (!isEncryptionSupported()) {
+          notify(t("No se pudo activar el cifrado de mensajes en este navegador."), "error");
+        }
       }
     })();
-    return () => {
-      cancelled = true;
-      // Al desmontar se olvida la marca: si el efecto se vuelve a montar con el
-      // mismo usuario (doble invocación de React en desarrollo, o una recarga
-      // del shell) la publicación pendiente se reintenta en vez de quedarse a
-      // medias y dejar la cuenta sin clave.
-      keysPublished.current = null;
-    };
   }, [notify, user, t]);
 
   // Mantiene viva la cookie de sesión mientras la persona sigue usando la app:

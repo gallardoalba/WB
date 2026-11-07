@@ -40,7 +40,6 @@ import { ACTION_LABELS, type BaseDialogProps } from "./shared";
 const EXCHANGE_STEPS = ["Solicitado", "Aceptado", "Entrega", "Valoración"] as const;
 
 const CONFIRM_STATUS_TEXT: Record<string, MessageKey> = {
-  accepted: "Al aceptar se reserva el ejemplar y se cierran las demás solicitudes pendientes.",
   declined: "Se rechaza esta solicitud. La persona podrá volver a pedir otro ejemplar.",
   cancelled: "Se cancela el intercambio y el ejemplar vuelve a estar disponible.",
   completed: "Confirmas que la entrega se ha hecho. Si la otra parte ya confirmó, el intercambio se cierra.",
@@ -640,7 +639,10 @@ export function ExchangeDialog({
               type="button"
               className={status === "accepted" || status === "completed" ? "share-button small" : "secondary-button small"}
               disabled={busy}
-              onClick={() => setConfirmStatus(status)}
+              // Aceptar no pregunta nada: es la acción esperada y la única que
+              // reserva el ejemplar. Rechazar, cancelar o cerrar la entrega sí
+              // cambian algo que la otra persona ya está esperando.
+              onClick={() => (status === "accepted" ? void applyStatus(status) : setConfirmStatus(status))}
             >
               {status === "completed"
                 ? t("Confirmar entrega")
