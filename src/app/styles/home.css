@@ -153,6 +153,17 @@
   line-height: 1.6;
 }
 
+/* En pantallas anchas sobra sitio a la derecha: el párrafo gana una línea más
+   de ancho sin llegar a la zona de la foto donde el velo se aclara (ahí el
+   contraste baja del mínimo). El corte va en 1320 px, no en 1200: por debajo
+   la tarjeta todavía es más estrecha y el texto entraba en la foto con 4,5:1
+   justos. */
+@media (min-width: 1320px) {
+  .hero-banner p {
+    max-width: 72ch;
+  }
+}
+
 /* Lema de la marca bajo el titular, como en la app: el h1 es solo el nombre, así
    que el lema lleva el mensaje. En serif para que se lea como lema y no como
    texto corrido. */
