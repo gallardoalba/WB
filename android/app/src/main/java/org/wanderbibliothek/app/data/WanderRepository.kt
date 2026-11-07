@@ -327,29 +327,6 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
         )
     }
 
-    suspend fun setHandoverMethod(id: String, method: String) {
-        api.patch("/api/requests/${seg(id)}/handover", JSONObject().put("method", method))
-    }
-
-    suspend fun saveShipping(
-        id: String,
-        kind: String,
-        postNumber: String,
-        station: String,
-        street: String,
-        postalCode: String,
-        city: String,
-    ) {
-        val body = JSONObject().put("kind", kind)
-        if (kind == "packstation") {
-            body.put("postNumber", postNumber).put("station", station)
-        } else {
-            body.put("street", street)
-        }
-        body.put("postalCode", postalCode).put("city", city)
-        api.put("/api/requests/${seg(id)}/handover/shipping", body)
-    }
-
     /* -------------------------------- avisos -------------------------------- */
 
     /** Avisos sin leer, para el distintivo de la campana. */

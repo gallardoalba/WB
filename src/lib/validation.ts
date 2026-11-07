@@ -183,62 +183,6 @@ export const readingStateSchema = z.object({
   status: z.enum(READING_STATES, { error: "Elige un estado de lectura." }).nullable(),
 });
 
-export const handoverSchema = z.object({
-  /** En mano o por correo. */
-  method: z.enum(["in_person", "post"], { error: "Elige en mano o por correo." }),
-});
-
-/** Código postal alemán. */
-const postalCode = z.string().trim().regex(/^\d{5}$/, "El código postal tiene 5 cifras.");
-
-/**
- * Datos del envío. Dos formas, las dos con la misma garantía: se guardan
- * cifrados y solo los ve la persona que manda el libro.
- *
- * - `packstation`: número de cliente de DHL (Postnummer) + taquilla.
- * - `address`: la dirección que indique quien recibe, si prefiere el correo
- *   normal a una taquilla.
- */
-export const shippingSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("packstation"),
-    postNumber: z
-      .string()
-      .trim()
-      .regex(/^\d{8,10}$/, "El número de cliente de DHL tiene entre 8 y 10 cifras."),
-    station: z
-      .string()
-      .trim()
-      .regex(
-        /^packstation\s*\d{1,4}$/i,
-        "Escribe la Packstation con su número (por ejemplo, «Packstation 123»).",
-      ),
-    postalCode,
-    city: z
-      .string()
-      .trim()
-      .min(2, "Escribe la ciudad de la Packstation.")
-      .max(60, "La ciudad no puede superar 60 caracteres.")
-      .regex(/^[^\d]+$/, "En la ciudad va solo el nombre, sin números."),
-  }),
-  z.object({
-    kind: z.literal("address"),
-    street: z
-      .string()
-      .trim()
-      .min(3, "Escribe la calle y el número.")
-      .max(120, "La dirección no puede superar 120 caracteres.")
-      .regex(/\d/, "La dirección tiene que llevar el número de la casa."),
-    postalCode,
-    city: z
-      .string()
-      .trim()
-      .min(2, "Escribe la ciudad.")
-      .max(60, "La ciudad no puede superar 60 caracteres.")
-      .regex(/^[^\d]+$/, "En la ciudad va solo el nombre, sin números."),
-  }),
-]);
-
 /**
  * Comentario de una obra. El cuerpo se guarda como texto plano (React lo
 escapa):

@@ -49,12 +49,9 @@ import org.wanderbibliothek.app.ui.LocalTexts
 import org.wanderbibliothek.app.ui.SessionState
 import org.wanderbibliothek.app.ui.components.ActionButton
 import org.wanderbibliothek.app.ui.components.Bubble
-import org.wanderbibliothek.app.ui.components.ChoiceChips
 import org.wanderbibliothek.app.ui.components.EmptyBox
 import org.wanderbibliothek.app.ui.components.ErrorBox
-import org.wanderbibliothek.app.ui.components.FormField
 import org.wanderbibliothek.app.ui.components.LoadingBox
-import org.wanderbibliothek.app.ui.components.MetaRow
 import org.wanderbibliothek.app.ui.components.Notice
 import org.wanderbibliothek.app.ui.components.RemoteCover
 import org.wanderbibliothek.app.ui.components.SecondaryButton
@@ -91,15 +88,6 @@ fun ExchangeDetailScreen(
     var busy by remember { mutableStateOf(false) }
     var reloads by remember { mutableIntStateOf(0) }
     var draft by rememberSaveable { mutableStateOf("") }
-    var code by rememberSaveable { mutableStateOf("") }
-
-    // Datos del envío (solo quien recibe los rellena).
-    var shipKind by rememberSaveable { mutableStateOf("packstation") }
-    var postNumber by rememberSaveable { mutableStateOf("") }
-    var station by rememberSaveable { mutableStateOf("") }
-    var street by rememberSaveable { mutableStateOf("") }
-    var postalCode by rememberSaveable { mutableStateOf("") }
-    var shipCity by rememberSaveable { mutableStateOf("") }
 
     suspend fun load(silent: Boolean) {
         // El giro solo la primera vez: al recargar, enviar o refrescar en
@@ -111,14 +99,6 @@ fun ExchangeDetailScreen(
         try {
             val current = viewModel.repo.exchange(exchangeId)
             exchange = current
-            current.shipping?.let { shipping ->
-                shipKind = shipping.kind
-                postNumber = shipping.postNumber
-                station = shipping.station
-                street = shipping.street
-                postalCode = shipping.postalCode
-                shipCity = shipping.city
-            }
             val page = viewModel.repo.messages(exchangeId)
             peerKeys = page.keys.peerKeys
             val decrypted = viewModel.repo.decrypt(exchangeId, page, user?.id.orEmpty())
@@ -274,30 +254,6 @@ fun ExchangeDetailScreen(
 
                     if (current.status == "accepted") {
                         item {
-                            SectionTitle(texts["method"])
-                            ChoiceChips(
-                                options = listOf(
-                                    "in_person" to texts["methodInPerson"],
-                                    "post" to texts["methodPost"],
-                                ),
-                                selected = current.method,
-                                onSelect = { method ->
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            viewModel.repo.setHandoverMethod(current.id, method)
-                                            reloads += 1
-                                        } catch (failure: Exception) {
-                                            notice = errorText(texts, failure)
-                                        } finally {
-                                            busy = false
-                                        }
-                                    }
-                                },
-                            )
-                        }
-
-                        item {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 if (current.role == "owner") {
                                     SecondaryButton(
@@ -332,58 +288,6 @@ fun ExchangeDetailScreen(
                         }
                     }
 
-                    if (
-                        current.status == "accepted" &&
-                        current.role == "requester" &&
-                        current.method == "post"
-                    ) {
-                        item {
-                            SectionTitle(texts["shipping"])
-                            ChoiceChips(
-                                options = listOf(
-                                    "packstation" to texts["packstation"],
-                                    "address" to texts["address"],
-                                ),
-                                selected = shipKind,
-                                onSelect = { shipKind = it },
-                            )
-                            if (shipKind == "packstation") {
-                                FormField(postNumber, { postNumber = it }, texts["postNumber"])
-                                FormField(station, { station = it }, texts["station"])
-                            } else {
-                                FormField(street, { street = it }, texts["street"])
-                            }
-                            FormField(postalCode, { postalCode = it }, texts["postalCode"])
-                            FormField(shipCity, { shipCity = it }, texts["city"])
-                            SecondaryButton(
-                                text = texts["saveShipping"],
-                                enabled = !busy && postalCode.length == 5 && shipCity.isNotBlank(),
-                                onClick = {
-                                    scope.launch {
-                                        busy = true
-                                        try {
-                                            viewModel.repo.saveShipping(
-                                                id = current.id,
-                                                kind = shipKind,
-                                                postNumber = postNumber,
-                                                station = station,
-                                                street = street,
-                                                postalCode = postalCode,
-                                                city = shipCity,
-                                            )
-                                            notice = texts["shippingSaved"]
-                                            reloads += 1
-                                        } catch (failure: Exception) {
-                                            notice = errorText(texts, failure)
-                                        } finally {
-                                            busy = false
-                                        }
-                                    }
-                                },
-                            )
-                        }
-                    }
-
                     item {
                         SectionTitle(texts["messages"])
                         if (peerKeys.isEmpty()) {
@@ -411,16 +315,6 @@ fun ExchangeDetailScreen(
                         }
                     }
 
-                    if (current.shipping != null && current.role == "owner") {
-                        item {
-                            SectionTitle(texts["shipping"])
-                            MetaRow(texts["station"], current.shipping.station)
-                            MetaRow(texts["postNumber"], current.shipping.postNumber)
-                            MetaRow(texts["street"], current.shipping.street)
-                            MetaRow(texts["postalCode"], current.shipping.postalCode)
-                            MetaRow(texts["city"], current.shipping.city)
-                        }
-                    }
                 }
 
                 // La conversación no existe hasta que el intercambio se acepta:

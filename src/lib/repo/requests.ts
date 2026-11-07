@@ -12,7 +12,6 @@ import type {
 } from "../domain";
 import { publishRequestMessage } from "../live";
 import { canTransition, listingStatusFor } from "../request-flow";
-import { decryptSecret, encryptSecret, shipContext } from "../secret-box";
 import { areBlocked, messageEnvelopesFor, nowIso } from "./shared";
 import {
   assertVerified,
@@ -39,16 +38,6 @@ type RequestRow = {
   owner_id: string;
   owner_name: string;
   owner_city: string;
-  handover_set_at: string | null;
-  handover_code: string | null;
-  handover_method: string | null;
-  ship_kind: string | null;
-  ship_number: string | null;
-  ship_station: string | null;
-  ship_street: string | null;
-  ship_postal_code: string | null;
-  ship_city: string | null;
-  ship_set_at: string | null;
   owner_confirmed_at: string | null;
   requester_confirmed_at: string | null;
   message_count: number;
@@ -59,9 +48,6 @@ type RequestRow = {
 
 const REQUEST_SELECT = `
   SELECT r.id, r.status, r.created_at, r.updated_at, r.listing_id,
-         r.handover_set_at, r.handover_code,
-         r.handover_method, r.ship_kind, r.ship_number, r.ship_station,
-         r.ship_street, r.ship_postal_code, r.ship_city, r.ship_set_at,
          r.owner_confirmed_at, r.requester_confirmed_at,
          b.title, b.author, b.cover_url, l.status AS listing_status,
          req.id AS requester_id, req.name AS requester_name, req.city AS requester_city,
@@ -107,41 +93,7 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
     confirmedByOther: Boolean(
       row.requester_id === viewerId ? row.owner_confirmed_at : row.requester_confirmed_at,
     ),
-    delivery: toDeliveryView(row),
   };
-}
-
-/**
- * El envío va a una Packstation o a la dirección de quien recibe; en los dos
- * casos los datos están cifrados en la base y solo los ve la persona que envía.
- */
-function toDeliveryView(row: RequestRow): RequestView["delivery"] {
-  const method = row.handover_method === "post" ? "post" : "in_person";
-  const kind: "packstation" | "address" = row.ship_kind === "address" ? "address" : "packstation";
-  const hayDatos =
-    row.ship_postal_code && row.ship_city && (row.ship_number || row.ship_street);
-  const shipping = hayDatos
-    ? {
-        kind,
-        postNumber: safeDecrypt(row.ship_number, shipContext(row.id, "ship_number")),
-        station: safeDecrypt(row.ship_station, shipContext(row.id, "ship_station")),
-        street: safeDecrypt(row.ship_street, shipContext(row.id, "ship_street")),
-        postalCode: safeDecrypt(row.ship_postal_code, shipContext(row.id, "ship_postal_code")),
-        city: safeDecrypt(row.ship_city, shipContext(row.id, "ship_city")),
-        setAt: row.ship_set_at ?? row.updated_at,
-      }
-    : null;
-  return { method, shipping };
-}
-
-/** Los datos del envío se guardan cifrados; si el descifrado falla, no se rompe la vista. */
-function safeDecrypt(value: string | null, context: string): string {
-  if (!value) return "";
-  try {
-    return decryptSecret(value, context);
-  } catch {
-    return "";
-  }
 }
 
 /** Marca la conversación como leída hasta ahora para esa persona. */
@@ -487,146 +439,6 @@ export function cancelExchangesForAccount(userId: string): number {
   return open.length;
 }
 
-/**
- * Cambia la forma de entrega: en mano en una oficina o por correo a una
- * Packstation. Cualquiera de las dos partes puede cambiarla; los datos de la
- * Packstation los pone solo quien recibe el libro.
- */
-export function setHandoverMethod(
-  requestId: string,
-  userId: string,
-  method: "in_person" | "post",
-): RequestView {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?")
-    .get(requestId) as
-    | {
-        id: string;
-        listing_id: string;
-        requester_id: string;
-        owner_id: string;
-        status: RequestStatus;
-      }
-    | undefined;
-  if (!row || (row.requester_id !== userId && row.owner_id !== userId)) {
-    throw new ApiError(404, "La solicitud no existe.");
-  }
-  if (row.status !== "accepted" && row.status !== "completed") {
-    throw new ApiError(409, "La forma de entrega se elige al aceptar el intercambio.");
-  }
-
-  const now = nowIso();
-  db.transaction(() => {
-    db.prepare(
-      "UPDATE requests SET handover_method = ?, handover_set_at = ?, updated_at = ? WHERE id = ?",
-    ).run(method, now, now, requestId);
-    const otherId = row.requester_id === userId ? row.owner_id : row.requester_id;
-    notify({
-      userId: otherId,
-      type: "accepted",
-      title: method === "post" ? "Entrega por correo" : "Entrega en mano",
-      body:
-        method === "post"
-          ? `«${listingTitle(row.listing_id)}» · El libro viajará por correo a una Packstation.`
-          : `«${listingTitle(row.listing_id)}» · Quedáis en una oficina de Deutsche Post.`,
-      listingId: row.listing_id,
-      requestId,
-    });
-  })();
-
-  const updated = db
-    .prepare(`${REQUEST_SELECT} WHERE r.id = @id`)
-    .get({ id: requestId, viewerId: userId }) as RequestRow;
-  return toRequestView(updated, userId);
-}
-
-/**
- * Guarda a dónde va el libro. Solo lo puede escribir **quien recibe** (la
- * persona que pidió el ejemplar), porque son sus datos.
- *
- * Dos formas: una **Packstation** de DHL (número de cliente + taquilla) o su
- * **propia dirección**. En los dos casos todos los campos se guardan cifrados
- * con `APP_ENCRYPTION_KEY`: la etiqueta los necesita en claro, la base no.
- */
-export function setShippingAddress(
-  requestId: string,
-  userId: string,
-  input:
-    | { kind: "packstation"; postNumber: string; station: string; postalCode: string; city: string }
-    | { kind: "address"; street: string; postalCode: string; city: string },
-): RequestView {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?")
-    .get(requestId) as
-    | {
-        id: string;
-        listing_id: string;
-        requester_id: string;
-        owner_id: string;
-        status: RequestStatus;
-      }
-    | undefined;
-  if (!row || (row.requester_id !== userId && row.owner_id !== userId)) {
-    throw new ApiError(404, "La solicitud no existe.");
-  }
-  if (row.requester_id !== userId) {
-    throw new ApiError(
-      403,
-      "Los datos de envío los pone quien recibe el libro: pídeselos en la conversación.",
-    );
-  }
-  if (row.status !== "accepted") {
-    throw new ApiError(409, "Los datos de envío se guardan con el intercambio aceptado.");
-  }
-
-  const now = nowIso();
-  // Cada campo se cifra atado a esta solicitud y a su columna: un criptograma
-  // movido a otra fila no se descifra.
-  const cifrar = (field: string, value: string) =>
-    encryptSecret(value, shipContext(requestId, field));
-  const numero = input.kind === "packstation" ? input.postNumber : null;
-  const taquilla = input.kind === "packstation" ? input.station : null;
-  const calle = input.kind === "address" ? input.street : null;
-  // El aviso NO repite el destino: las notificaciones se guardan sin cifrar, así
-  // que solo dicen que ya se puede enviar. Los datos están en el intercambio.
-
-  db.transaction(() => {
-    db.prepare(
-      `UPDATE requests
-          SET handover_method = 'post', ship_kind = ?, ship_number = ?, ship_station = ?,
-              ship_street = ?, ship_postal_code = ?, ship_city = ?, ship_set_at = ?, updated_at = ?
-        WHERE id = ?`,
-    ).run(
-      input.kind,
-      numero ? cifrar("ship_number", numero) : null,
-      taquilla ? cifrar("ship_station", taquilla) : null,
-      calle ? cifrar("ship_street", calle) : null,
-      cifrar("ship_postal_code", input.postalCode),
-      cifrar("ship_city", input.city),
-      now,
-      now,
-      requestId,
-    );
-    notify({
-      userId: row.owner_id,
-      type: "accepted",
-      title: "Datos de envío listos",
-      body: `«${listingTitle(row.listing_id)}»`,
-      listingId: row.listing_id,
-      requestId,
-    });
-  })();
-
-  const updated = db
-    .prepare(`${REQUEST_SELECT} WHERE r.id = @id`)
-    .get({ id: requestId, viewerId: userId }) as RequestRow;
-  return toRequestView(updated, userId);
-}
-
-/* -------------------------------- mensajes -------------------------------- */
-
 function assertParticipant(requestId: string, userId: string) {
   const request = getDb()
     .prepare("SELECT requester_id, owner_id FROM requests WHERE id = ?")
@@ -637,7 +449,6 @@ function assertParticipant(requestId: string, userId: string) {
   return request;
 }
 
-/** Huella del último mensaje: permite detectar novedades sin enviar el contenido. */
 export function requestMessageStamp(
   requestId: string,
   userId: string,

@@ -889,16 +889,6 @@
   text-underline-offset: 2px;
 }
 
-.shipping-steps {
-  display: grid;
-  gap: 6px;
-  margin: 8px 0 6px;
-  padding-left: 18px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
 /* Comparar huellas: el QR y las dos huellas cortas, para el careo en persona. */
 .fingerprint-compare {
   margin-top: 12px;

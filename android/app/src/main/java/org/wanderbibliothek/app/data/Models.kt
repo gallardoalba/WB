@@ -170,26 +170,6 @@ data class ListingDetail(val listing: Listing, val similar: List<Listing>) {
 
 data class PersonRef(val id: String, val name: String, val city: String)
 
-data class Shipping(
-    val kind: String,
-    val postNumber: String,
-    val station: String,
-    val street: String,
-    val postalCode: String,
-    val city: String,
-) {
-    companion object {
-        fun from(json: JSONObject) = Shipping(
-            kind = json.text("kind"),
-            postNumber = json.text("postNumber"),
-            station = json.text("station"),
-            street = json.text("street"),
-            postalCode = json.text("postalCode"),
-            city = json.text("city"),
-        )
-    }
-}
-
 data class Exchange(
     val id: String,
     val status: String,
@@ -206,16 +186,12 @@ data class Exchange(
     val unreadMessages: Int,
     val confirmedByMe: Boolean,
     val confirmedByOther: Boolean,
-    val method: String,
-    val shipping: Shipping?,
 ) {
     val peer: PersonRef get() = if (role == "requester") owner else requester
-    val isDelivering: Boolean get() = role == "owner"
 
     companion object {
         fun from(json: JSONObject): Exchange {
             val listing = json.obj("listing")
-            val delivery = json.obj("delivery")
             return Exchange(
                 id = json.text("id"),
                 status = json.text("status"),
@@ -236,8 +212,6 @@ data class Exchange(
                 unreadMessages = json.int("unreadMessages"),
                 confirmedByMe = json.bool("confirmedByMe"),
                 confirmedByOther = json.bool("confirmedByOther"),
-                method = delivery?.text("method", "in_person") ?: "in_person",
-                shipping = delivery?.obj("shipping")?.let(Shipping::from),
             )
         }
     }

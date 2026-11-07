@@ -219,40 +219,8 @@ export type RequestView = {
   /** Confirmaciones de entrega: el intercambio se cierra cuando ambas son true. */
   confirmedByMe: boolean;
   confirmedByOther: boolean;
-  delivery: DeliveryView;
 };
 
-/** Cómo se entrega el libro: en mano o por correo. */
-export type HandoverMethod = "in_person" | "post";
-
-/** Destino del envío: una taquilla de DHL o la dirección de quien lo recibe. */
-export type ShippingKind = "packstation" | "address";
-
-/**
- * Datos del envío, **siempre cifrados en la base de datos**.
- *
- * Quien recibe elige: una Packstation (número de cliente de DHL + taquilla) o su
- * propia dirección. Los dos casos se tratan igual: solo los ve la persona que
- * envía el libro, y se guardan con `APP_ENCRYPTION_KEY`.
- */
-export type ShippingView = {
-  kind: ShippingKind;
-  /** Número de cliente de DHL (solo Packstation). */
-  postNumber: string;
-  /** «Packstation 123» (solo Packstation). */
-  station: string;
-  /** Calle y número (solo dirección). */
-  street: string;
-  postalCode: string;
-  city: string;
-  setAt: string;
-};
-
-export type DeliveryView = {
-  method: HandoverMethod;
-  /** Relleno solo cuando el método es `post` y ya hay datos de envío. */
-  shipping: ShippingView | null;
-};
 
 export type ActivityType = "published" | "requested" | "accepted" | "completed";
 
