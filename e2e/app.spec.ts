@@ -270,9 +270,21 @@ test("salud, Open Graph y sitemap mínimo", async ({ request }) => {
   const health = await request.get("/api/health");
   expect(health.ok()).toBeTruthy();
 
-  const og = await request.get("/opengraph-image");
+  const og = await request.get("/api/og/es");
   expect(og.status()).toBe(200);
   expect(og.headers()["content-type"]).toContain("image/png");
+  // Un idioma que no existe no debe devolver una tarjeta a la que apuntar.
+  expect((await request.get("/api/og/fr")).status()).toBe(404);
+  // Cada página anuncia la tarjeta de su propio idioma: si no, un enlace en
+  // alemán se comparte con el texto de otra lengua. Se compara contra el
+  // `lang` del HTML porque `/de` responde con la portada (el alemán no lleva
+  // prefijo) y la cookie del contexto decide el idioma en ese caso.
+  for (const path of ["/es", "/en", "/"]) {
+    const html = await (await request.get(path)).text();
+    const lang = /<html lang="([a-z]{2})"/.exec(html)?.[1];
+    expect(lang, `idioma de ${path}`).toBeTruthy();
+    expect(html, `tarjeta de ${path}`).toContain(`/api/og/${lang}"`);
+  }
 
   const sitemap = await request.get("/sitemap.xml");
   const body = await sitemap.text();

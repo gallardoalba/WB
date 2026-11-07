@@ -3,11 +3,12 @@ import { headers } from "next/headers";
 import "./globals.css";
 import { I18nProvider, type Messages } from "@/components/i18n-provider";
 import { PwaRegister } from "@/components/pwa-register";
-import { DE, EN } from "@/lib/i18n";
+import { DE, EN, translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { LOCALES, pick, type Locale } from "@/lib/locale";
 import { messagesById } from "@/lib/message-id";
 import { BRAND, REPOSITORY } from "@/lib/brand";
+import { OG_COPY, OG_SIZE, ogImagePath } from "@/lib/og";
 import { siteUrl } from "@/lib/site";
 
 export const viewport: Viewport = { themeColor: "#2f5741" };
@@ -82,6 +83,15 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const title = pick(locale, SITE_TITLE);
   const description = pick(locale, SITE_DESCRIPTION);
+  // La tarjeta social se genera por idioma y tiene que ser la misma que anuncia
+  // el `og:title`: si no, un enlace alemán se comparte con la tarjeta en
+  // castellano.
+  const ogImage = {
+    url: ogImagePath(locale),
+    width: OG_SIZE.width,
+    height: OG_SIZE.height,
+    alt: translate(locale, OG_COPY.alt),
+  };
   return {
     metadataBase: new URL(siteUrl()),
     title: {
@@ -112,12 +122,14 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: BRAND,
       title,
       description,
+      images: [ogImage],
     },
     twitter: {
       // La imagen de Open Graph es 1200×630; con `summary` se recortaba.
       card: "summary_large_image",
       title,
       description,
+      images: [ogImage],
     },
   };
 }
