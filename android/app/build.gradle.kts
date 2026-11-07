@@ -22,8 +22,8 @@ android {
         applicationId = "org.wanderbibliothek.app"
         minSdk = 24
         targetSdk = 37
-        versionCode = 9
-        versionName = "0.1.6"
+        versionCode = 11
+        versionName = "0.1.8"
     }
 
     buildFeatures {
