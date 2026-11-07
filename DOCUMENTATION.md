@@ -67,7 +67,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/documentacion` | Technical documentation page (Spanish and German). |
 | `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
 | `/api/health` | Service and database status. |
-| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the public catalogue and the work pages. |
+| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
 The API has 73 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 

@@ -4,7 +4,9 @@ import { handleApiError, json, readJson } from "@/lib/api";
 import { getSessionUser, requireUser } from "@/lib/auth";
 import { cityName } from "@/lib/city-name";
 import { getCover } from "@/lib/covers";
+import { notifyIndexNow } from "@/lib/indexnow";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
+import { siteUrl } from "@/lib/site";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { catalogParamsSchema, listingSchema } from "@/lib/validation";
 
@@ -55,6 +57,16 @@ export async function POST(request: Request) {
       const isbn = input.isbn;
       after(() => getCover(isbn).catch(() => undefined));
     }
+    // Aviso a Bing (y por él a DuckDuckGo y Ecosia) de que hay una ficha nueva.
+    // Va en `after()` y nunca lanza: publicar no puede depender del buscador.
+    const base = siteUrl();
+    after(() =>
+      notifyIndexNow(base, [
+        `${base}/werk/${listing.bookId}`,
+        `${base}/es/werk/${listing.bookId}`,
+        `${base}/en/werk/${listing.bookId}`,
+      ]),
+    );
     // La demanda se calcula después de publicar: si alguien buscaba la obra
     // en la misma ciudad, la persona que publica lo ve de inmediato.
     const demand = countBookWants(listing.bookId, user.city, user.id);

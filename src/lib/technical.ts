@@ -137,7 +137,7 @@ const ES: TechnicalDocument = {
             ["`/documentacion`", "Esta página."],
             ["`/projekt`", "Qué es el proyecto, por qué existe, que no tiene ánimo de lucro y qué demuestra."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, el catálogo público y las fichas de obra."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra y las páginas informativas **en los tres idiomas** (con `xhtml:link`), y `/indexnow` avisa a Bing —y con él a DuckDuckGo y Ecosia— cuando se publica un libro."],
           ],
         },
         {
@@ -504,7 +504,7 @@ const DE: TechnicalDocument = {
             ["`/documentacion`", "Diese Seite."],
             ["`/projekt`", "Was das Projekt ist, warum es existiert, dass es keinen kommerziellen Zweck hat und was es zeigt."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht die Startseite, den öffentlichen Katalog und die Werkseiten."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing — und damit DuckDuckGo und Ecosia —, sobald ein Buch eingestellt wird."],
           ],
         },
         {
