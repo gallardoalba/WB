@@ -350,12 +350,6 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
         api.put("/api/requests/${seg(id)}/handover/shipping", body)
     }
 
-    suspend fun verifyHandover(id: String, code: String): Exchange =
-        Exchange.from(
-            api.post("/api/requests/${seg(id)}/handover/verify", JSONObject().put("code", code.trim()))
-                .getJSONObject("request"),
-        )
-
     /* -------------------------------- avisos -------------------------------- */
 
     /** Avisos sin leer, para el distintivo de la campana. */

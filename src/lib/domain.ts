@@ -219,10 +219,6 @@ export type RequestView = {
   /** Confirmaciones de entrega: el intercambio se cierra cuando ambas son true. */
   confirmedByMe: boolean;
   confirmedByOther: boolean;
-  /** Código que muestra quien entrega; solo lo recibe esa persona. */
-  handoverCode: string | null;
-  /** La otra parte debe introducir el código para confirmar la recepción. */
-  handoverCodeRequired: boolean;
   delivery: DeliveryView;
 };
 

@@ -206,8 +206,6 @@ data class Exchange(
     val unreadMessages: Int,
     val confirmedByMe: Boolean,
     val confirmedByOther: Boolean,
-    val handoverCode: String?,
-    val handoverCodeRequired: Boolean,
     val method: String,
     val shipping: Shipping?,
 ) {
@@ -238,8 +236,6 @@ data class Exchange(
                 unreadMessages = json.int("unreadMessages"),
                 confirmedByMe = json.bool("confirmedByMe"),
                 confirmedByOther = json.bool("confirmedByOther"),
-                handoverCode = json.textOrNull("handoverCode"),
-                handoverCodeRequired = json.bool("handoverCodeRequired"),
                 method = delivery?.text("method", "in_person") ?: "in_person",
                 shipping = delivery?.obj("shipping")?.let(Shipping::from),
             )

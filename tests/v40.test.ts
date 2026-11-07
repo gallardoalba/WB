@@ -137,12 +137,6 @@ test("el aviso no repite la dirección: solo avisa de que ya se puede enviar", (
   }
 });
 
-test("solo la persona que entrega ve el código de entrega", () => {
-  // El código va impreso dentro del libro: solo lo recibe quien lo mete.
-  assert.ok(requestFor("usr_clara")?.handoverCode);
-  assert.equal(requestFor("usr_diego")?.handoverCode, null);
-});
-
 test("los datos de la Packstation se validan", () => {
   assert.ok(validation.shippingSchema.safeParse(packstation).success);
   assert.ok(

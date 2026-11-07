@@ -1,4 +1,4 @@
-import { randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type {
@@ -107,9 +107,6 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
     confirmedByOther: Boolean(
       row.requester_id === viewerId ? row.owner_confirmed_at : row.requester_confirmed_at,
     ),
-    handoverCode: row.owner_id === viewerId ? row.handover_code : null,
-    handoverCodeRequired:
-      row.requester_id === viewerId && row.status === "accepted" && Boolean(row.handover_code),
     delivery: toDeliveryView(row),
   };
 }
@@ -300,23 +297,14 @@ const REQUEST_ERRORS: Record<string, string> = {
 /** El estado cambió entre la lectura y la escritura (otra pestaña, otra persona). */
 const STALE_REQUEST = "El intercambio ha cambiado mientras lo mirabas. Recarga e inténtalo de nuevo.";
 
-/** Comparación en tiempo constante para el código de entrega. */
-function sameCode(given: string, expected: string): boolean {
-  const left = Buffer.from(given, "utf8");
-  const right = Buffer.from(expected, "utf8");
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
-}
-
 export function updateRequestStatus(
   requestId: string,
   userId: string,
   target: RequestStatus,
-  options: { handoverCode?: string } = {},
 ): RequestView {
   const db = getDb();
   const row = db
-    .prepare("SELECT id, listing_id, requester_id, owner_id, status, handover_code FROM requests WHERE id = ?")
+    .prepare("SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?")
     .get(requestId) as
     | {
         id: string;
@@ -324,7 +312,6 @@ export function updateRequestStatus(
         requester_id: string;
         owner_id: string;
         status: RequestStatus;
-        handover_code: string | null;
       }
     | undefined;
 
@@ -336,17 +323,7 @@ export function updateRequestStatus(
   if (!canTransition(role, row.status, target)) {
     throw new ApiError(409, REQUEST_ERRORS[target] ?? "Ese cambio de estado no es válido.");
   }
-  // El código de entrega lo muestra quien entrega y lo introduce quien
-  // recibe; así la confirmación no se puede hacer a distancia sin el libro.
-  if (target === "completed" && role === "requester" && row.handover_code) {
-    if (!options.handoverCode || !sameCode(options.handoverCode, row.handover_code)) {
-      throw new ApiError(409, "Introduce el código de entrega que te muestra la otra persona.");
-    }
-  }
-
   const now = nowIso();
-  const handoverCode =
-    target === "accepted" ? String(randomInt(0, 1_000_000)).padStart(6, "0") : null;
 
   db.transaction(() => {
     if (target === "completed") {
@@ -421,17 +398,7 @@ export function updateRequestStatus(
       ).run(now, row.listing_id, requestId);
     }
 
-    if (target === "accepted") {
-      const updated = db
-        .prepare(
-          `UPDATE requests SET status = ?, updated_at = ?, handover_set_at = ?, handover_code = ?
-           WHERE id = ? AND status = ?`,
-        )
-        .run(target, now, now, handoverCode, requestId, row.status);
-      if (updated.changes !== 1) {
-        throw new ApiError(409, STALE_REQUEST);
-      }
-    } else {
+    {
       const updated = db
         .prepare("UPDATE requests SET status = ?, updated_at = ? WHERE id = ? AND status = ?")
         .run(target, now, requestId, row.status);

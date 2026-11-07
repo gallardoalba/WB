@@ -146,11 +146,7 @@ test("una valoración exige un intercambio completado y es única", () => {
     repo.listRequests("usr_diego").find((item) => item.id === "req_seed_2")?.status,
     "accepted",
   );
-  const handoverCode = repo
-    .listRequests("usr_clara")
-    .find((item) => item.id === "req_seed_2")?.handoverCode;
-  assert.ok(handoverCode);
-  repo.updateRequestStatus("req_seed_2", "usr_diego", "completed", { handoverCode });
+  repo.updateRequestStatus("req_seed_2", "usr_diego", "completed");
   assert.equal(
     repo.listRequests("usr_diego").find((item) => item.id === "req_seed_2")?.status,
     "completed",

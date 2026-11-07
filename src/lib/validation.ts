@@ -183,10 +183,6 @@ export const readingStateSchema = z.object({
   status: z.enum(READING_STATES, { error: "Elige un estado de lectura." }).nullable(),
 });
 
-export const handoverCodeSchema = z.object({
-  code: z.string().trim().regex(/^\d{6}$/, "El código tiene 6 cifras."),
-});
-
 export const handoverSchema = z.object({
   /** En mano o por correo. */
   method: z.enum(["in_person", "post"], { error: "Elige en mano o por correo." }),

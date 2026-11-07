@@ -14,21 +14,11 @@ before(async () => {
   repo = await import("../src/lib/repo.ts");
 });
 
-const handoverCode = (requestId: string) =>
-  (
-    dbModule
-      .getDb()
-      .prepare("SELECT handover_code FROM requests WHERE id = ?")
-      .get(requestId) as { handover_code: string }
-  ).handover_code;
-
 /** Cierra un intercambio con las dos confirmaciones. */
 function completeExchange(requestId: string, ownerId: string, requesterId: string) {
   repo.updateRequestStatus(requestId, ownerId, "accepted");
   repo.updateRequestStatus(requestId, ownerId, "completed");
-  return repo.updateRequestStatus(requestId, requesterId, "completed", {
-    handoverCode: handoverCode(requestId),
-  });
+  return repo.updateRequestStatus(requestId, requesterId, "completed");
 }
 
 test("el muro público no muestra actividad de dueños suspendidos", () => {

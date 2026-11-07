@@ -84,14 +84,7 @@ test("el cierre bilateral no completa dos veces ni revierte", () => {
   assert.equal(first.status, "accepted");
   assert.equal(first.confirmedByMe, true);
 
-  // Quien recibe introduce el código que muestra quien entrega.
-  const { handover_code: code } = dbModule
-    .getDb()
-    .prepare("SELECT handover_code FROM requests WHERE id = ?")
-    .get(request.id) as { handover_code: string };
-  const second = repo.updateRequestStatus(request.id, "usr_ana", "completed", {
-    handoverCode: code,
-  });
+  const second = repo.updateRequestStatus(request.id, "usr_ana", "completed");
   assert.equal(second.status, "completed");
 
   assert.throws(() => repo.updateRequestStatus(request.id, "usr_ana", "completed"), isConflict);

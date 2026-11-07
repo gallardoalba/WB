@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { Lock, MessageCircle, Send, Star, TriangleAlert } from "lucide-react";
 import { Dialog } from "../dialog";
-import { HandoverCode } from "../handover-code";
 import { api } from "@/lib/client-api";
 import {
   REPORT_REASONS,
@@ -386,9 +385,7 @@ export function ExchangeDialog({
       !thread.keyChanged,
   );
   const actions = allowedTargets(request.role, request.status).filter(
-    (target) =>
-      !(target === "completed" && request.confirmedByMe) &&
-      !(target === "completed" && request.role === "requester" && request.handoverCodeRequired),
+    (target) => !(target === "completed" && request.confirmedByMe),
   );
 
   async function send(event: FormEvent<HTMLFormElement>) {
@@ -639,15 +636,6 @@ export function ExchangeDialog({
         })}
       </div>
 
-      {request.status === "accepted" && !request.confirmedByMe && (
-        <HandoverCode
-          requestId={request.id}
-          code={request.handoverCode}
-          required={request.handoverCodeRequired}
-          onVerified={onChanged}
-        />
-      )}
-
       <p className="encryption-note">
         <Lock size={13} aria-hidden /> {t("Cifrado de extremo a extremo · Huella de")}{" "}
         {thread?.peer.name ?? t("la otra persona")}:{" "}
@@ -729,7 +717,7 @@ export function ExchangeDialog({
       {request.status === "accepted" && (
         <p className="form-hint exchange-agree">
           {t(
-            "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation. La plataforma no pide direcciones; solo el código de entrega confirma que ha llegado.",
+            "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation. La plataforma no pide direcciones: cada parte confirma aquí cuando lo tiene.",
           )}
         </p>
       )}

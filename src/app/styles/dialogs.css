@@ -494,82 +494,6 @@
 }
 
 
-.handover-code {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.handover-code-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--green-strong);
-}
-
-.handover-code p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.handover-code img {
-  justify-self: center;
-  border-radius: var(--radius-xs);
-}
-
-.handover-code-card {
-  justify-self: start;
-  width: 100%;
-  max-width: 420px;
-}
-
-.handover-code > .secondary-button {
-  justify-self: start;
-}
-
-.handover-code-value {
-  justify-self: center;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: var(--green-pale);
-  color: var(--green-strong);
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: 0.22em;
-}
-
-.handover-code label {
-  display: grid;
-  gap: 5px;
-  color: var(--ink-soft);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.handover-code input {
-  /* Sin `width` el campo usa su ancho intrínseco y se sale de la columna. */
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  padding: 8px 11px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 20px;
-  letter-spacing: 0.18em;
-}
-
-.handover-code .share-button {
-  justify-self: start;
-}
-
 .form-note {
   margin: 10px 0 0;
   padding: 8px 10px;
@@ -973,45 +897,6 @@
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-}
-
-/* Tarjeta del código de entrega: el número a la izquierda y el QR a la
-   derecha, para que no ocupe media ventana. */
-.handover-code-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 14px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  text-align: left;
-}
-
-.handover-code-figure {
-  display: grid;
-  gap: 8px;
-  justify-items: start;
-}
-
-.handover-code-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.handover-code-card .post-label-service {
-  margin: 0 !important;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-}
-
-.handover-code-card .handover-code-value {
-  margin: 6px 0 2px;
-  background: transparent;
-  font-size: 30px;
 }
 
 /* Comparar huellas: el QR y las dos huellas cortas, para el careo en persona. */

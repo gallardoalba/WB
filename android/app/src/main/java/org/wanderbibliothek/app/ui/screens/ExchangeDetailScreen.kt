@@ -307,29 +307,12 @@ fun ExchangeDetailScreen(
                                     )
                                 }
                                 if (current.role == "requester" && !current.confirmedByMe) {
-                                    FormField(
-                                        value = code,
-                                        onValueChange = { code = it },
-                                        label = texts["enterCode"],
-                                        keyboardType = KeyboardType.Number,
-                                    )
-                                    ActionButton(
+                                    // Confirmar la recepción es solo un botón: sin
+                                    // código que cuadrar con la otra persona.
+                                    SecondaryButton(
                                         text = texts["confirmReceipt"],
-                                        enabled = !busy && code.length == 6,
-                                        onClick = {
-                                            scope.launch {
-                                                busy = true
-                                                try {
-                                                    viewModel.repo.verifyHandover(current.id, code)
-                                                    code = ""
-                                                    reloads += 1
-                                                } catch (failure: Exception) {
-                                                    notice = errorText(texts, failure)
-                                                } finally {
-                                                    busy = false
-                                                }
-                                            }
-                                        },
+                                        enabled = !busy,
+                                        onClick = { changeStatus("completed") },
                                     )
                                 }
                             }
@@ -346,26 +329,6 @@ fun ExchangeDetailScreen(
                                 enabled = !busy,
                                 onClick = { changeStatus("cancelled") },
                             )
-                        }
-                    }
-
-                    if (current.handoverCode != null) {
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                SectionTitle(texts["handoverCode"])
-                                Text(
-                                    text = current.handoverCode,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                SecondaryButton(
-                                    text = texts["copyCode"],
-                                    onClick = {
-                                        clipboard.setText(AnnotatedString(current.handoverCode))
-                                        notice = texts["codeCopied"]
-                                    },
-                                )
-                            }
                         }
                     }
 

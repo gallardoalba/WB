@@ -80,36 +80,14 @@ test("los estados de lectura se guardan, cambian y se borran", () => {
   assert.equal(cleared.read, 0);
 });
 
-test("el código de entrega lo ve quien entrega y lo exige quien recibe", () => {
+test("confirmar la entrega no pide ningún código", () => {
   const accepted = repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted");
   assert.equal(accepted.status, "accepted");
 
-  const ownerView = repo.listRequests("usr_clara").find((request) => request.id === "req_seed_2");
-  assert.match(ownerView?.handoverCode ?? "", /^\d{6}$/);
-
-  const requesterView = repo
-    .listRequests("usr_diego")
-    .find((request) => request.id === "req_seed_2");
-  assert.equal(requesterView?.handoverCode, null);
-  assert.equal(requesterView?.handoverCodeRequired, true);
-
-  assert.throws(
-    () => repo.updateRequestStatus("req_seed_2", "usr_diego", "completed"),
-    (error: unknown) => error instanceof Error && error.message.includes("código"),
-  );
-  assert.throws(
-    () =>
-      repo.updateRequestStatus("req_seed_2", "usr_diego", "completed", {
-        handoverCode: "000000",
-      }),
-    (error: unknown) => error instanceof Error && error.message.includes("código"),
-  );
-
-  const confirmed = repo.updateRequestStatus("req_seed_2", "usr_diego", "completed", {
-    handoverCode: ownerView!.handoverCode!,
-  });
-  assert.equal(confirmed.status, "accepted");
-  assert.equal(confirmed.confirmedByMe, true);
+  // Cada parte confirma la suya y el intercambio se cierra con las dos.
+  const first = repo.updateRequestStatus("req_seed_2", "usr_diego", "completed");
+  assert.equal(first.status, "accepted");
+  assert.equal(first.confirmedByMe, true);
 
   const completed = repo.updateRequestStatus("req_seed_2", "usr_clara", "completed");
   assert.equal(completed.status, "completed");
