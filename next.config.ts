@@ -11,6 +11,27 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [{ source: "/buecher", destination: "/descubrir", permanent: true }];
   },
+  /**
+   * Idioma en la URL: `/es/…` y `/en/…` se sirven con la misma página que la
+   * ruta sin prefijo, y el proxy pone el idioma en la cabecera. El alemán es el
+   * idioma por defecto y no lleva prefijo.
+   *
+   * El «recorte» del prefijo se declara aquí, y no como `rewrite` del proxy, a
+   * propósito: un rewrite de middleware lleva la URL absoluta de destino, y
+   * detrás de nginx el `Host` que llega a Node es `localhost:3000`, así que
+   * Next lo tomaba por una reescritura externa y respondía 500 en producción.
+   * Una reescritura del config es siempre interna: no hay host que comparar.
+   */
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: "/es", destination: "/" },
+        { source: "/es/:path*", destination: "/:path*" },
+        { source: "/en", destination: "/" },
+        { source: "/en/:path*", destination: "/:path*" },
+      ],
+    };
+  },
   // El indicador flotante del desarrollo (la «N» de la esquina con bundler,
   // caché y componentes) no aporta nada aquí y confunde al mirar la interfaz.
   // Solo existe en `next dev`: en la compilación de producción no se pinta.

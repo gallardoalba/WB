@@ -100,11 +100,13 @@ export function proxy(request: NextRequest) {
   // su URL canónica no lleva prefijo, así que `/de/...` redirige a `/...` para
   // no servir el mismo contenido en dos direcciones.
   //
-  // La página se sirve con la ruta interna (sin prefijo) vía `rewrite`: el
-  // navegador conserva la URL con el idioma, que es la que Google indexa. El
-  // idioma viaja en una cabecera porque es lo que `getLocale()` puede leer en el
-  // render, y además se guarda en la cookie para que al navegar dentro de la
-  // aplicación (que no cambia de ruta) se siga viendo en el mismo idioma.
+  // Aquí no se reescribe nada: el recorte del prefijo está en `rewrites()` de
+  // `next.config.ts`, que siempre es interno. Un `rewrite` del proxy necesita
+  // una URL absoluta y, detrás de nginx, el `Host` que ve Node es
+  // `localhost:3000`: Next lo tomaba por una reescritura externa y respondía
+  // 500. Lo que sí hace falta desde aquí es el idioma, que viaja en una cabecera
+  // (lo que `getLocale()` puede leer en el render) y se guarda en la cookie para
+  // que al navegar dentro de la aplicación se siga viendo igual.
   const prefijo = esApi ? null : splitLocalePath(request.nextUrl.pathname);
   const usaPrefijo = prefijo !== null && !prefijo.path.startsWith("/_next/");
 
@@ -124,16 +126,7 @@ export function proxy(request: NextRequest) {
     requestHeaders.set(LOCALE_HEADER, idiomaForzado);
   }
 
-  const response = usaPrefijo
-    ? NextResponse.rewrite(
-        (() => {
-          const inner = request.nextUrl.clone();
-          inner.pathname = prefijo.path;
-          return inner;
-        })(),
-        { request: { headers: requestHeaders } },
-      )
-    : NextResponse.next({ request: { headers: requestHeaders } });
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   if (idiomaForzado) {
     response.cookies.set(LOCALE_COOKIE, idiomaForzado, {
       path: "/",
