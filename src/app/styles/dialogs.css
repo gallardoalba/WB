@@ -493,32 +493,6 @@
   cursor: not-allowed;
 }
 
-/* Punto de entrega: siempre una oficina pública de Deutsche Post. */
-.handover-card {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin-top: 14px;
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--green-pale);
-  color: var(--ink-soft);
-}
-
-.handover-card strong {
-  display: block;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.handover-card p {
-  margin: 3px 0 0;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
 
 .handover-code {
   display: grid;
@@ -968,75 +942,9 @@
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Entrega por correo: Packstation, etiqueta y datos de envío          */
-/* ------------------------------------------------------------------ */
-
 /* Los botones de texto con icono de la tarjeta de entrega, en una sola línea. */
-.handover-card .message-report {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.handover-methods {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.handover-method {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  color: var(--ink-soft);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.handover-method:hover {
-  border-color: var(--green);
-}
-
-.handover-method[aria-pressed="true"] {
-  border-color: var(--green);
-  background: var(--green);
-  color: var(--on-fill);
-}
-
-.handover-method:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 /* Etiqueta con el mismo texto que se pega en el paquete. */
-.post-label {
-  display: grid;
-  gap: 2px;
-  /* Es una etiqueta de paquete: con el diálogo ancho no debe estirarse a lo
-     ancho de toda la ventana. */
-  max-width: 380px;
-  margin-top: 10px;
-  padding: 12px 14px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.post-label p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
 
 .post-label-service {
   margin-bottom: 6px !important;
@@ -1047,119 +955,9 @@
   text-transform: uppercase;
 }
 
-.post-label-name {
-  font-size: 16px;
-  font-weight: 700;
-}
 
-.post-label-sender {
-  margin-top: 8px !important;
-  color: var(--muted);
-  font-size: 12px;
-}
 
-.shipping-form {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
 
-/* Estado del paso de entrega: lo primero que se lee de la tarjeta. */
-.handover-status {
-  margin: 6px 0 0;
-  padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--green-pale);
-  color: var(--green-strong);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-/* Siempre desplegado: es el paso que bloquea el envío, no una opción. */
-.shipping-form-title {
-  margin: 0;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.shipping-form > .form-hint {
-  margin: -4px 0 2px;
-}
-
-.shipping-form label {
-  display: grid;
-  gap: 4px;
-  color: var(--ink-soft);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.shipping-form input {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  padding: 8px 11px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.shipping-form small {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.shipping-form .share-button {
-  justify-self: start;
-}
-
-/* Con el diálogo ancho, los campos van a dos columnas: Postnummer | Packstation
-   y CP | ciudad. Así no hay campos de 800 px para nueve cifras. */
-@media (min-width: 720px) {
-  .shipping-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 14px;
-    align-items: start;
-  }
-
-  .shipping-form > .shipping-form-title,
-  .shipping-form > .form-hint,
-  .shipping-form > .handover-methods,
-  .shipping-form > .form-error,
-  .shipping-form > .action-feedback,
-  .shipping-form > .shipping-row,
-  .shipping-form > .ship-full,
-  .shipping-form > .share-button {
-    grid-column: 1 / -1;
-  }
-}
-
-.shipping-row > label {
-  min-width: 0;
-}
-
-.shipping-row {
-  display: grid;
-  /* Dos columnas iguales: con 110 px fijos la etiqueta «Código postal» se salía
-     de su celda y los dos campos quedaban desalineados. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-@media (max-width: 480px) {
-  .shipping-row {
-    grid-template-columns: 1fr;
-  }
-}
 
 .exchange-help a {
   color: var(--green-strong);
@@ -1177,15 +975,25 @@
   line-height: 1.5;
 }
 
-/* Tarjeta del código de entrega (se copia a mano, no se imprime). */
+/* Tarjeta del código de entrega: el número a la izquierda y el QR a la
+   derecha, para que no ocupe media ventana. */
 .handover-code-card {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   padding: 12px 14px;
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  text-align: center;
+  text-align: left;
+}
+
+.handover-code-figure {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
 }
 
 .handover-code-card p {

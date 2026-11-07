@@ -110,17 +110,6 @@ export function ExchangesList({
               {request.role === "owner"
                 ? t("Solicitud de {name}", { name: request.requester.name })
                 : t("Solicitado a {name}", { name: request.owner.name })}
-              {request.delivery.method === "post"
-                ? ` · ${t("Por correo")}${
-                    request.delivery.shipping
-                      ? ` (${t(
-                          request.delivery.shipping.kind === "packstation"
-                            ? "Packstation"
-                            : "a tu dirección",
-                        )})`
-                      : ""
-                  }`
-                : ` · ${t("En mano")}`}
               {request.messageCount > 0
                 ? ` · ${request.messageCount} ${
                     request.messageCount === 1 ? t("mensaje") : t("mensajes")

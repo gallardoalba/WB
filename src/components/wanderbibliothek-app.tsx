@@ -938,11 +938,78 @@ export default function WanderbibliothekApp({
                 </button>
               </div>
             ) : (
-              <ExchangesList
-                requests={requests}
-                onOpen={setExchangeId}
-                onExplore={() => navigate({ view: "discover" })}
-              />
+              <>
+                <ExchangesList
+                  requests={requests}
+                  onOpen={setExchangeId}
+                  onExplore={() => navigate({ view: "discover" })}
+                />
+                {/* La ayuda para enviar vive aquí, en la página, y no dentro de
+                    cada conversación: no cambia de un intercambio a otro y en la
+                    ventana estorbaba. */}
+                <details className="exchange-help exchange-help-page">
+                  <summary>{t("¿Cómo enviar los libros de forma segura?")}</summary>
+                  <p>
+                    {t(
+                      "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation. La plataforma no pide direcciones; solo el código de entrega confirma que ha llegado.",
+                    )}
+                  </p>
+                  <p>
+                    <strong>{t("En una Packstation, sin dar tu dirección")}</strong>
+                  </p>
+                  <ul className="shipping-steps">
+                    <li>
+                      {t(
+                        "El registro en DHL es gratuito: con una cuenta de cliente y la app Post & DHL recibes tu Postnummer, un número personal que va siempre detrás de tu nombre.",
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        "La dirección solo lleva tu nombre, el Postnummer, «Packstation» con su número y el código postal y la ciudad: tu calle nunca aparece.",
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        "DHL guarda el paquete hasta 9 días naturales y avisa por correo y en la app.",
+                      )}
+                    </li>
+                  </ul>
+                  <p>
+                    <strong>{t("Por correo, como Warensendung")}</strong>
+                  </p>
+                  <ul className="shipping-steps">
+                    <li>
+                      {t(
+                        "Escribe en el paquete el nombre y la dirección de quien lo recibe tal como te los haya dado, con el código postal y la ciudad. Nunca «Postlagernd»: es otro servicio.",
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        "Envíalo como Warensendung: hasta 2 kg y 35,3 × 25 × 5 cm. No lleva seguimiento ni seguro.",
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        "Apunta a mano el código de entrega de 6 cifras en un papel y mételo dentro del libro: no hace falta imprimir nada.",
+                      )}
+                    </li>
+                  </ul>
+                  <p className="form-hint">
+                    {t(
+                      "Precios orientativos de Deutsche Post: 2,70 € hasta 1 kg y 3,55 € hasta 2 kg. Confírmalos al enviarlo.",
+                    )}
+                  </p>
+                  <p className="form-hint">
+                    <a
+                      href="https://www.dhl.de/de/privatkunden/pakete-empfangen/an-einem-abholort-empfangen/packstation.html"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      {t("Cómo funciona la Packstation en dhl.de")}
+                    </a>
+                  </p>
+                </details>
+              </>
             )
           ) : (
             <>
