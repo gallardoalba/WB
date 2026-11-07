@@ -35,6 +35,11 @@ private val LightColors = lightColorScheme(
     outline = Color(0xFF7C8175),
     error = Color(0xFF8C1D18),
     onError = Color(0xFFFFFFFF),
+    // Los avisos usan el par `errorContainer`/`onErrorContainer`: si no se
+    // declara, el modo claro coge el rosa palido por defecto y el texto oscuro
+    // no casa con el resto de la paleta.
+    errorContainer = Color(0xFFF6DDD9),
+    onErrorContainer = Color(0xFF4A0F0B),
 )
 
 private val DarkColors = darkColorScheme(
@@ -56,6 +61,8 @@ private val DarkColors = darkColorScheme(
     outline = Color(0xFF8A9184),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
+    errorContainer = Color(0xFF5C1A16),
+    onErrorContainer = Color(0xFFFFDAD6),
 )
 
 @Composable

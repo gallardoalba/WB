@@ -241,11 +241,15 @@
   flex: 1;
 }
 
+/* Contador de pendientes. Lleva color propio en vez de heredar el del enlace:
+   sobre la pestaña activa (fondo verde claro) el número se perdia. */
 .nav-count {
   padding: 3px 7px;
   border-radius: var(--radius-pill);
-  background: rgba(47, 87, 65, 0.12);
+  background: var(--green-fill);
+  color: var(--on-fill);
   font-size: 13px;
+  font-weight: 700;
 }
 
 .sidebar-note {

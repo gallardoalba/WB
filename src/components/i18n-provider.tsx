@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import type { MessageKey } from "@/lib/i18n";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/locale";
 import { messageId } from "@/lib/message-id";
@@ -53,10 +61,20 @@ export function I18nProvider({
   messages: Messages;
   children: ReactNode;
 }) {
+  // `messages` llega como un objeto nuevo en **cada** render del servidor (el
+  // RSC lo vuelve a deserializar), y `router.refresh()` re-renderiza a menudo.
+  // Si `t` cambiara de identidad con él, cualquier efecto que lo tenga en sus
+  // dependencias se volvería a ejecutar en cada refresco: el de la conversación,
+  // por ejemplo, relee el hilo, marca como leído y vuelve a refrescar → bucle.
+  // El diccionario vive en una referencia y `t` se crea una sola vez.
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const t = useCallback(
     (text: Translatable, vars?: Record<string, string | number>) =>
-      interpolate(messages[messageId(text)] ?? text, vars),
-    [messages],
+      interpolate(messagesRef.current[messageId(text)] ?? text, vars),
+    [],
   );
   const value = useMemo(() => ({ locale, t }), [locale, t]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

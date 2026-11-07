@@ -305,7 +305,10 @@ fun ErrorBox(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onError,
+        // Sobre `errorContainer` el color correcto es `onErrorContainer`. Con
+        // `onError` (que es para el rojo lleno) en modo claro quedaba texto
+        // blanco sobre un rosa palido.
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(message, style = MaterialTheme.typography.bodyMedium)
@@ -327,7 +330,7 @@ fun Notice(message: String, isError: Boolean = false) {
             MaterialTheme.colorScheme.primaryContainer
         },
         contentColor = if (isError) {
-            MaterialTheme.colorScheme.onError
+            MaterialTheme.colorScheme.onErrorContainer
         } else {
             MaterialTheme.colorScheme.onPrimaryContainer
         },
