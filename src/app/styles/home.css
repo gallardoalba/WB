@@ -141,14 +141,15 @@
   font-weight: 600;
 }
 
-/* Medida de lectura: el párrafo se corta en 56 caracteres (unos 470 px a
-   15 px) aunque la columna sea más ancha. Sin este tope las líneas se
-   estiran hasta el borde de la tarjeta y cuesta seguirlas. */
+/* Medida de lectura: el párrafo se corta en 64 caracteres (unos 650 px a
+   16 px) aunque la columna sea más ancha. Sin este tope las líneas se estiran
+   hasta el borde de la tarjeta y cuesta seguirlas; con 56 partía en cuatro
+   renglones y dejaba media tarjeta vacía. */
 .hero-banner p {
-  max-width: 56ch;
+  max-width: 64ch;
   margin: 0;
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 

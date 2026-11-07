@@ -175,8 +175,8 @@
      tres líneas y la frase acababa en «…» justo donde empieza a explicar el
      proyecto. Solo se ajusta el tamaño, no la longitud. */
   .hero-banner p {
-    font-size: 14.5px;
-    line-height: 1.45;
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   .hero-button {

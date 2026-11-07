@@ -881,7 +881,9 @@
   background: transparent;
   color: var(--ink-soft);
   font: inherit;
-  font-size: var(--text-md);
+  /* Excepción consciente al mínimo de 16 px de los campos: es un control de
+     utilidad en la cabecera y a 16 px «ES» pesaba más que el buscador. */
+  font-size: var(--text-sm);
   font-weight: 700;
   cursor: pointer;
 }

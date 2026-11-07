@@ -17,6 +17,13 @@ import { test } from "node:test";
  */
 const STYLES = path.join(import.meta.dirname, "..", "src", "app", "styles");
 const CONTROL = /\b(input|select|textarea)\b/;
+/**
+ * Única excepción al mínimo de los campos: el selector de idioma de la cabecera.
+ * Es un control de utilidad de dos letras; a 16 px pesaba más que el buscador y
+ * lo pidió así quien lo usa. El selector nativo de iOS abre su propia lista, así
+ * que el zoom al enfocar apenas se nota.
+ */
+const CONTROL_EXEMPT = [".locale-select"];
 
 type Rule = { file: string; selector: string; size: string; px: number };
 
@@ -48,7 +55,12 @@ test("ningún texto baja de 10 px", () => {
 });
 
 test("los campos de texto no bajan de 16 px (zoom de iOS)", () => {
-  const small = rules().filter((rule) => CONTROL.test(rule.selector) && rule.px < 16);
+  const small = rules().filter(
+    (rule) =>
+      CONTROL.test(rule.selector) &&
+      !CONTROL_EXEMPT.includes(rule.selector) &&
+      rule.px < 16,
+  );
   assert.deepEqual(
     small.map((rule) => `${rule.size} en ${rule.file} · ${rule.selector}`),
     [],
