@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.wanderbibliothek.app.data.DEFAULT_SERVER_URL
+import org.wanderbibliothek.app.data.Languages
 import org.wanderbibliothek.app.ui.AppViewModel
 import org.wanderbibliothek.app.ui.LocalTexts
 import org.wanderbibliothek.app.ui.SessionState
@@ -77,7 +78,12 @@ fun AccountScreen(
     var deleting by rememberSaveable { mutableStateOf(false) }
 
     fun openPage(path: String) {
-        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(path))) }
+        // La web publica cada idioma en su URL (`/es/…`, `/en/…`) y el alemán
+        // sin prefijo: sin esto la app abriría siempre la versión alemana.
+        val prefix = Languages.fromSystem().let { if (it == "de") "" else "/$it" }
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$serverUrl$prefix$path")))
+        }
     }
 
     /** Guarda la exportación en la caché y abre el diálogo de compartir. */
