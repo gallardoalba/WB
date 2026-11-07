@@ -524,7 +524,7 @@ export default function WanderbibliothekApp({
                 </p>
                 <p>
                   {t(
-                    "Una biblioteca impulsada por la comunidad donde los libros encuentran nuevos lectores y la lectura conecta a las personas.",
+                    "Una biblioteca impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
                   )}
                 </p>
                 <button
