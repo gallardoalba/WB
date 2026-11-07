@@ -89,7 +89,7 @@ export const DE = {
   "1 persona lo ha leído": "1 Person hat es gelesen",
   "{n} personas lo han leído": "{n} Personen haben es gelesen",
   "No se pudo guardar tu lectura.": "Deine Lektüre konnte nicht gespeichert werden.",
-  "Libros que buscan lector": "Bücher suchen ein neues Zuhause",
+  "Libros que buscan lector": "Bücher suchen Leser:innen",
   "Descubrir todos los libros": "Alle Bücher entdecken",
   "Limpiar filtros": "Filter zurücksetzen",
   "Búsqueda: {value}": "Suche: {value}",
