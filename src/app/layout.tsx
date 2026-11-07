@@ -22,9 +22,9 @@ const SITE_TITLE = {
 } as const;
 
 const SITE_DESCRIPTION = {
-  de: "Kostenlose Tauschbörse für gedruckte Bücher: Buch einstellen, Bücher in deiner Stadt finden und persönlich oder per Post weitergeben.",
-  es: "Mercado gratuito de intercambio de libros físicos: publica un ejemplar, encuentra libros en tu ciudad y entrégalos en mano o por correo.",
-  en: "Free exchange for printed books: list a copy, find books in your city and pass them on in person or by post.",
+  de: "Eine Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden.",
+  es: "Una biblioteca impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
+  en: "A community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared.",
 } as const;
 
 /**

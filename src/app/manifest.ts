@@ -13,9 +13,9 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     }),
     short_name: BRAND,
     description: pick(locale, {
-      de: "Entdecke, teile und tausche gedruckte Bücher mit Leser:innen in deiner Stadt.",
-      es: "Descubre, comparte e intercambia libros físicos con lectores de tu comunidad.",
-      en: "Discover, share and swap printed books with readers in your city.",
+      de: "Eine Bibliothek, getragen von der Gemeinschaft: Bücher, Ideen und Erfahrungen teilen.",
+      es: "Una biblioteca impulsada por la comunidad: comparte libros, ideas y experiencias.",
+      en: "A community-driven library: share books, ideas and experiences.",
     }),
     start_url: "/",
     scope: "/",
