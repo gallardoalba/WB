@@ -17,7 +17,6 @@ import org.wanderbibliothek.app.data.Languages
 import org.wanderbibliothek.app.data.LoginOutcome
 import org.wanderbibliothek.app.data.Prefs
 import org.wanderbibliothek.app.data.SessionBus
-import org.wanderbibliothek.app.data.ThemePreference
 import org.wanderbibliothek.app.data.User
 import org.wanderbibliothek.app.data.WanderRepository
 
@@ -142,10 +141,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateUser(user: User) {
         _session.value = SessionState.SignedIn(user)
-    }
-
-    suspend fun setTheme(theme: ThemePreference) {
-        prefs.setTheme(theme)
     }
 
     suspend fun setServerUrl(url: String) {

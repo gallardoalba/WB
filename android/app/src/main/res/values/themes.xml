@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      La app es solo oscura: el tema de ventana también lo es para que no haya
+      un destello claro entre el arranque y el primer fotograma de Compose.
+      `window_background` debe coincidir con `DarkColors.background` de Theme.kt.
+    -->
+    <style name="Theme.Wanderbibliothek" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:colorBackground">@color/window_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

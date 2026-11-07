@@ -14,20 +14,8 @@ private val Context.wanderDataStore by preferencesDataStore(name = "wanderbiblio
 
 const val DEFAULT_SERVER_URL = "https://wanderbibliothek.org"
 
-enum class ThemePreference(val storageValue: String) {
-    SYSTEM("system"),
-    LIGHT("light"),
-    DARK("dark");
-
-    companion object {
-        fun fromStorage(value: String?): ThemePreference =
-            entries.firstOrNull { it.storageValue == value } ?: SYSTEM
-    }
-}
-
 data class AppSettings(
     val serverUrl: String,
-    val theme: ThemePreference,
 )
 
 /**
@@ -54,7 +42,6 @@ class Prefs(context: Context) {
     val settings: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
             serverUrl = preferences[SERVER_URL] ?: DEFAULT_SERVER_URL,
-            theme = ThemePreference.fromStorage(preferences[THEME]),
         )
     }
 
@@ -64,10 +51,6 @@ class Prefs(context: Context) {
 
     suspend fun setServerUrl(value: String) {
         dataStore.edit { it[SERVER_URL] = value }
-    }
-
-    suspend fun setTheme(value: ThemePreference) {
-        dataStore.edit { it[THEME] = value.storageValue }
     }
 
     /* ---------------------------- sesión (cookies) --------------------------- */
@@ -235,7 +218,6 @@ class Prefs(context: Context) {
 
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
-        val THEME = stringPreferencesKey("theme")
         val COOKIES = stringPreferencesKey("cookies")
         val E2E_KEY_ID = stringPreferencesKey("e2e_key_id")
         val E2E_PRIVATE_KEY = stringPreferencesKey("e2e_private_key")

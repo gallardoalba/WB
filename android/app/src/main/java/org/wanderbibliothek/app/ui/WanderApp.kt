@@ -50,7 +50,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.wanderbibliothek.app.data.ImageUrl
 import org.wanderbibliothek.app.data.SessionBus
-import org.wanderbibliothek.app.data.ThemePreference
 import org.wanderbibliothek.app.ui.screens.AccountScreen
 import org.wanderbibliothek.app.ui.screens.ClubDetailScreen
 import org.wanderbibliothek.app.ui.screens.ClubsScreen
@@ -95,7 +94,7 @@ fun WanderApp(viewModel: AppViewModel = viewModel()) {
     // Hasta que DataStore no responde no se sabe contra qué servidor hablar:
     // componer el catálogo antes pediría las portadas al servidor por defecto.
     if (settings == null) {
-        WanderTheme(preference = ThemePreference.SYSTEM) {
+        WanderTheme {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -110,7 +109,7 @@ fun WanderApp(viewModel: AppViewModel = viewModel()) {
     val language = remember { TextCatalog.languageFor(Locale.getDefault().language) }
     val texts = remember(language) { TextCatalog.forLanguage(language) }
 
-    WanderTheme(preference = settings.theme) {
+    WanderTheme {
         CompositionLocalProvider(LocalTexts provides texts, LocalLang provides language) {
             AppScaffold(viewModel = viewModel, session = session)
         }

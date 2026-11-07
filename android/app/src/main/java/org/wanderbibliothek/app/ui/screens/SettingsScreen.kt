@@ -24,12 +24,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.wanderbibliothek.app.data.AppSettings
 import org.wanderbibliothek.app.data.DEFAULT_SERVER_URL
-import org.wanderbibliothek.app.data.ThemePreference
 import org.wanderbibliothek.app.ui.AppViewModel
 import org.wanderbibliothek.app.ui.LocalTexts
 import org.wanderbibliothek.app.ui.SessionState
 import org.wanderbibliothek.app.ui.components.ActionButton
-import org.wanderbibliothek.app.ui.components.ChoiceChips
 import org.wanderbibliothek.app.ui.components.FormField
 import org.wanderbibliothek.app.ui.components.Notice
 import org.wanderbibliothek.app.ui.components.SecondaryButton
@@ -41,7 +39,7 @@ fun SettingsScreen(viewModel: AppViewModel, session: SessionState) {
     val texts = LocalTexts.current
     val settingsValue by viewModel.settings.collectAsStateWithLifecycle()
     val settings = settingsValue
-        ?: AppSettings(DEFAULT_SERVER_URL, ThemePreference.SYSTEM)
+        ?: AppSettings(DEFAULT_SERVER_URL)
     val user = (session as? SessionState.SignedIn)?.user
     val scope = rememberCoroutineScope()
 
@@ -114,19 +112,6 @@ fun SettingsScreen(viewModel: AppViewModel, session: SessionState) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         notice?.let { Notice(it, isError = isError) }
-
-        SectionTitle(texts["theme"])
-        ChoiceChips(
-            options = listOf(
-                ThemePreference.SYSTEM.storageValue to texts["themeSystem"],
-                ThemePreference.LIGHT.storageValue to texts["themeLight"],
-                ThemePreference.DARK.storageValue to texts["themeDark"],
-            ),
-            selected = settings.theme.storageValue,
-            onSelect = { value ->
-                scope.launch { viewModel.setTheme(ThemePreference.fromStorage(value)) }
-            },
-        )
 
         SectionTitle(texts["serverUrl"])
         Text(
