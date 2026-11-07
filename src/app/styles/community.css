@@ -305,7 +305,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 /* ---------------------- Cifrado de mensajes ----------------------------- */

@@ -89,7 +89,7 @@
 
 .tech-doc p.doc-lead {
   color: var(--ink);
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .tech-doc ul {
@@ -129,7 +129,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   overflow-x: auto;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--ink-soft);
 }

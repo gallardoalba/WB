@@ -383,7 +383,7 @@
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.15;
     text-align: center;
     /* Si una etiqueta no cabe, ocupa dos líneas antes que cortarse con puntos
@@ -418,7 +418,7 @@
     border: 0;
     background: transparent;
     color: var(--green-strong);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
   }
 

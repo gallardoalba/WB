@@ -42,7 +42,7 @@
   border-radius: 999px;
   background: var(--paper);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   text-decoration: none;
 }
 
@@ -205,7 +205,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
-  font-size: 13.5px;
+  font-size: var(--text-md);
 }
 
 .list-grid {
@@ -358,7 +358,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--paper);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .club-book-note {
@@ -586,7 +586,7 @@
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .club-loan-form .share-button {

@@ -307,7 +307,7 @@
   grid-column: 1 / -1;
   margin: 0;
   color: var(--muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.55;
 }
 
@@ -498,7 +498,7 @@
   background: var(--surface);
   color: var(--ink-soft);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .language-filter {
@@ -615,7 +615,7 @@
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .search-field input::placeholder {
@@ -650,6 +650,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 

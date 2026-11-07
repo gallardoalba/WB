@@ -263,7 +263,7 @@
   border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
 }
 
@@ -276,7 +276,7 @@
   border-radius: var(--radius-xs);
   background: rgba(35, 42, 36, 0.86);
   color: var(--on-fill);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -327,12 +327,12 @@
   white-space: nowrap;
 }
 
-/* En la tarjeta el género pesa menos que la autoría: es el tercer nivel. A
-   12,5 px en mayúsculas competía con el nombre de quien escribió el libro; a
-   10 px es una etiqueta, no un dato que compita por la atención. */
+/* En la tarjeta el género pesa menos que la autoría: es el tercer nivel. Antes
+   estaba a 10 px, por debajo de lo que se lee sin esfuerzo en un móvil; a
+   11,5 px sigue siendo una etiqueta y no compite con el título. */
 .book-details .book-category {
   margin-bottom: 2px;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
@@ -386,14 +386,14 @@
 .owner-avatar {
   width: 26px;
   height: 26px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .owner-name {
   min-width: 0;
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -410,7 +410,7 @@
   gap: 3px;
   margin-left: auto;
   color: var(--muted-2);
-  font-size: 13px;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 

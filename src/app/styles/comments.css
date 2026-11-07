@@ -186,7 +186,7 @@
   border-radius: var(--radius-sm);
   background: var(--paper);
   color: var(--ink);
-  font-size: 14.5px;
+  font-size: var(--text-md);
   line-height: 1.55;
   resize: vertical;
 }
@@ -467,7 +467,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  font-size: 13.5px;
+  font-size: var(--text-md);
 }
 
 .comment-report input {

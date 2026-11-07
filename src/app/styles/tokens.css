@@ -73,7 +73,7 @@
      contador de la campana. */
   --text-xs: 13px;
   --text-sm: 14px;
-  --text-base: 14px;
+  --text-base: 16px;
   --text-md: 16px;
   --text-lg: 20px;
   /* Borde de controles: 3,7:1 sobre papel y 4:1 sobre superficie, que es lo
@@ -261,6 +261,15 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+}
+
+/* Los campos de texto no bajan de 16 px: por debajo, iOS amplía la página al
+   enfocar un campo y no la devuelve al cerrar el teclado. Es el mínimo de
+   Safari, no una preferencia estética. */
+input,
+select,
+textarea {
+  font-size: var(--text-md);
 }
 
 /* Iconografía un poco más fina: menos ruido en una interfaz densa. */

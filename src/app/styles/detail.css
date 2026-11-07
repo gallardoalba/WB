@@ -577,6 +577,9 @@
 .legal-doc {
   max-width: 74ch;
   margin: 0 auto;
+  /* La prosa se lee a 16 px: 14 era el tamaño de la interfaz densa y estas
+     páginas se leen seguidas, no se hojean. */
+  font-size: var(--text-base);
 }
 
 .legal-doc h1 {

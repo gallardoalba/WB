@@ -90,7 +90,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .reader-filters input {

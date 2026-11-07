@@ -291,7 +291,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .listing-form textarea,
@@ -485,7 +485,7 @@
   border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .message-form input:disabled {
@@ -565,7 +565,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .message-report-actions {
@@ -813,7 +813,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 
