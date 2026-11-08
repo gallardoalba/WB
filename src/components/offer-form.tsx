@@ -288,6 +288,9 @@ export function OfferForm({
             isbn: noIsbn ? undefined : form.get("isbn") || undefined,
             city: form.get("city"),
             tags: form.getAll("tags").map(String),
+            // La portada se sube después de crear el ejemplar; este aviso deja
+            // que el post de Mastodon la espere en vez de salir sin imagen.
+            withCover: Boolean(cover),
           },
         },
       );

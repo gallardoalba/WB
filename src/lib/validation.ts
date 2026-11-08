@@ -147,6 +147,11 @@ export const listingSchema = z.object({
     .refine((value) => value === null || isValidIsbn(value), "El ISBN no es válido."),
   city: cityField.optional(),
   tags: tagsField,
+  // El formulario sube la portada en una petición **posterior** a esta (necesita
+  // el id del libro). Con esta marca, el aviso de Mastodon espera unos segundos
+  // a que la imagen esté en disco antes de pintar la tarjeta; sin ella no hay
+  // nada que esperar y el aviso sale de inmediato.
+  withCover: z.boolean().optional(),
 });
 
 export const requestSchema = z.object({

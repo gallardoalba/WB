@@ -84,6 +84,8 @@ export async function POST(request: Request) {
         language: input.language ?? null,
         base,
         ownerId: user.id,
+        // Si el formulario trae portada, la sube justo después de esto.
+        esperarPortada: input.withCover,
       }),
     );
     // La demanda se calcula después de publicar: si alguien buscaba la obra

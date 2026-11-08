@@ -28,7 +28,7 @@
 import { randomUUID } from "node:crypto";
 
 import { toJpeg } from "./cover-convert";
-import { getCover, readUploadedCover } from "./covers";
+import { getCover, readUploadedCover, uploadedCoverPath } from "./covers";
 import { getDb } from "./db";
 import { DEFAULT_LOCALE, localePath, type Locale } from "./locale";
 
@@ -398,6 +398,35 @@ export function workUrl(base: string, bookId: string, locale: Locale): string {
   return `${base.replace(/\/+$/, "")}${localePath(locale, `/werk/${bookId}`)}`;
 }
 
+/**
+ * Espera a que la portada subida a mano esté en disco.
+ *
+ * El aviso se encola en el `after()` de la misma petición que crea el ejemplar,
+ * y el navegador sube la imagen **después** de recibir el id del libro. Generar
+ * la tarjeta en ese instante daba un post sin portada aunque el ejemplar la
+ * tuviera (pasó con «Iluminaciones», que además no tiene ISBN). Se sondea el
+ * fichero —una lectura barata— en vez de pedir la portada por ISBN en cada
+ * vuelta, que golpearía Open Library.
+ *
+ * Sin `timeoutMs` no espera: sirve para el caso de que la portada ya esté.
+ * Devuelve si al final había portada subida.
+ */
+export async function esperarPortadaSubida(
+  bookId: string,
+  timeoutMs = 6_000,
+  intervaloMs = 250,
+): Promise<boolean> {
+  // Un id que no puede tener portada subida (patrón inválido) no se espera: el
+  // sondeo nunca la encontraría.
+  if (!uploadedCoverPath(bookId)) return false;
+  const limite = Date.now() + Math.max(0, timeoutMs);
+  for (;;) {
+    if (readUploadedCover(bookId)) return true;
+    if (Date.now() >= limite) return false;
+    await new Promise((resolve) => setTimeout(resolve, intervaloMs));
+  }
+}
+
 /** Portada de la obra: la subida a mano manda; si no, la del ISBN (y se cachea). */
 export async function coverForBook(
   bookId: string,
@@ -715,6 +744,11 @@ export async function announceBook(input: {
   base: string;
   /** Quien publica el ejemplar. Sin él no se aplica el tope diario. */
   ownerId?: string | null;
+  /**
+   * El formulario sube una portada justo después de crear el ejemplar: el
+   * aviso tiene que esperarla o la tarjeta se pinta sin ella.
+   */
+  esperarPortada?: boolean;
   /** Instante del aviso; las pruebas lo fijan para no depender del reloj. */
   now?: Date;
 }): Promise<{ queued: boolean; sent: boolean; media: boolean }> {
@@ -758,6 +792,18 @@ export async function announceBook(input: {
       locale,
       seed: input.bookId,
     });
+
+    // ¿La obra tiene ISBN? Entonces hay portada de respaldo (Open Library) y no
+    // merece la pena esperar a la subida tanto como cuando no la hay.
+    if (input.esperarPortada) {
+      const fila = getDb()
+        .prepare("SELECT isbn FROM books WHERE id = ?")
+        .get(input.bookId) as { isbn: string | null } | undefined;
+      // Si el formulario sube una portada, el aviso tiene que esperarla: la
+      // petición de subida sale **después** de crear el ejemplar y sin esta
+      // espera la tarjeta se pinta sin ella (pasó con «Iluminaciones»).
+      await esperarPortadaSubida(input.bookId, fila?.isbn ? 1_500 : 6_000);
+    }
 
     // La imagen se sube antes de encolar: así el id queda guardado y un
     // reintento publica exactamente lo mismo, con su imagen.

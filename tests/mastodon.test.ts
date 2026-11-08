@@ -576,3 +576,86 @@ test("sin token, publicar no encola nada", async () => {
     .get("bok_sin_bot") as { n: number };
   assert.equal(rows.n, 0, "sin bot no se acumulan filas muertas en la cola");
 });
+
+/* ------------------ la portada llega después de crear el ejemplar ---------- */
+
+test("sin portada en disco no se espera ni un instante", async () => {
+  // `timeoutMs = 0` es el caso «no hay nada que esperar»: la función sale sin
+  // dormir, que es lo que hace el aviso cuando el formulario no sube imagen.
+  assert.equal(await mastodon.esperarPortadaSubida("bok_sin_portada", 0), false);
+});
+
+test("el aviso espera la portada que el formulario sube después del alta", async () => {
+  const { mkdtempSync, writeFileSync, existsSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+
+  clearQueue();
+  const dir = mkdtempSync(join(tmpdir(), "wb-portada-"));
+  const anterior = process.env.WANDERBIBLIOTHEK_COVER_CACHE;
+  process.env.WANDERBIBLIOTHEK_COVER_CACHE = dir;
+
+  const tarjeta = PNG.sync.write(
+    (() => {
+      const image = new PNG({ width: 400, height: 620 });
+      image.data.fill(90);
+      return image;
+    })(),
+  );
+  const portada = PNG.sync.write(
+    (() => {
+      const image = new PNG({ width: 100, height: 150 });
+      image.data.fill(200);
+      return image;
+    })(),
+  );
+
+  const original = globalThis.fetch;
+  // El id va con el patrón real de `bok_…`: el prefijo `bok_` y, después, solo
+  // letras, números y guiones (un guion bajo de más hace que no haya portada).
+  const bookId = "bok_prueba-portada";
+  let portadaEnDiscoAlPedirLaTarjeta = false;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = typeof input === "string" ? input : String(input);
+    if (url.includes("/api/og/werk/")) {
+      // Lo que se comprueba: cuando el bot pide la tarjeta, la portada ya está.
+      portadaEnDiscoAlPedirLaTarjeta = existsSync(join(dir, `upload-${bookId}.img`));
+      return new Response(new Uint8Array(tarjeta), {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      });
+    }
+    return jsonResponse({ id: "117583227433568922", url: "https://mastodon.social/@x/1" });
+  }) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+
+  try {
+    // El navegador sube la imagen unos cientos de milisegundos después de
+    // recibir el id del libro: es exactamente lo que dejaba el post sin portada.
+    const subida = setTimeout(() => {
+      writeFileSync(join(dir, `upload-${bookId}.img`), portada);
+    }, 400);
+
+    const result = await mastodon.announceBook({
+      bookId,
+      title: "Iluminaciones",
+      author: "Walter Benjamin",
+      base: "https://wanderbibliothek.org",
+      esperarPortada: true,
+    });
+    clearTimeout(subida);
+
+    assert.deepEqual(result, { queued: true, sent: true, media: true });
+    assert.equal(
+      portadaEnDiscoAlPedirLaTarjeta,
+      true,
+      "la tarjeta tiene que pintarse con la portada ya subida",
+    );
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+    if (anterior === undefined) delete process.env.WANDERBIBLIOTHEK_COVER_CACHE;
+    else process.env.WANDERBIBLIOTHEK_COVER_CACHE = anterior;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
