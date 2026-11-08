@@ -36,6 +36,7 @@ import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
 import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
+import { MastodonLink } from "./mastodon-link";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { AuthDialog } from "./dialogs/auth-dialog";
 import { SiteSearch } from "./site-search";
@@ -1429,6 +1430,7 @@ export default function WanderbibliothekApp({
               <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
               <Link href={href("/projekt")}>{t("El proyecto")}</Link>
               <Link href={href("/documentacion")}>{t("Documentación")}</Link>
+              <MastodonLink />
             </nav>
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {stats.cities}{" "}

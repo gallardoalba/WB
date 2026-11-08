@@ -121,3 +121,16 @@ test("la cuenta de Mastodon se declara con rel=me en el encabezado", () => {
     "el perfil declarado tiene que ser la cuenta real del fediverso",
   );
 });
+
+test("los dos pies de página enlazan a la cuenta de Mastodon", () => {
+  // Hay dos pies: el del catálogo (`wanderbibliothek-app`) y el del resto de
+  // páginas (`site-shell`). El enlace se me quedó solo en uno y la portada no
+  // lo enseñaba; ahora los dos montan el mismo componente.
+  for (const file of [
+    "src/components/wanderbibliothek-app.tsx",
+    "src/components/site-shell.tsx",
+  ]) {
+    const source = readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8");
+    assert.match(source, /<MastodonLink\s*\/>/, `${file} debe incluir <MastodonLink />`);
+  }
+});
