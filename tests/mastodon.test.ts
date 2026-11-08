@@ -474,6 +474,93 @@ test("en desarrollo no se anuncia una URL de localhost", async () => {
   }
 });
 
+test("el día del aviso se calcula en hora alemana, no en UTC", () => {
+  // Las 23:30 UTC del 8 ya son el 9 en Berlín: si se contara en UTC, quien
+  // publica de madrugada entraría en el día anterior.
+  assert.equal(mastodon.dayKey(new Date("2026-11-08T23:30:00Z")), "2026-11-09");
+  // En verano la diferencia son dos horas.
+  assert.equal(mastodon.dayKey(new Date("2026-07-15T22:30:00Z")), "2026-07-16");
+  assert.equal(mastodon.dayKey(new Date("2026-11-08T10:00:00Z")), "2026-11-08");
+});
+
+test("publicar varios libros el mismo día anuncia solo el primero", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  let posted = 0;
+  globalThis.fetch = (async () => {
+    posted += 1;
+    return jsonResponse({ id: String(posted) });
+  }) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+  const manana = new Date("2026-11-08T09:00:00Z");
+  const tarde = new Date("2026-11-08T19:00:00Z");
+  const diaSiguiente = new Date("2026-11-09T07:00:00Z");
+  const anunciar = (bookId: string, ownerId: string, now: Date) =>
+    mastodon.announceBook({
+      bookId,
+      title: "Título",
+      author: "Autoría",
+      base: "https://wanderbibliothek.org",
+      ownerId,
+      now,
+    });
+  try {
+    const primero = await anunciar("bok_dia_1", "usr_uno", manana);
+    const segundo = await anunciar("bok_dia_2", "usr_uno", tarde);
+    const otraPersona = await anunciar("bok_dia_3", "usr_dos", tarde);
+    const alDiaSiguiente = await anunciar("bok_dia_4", "usr_uno", diaSiguiente);
+
+    assert.deepEqual(primero, { queued: true, sent: true, media: false });
+    assert.deepEqual(segundo, { queued: false, sent: false, media: false }, "el segundo libro del día no se anuncia");
+    assert.deepEqual(otraPersona, { queued: true, sent: true, media: false }, "otra persona sí tiene su aviso");
+    assert.deepEqual(alDiaSiguiente, { queued: true, sent: true, media: false }, "al día siguiente vuelve a tocar");
+
+    const filas = dbModule
+      .getDb()
+      .prepare("SELECT subject, owner_id, day FROM social_outbox ORDER BY subject")
+      .all() as { subject: string; owner_id: string; day: string }[];
+    assert.deepEqual(
+      filas.map((fila) => fila.subject),
+      ["bok_dia_1", "bok_dia_3", "bok_dia_4"],
+      "el del mediodía no llegó a encolarse",
+    );
+    assert.equal(filas[0]!.owner_id, "usr_uno");
+    assert.equal(filas[0]!.day, "2026-11-08");
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+  }
+});
+
+test("sin persona no se aplica el tope diario (envío a mano)", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => jsonResponse({ id: "9" })) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+  try {
+    const now = new Date("2026-11-08T09:00:00Z");
+    const uno = await mastodon.announceBook({
+      bookId: "bok_manual_1",
+      title: "T",
+      author: "A",
+      base: "https://wanderbibliothek.org",
+      now,
+    });
+    const dos = await mastodon.announceBook({
+      bookId: "bok_manual_2",
+      title: "T",
+      author: "A",
+      base: "https://wanderbibliothek.org",
+      now,
+    });
+    assert.equal(uno.queued, true);
+    assert.equal(dos.queued, true);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+  }
+});
+
 test("sin token, publicar no encola nada", async () => {
   clearQueue();
   const result = await mastodon.announceBook({

@@ -247,6 +247,10 @@ Lo que hay que saber:
 - **Un aviso por obra, no por ejemplar.** Si tres personas ponen el mismo libro,
   el perfil no lo repite: la tabla `social_outbox` tiene una clave única por red
   y obra.
+- **Y uno por persona y día.** Quien cataloga su estantería de una sentada no
+  convierte el perfil en una lista de la compra: se anuncia el primer libro del
+  día y los demás se quedan sin aviso. El día se cuenta en hora alemana
+  (Europe/Berlin), no en UTC. El envío a mano (`--enviar`) no pasa por ese tope.
 - **Registro sobrio**: una frase enunciativa, sin emoji ni exclamaciones, el
   enlace y tres etiquetas. Hay veinte formulaciones por idioma y la variante se
   elige con un hash del id de la obra, así que el mismo libro siempre se anuncia

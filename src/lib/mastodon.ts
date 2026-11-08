@@ -44,6 +44,26 @@ const ALT_LIMIT = 1500;
 /** Intentos antes de dar un post por perdido. */
 const MAX_ATTEMPTS = 5;
 
+/**
+ * Zona horaria que decide qué es «hoy» para el tope diario.
+ *
+ * El servidor puede estar en UTC y la base guarda instantes en UTC, pero quien
+ * publica vive en Alemania: con la medianoche UTC, un libro de las 00:30 de
+ * Múnich contaría como del día anterior.
+ */
+const DAY_TIME_ZONE = "Europe/Berlin";
+
+/** Día (AAAA-MM-DD) al que pertenece un instante, en la zona de la casa. */
+export function dayKey(now: Date = new Date(), timeZone = DAY_TIME_ZONE): string {
+  // `en-CA` da el formato ISO que se puede comparar como texto.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
 export type MastodonConfig = {
   /** Origen, sin barra final: `https://mastodon.social`. */
   instance: string;
@@ -562,17 +582,30 @@ export function enqueuePost(input: {
   text: string;
   mediaId?: string | null;
   network?: string;
+  /** Quien publica el ejemplar: sostiene el tope de un aviso por persona y día. */
+  ownerId?: string | null;
+  /** Día del aviso; se calcula al encolar y sirve para el tope diario. */
+  day?: string | null;
 }): string | null {
   const id = `soc_${randomUUID()}`;
   const result = getDb()
     .prepare(
       `INSERT OR IGNORE INTO social_outbox
-         (id, network, subject, body, status, attempts, next_attempt_at, created_at, media_id)
+         (id, network, subject, body, status, attempts, next_attempt_at, created_at,
+          media_id, owner_id, day)
        VALUES (?, ?, ?, ?, 'pending', 0,
                strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-               strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)`,
+               strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?, ?, ?)`,
     )
-    .run(id, input.network ?? SOCIAL_NETWORK, input.bookId, input.text, input.mediaId ?? null);
+    .run(
+      id,
+      input.network ?? SOCIAL_NETWORK,
+      input.bookId,
+      input.text,
+      input.mediaId ?? null,
+      input.ownerId ?? null,
+      input.day ?? null,
+    );
   return result.changes > 0 ? id : null;
 }
 
@@ -669,6 +702,10 @@ export function purgeSocialOutbox(days = 90): number {
  *
  * Que la portada falle (sin imagen, `write:media` sin permiso, instancia lenta)
  * no impide el aviso: se publica el texto sin imagen.
+ *
+ * Con `ownerId`, además, solo se anuncia **un libro por persona y día**: quien
+ * cataloga su estantería de una sentada no convierte el perfil en una lista de
+ * la compra. Se publica el primero y los demás se quedan sin aviso.
  */
 export async function announceBook(input: {
   bookId: string;
@@ -676,6 +713,10 @@ export async function announceBook(input: {
   author: string;
   language?: string | null;
   base: string;
+  /** Quien publica el ejemplar. Sin él no se aplica el tope diario. */
+  ownerId?: string | null;
+  /** Instante del aviso; las pruebas lo fijan para no depender del reloj. */
+  now?: Date;
 }): Promise<{ queued: boolean; sent: boolean; media: boolean }> {
   try {
     const config = mastodonConfig();
@@ -699,6 +740,15 @@ export async function announceBook(input: {
       .prepare("SELECT 1 FROM social_outbox WHERE network = ? AND subject = ?")
       .get(SOCIAL_NETWORK, input.bookId);
     if (already) return { queued: false, sent: false, media: false };
+
+    // Un aviso por persona y día: el primero que llegue es el que se publica.
+    const day = dayKey(input.now ?? new Date());
+    if (input.ownerId) {
+      const today = getDb()
+        .prepare("SELECT 1 FROM social_outbox WHERE network = ? AND owner_id = ? AND day = ?")
+        .get(SOCIAL_NETWORK, input.ownerId, day);
+      if (today) return { queued: false, sent: false, media: false };
+    }
 
     const locale = localeForLanguage(input.language);
     const text = composeStatus({
@@ -726,7 +776,7 @@ export async function announceBook(input: {
       // Sin imagen se publica igual: el aviso es lo importante.
     }
 
-    const id = enqueuePost({ bookId: input.bookId, text, mediaId });
+    const id = enqueuePost({ bookId: input.bookId, text, mediaId, ownerId: input.ownerId, day });
     if (!id) return { queued: false, sent: false, media: false };
     // Se intenta esa fila y no la más antigua: un atraso en la cola (la
     // instancia caída ayer) no puede retrasar el aviso de hoy.

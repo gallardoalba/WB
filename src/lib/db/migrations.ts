@@ -1372,6 +1372,30 @@ function migrateToV42(db: Db) {
 }
 
 /**
+ * v43: un aviso por persona y día.
+ *
+ * `owner_id` guarda quién puso el ejemplar y `day` el día del aviso ya calculado
+ * en la zona de la casa (Europe/Berlin), no en UTC: quien publica a las 00:30 en
+ * Múnich no debe contar como el día anterior. El índice sostiene la consulta que
+ * hace el bot antes de encolar.
+ */
+function migrateToV43(db: Db) {
+  const columns = (db.pragma("table_info(social_outbox)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("owner_id")) {
+    db.exec("ALTER TABLE social_outbox ADD COLUMN owner_id TEXT");
+  }
+  if (!columns.includes("day")) {
+    db.exec("ALTER TABLE social_outbox ADD COLUMN day TEXT");
+  }
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS social_outbox_owner_day ON social_outbox(owner_id, day)",
+  );
+  db.pragma("user_version = 43");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1498,6 +1522,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 40) migrateToV40(db);
   if (userVersion(db) < 41) migrateToV41(db);
   if (userVersion(db) < 42) migrateToV42(db);
+  if (userVersion(db) < 43) migrateToV43(db);
 
   backfillSearchKeys(db);
 }

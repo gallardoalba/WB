@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     );
     // Aviso en Mastodon, también en `after()` y tan silencioso como el anterior:
     // el post se encola en la base, así que un fallo de la instancia no pierde el
-    // aviso ni retrasa la respuesta. Un post por obra, no por ejemplar.
+    // aviso ni retrasa la respuesta. Un post por obra y, por persona, uno al día.
     after(() =>
       announceBook({
         bookId: listing.bookId,
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
         author: input.author,
         language: input.language ?? null,
         base,
+        ownerId: user.id,
       }),
     );
     // La demanda se calcula después de publicar: si alguien buscaba la obra
