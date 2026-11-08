@@ -31,6 +31,7 @@ import { toJpeg } from "./cover-convert";
 import { getCover, readUploadedCover, uploadedCoverPath } from "./covers";
 import { getDb } from "./db";
 import { DEFAULT_LOCALE, localePath, type Locale } from "./locale";
+import { siteUrl } from "./site";
 
 /** Red social del post. La tabla admite más; hoy solo hay esta. */
 export const SOCIAL_NETWORK = "mastodon";
@@ -615,15 +616,17 @@ export function enqueuePost(input: {
   ownerId?: string | null;
   /** Día del aviso; se calcula al encolar y sirve para el tope diario. */
   day?: string | null;
+  /** Cuándo toca publicarlo. Sin valor, ya (el cron solo mira lo que está vencido). */
+  nextAttemptAt?: Date | null;
 }): string | null {
   const id = `soc_${randomUUID()}`;
+  const cuando = (input.nextAttemptAt ?? new Date()).toISOString();
   const result = getDb()
     .prepare(
       `INSERT OR IGNORE INTO social_outbox
          (id, network, subject, body, status, attempts, next_attempt_at, created_at,
           media_id, owner_id, day)
-       VALUES (?, ?, ?, ?, 'pending', 0,
-               strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+       VALUES (?, ?, ?, ?, 'pending', 0, ?,
                strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?, ?, ?)`,
     )
     .run(
@@ -631,11 +634,95 @@ export function enqueuePost(input: {
       input.network ?? SOCIAL_NETWORK,
       input.bookId,
       input.text,
+      cuando,
       input.mediaId ?? null,
       input.ownerId ?? null,
       input.day ?? null,
     );
   return result.changes > 0 ? id : null;
+}
+
+/** Separación mínima entre dos avisos encolados: 2 horas. */
+export const SOCIAL_GAP_MIN_MS = 2 * 60 * 60 * 1000;
+/** Separación máxima entre dos avisos encolados: 3 horas. */
+export const SOCIAL_GAP_MAX_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Separación aleatoria entre dos avisos: entre 2 y 3 horas.
+ *
+ * Quien cataloga diez libros de una sentada no debe convertir su cuenta en un
+ * aluvión para quien la sigue, y un hueco fijo parecería programado. El azar se
+ * inyecta en las pruebas para que no dependan del reloj ni de la suerte.
+ */
+export function separacionAviso(random: () => number = Math.random): number {
+  return SOCIAL_GAP_MIN_MS + Math.round(random() * (SOCIAL_GAP_MAX_MS - SOCIAL_GAP_MIN_MS));
+}
+
+/**
+ * Cuándo salió (o va a salir) el último aviso de la cuenta.
+ *
+ * Cuenta también los ya enviados: si solo se miraran los pendientes, la segunda
+ * obra publicada diez segundos después de la primera volvería a salir en el acto
+ * y la tanda de veinte se publicaría de golpe.
+ */
+function ultimoAvisoProgramado(): Date | null {
+  const row = getDb()
+    .prepare(
+      `SELECT MAX(COALESCE(sent_at, next_attempt_at, created_at)) AS enviado,
+              MAX(next_attempt_at) AS previsto
+         FROM social_outbox WHERE network = ?`,
+    )
+    .get(SOCIAL_NETWORK) as { enviado: string | null; previsto: string | null } | undefined;
+  const marcas = [row?.enviado, row?.previsto]
+    .filter((valor): valor is string => Boolean(valor))
+    .map((valor) => new Date(valor).getTime())
+    .filter((valor) => Number.isFinite(valor));
+  return marcas.length > 0 ? new Date(Math.max(...marcas)) : null;
+}
+
+/**
+ * Sube la imagen del aviso **justo antes de publicarlo**.
+ *
+ * No se sube al encolar porque un aviso puede esperar horas o días en la cola
+ * (una tanda va separada 2–3 horas) y Mastodon descarta los medios que no se
+ * adjuntan en 24 horas: el post saldría sin portada o fallaría. El id queda
+ * anotado en la fila para que un reintento adjunte la misma imagen en vez de
+ * subir otra.
+ */
+async function asegurarMedio(
+  config: MastodonConfig,
+  row: { id: string; subject: string; media_id: string | null },
+  fetchImpl: typeof fetch,
+): Promise<string | null> {
+  if (row.media_id) return row.media_id;
+  try {
+    const book = getDb()
+      .prepare("SELECT title, author, language FROM books WHERE id = ?")
+      .get(row.subject) as
+      | { title: string; author: string; language: string | null }
+      | undefined;
+    if (!book) return null;
+    const media = await mediaForPost(siteUrl(), row.subject, fetchImpl);
+    if (!media) return null;
+    const locale = localeForLanguage(book.language);
+    const subida = await uploadMedia(
+      config,
+      {
+        data: media.data,
+        contentType: media.contentType,
+        description: coverAlt(locale, book.title, book.author),
+      },
+      fetchImpl,
+    );
+    if (!subida.ok) return null;
+    getDb()
+      .prepare("UPDATE social_outbox SET media_id = ? WHERE id = ?")
+      .run(subida.id, row.id);
+    return subida.id;
+  } catch {
+    // Sin imagen se publica igual: el aviso es lo importante.
+    return null;
+  }
 }
 
 /**
@@ -659,7 +746,7 @@ export async function processSocialOutbox(
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT id, body, attempts, media_id
+      `SELECT id, subject, body, attempts, media_id
          FROM social_outbox
         WHERE network = ? AND status = 'pending'
           AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -669,6 +756,7 @@ export async function processSocialOutbox(
     )
     .all(SOCIAL_NETWORK, options.only ?? null, options.only ?? null, limit) as {
     id: string;
+    subject: string;
     body: string;
     attempts: number;
     media_id: string | null;
@@ -677,8 +765,9 @@ export async function processSocialOutbox(
   let sent = 0;
   let failed = 0;
   for (const row of rows) {
+    const mediaId = await asegurarMedio(config, row, fetchImpl);
     const result = await postStatus(config, row.body, row.id, {
-      mediaIds: row.media_id ? [row.media_id] : [],
+      mediaIds: mediaId ? [mediaId] : [],
       fetchImpl,
     });
     if (result.ok) {
@@ -813,29 +902,38 @@ export async function announceBook(input: {
       await esperarPortadaSubida(input.bookId, fila?.isbn ? 1_500 : 6_000);
     }
 
-    // La imagen se sube antes de encolar: así el id queda guardado y un
-    // reintento publica exactamente lo mismo, con su imagen.
-    let mediaId: string | null = null;
-    try {
-      const media = await mediaForPost(input.base, input.bookId);
-      if (media) {
-        const uploaded = await uploadMedia(config, {
-          data: media.data,
-          contentType: media.contentType,
-          description: coverAlt(locale, input.title, input.author),
-        });
-        if (uploaded.ok) mediaId = uploaded.id;
-      }
-    } catch {
-      // Sin imagen se publica igual: el aviso es lo importante.
-    }
+    // La imagen **no** se sube aquí: un aviso puede esperar días en la cola y
+    // Mastodon borra los medios sin adjuntar en 24 h. La sube `asegurarMedio`
+    // justo antes de publicarlo (ver `processSocialOutbox`).
 
-    const id = enqueuePost({ bookId: input.bookId, text, mediaId, ownerId: input.ownerId, day });
+    // Un aviso detrás de otro, pero no a la vez: quien publica diez libros de una
+    // sentada tiene su primer aviso en el acto y los demás en cola, separados
+    // entre 2 y 3 horas (`separacionAviso`). Así el catálogo crece sin que la
+    // cuenta parezca un robot que escupe veinte posts seguidos.
+    const anterior = input.ownerId ? ultimoAvisoProgramado() : null;
+    const ahora = input.now ?? new Date();
+    const candidato = anterior ? anterior.getTime() + separacionAviso() : 0;
+    const turno = anterior && candidato > ahora.getTime() ? new Date(candidato) : null;
+
+    const id = enqueuePost({
+      bookId: input.bookId,
+      text,
+      ownerId: input.ownerId,
+      day,
+      nextAttemptAt: turno,
+    });
     if (!id) return { queued: false, sent: false, media: false };
-    // Se intenta esa fila y no la más antigua: un atraso en la cola (la
-    // instancia caída ayer) no puede retrasar el aviso de hoy.
-    const { sent } = await processSocialOutbox({ limit: 1, only: id, config });
-    return { queued: true, sent: sent > 0, media: Boolean(mediaId) };
+    // Con turno futuro no se intenta: lo soltará el cron cuando venza.
+    if (!turno) {
+      // Se intenta esa fila y no la más antigua: un atraso en la cola (la
+      // instancia caída ayer) no puede retrasar el aviso de hoy.
+      const { sent } = await processSocialOutbox({ limit: 1, only: id, config });
+      const fila = getDb()
+        .prepare("SELECT media_id FROM social_outbox WHERE id = ?")
+        .get(id) as { media_id: string | null } | undefined;
+      return { queued: true, sent: sent > 0, media: Boolean(fila?.media_id) };
+    }
+    return { queued: true, sent: false, media: false };
   } catch {
     // Un fallo aquí no puede dejar a medias la publicación: la cola se queda
     // pendiente y el cron lo reintenta.

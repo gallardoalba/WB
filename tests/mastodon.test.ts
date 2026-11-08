@@ -512,7 +512,13 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
 
     assert.deepEqual(primero, { queued: true, sent: true, media: false });
     assert.deepEqual(segundo, { queued: false, sent: false, media: false }, "el segundo libro del día no se anuncia");
-    assert.deepEqual(otraPersona, { queued: true, sent: true, media: false }, "otra persona sí tiene su aviso");
+    // Otra persona sí tiene su aviso, pero entra en el turno de la cuenta: el
+    // bot publica de uno en uno, separado 2-3 horas.
+    assert.deepEqual(
+      { queued: otraPersona.queued, sent: otraPersona.sent },
+      { queued: true, sent: false },
+      "otra persona sí tiene su aviso, encolado",
+    );
     assert.deepEqual(alDiaSiguiente, { queued: true, sent: true, media: false }, "al día siguiente vuelve a tocar");
 
     const filas = dbModule
@@ -614,6 +620,17 @@ test("el aviso espera la portada que el formulario sube después del alta", asyn
   // El id va con el patrón real de `bok_…`: el prefijo `bok_` y, después, solo
   // letras, números y guiones (un guion bajo de más hace que no haya portada).
   const bookId = "bok_prueba-portada";
+  // La fila de la obra es lo que da título y autoría al texto alternativo de la
+  // imagen cuando la sube el procesador de la cola.
+  dbModule
+    .getDb()
+    .prepare(
+      `INSERT OR IGNORE INTO books (id, title, title_key, author, isbn, category,
+         language, cover_url, work_key, publisher, year, series, created_at)
+       VALUES (?, 'Iluminaciones', 'iluminaciones', 'Walter Benjamin', NULL, 'Humanidades',
+         'Español', ?, NULL, NULL, NULL, NULL, '2026-11-08T00:00:00.000Z')`,
+    )
+    .run(bookId, `/api/cover/book/${bookId}`);
   let portadaEnDiscoAlPedirLaTarjeta = false;
   globalThis.fetch = (async (input: string | URL | Request) => {
     const url = typeof input === "string" ? input : String(input);
@@ -689,6 +706,84 @@ test("la administración anuncia cada libro del día, sin el tope de uno", async
     assert.equal(primera.queued, true);
     assert.equal(segunda.queued, true, "la administración no tiene tope diario");
     assert.equal(tercera.queued, false, "sin la marca sigue valiendo el tope");
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+  }
+});
+
+test("la separación entre avisos encolados está entre 2 y 3 horas", () => {
+  assert.equal(mastodon.separacionAviso(() => 0), mastodon.SOCIAL_GAP_MIN_MS);
+  assert.equal(mastodon.separacionAviso(() => 1), mastodon.SOCIAL_GAP_MAX_MS);
+  const medio = mastodon.separacionAviso(() => 0.5);
+  assert.ok(medio > mastodon.SOCIAL_GAP_MIN_MS && medio < mastodon.SOCIAL_GAP_MAX_MS);
+  // Con azar real, siempre dentro de la banda.
+  for (let i = 0; i < 50; i += 1) {
+    const hueco = mastodon.separacionAviso();
+    assert.ok(hueco >= mastodon.SOCIAL_GAP_MIN_MS && hueco <= mastodon.SOCIAL_GAP_MAX_MS);
+  }
+});
+
+test("veinte libros de golpe: el primero sale y los demás esperan su turno", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  let posted = 0;
+  globalThis.fetch = (async () => {
+    posted += 1;
+    return jsonResponse({ id: String(posted) });
+  }) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+  // Reloj real: los turnos se comparan con lo que ya hay en la cola, que lleva
+  // marcas de tiempo de verdad.
+  const ahora = new Date();
+  try {
+    const anunciar = (n: number) =>
+      mastodon.announceBook({
+        bookId: `bok-tanda-${n}`,
+        title: `Libro ${n}`,
+        author: "Autora",
+        base: "https://wanderbibliothek.org",
+        ownerId: "usr_admin",
+        sinTopeDiario: true,
+        now: ahora,
+      });
+
+    const primera = await anunciar(1);
+    assert.equal(primera.sent, true, "el primero sale en el acto");
+
+    const segunda = await anunciar(2);
+    const tercera = await anunciar(3);
+    assert.deepEqual(
+      { queued: segunda.queued, sent: segunda.sent },
+      { queued: true, sent: false },
+      "el segundo se encola, no se publica",
+    );
+    assert.equal(tercera.sent, false);
+
+    // Los turnos son crecientes y el hueco entre ellos cae en la banda.
+    const turnos = dbModule
+      .getDb()
+      .prepare(
+        `SELECT subject, next_attempt_at FROM social_outbox
+          WHERE subject LIKE 'bok-tanda-%' ORDER BY created_at ASC`,
+      )
+      .all() as { subject: string; next_attempt_at: string }[];
+    const fechas = turnos.map((fila) => new Date(fila.next_attempt_at).getTime());
+    assert.ok(fechas[1]! > ahora.getTime(), "el segundo espera, no sale ya");
+    const hueco = fechas[1]! - ahora.getTime();
+    assert.ok(
+      hueco >= mastodon.SOCIAL_GAP_MIN_MS && hueco <= mastodon.SOCIAL_GAP_MAX_MS,
+      `hueco inesperado: ${hueco} ms`,
+    );
+    const entreDos = fechas[2]! - fechas[1]!;
+    assert.ok(
+      entreDos >= mastodon.SOCIAL_GAP_MIN_MS && entreDos <= mastodon.SOCIAL_GAP_MAX_MS,
+      `hueco inesperado entre el 2 y el 3: ${entreDos} ms`,
+    );
+
+    // El cron no los suelta antes de tiempo.
+    const antes = await mastodon.processSocialOutbox();
+    assert.equal(antes.sent, 0, "todavía no toca ninguno");
   } finally {
     globalThis.fetch = original;
     delete process.env.MASTODON_TOKEN;
