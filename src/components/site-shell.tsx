@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowDownUp, BookOpen, Compass, Heart, Plus, Users } from "lucide-react";
 import type { SessionUser } from "@/lib/domain";
 import { regionName } from "@/lib/cities";
-import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
+import { BRAND_FIRST, BRAND_SECOND, MASTODON } from "@/lib/brand";
 import { getLocale } from "@/lib/i18n-server";
 import { localePath } from "@/lib/locale";
 import { translate } from "@/lib/i18n";
@@ -100,6 +100,12 @@ export async function SiteShell({
               <Link href={href("/clubes")}>{t("Clubes")}</Link>
               <Link href={href("/lectores")}>{t("Lectores")}</Link>
               <Link href={href("/listas")}>{t("Listas")}</Link>
+              {/* El `rel="me"` que Mastodon comprueba va en el encabezado
+                  (`layout.tsx`); aquí está además a la vista, para poder
+                  seguir la cuenta desde la propia web. */}
+              <a href={MASTODON} rel="me noopener" target="_blank">
+                Mastodon
+              </a>
             </nav>
             <nav
               className="footer-links legal-links"
