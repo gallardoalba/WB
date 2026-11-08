@@ -65,7 +65,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       path: `/werk/${work.id}`,
       title: `${work.title} — ${work.author}`,
       description,
-      image: work.coverUrl,
+      // La tarjeta de la obra y no la portada suelta: la portada es vertical
+      // (231×400 la de este ejemplar) y la vista previa se dibuja apaisada, así
+      // que se recortaba y perdía la marca al compartir el enlace en cualquier
+      // sitio. La ruta se cachea una hora, así que el coste es el primero.
+      image: `/api/og/werk/${work.id}`,
       type: "book",
     }),
   };
