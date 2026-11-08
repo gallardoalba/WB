@@ -78,7 +78,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            gap: 18,
+            gap: 20,
             flexGrow: 1,
             minWidth: 0,
           }}
@@ -94,26 +94,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           <div
             style={{
               display: "flex",
-              fontSize: 56,
+              fontSize: 68,
               fontWeight: 700,
-              lineHeight: 1.08,
-              letterSpacing: -1.2,
-              lineClamp: 4,
+              lineHeight: 1.05,
+              letterSpacing: -1.4,
+              lineClamp: 3,
             }}
           >
             {title}
           </div>
 
-          <div style={{ display: "flex", fontSize: 29, lineHeight: 1.3, opacity: 0.86 }}>
+          <div style={{ display: "flex", fontSize: 33, lineHeight: 1.3, opacity: 0.88 }}>
             {author}
           </div>
 
           <div
             style={{
               display: "flex",
-              marginTop: 6,
-              fontSize: 19,
-              letterSpacing: 2.4,
+              marginTop: 10,
+              fontSize: 21,
+              letterSpacing: 2.6,
               textTransform: "uppercase",
               color: "#d9c6a2",
             }}
