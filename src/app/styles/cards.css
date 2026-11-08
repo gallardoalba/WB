@@ -441,13 +441,23 @@
 }
 
 .pager {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: 22px;
-  margin-top: 28px;
-  padding-top: 18px;
+  /* El centro respira: en pantallas anchas los botones quedan en los extremos
+     y nunca pegados al estado. */
+  column-gap: clamp(24px, 6vw, 96px);
+  margin-top: 32px;
+  padding-top: 20px;
   border-top: 1px solid var(--line);
+}
+
+.pager > .pager-button:first-of-type {
+  justify-self: start;
+}
+
+.pager > .pager-button:last-of-type {
+  justify-self: end;
 }
 
 /* La rejilla es el destino del salto al cambiar de página: que no quede bajo
@@ -463,8 +473,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-width: 136px;
   min-height: 44px;
-  padding: 0 18px;
+  padding: 0 20px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -472,6 +483,7 @@
   font: inherit;
   font-size: 15px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
@@ -495,6 +507,7 @@
 
 .pager-status {
   margin: 0;
+  justify-self: center;
   display: grid;
   gap: 2px;
   text-align: center;
@@ -508,24 +521,30 @@
   font-weight: 800;
 }
 
-/* En móvil los dos botones ocupan el ancho y el estado va arriba, para que se
-   lean antes de tocar. */
+/* En móvil el estado va arriba y los botones ocupan media fila cada uno, con
+   un hueco claro entre ellos. */
 @media (max-width: 640px) {
   .pager {
-    display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px 12px;
+    row-gap: 16px;
+    column-gap: 14px;
   }
 
   .pager-status {
     grid-column: 1 / -1;
     grid-row: 1;
-    text-align: left;
+    justify-self: center;
   }
 
   .pager-button {
     grid-row: 2;
+    min-width: 0;
     width: 100%;
+  }
+
+  .pager > .pager-button:first-of-type,
+  .pager > .pager-button:last-of-type {
+    justify-self: stretch;
   }
 }
 
