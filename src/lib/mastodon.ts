@@ -648,14 +648,36 @@ export const SOCIAL_GAP_MIN_MS = 2 * 60 * 60 * 1000;
 export const SOCIAL_GAP_MAX_MS = 3 * 60 * 60 * 1000;
 
 /**
- * Separación aleatoria entre dos avisos: entre 2 y 3 horas.
+ * Banda de separación, en minutos: `MASTODON_GAP_MINUTES="120-180"`.
+ *
+ * Existe para poder hacer una prueba real desde la web sin esperar el turno:
+ * con `0` no hay espera y cada obra se anuncia en el acto. Un valor raro se
+ * ignora en vez de dejar la cola parada.
+ */
+function bandaSeparacion(): [number, number] {
+  const porDefecto: [number, number] = [
+    SOCIAL_GAP_MIN_MS / 60_000,
+    SOCIAL_GAP_MAX_MS / 60_000,
+  ];
+  const crudo = process.env.MASTODON_GAP_MINUTES?.trim();
+  if (!crudo) return porDefecto;
+  const partes = /^(\d{1,4})(?:\s*-\s*(\d{1,4}))?$/.exec(crudo);
+  if (!partes) return porDefecto;
+  const min = Number(partes[1]);
+  const max = partes[2] === undefined ? min : Number(partes[2]);
+  return max < min ? [max, min] : [min, max];
+}
+
+/**
+ * Separación aleatoria entre dos avisos: entre 2 y 3 horas por defecto.
  *
  * Quien cataloga diez libros de una sentada no debe convertir su cuenta en un
  * aluvión para quien la sigue, y un hueco fijo parecería programado. El azar se
  * inyecta en las pruebas para que no dependan del reloj ni de la suerte.
  */
 export function separacionAviso(random: () => number = Math.random): number {
-  return SOCIAL_GAP_MIN_MS + Math.round(random() * (SOCIAL_GAP_MAX_MS - SOCIAL_GAP_MIN_MS));
+  const [min, max] = bandaSeparacion();
+  return min * 60_000 + Math.round(random() * (max - min) * 60_000);
 }
 
 /**

@@ -789,3 +789,59 @@ test("veinte libros de golpe: el primero sale y los demás esperan su turno", as
     delete process.env.MASTODON_TOKEN;
   }
 });
+
+test("MASTODON_GAP_MINUTES ajusta la banda y con 0 no hay espera", () => {
+  const anterior = process.env.MASTODON_GAP_MINUTES;
+  try {
+    delete process.env.MASTODON_GAP_MINUTES;
+    assert.equal(mastodon.separacionAviso(() => 0), mastodon.SOCIAL_GAP_MIN_MS);
+
+    process.env.MASTODON_GAP_MINUTES = "0";
+    assert.equal(mastodon.separacionAviso(() => 0), 0, "sin espera para la prueba desde la web");
+
+    process.env.MASTODON_GAP_MINUTES = "30-90";
+    assert.equal(mastodon.separacionAviso(() => 0), 30 * 60_000);
+    assert.equal(mastodon.separacionAviso(() => 1), 90 * 60_000);
+
+    process.env.MASTODON_GAP_MINUTES = "90-30";
+    assert.equal(mastodon.separacionAviso(() => 0), 30 * 60_000, "la banda se ordena sola");
+
+    // Un valor ilegible no deja la cola parada: vuelve a la banda por defecto.
+    process.env.MASTODON_GAP_MINUTES = "dos horas";
+    assert.equal(mastodon.separacionAviso(() => 0), mastodon.SOCIAL_GAP_MIN_MS);
+  } finally {
+    if (anterior === undefined) delete process.env.MASTODON_GAP_MINUTES;
+    else process.env.MASTODON_GAP_MINUTES = anterior;
+  }
+});
+
+test("con MASTODON_GAP_MINUTES=0 dos libros seguidos salen en el acto", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  let posted = 0;
+  globalThis.fetch = (async () => {
+    posted += 1;
+    return jsonResponse({ id: String(posted) });
+  }) as unknown as typeof fetch;
+  const anterior = process.env.MASTODON_GAP_MINUTES;
+  process.env.MASTODON_TOKEN = "tok";
+  process.env.MASTODON_GAP_MINUTES = "0";
+  try {
+    const anunciar = (n: number) =>
+      mastodon.announceBook({
+        bookId: `bok-sin-espera-${n}`,
+        title: `Libro ${n}`,
+        author: "Autora",
+        base: "https://wanderbibliothek.org",
+        ownerId: "usr_admin",
+        sinTopeDiario: true,
+      });
+    assert.equal((await anunciar(1)).sent, true);
+    assert.equal((await anunciar(2)).sent, true, "sin espera el segundo también sale");
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+    if (anterior === undefined) delete process.env.MASTODON_GAP_MINUTES;
+    else process.env.MASTODON_GAP_MINUTES = anterior;
+  }
+});
