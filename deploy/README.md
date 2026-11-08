@@ -217,10 +217,17 @@ Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 ### Bot de Mastodon (opcional)
 
 Con `MASTODON_TOKEN` definido, cada obra que entra en el catálogo se anuncia en
-el perfil del proyecto. Se crea el token en la instancia —**Preferencias →
+el perfil del proyecto. El token se crea en la instancia —**Preferencias →
 Desarrollo → Nueva aplicación**— con los permisos `write:statuses` y
 `read:accounts`; el segundo es el que usa `mastodon:test` para comprobar que la
 credencial vale.
+
+El formulario pide un **URI de redirección** que aquí no se usa nunca (el token
+se copia de la propia página de la aplicación, no se pide por OAuth): sirve
+`urn:ietf:wg:oauth:2.0:oob`, el valor que la documentación de Mastodon reserva
+para las aplicaciones que muestran el código en pantalla. Tiene que ser una URI
+absoluta; si la instancia lo rechazara, `https://wanderbibliothek.org/` vale
+igual.
 
 ```bash
 # Solo comprueba: dice quién es el token y enseña el texto, sin publicar nada
