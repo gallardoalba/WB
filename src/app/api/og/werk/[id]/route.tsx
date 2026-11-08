@@ -13,9 +13,9 @@ const BOOK_ICON = `data:image/svg+xml;utf8,${encodeURIComponent(
 )}`;
 
 /** Alto de la portada dentro de la tarjeta; el ancho sale de su proporción. */
-const COVER_HEIGHT = 480;
+const COVER_HEIGHT = 500;
 /** Tope de ancho: el texto necesita su mitad de la tarjeta. */
-const COVER_MAX_WIDTH = 330;
+const COVER_MAX_WIDTH = 340;
 
 type CardCover = { src: string; width: number; height: number };
 
@@ -55,29 +55,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         }}
       >
         {cover ? (
-          <div style={{ display: "flex", position: "relative", flexShrink: 0 }}>
-            {/* Sombra falsa: Satori no admite `box-shadow` con garantías, y una
-                placa oscura desplazada da el mismo volumen. */}
-            <div
-              style={{
-                position: "absolute",
-                left: 18,
-                top: 18,
-                width: cover.width,
-                height: cover.height,
-                display: "flex",
-                background: "rgba(12, 24, 18, 0.34)",
-                borderRadius: 4,
-              }}
-            />
-            {/* Satori solo entiende `img`; el SVG va incrustado arriba. */}
+          <div style={{ display: "flex", flexShrink: 0 }}>
+            {/* Satori solo entiende `img`; el SVG de la marca va incrustado arriba. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cover.src}
               alt=""
               width={cover.width}
               height={cover.height}
-              style={{ borderRadius: 4, border: "1px solid rgba(247, 246, 241, 0.28)" }}
+              style={{
+                borderRadius: 3,
+                border: "1px solid rgba(247, 246, 241, 0.22)",
+                // La sombra es lo que separa la portada del fondo: sin ella, el
+                // borde recto parece un recorte pegado.
+                boxShadow: "0 26px 54px rgba(9, 20, 15, 0.45)",
+              }}
             />
           </div>
         ) : null}
