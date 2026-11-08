@@ -1355,6 +1355,23 @@ function migrateToV41(db: Db) {
 }
 
 /**
+ * v42: la portada del aviso en Mastodon.
+ *
+ * La imagen se sube **antes** de encolar el post y su id se guarda aquí: un
+ * reintento adjunta el mismo medio en vez de subirlo otra vez, y la imagen que
+ * se ve en el estado es la que se decidió al publicar el libro.
+ */
+function migrateToV42(db: Db) {
+  const columns = (db.pragma("table_info(social_outbox)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("media_id")) {
+    db.exec("ALTER TABLE social_outbox ADD COLUMN media_id TEXT");
+  }
+  db.pragma("user_version = 42");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1480,6 +1497,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 39) migrateToV39(db);
   if (userVersion(db) < 40) migrateToV40(db);
   if (userVersion(db) < 41) migrateToV41(db);
+  if (userVersion(db) < 42) migrateToV42(db);
 
   backfillSearchKeys(db);
 }

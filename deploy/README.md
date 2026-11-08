@@ -218,9 +218,9 @@ Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 
 Con `MASTODON_TOKEN` definido, cada obra que entra en el catálogo se anuncia en
 el perfil del proyecto. El token se crea en la instancia —**Preferencias →
-Desarrollo → Nueva aplicación**— con los permisos `write:statuses` y
-`read:accounts`; el segundo es el que usa `mastodon:test` para comprobar que la
-credencial vale.
+Desarrollo → Nueva aplicación**— con los permisos `write:statuses`, `write:media`
+(para adjuntar la portada) y `read:accounts`; el tercero es el que usa
+`mastodon:test` para comprobar que la credencial vale.
 
 El formulario pide un **URI de redirección** que aquí no se usa nunca (el token
 se copia de la propia página de la aplicación, no se pide por OAuth): sirve
@@ -235,6 +235,7 @@ sudo npm --prefix /srv/wanderbibliothek/current run mastodon:test
 
 # El aviso de una obra concreta, y su publicación de verdad
 sudo npm ... run mastodon:test -- --libro bok_123
+sudo npm ... run mastodon:test -- --media bok_123   # sube la portada sin publicar
 sudo npm ... run mastodon:test -- --enviar bok_123
 
 # Reintentar lo que quedó pendiente (el cron también lo hace cada hora)
@@ -246,6 +247,14 @@ Lo que hay que saber:
 - **Un aviso por obra, no por ejemplar.** Si tres personas ponen el mismo libro,
   el perfil no lo repite: la tabla `social_outbox` tiene una clave única por red
   y obra.
+- **Registro sobrio**: una frase enunciativa, sin emoji ni exclamaciones, el
+  enlace y tres etiquetas. Hay veinte formulaciones por idioma y la variante se
+  elige con un hash del id de la obra, así que el mismo libro siempre se anuncia
+  igual.
+- **La portada viaja como imagen adjunta**, con texto alternativo en el idioma
+  del aviso. La imagen se sube **antes** de encolar el post y su id se guarda en
+  la fila: un reintento adjunta el mismo medio en vez de subirlo otra vez. Si no
+  hay portada —o la instancia rechaza la imagen— el aviso sale solo con texto.
 - **El post se encola en la base.** Si la instancia no contesta, el aviso no se
   pierde: se reintenta con espera creciente (5 intentos) desde el cron. Un token
   revocado o un texto inválido se marcan como fallidos sin reintentar.

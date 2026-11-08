@@ -93,6 +93,7 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   public_key_history: ["key_id", "platform", "reason", "replaced_at"],
   clubs: ["meets_at", "meets_on", "status", "meets_place", "meets_link"],
   club_posts: ["club_id", "author_id", "parent_id", "body", "status"],
+  social_outbox: ["network", "subject", "body", "status", "attempts", "media_id"],
 };
 
 function freshDatabase(): Database.Database {

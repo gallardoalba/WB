@@ -19,24 +19,34 @@ import { envFileProblem, loadEnvFile } from "../src/lib/env-file";
 import {
   announceBook,
   composeStatus,
+  coverAlt,
+  coverForBook,
   localeForLanguage,
   mastodonConfig,
   processSocialOutbox,
   purgeSocialOutbox,
   STATUS_LIMIT,
+  uploadMedia,
   workUrl,
 } from "../src/lib/mastodon";
 import { getBook } from "../src/lib/repo";
 import { siteUrl } from "../src/lib/site";
 
 const USAGE =
-  "Uso: npm run mastodon:test -- [--libro <obra>] [--enviar <obra>] [--cola] [--env /ruta]";
+  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--cola] [--env /ruta]";
 
-type Options = { libro: string | null; enviar: string | null; cola: boolean; entorno: string };
+type Options = {
+  libro: string | null;
+  media: string | null;
+  enviar: string | null;
+  cola: boolean;
+  entorno: string;
+};
 
 function parseArgs(argv: string[]): Options {
   const options: Options = {
     libro: null,
+    media: null,
     enviar: null,
     cola: false,
     entorno: "/etc/wanderbibliothek/env",
@@ -47,10 +57,11 @@ function parseArgs(argv: string[]): Options {
       options.cola = true;
       continue;
     }
-    if (arg === "--libro" || arg === "--enviar" || arg === "--env") {
+    if (arg === "--libro" || arg === "--media" || arg === "--enviar" || arg === "--env") {
       const value = argv[index + 1];
       if (!value) throw new Error(`${arg} necesita un valor.`);
       if (arg === "--libro") options.libro = value;
+      else if (arg === "--media") options.media = value;
       else if (arg === "--enviar") options.enviar = value;
       else options.entorno = value;
       index += 1;
@@ -89,6 +100,7 @@ const SAMPLE = {
   author: "Irene Vallejo",
   url: "https://wanderbibliothek.org/werk/bok_ejemplo",
   locale: "de" as const,
+  seed: "bok_ejemplo",
 };
 
 function showText(text: string): void {
@@ -123,11 +135,11 @@ async function main() {
   console.log(`Instancia: ${config!.instance} · visibilidad: ${config!.visibility}`);
   if (!(await verifyCredentials())) process.exit(1);
 
-  const objetivo = options.enviar ?? options.libro;
+  const objetivo = options.enviar ?? options.libro ?? options.media;
   if (!objetivo) {
     showText(composeStatus(SAMPLE));
     console.log(
-      "Nada enviado. Con --libro <obra> se ve el aviso de una obra real y con --enviar <obra> se publica.",
+      "Nada enviado. Con --libro <obra> se ve el aviso de una obra real, con --media <obra> se sube su portada sin publicar y con --enviar <obra> se publica.",
     );
   } else {
     const book = getBook(objetivo);
@@ -142,8 +154,35 @@ async function main() {
         author: book.author,
         url: workUrl(siteUrl(), book.id, locale),
         locale,
+        seed: book.id,
       }),
     );
+
+    // La portada: se comprueba aquí para no llevarse la sorpresa al publicar.
+    const cover = await coverForBook(book.id).catch(() => null);
+    console.log(
+      cover
+        ? `Portada: ${cover.contentType}, ${Math.round(cover.data.byteLength / 1024)} KB → se adjunta al aviso.`
+        : "Portada: no hay (el aviso saldría solo con texto).",
+    );
+
+    if (options.media) {
+      if (!cover) {
+        console.error("No hay portada que subir para esta obra.");
+        process.exit(1);
+      }
+      // Subir sin publicar sirve para comprobar el permiso `write:media`.
+      const uploaded = await uploadMedia(config!, {
+        data: cover.data,
+        contentType: cover.contentType,
+        description: coverAlt(locale, book.title, book.author),
+      });
+      console.log(
+        uploaded.ok
+          ? `Media subida: id ${uploaded.id} (sin adjuntar a ningún estado).`
+          : `La subida falló: ${uploaded.error}. Si dice «OAuth», falta el permiso write:media en la aplicación.`,
+      );
+    }
 
     if (options.enviar) {
       // Se publica con `announceBook` y no con un POST suelto: así queda la fila
@@ -158,12 +197,12 @@ async function main() {
       });
       console.log(
         result.sent
-          ? "Publicado y anotado en la cola."
+          ? `Publicado y anotado en la cola (${result.media ? "con portada" : "sin portada"}).`
           : result.queued
             ? "Encolado, pero el envío no salió: se reintenta en el cron (o con --cola)."
             : "No se encoló: esa obra ya tiene un aviso.",
       );
-    } else {
+    } else if (!options.media) {
       console.log("Nada enviado. Con --enviar <obra> se publica este mismo texto.");
     }
   }

@@ -23,8 +23,14 @@ function clearQueue(): void {
   dbModule.getDb().prepare("DELETE FROM social_outbox").run();
 }
 
-/** Respuesta mínima de Mastodon para `POST /api/v1/statuses`. */
-function statusResponse(body: unknown, status = 200): Response {
+const CONFIG = {
+  instance: "https://mastodon.social",
+  token: "secreto",
+  visibility: "public" as const,
+};
+
+/** Respuesta mínima de Mastodon (`application/json`). */
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
@@ -70,25 +76,82 @@ test("la instancia se normaliza y la visibilidad no acepta inventos", () => {
   );
 });
 
-test("el aviso lleva título, autoría, enlace y etiquetas", () => {
+test("hay una veintena de formulaciones por idioma", () => {
+  for (const locale of ["de", "es", "en"] as const) {
+    assert.ok(
+      mastodon.leadVariants(locale).length >= 20,
+      `${locale}: solo ${mastodon.leadVariants(locale).length} variantes`,
+    );
+  }
+});
+
+test("todas las formulaciones son enunciativas: sin exclamaciones ni emoji", () => {
+  // El registro es de biblioteca, no de folleto: una frase, sin signos de
+  // exclamación y sin pictogramas.
+  const pictogram = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+  const seen = new Set<string>();
+  for (const locale of ["de", "es", "en"] as const) {
+    for (const lead of mastodon.leadVariants(locale)) {
+      const text = lead("Título", "Autoría");
+      assert.doesNotMatch(text, /[!¡]/, `${locale}: «${text}» lleva exclamación`);
+      assert.doesNotMatch(text, pictogram, `${locale}: «${text}» lleva emoji`);
+      assert.ok(text.endsWith("."), `${locale}: «${text}» no cierra con punto`);
+      assert.match(text, /Título/, `${locale}: «${text}» no nombra el título`);
+      assert.match(text, /Autoría/, `${locale}: «${text}» no nombra la autoría`);
+      seen.add(text);
+    }
+  }
+  // Dos variantes calcadas serían una variante menos, y nadie lo notaría.
+  assert.equal(seen.size, 60, "hay formulaciones duplicadas");
+});
+
+test("la variante depende del id de la obra y se reparte", () => {
+  assert.equal(mastodon.variantIndex("bok_abc", 20), mastodon.variantIndex("bok_abc", 20));
+  const used = new Set<number>();
+  for (let index = 0; index < 200; index += 1) {
+    used.add(mastodon.variantIndex(`bok_${index}`, 20));
+  }
+  assert.equal(used.size, 20, `solo se usan ${used.size} de 20 variantes`);
+  assert.equal(mastodon.variantIndex("bok_x", 0), 0);
+});
+
+test("el aviso lleva el texto elegido, el enlace y las etiquetas", () => {
   const text = mastodon.composeStatus({
     title: "El infinito en un junco",
     author: "Irene Vallejo",
     url: "https://wanderbibliothek.org/werk/bok_1",
     locale: "de",
+    seed: "bok_1",
   });
   assert.match(text, /El infinito en un junco/);
   assert.match(text, /Irene Vallejo/);
   assert.match(text, /https:\/\/wanderbibliothek\.org\/werk\/bok_1/);
   assert.match(text, /#Wanderbibliothek/);
   assert.ok(Array.from(text).length <= mastodon.STATUS_LIMIT);
+  // Mismo libro, mismo texto: lo que se encola es lo que se publica.
+  assert.equal(
+    text,
+    mastodon.composeStatus({
+      title: "El infinito en un junco",
+      author: "Irene Vallejo",
+      url: "https://wanderbibliothek.org/werk/bok_1",
+      locale: "de",
+      seed: "bok_1",
+    }),
+  );
 });
 
-test("cada idioma escribe el aviso en su idioma", () => {
-  const base = { title: "T", author: "A", url: "https://x.org/werk/bok_1" };
-  assert.match(mastodon.composeStatus({ ...base, locale: "de" }), /Neu bei Wanderbibliothek/);
-  assert.match(mastodon.composeStatus({ ...base, locale: "es" }), /Nuevo en Wanderbibliothek/);
-  assert.match(mastodon.composeStatus({ ...base, locale: "en" }), /New on Wanderbibliothek/);
+test("cada idioma escribe con sus comillas y sus etiquetas", () => {
+  const base = { title: "T", author: "A", url: "https://x.org/werk/bok_1", seed: "bok_1" };
+  const de = mastodon.composeStatus({ ...base, locale: "de" });
+  const es = mastodon.composeStatus({ ...base, locale: "es" });
+  const en = mastodon.composeStatus({ ...base, locale: "en" });
+  assert.match(de, /#Bücher/);
+  assert.match(es, /#Libros/);
+  assert.match(en, /#Books/);
+  assert.match(de, /„T“/);
+  assert.match(es, /«T»/);
+  assert.match(en, /“T”/);
 });
 
 test("un título enorme se recorta y el enlace sobrevive", () => {
@@ -98,13 +161,11 @@ test("un título enorme se recorta y el enlace sobrevive", () => {
     author: "Alguien",
     url,
     locale: "de",
+    seed: "bok_1",
   });
-  // 500 puntos de código es el límite del estado; con `length` un título con
-  // emojis se colaría por encima del tope.
   assert.ok(Array.from(text).length <= mastodon.STATUS_LIMIT, `mide ${Array.from(text).length}`);
   assert.match(text, /…/);
   assert.ok(text.includes(url), "el enlace no puede quedar cortado");
-  assert.match(text, /#Bücher/);
 });
 
 test("el enlace lleva el prefijo de idioma y el bot escribe en el del ejemplar", () => {
@@ -112,12 +173,19 @@ test("el enlace lleva el prefijo de idioma y el bot escribe en el del ejemplar",
   assert.equal(mastodon.localeForLanguage("Inglés"), "en");
   assert.equal(mastodon.localeForLanguage("Alemán"), "de");
   // «Otro» y «No especificado» no dicen nada: idioma de la casa.
+  assert.equal(mastodon.localeForLanguage("Otro"), "de");
   assert.equal(mastodon.localeForLanguage("No especificado"), "de");
   assert.equal(mastodon.localeForLanguage(null), "de");
 
   assert.equal(mastodon.workUrl("https://x.org/", "bok_1", "de"), "https://x.org/werk/bok_1");
   assert.equal(mastodon.workUrl("https://x.org", "bok_1", "es"), "https://x.org/es/werk/bok_1");
   assert.equal(mastodon.workUrl("https://x.org", "bok_1", "en"), "https://x.org/en/werk/bok_1");
+});
+
+test("la portada lleva texto alternativo en el idioma del aviso", () => {
+  assert.equal(mastodon.coverAlt("de", "1984", "George Orwell"), "Buchcover von „1984“ von George Orwell");
+  assert.equal(mastodon.coverAlt("es", "1984", "George Orwell"), "Portada de «1984» de George Orwell");
+  assert.equal(mastodon.coverAlt("en", "1984", "George Orwell"), "Cover of “1984” by George Orwell");
 });
 
 test("una obra se anuncia una sola vez, aunque la pongan tres personas", () => {
@@ -135,7 +203,7 @@ test("una obra se anuncia una sola vez, aunque la pongan tres personas", () => {
 });
 
 test("sin configuración el proceso no toca la red", async () => {
-  const { impl, calls } = fakeFetch(() => statusResponse({ id: "1" }));
+  const { impl, calls } = fakeFetch(() => jsonResponse({ id: "1" }));
   const result = await mastodon.processSocialOutbox({ limit: 5, config: null, fetchImpl: impl });
   assert.deepEqual(result, { sent: 0, failed: 0, skipped: true });
   assert.equal(calls.length, 0);
@@ -145,10 +213,9 @@ test("un aviso pendiente se publica con el token y la clave de idempotencia", as
   clearQueue();
   mastodon.enqueuePost({ bookId: "bok_envia", text: "texto a publicar" });
   const { impl, calls } = fakeFetch(() =>
-    statusResponse({ id: "110", url: "https://mastodon.social/@wanderbibliothek/110" }),
+    jsonResponse({ id: "110", url: "https://mastodon.social/@wanderbibliothek/110" }),
   );
-  const config = { instance: "https://mastodon.social", token: "secreto", visibility: "public" as const };
-  const result = await mastodon.processSocialOutbox({ limit: 50, config, fetchImpl: impl });
+  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
   assert.equal(result.sent, 1);
   assert.equal(calls.length, 1);
   assert.equal(calls[0]!.url, "https://mastodon.social/api/v1/statuses");
@@ -166,12 +233,20 @@ test("un aviso pendiente se publica con el token y la clave de idempotencia", as
   assert.match(row.external_url, /@wanderbibliothek\/110/);
 });
 
+test("si la fila guarda una imagen, el estado la adjunta", async () => {
+  clearQueue();
+  mastodon.enqueuePost({ bookId: "bok_con_imagen", text: "texto", mediaId: "22348641" });
+  const { impl, calls } = fakeFetch(() => jsonResponse({ id: "111" }));
+  await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  const form = calls[0]!.init.body as FormData;
+  assert.deepEqual(form.getAll("media_ids[]"), ["22348641"]);
+});
+
 test("un 500 deja el aviso pendiente y con espera", async () => {
   clearQueue();
   mastodon.enqueuePost({ bookId: "bok_500", text: "texto" });
-  const { impl } = fakeFetch(() => statusResponse({ error: "caído" }, 503));
-  const config = { instance: "https://mastodon.social", token: "t", visibility: "public" as const };
-  const result = await mastodon.processSocialOutbox({ limit: 50, config, fetchImpl: impl });
+  const { impl } = fakeFetch(() => jsonResponse({ error: "caído" }, 503));
+  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
   assert.equal(result.failed, 1);
   const row = dbModule
     .getDb()
@@ -191,15 +266,77 @@ test("un 500 deja el aviso pendiente y con espera", async () => {
 test("un token inválido no se reintenta: no mejora solo", async () => {
   clearQueue();
   mastodon.enqueuePost({ bookId: "bok_401", text: "texto" });
-  const { impl } = fakeFetch(() => statusResponse({ error: "The access token is invalid" }, 401));
-  const config = { instance: "https://mastodon.social", token: "malo", visibility: "public" as const };
-  await mastodon.processSocialOutbox({ limit: 50, config, fetchImpl: impl });
+  const { impl } = fakeFetch(() => jsonResponse({ error: "The access token is invalid" }, 401));
+  await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
   const row = dbModule
     .getDb()
     .prepare("SELECT status, last_error FROM social_outbox WHERE subject = ?")
     .get("bok_401") as { status: string; last_error: string };
   assert.equal(row.status, "failed");
   assert.match(row.last_error, /access token/);
+});
+
+test("quedarse sin red deja el aviso para el siguiente intento", async () => {
+  clearQueue();
+  mastodon.enqueuePost({ bookId: "bok_sin_red", text: "texto" });
+  const impl = (async () => {
+    throw new Error("ECONNREFUSED mastodon.social");
+  }) as unknown as typeof fetch;
+  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  assert.equal(result.failed, 1);
+  const row = dbModule
+    .getDb()
+    .prepare("SELECT status, last_error FROM social_outbox WHERE subject = ?")
+    .get("bok_sin_red") as { status: string; last_error: string };
+  assert.equal(row.status, "pending");
+  assert.match(row.last_error, /ECONNREFUSED/);
+});
+
+test("la portada se sube con su texto alternativo y devuelve el id", async () => {
+  const { impl, calls } = fakeFetch(() =>
+    jsonResponse({ id: "22348641", url: "https://files.example/x.jpeg" }),
+  );
+  const result = await mastodon.uploadMedia(
+    CONFIG,
+    { data: Buffer.from([0xff, 0xd8, 0xff, 0x00]), contentType: "image/jpeg", description: "Portada de «1984»" },
+    impl,
+  );
+  assert.deepEqual(result, { ok: true, id: "22348641" });
+  assert.equal(calls[0]!.url, "https://mastodon.social/api/v2/media");
+  const form = calls[0]!.init.body as FormData;
+  assert.equal(form.get("description"), "Portada de «1984»");
+  const file = form.get("file") as File;
+  assert.equal(file.type, "image/jpeg");
+  assert.match(file.name, /\.jpg$/);
+});
+
+test("sin permiso para medios, la subida falla sin reintento", async () => {
+  const { impl } = fakeFetch(() => jsonResponse({ error: "This action is outside your granted scopes" }, 403));
+  const result = await mastodon.uploadMedia(
+    CONFIG,
+    { data: Buffer.alloc(4), contentType: "image/jpeg", description: "x" },
+    impl,
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.ok === false && result.retryable, false);
+});
+
+test("una imagen que se procesa en segundo plano se espera", async () => {
+  let polled = 0;
+  const { impl } = fakeFetch((url) => {
+    if (url.endsWith("/api/v1/media/900")) {
+      polled += 1;
+      return jsonResponse({ id: "900", url: "https://files.example/x.jpeg" });
+    }
+    return jsonResponse({ id: "900", url: null }, 202);
+  });
+  const result = await mastodon.uploadMedia(
+    CONFIG,
+    { data: Buffer.alloc(4), contentType: "image/jpeg", description: "x" },
+    impl,
+  );
+  assert.deepEqual(result, { ok: true, id: "900" });
+  assert.equal(polled, 1, "tiene que preguntar por el medio antes de devolverlo");
 });
 
 test("la purga borra entregados antiguos y respeta los pendientes", () => {
@@ -224,10 +361,11 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
   const calls: string[] = [];
   globalThis.fetch = (async (input: string | URL | Request) => {
     calls.push(typeof input === "string" ? input : String(input));
-    return statusResponse({ id: "7", url: "https://mastodon.social/@wanderbibliothek/7" });
+    return jsonResponse({ id: "7", url: "https://mastodon.social/@wanderbibliothek/7" });
   }) as unknown as typeof fetch;
   process.env.MASTODON_TOKEN = "tok";
   try {
+    // Sin fila en `books` no hay ISBN ni portada: se publica solo el texto.
     const result = await mastodon.announceBook({
       bookId: "bok_anuncio",
       title: "Ficciones",
@@ -235,16 +373,26 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
       language: "Español",
       base: "https://wanderbibliothek.org",
     });
-    assert.deepEqual(result, { queued: true, sent: true });
-    assert.equal(calls.length, 1);
+    assert.deepEqual(result, { queued: true, sent: true, media: false });
+    assert.ok(calls.every((url) => !url.includes("/api/v2/media")), "sin portada no se sube nada");
     const row = dbModule
       .getDb()
       .prepare("SELECT body, status FROM social_outbox WHERE subject = ?")
       .get("bok_anuncio") as { body: string; status: string };
     assert.equal(row.status, "sent");
-    // El ejemplar está en español: aviso en español y enlace con prefijo.
-    assert.match(row.body, /Nuevo en Wanderbibliothek/);
+    // El ejemplar está en español: enlace con prefijo y etiquetas en español.
     assert.match(row.body, /https:\/\/wanderbibliothek\.org\/es\/werk\/bok_anuncio/);
+    assert.match(row.body, /#Libros/);
+
+    // La segunda vez no se vuelve a anunciar.
+    const again = await mastodon.announceBook({
+      bookId: "bok_anuncio",
+      title: "Ficciones",
+      author: "Jorge Luis Borges",
+      language: "Español",
+      base: "https://wanderbibliothek.org",
+    });
+    assert.deepEqual(again, { queued: false, sent: false, media: false });
   } finally {
     globalThis.fetch = original;
     delete process.env.MASTODON_TOKEN;
@@ -260,7 +408,7 @@ test("en desarrollo no se anuncia una URL de localhost", async () => {
       author: "A",
       base: "http://localhost:3000",
     });
-    assert.deepEqual(result, { queued: false, sent: false });
+    assert.deepEqual(result, { queued: false, sent: false, media: false });
   } finally {
     delete process.env.MASTODON_TOKEN;
   }
@@ -274,27 +422,10 @@ test("sin token, publicar no encola nada", async () => {
     author: "A",
     base: "https://wanderbibliothek.org",
   });
-  assert.deepEqual(result, { queued: false, sent: false });
+  assert.deepEqual(result, { queued: false, sent: false, media: false });
   const rows = dbModule
     .getDb()
     .prepare("SELECT COUNT(*) AS n FROM social_outbox WHERE subject = ?")
     .get("bok_sin_bot") as { n: number };
   assert.equal(rows.n, 0, "sin bot no se acumulan filas muertas en la cola");
-});
-
-test("quedarse sin red deja el aviso para el siguiente intento", async () => {
-  clearQueue();
-  mastodon.enqueuePost({ bookId: "bok_sin_red", text: "texto" });
-  const impl = (async () => {
-    throw new Error("ECONNREFUSED mastodon.social");
-  }) as unknown as typeof fetch;
-  const config = { instance: "https://mastodon.social", token: "t", visibility: "public" as const };
-  const result = await mastodon.processSocialOutbox({ limit: 50, config, fetchImpl: impl });
-  assert.equal(result.failed, 1);
-  const row = dbModule
-    .getDb()
-    .prepare("SELECT status, last_error FROM social_outbox WHERE subject = ?")
-    .get("bok_sin_red") as { status: string; last_error: string };
-  assert.equal(row.status, "pending");
-  assert.match(row.last_error, /ECONNREFUSED/);
 });
