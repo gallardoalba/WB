@@ -443,13 +443,90 @@
 .pager {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 28px;
+  padding-top: 18px;
   border-top: 1px solid var(--line);
+}
+
+/* La rejilla es el destino del salto al cambiar de página: que no quede bajo
+   la cabecera fija. */
+#book-grid {
+  scroll-margin-top: 88px;
+}
+
+/* Antes eran dos botones menudos (36 px, borde casi invisible) flanqueando un
+   texto gris: no se veían. Ahora son la acción principal del pie de la lista. */
+.pager-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--green-strong);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.pager-button:hover:not(:disabled) {
+  border-color: var(--green);
+  background: var(--green-pale);
+}
+
+.pager-button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.pager-button:disabled {
+  color: var(--muted);
+  border-color: var(--line);
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.pager-status {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  text-align: center;
   color: var(--muted);
   font-size: 14px;
+}
+
+.pager-status strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* En móvil los dos botones ocupan el ancho y el estado va arriba, para que se
+   lean antes de tocar. */
+@media (max-width: 640px) {
+  .pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+  }
+
+  .pager-status {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: left;
+  }
+
+  .pager-button {
+    grid-row: 2;
+    width: 100%;
+  }
 }
 
 

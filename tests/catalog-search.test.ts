@@ -22,6 +22,23 @@ before(async () => {
   dbModule = await import("../src/lib/db/index.ts");
 });
 
+/** Parámetros del catálogo con solo lo que cambia en cada prueba. */
+const catalogParams = (patch: Record<string, unknown> = {}) => ({
+  view: "discover" as const,
+  q: "",
+  category: "Todos",
+  language: "Todos" as const,
+  sort: "recent" as const,
+  radius: 0,
+  shelf: "all" as const,
+  feed: "all" as const,
+  tag: "",
+  tab: "conversations" as const,
+  scope: "region" as const,
+  page: 1,
+  ...patch,
+});
+
 function nuevaCuenta(nombre: string, email: string) {
   return repo.createUser({
     name: nombre,
@@ -42,6 +59,34 @@ function publicar(userId: string, title: string, author: string, isbn: string | 
     tags: [],
   });
 }
+
+test("el catálogo va de diez en diez", async () => {
+  const { PAGE_SIZE } = await import("../src/lib/repo/catalog.ts");
+  assert.equal(PAGE_SIZE, 10, "diez tarjetas: dos filas completas de cinco columnas");
+
+  const user = nuevaCuenta("Paginador", "paginador@example.test");
+  for (let index = 1; index <= 12; index += 1) {
+    publicar(user.id, `Paginador ${String(index).padStart(2, "0")}`, "Autora", null);
+  }
+
+  const primera = repo.catalogPage(null, catalogParams({ q: "paginador" }));
+  assert.equal(primera.total, 12);
+  assert.equal(primera.items.length, 10);
+  assert.equal(primera.pageSize, 10);
+  assert.equal(primera.hasMore, true);
+
+  const segunda = repo.catalogPage(null, catalogParams({ q: "paginador", page: 2 }));
+  assert.equal(segunda.items.length, 2);
+  assert.equal(segunda.hasMore, false);
+  // Ninguna tarjeta se repite entre páginas.
+  const ids = new Set([...primera.items, ...segunda.items].map((listing) => listing.id));
+  assert.equal(ids.size, 12);
+
+  // Un enlace viejo con una página que ya no existe cae a la última real.
+  const fuera = repo.catalogPage(null, catalogParams({ q: "paginador", page: 99 }));
+  assert.equal(fuera.page, 2);
+  assert.equal(fuera.items.length, 2);
+});
 
 test("el buscador ignora términos demasiado cortos y los comodines de SQL", () => {
   assert.deepEqual(repo.searchBooks(""), []);

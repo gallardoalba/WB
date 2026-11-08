@@ -333,6 +333,23 @@ export default function WanderbibliothekApp({
     heading?.focus();
   }, [view]);
 
+  // Al pasar de página la lista nueva se pinta por encima y la persona se
+  // queda al pie, mirando los mismos botones. Se sube a la primera tarjeta y
+  // el foco entra en el listado, para que el teclado siga donde está lo nuevo.
+  const pageRef = useRef(page);
+  useEffect(() => {
+    if (pageRef.current === page) return;
+    pageRef.current = page;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(() => {
+      const grid = document.getElementById("book-grid");
+      if (!grid) return;
+      grid.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      const first = grid.querySelector<HTMLElement>(".book-card a");
+      (first ?? grid).focus({ preventScroll: true });
+    });
+  }, [page]);
+
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
 
@@ -1120,11 +1137,12 @@ export default function WanderbibliothekApp({
               <div
                 className={view === "home" ? "book-grid home-grid" : "book-grid"}
                 id="book-grid"
+                tabIndex={-1}
                 aria-busy={isPending || undefined}
               >
                 {isPending &&
                   listings.length === 0 &&
-                  Array.from({ length: 8 }, (_, index) => (
+                  Array.from({ length: pageSize }, (_, index) => (
                     <div className="skeleton-card" key={index} aria-hidden="true">
                       <div className="skeleton-cover" />
                       <div className="skeleton-body">
@@ -1189,10 +1207,7 @@ export default function WanderbibliothekApp({
                         <button
                           type="button"
                           className="share-button small"
-                          onClick={() => {
-                            setSearch("");
-                            navigate({ q: "", category: "Todos", page: 1 });
-                          }}
+                          onClick={clearFilters}
                         >
                           {t("Limpiar filtros")}
                         </button>
@@ -1222,28 +1237,33 @@ export default function WanderbibliothekApp({
                 <nav className="pager" aria-label={t("Paginación")}>
                   <button
                     type="button"
-                    className="secondary-button small"
+                    className="pager-button"
+                    aria-label={t("Ir a la página anterior")}
                     disabled={page <= 1 || isPending}
                     onClick={() => navigate({ page: page - 1 })}
                   >
-                    <ChevronLeft size={15} /> {t("Anterior")}
+                    <ChevronLeft size={18} aria-hidden="true" />
+                    {t("Anterior")}
                   </button>
-                  <span>
-                    {t("Mostrando {from}–{to} de {total}", {
-                      from: (page - 1) * pageSize + 1,
-                      to: Math.min(page * pageSize, total),
-                      total,
-                    })}
-                    {" · "}
-                    {t("Página")} {page}/{lastPage}
-                  </span>
+                  <p className="pager-status" role="status" aria-live="polite">
+                    <strong>{t("Página {page} de {last}", { page, last: lastPage })}</strong>
+                    <span>
+                      {t("Mostrando {from}–{to} de {total}", {
+                        from: (page - 1) * pageSize + 1,
+                        to: Math.min(page * pageSize, total),
+                        total,
+                      })}
+                    </span>
+                  </p>
                   <button
                     type="button"
-                    className="secondary-button small"
+                    className="pager-button"
+                    aria-label={t("Ir a la página siguiente")}
                     disabled={!hasMore || isPending}
                     onClick={() => navigate({ page: page + 1 })}
                   >
-                    {t("Siguiente")} <ChevronRight size={15} />
+                    {t("Siguiente")}
+                    <ChevronRight size={18} aria-hidden="true" />
                   </button>
                 </nav>
               )}

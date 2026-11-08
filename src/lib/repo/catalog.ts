@@ -25,7 +25,10 @@ import {
   type ListingRow,
 } from "./shared";
 
-export const PAGE_SIZE = 12;
+// Diez por página: en pantallas anchas la rejilla del catálogo tiene cinco
+// columnas (≥1800 px), así que quedan dos filas completas y ninguna tarjeta
+// suelta. En el resto de anchos sigue siendo una página corta de recorrer.
+export const PAGE_SIZE = 10;
 
 const ORDER_BY: Record<SortMode, string> = {
   // `distance_km` es la distancia calculada desde la ciudad de quien mira.
@@ -37,7 +40,7 @@ const ORDER_BY: Record<SortMode, string> = {
 export function catalogPage(userId: string | null, params: CatalogParams): PagedListings {
   const db = getDb();
   const viewer = userId ?? "";
-  const page = Math.max(1, params.page);
+  const requestedPage = Math.max(1, params.page);
   const tokens = normalizeText(params.q).split(" ").filter(Boolean);
 
   // Distancia real: ciudad de quien mira → ciudad del ejemplar (matriz
@@ -86,6 +89,11 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
        ${where}`,
     )
     .get(binds) as { total: number };
+
+  // Un `?page=99` (enlace viejo, filtro que reduce los resultados) no debe
+  // enseñar una página vacía con «Página 99 de 2»: se cae a la última real.
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, lastPage);
 
   const rows = db
     .prepare(

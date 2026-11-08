@@ -114,7 +114,7 @@ test("la estantería usa su propia consulta y su propio tamaño de página", () 
     ["lst_2", "lst_3"],
   );
   assert.equal(snapshot.total, 2);
-  assert.equal(snapshot.pageSize, 12);
+  assert.equal(snapshot.pageSize, 10);
   assert.deepEqual(snapshot.requests, []);
   assert.deepEqual(snapshot.clubs, []);
 });
