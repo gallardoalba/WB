@@ -18,8 +18,8 @@ const complete = (patch: EnvLike = {}): EnvLike => ({
   WANDERBIBLIOTHEK_DB: "/var/lib/wanderbibliothek/wanderbibliothek.db",
   WANDERBIBLIOTHEK_BACKUP_KEY: KEY_HEX,
   WANDERBIBLIOTHEK_BACKUP_HOOK: "rclone copy $BACKUP_FILE remoto:/wb",
-  TURNSTILE_SITE_KEY: "0x4AAAAAAA",
-  TURNSTILE_SECRET_KEY: "0x4AAAAAABBB",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAA",
+  TURNSTILE_SECRET: "0x4AAAAAABBB",
   LEGAL_CONTROLLER: "Equipo Wanderbibliothek",
   LEGAL_ADDRESS: "Calle 1, 00000 Stuttgart",
   LEGAL_CONTACT_EMAIL: "privacidad@example.com",
@@ -52,12 +52,12 @@ test("en producción faltan el correo, la URL y la clave de cifrado", () => {
   // servidor: las dos cosas se avisan al arrancar, no a las 03:20.
   assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_BACKUP_KEY"));
   assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_BACKUP_HOOK"));
-  assert.ok(keys(issues, "warn").includes("TURNSTILE_SITE_KEY"));
+  assert.ok(keys(issues, "warn").includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"));
 });
 
 test("las copias sin cifrar y el registro sin captcha son avisos, no errores", () => {
   const issues = checkEnv(
-    complete({ WANDERBIBLIOTHEK_BACKUP_KEY: undefined, TURNSTILE_SECRET_KEY: undefined }),
+    complete({ WANDERBIBLIOTHEK_BACKUP_KEY: undefined, TURNSTILE_SECRET: undefined }),
   );
   assert.ok(issues.every((issue) => issue.severity === "warn"));
   assert.match(

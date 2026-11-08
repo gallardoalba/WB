@@ -265,11 +265,14 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     );
   }
   // El registro es el punto de entrada favorito de los robots. Sin captcha
-  // solo lo frenan la cuota por IP y la verificación de correo.
-  if (!has(env, "TURNSTILE_SECRET_KEY") || !has(env, "TURNSTILE_SITE_KEY")) {
+  // solo lo frenan la cuota por IP, el campo trampa y la verificación de correo.
+  // Ojo con los nombres: el secreto es `TURNSTILE_SECRET` y la clave del
+  // cliente `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (esta se incrusta en el bundle al
+  // compilar, así que añadirla exige reconstruir, no solo reiniciar).
+  if (!has(env, "TURNSTILE_SECRET") || !has(env, "NEXT_PUBLIC_TURNSTILE_SITE_KEY")) {
     warn(
-      "TURNSTILE_SITE_KEY",
-      "Turnstile está apagado: el registro depende solo de la cuota por IP y de la verificación de correo. Con las dos claves (`TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`) se activa sin tocar código.",
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+      "Turnstile está apagado: el registro solo tiene la cuota por IP, el campo trampa y el tiempo mínimo. Con `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (se incrusta al compilar) y `TURNSTILE_SECRET` se activa sin tocar código.",
     );
   }
   if (
