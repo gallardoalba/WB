@@ -247,6 +247,11 @@ export const EN: TechnicalDocument = {
               "Enables the bot that announces every work on Mastodon; without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 2 to 3 hours (the administration has no daily cap).",
             ],
             [
+              "`MASTODON_QUIET_HOURS`",
+              "`22-9`",
+              "Quiet window in Berlin time: between the start and end hour neither announcements nor favourites go out (whatever is due waits until 09:00). `off` disables it, and a band that does not cross midnight (`1-5`) also works.",
+            ],
+            [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
               "off / 40 / 25",
               "Turns on favouriting of book posts: daily cap, minimum gap and `MASTODON_LIKES_TAGS` for your own hashtags. It looks at all three languages (de, es, en) and only at accounts whose bio talks about books (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Needs `write:favourites` on the token.",

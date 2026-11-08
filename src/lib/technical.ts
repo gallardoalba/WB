@@ -275,6 +275,11 @@ const ES: TechnicalDocument = {
               "apagado / 40 / 25",
               "Enciende los «me gusta» a publicaciones sobre libros: tope en 24 h, separación mínima y `MASTODON_LIKES_TAGS` para etiquetas propias. Mira los tres idiomas (de, es, en) y solo cuentas que hablan de libros en su biografía (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Necesita `write:favourites` en el token.",
             ],
+            [
+              "`MASTODON_QUIET_HOURS`",
+              "`22-9`",
+              "Ventana de silencio en hora de Berlín: entre la hora de inicio y la de fin no salen avisos ni «me gusta»; lo que vence se queda en cola hasta las 09:00. `off` la desactiva y `1-5` (sin cruzar la medianoche) también vale.",
+            ],
           ],
         },
       ],
@@ -658,6 +663,11 @@ const DE: TechnicalDocument = {
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
               "aus / 40 / 25",
               "Schaltet «Gefällt mir» für Buchbeiträge ein: Tagesgrenze, Mindestabstand und `MASTODON_LIKES_TAGS` für eigene Hashtags. Sieht alle drei Sprachen (de, es, en) und nur Konten, die in ihrer Biografie von Büchern sprechen (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Braucht `write:favourites` im Token.",
+            ],
+            [
+              "`MASTODON_QUIET_HOURS`",
+              "`22-9`",
+              "Ruhefenster in Berliner Zeit: zwischen Start- und Endstunde gehen weder Hinweise noch «Gefällt mir» raus; was fällig wird, wartet bis 09:00. `off` schaltet es ab, `1-5` (ohne Mitternacht) gilt auch.",
             ],
           ],
         },

@@ -10,6 +10,9 @@ process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 delete process.env.MASTODON_TOKEN;
 delete process.env.MASTODON_INSTANCE;
 delete process.env.MASTODON_VISIBILITY;
+// El silencio nocturno se prueba en sus propias pruebas: aquí se apaga para
+// que el resto no dependa de la hora a la que se ejecute la suite.
+process.env.MASTODON_QUIET_HOURS = "off";
 
 type Mastodon = typeof import("../src/lib/mastodon.ts");
 type DbModule = typeof import("../src/lib/db/index.ts");
@@ -843,5 +846,121 @@ test("con MASTODON_GAP_MINUTES=0 dos libros seguidos salen en el acto", async ()
     delete process.env.MASTODON_TOKEN;
     if (anterior === undefined) delete process.env.MASTODON_GAP_MINUTES;
     else process.env.MASTODON_GAP_MINUTES = anterior;
+  }
+});
+
+/* ------------------------- silencio nocturno ------------------------------ */
+
+test("entre las 22:00 y las 09:00 de Berlín no se publica nada", () => {
+  const anterior = process.env.MASTODON_QUIET_HOURS;
+  delete process.env.MASTODON_QUIET_HOURS;
+  try {
+    // Noviembre: Berlín va una hora por delante de UTC.
+    const casos: [string, boolean][] = [
+      ["2026-11-09T07:59:00Z", true], // 08:59
+      ["2026-11-09T08:00:00Z", false], // 09:00, ya se puede
+      ["2026-11-09T12:00:00Z", false], // 13:00
+      ["2026-11-09T20:59:00Z", false], // 21:59
+      ["2026-11-09T21:00:00Z", true], // 22:00, se cierra
+      ["2026-11-09T23:59:00Z", true], // 00:59 del día siguiente
+      ["2026-11-09T03:30:00Z", true], // 04:30
+    ];
+    for (const [instante, esperado] of casos) {
+      assert.equal(
+        mastodon.enHorarioSilencioso(new Date(instante)),
+        esperado,
+        `a las ${instante} debería ser ${esperado ? "silencio" : "permitido"}`,
+      );
+    }
+
+    // Lo que vence de madrugada pasa a las 09:00 de esa mañana.
+    const salida = mastodon.fueraDeSilencio(new Date("2026-11-09T01:30:00Z"));
+    assert.equal(salida.toISOString().slice(11, 13), "08", "las 09:00 de Berlín son las 08:00 UTC");
+
+    // Una banda que no cruza la medianoche también vale.
+    process.env.MASTODON_QUIET_HOURS = "1-5";
+    assert.equal(mastodon.enHorarioSilencioso(new Date("2026-11-09T03:00:00Z")), true); // 04:00
+    assert.equal(mastodon.enHorarioSilencioso(new Date("2026-11-09T21:00:00Z")), false); // 22:00
+
+    // Y se puede apagar.
+    process.env.MASTODON_QUIET_HOURS = "off";
+    assert.equal(mastodon.enHorarioSilencioso(new Date("2026-11-09T03:00:00Z")), false);
+  } finally {
+    if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
+    else process.env.MASTODON_QUIET_HOURS = anterior;
+  }
+});
+
+test("un aviso que nace de noche se encola para las 09:00 y no se envía", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  const llamadas: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    llamadas.push(String(input));
+    return jsonResponse({ id: "1" });
+  }) as unknown as typeof fetch;
+  const anterior = process.env.MASTODON_QUIET_HOURS;
+  delete process.env.MASTODON_QUIET_HOURS;
+  process.env.MASTODON_TOKEN = "tok";
+  try {
+    const noche = new Date("2026-11-09T22:30:00Z"); // 23:30 en Berlín
+    const result = await mastodon.announceBook({
+      bookId: "bok-nocturno",
+      title: "Eclipse of reason",
+      author: "Max Horkheimer",
+      base: "https://wanderbibliothek.org",
+      ownerId: "usr_admin",
+      sinTopeDiario: true,
+      now: noche,
+    });
+    assert.deepEqual(result, { queued: true, sent: false, media: false });
+    assert.equal(llamadas.length, 0, "de noche no se llama a Mastodon");
+
+    const fila = dbModule
+      .getDb()
+      .prepare("SELECT status, next_attempt_at FROM social_outbox WHERE subject = ?")
+      .get("bok-nocturno") as { status: string; next_attempt_at: string };
+    assert.equal(fila.status, "pending");
+    assert.equal(fila.next_attempt_at, "2026-11-10T08:00:00.000Z", "las 09:00 de Berlín");
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+    if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
+    else process.env.MASTODON_QUIET_HOURS = anterior;
+  }
+});
+
+test("el cron tampoco publica de noche, aunque haya avisos vencidos", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  const llamadas: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    llamadas.push(String(input));
+    return jsonResponse({ id: "1" });
+  }) as unknown as typeof fetch;
+  const anterior = process.env.MASTODON_QUIET_HOURS;
+  delete process.env.MASTODON_QUIET_HOURS;
+  process.env.MASTODON_TOKEN = "tok";
+  try {
+    dbModule
+      .getDb()
+      .prepare(
+        `INSERT INTO social_outbox (id, network, subject, body, status, attempts, next_attempt_at, created_at)
+         VALUES ('soc_noche', 'mastodon', 'bok_noche', 'texto', 'pending', 0,
+                 '2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z')`,
+      )
+      .run();
+    const result = await mastodon.processSocialOutbox({ now: new Date("2026-11-09T23:00:00Z") });
+    assert.deepEqual(result, { sent: 0, failed: 0, skipped: true });
+    assert.equal(llamadas.length, 0, "ni una petición a Mastodon");
+
+    // De día sí sale.
+    const dia = await mastodon.processSocialOutbox({ now: new Date("2026-11-09T10:00:00Z") });
+    assert.equal(dia.sent, 1);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+    if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
+    else process.env.MASTODON_QUIET_HOURS = anterior;
   }
 });

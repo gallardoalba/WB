@@ -65,6 +65,69 @@ export function dayKey(now: Date = new Date(), timeZone = DAY_TIME_ZONE): string
   }).format(now);
 }
 
+/** Hora del día (0–23) en la zona de la casa. */
+export function hourKey(now: Date = new Date(), timeZone = DAY_TIME_ZONE): number {
+  return Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hour12: false }).format(now),
+  );
+}
+
+/** De 22:00 a 09:00 (hora de Berlín) el bot no publica nada. */
+export const QUIET_FROM_HOUR = 22;
+export const QUIET_UNTIL_HOUR = 9;
+
+/**
+ * Ventana de silencio, `MASTODON_QUIET_HOURS="22-9"`.
+ *
+ * Con `off` se desactiva. Sirve para moverla (por ejemplo `23-8`) sin tocar
+ * código, y las pruebas la apagan para no depender de la hora a la que se
+ * ejecuten. Una banda que no cruza la medianoche (`1-5`) también vale.
+ */
+function bandaSilencio(): [number, number] | null {
+  const crudo = process.env.MASTODON_QUIET_HOURS?.trim().toLowerCase();
+  if (crudo === "off") return null;
+  if (!crudo) return [QUIET_FROM_HOUR, QUIET_UNTIL_HOUR];
+  const partes = /^(\d{1,2})\s*-\s*(\d{1,2})$/.exec(crudo);
+  if (!partes) return [QUIET_FROM_HOUR, QUIET_UNTIL_HOUR];
+  const desde = Number(partes[1]);
+  const hasta = Number(partes[2]);
+  if (desde > 23 || hasta > 24) return [QUIET_FROM_HOUR, QUIET_UNTIL_HOUR];
+  return [desde, hasta];
+}
+
+/**
+ * ¿Estamos en la ventana de silencio?
+ *
+ * Un catálogo que anuncia libros a las tres de la mañana se lee como un robot
+ * descontrolado, y quien lo sigue se despierta con notificaciones. Entre las
+ * 22:00 y las 09:00 (hora de Berlín, la del servicio) no salen avisos ni «me
+ * gusta»: lo que vence se queda en cola y se publica al abrirse la ventana.
+ */
+export function enHorarioSilencioso(now: Date = new Date(), timeZone = DAY_TIME_ZONE): boolean {
+  const banda = bandaSilencio();
+  if (!banda) return false;
+  const [desde, hasta] = banda;
+  if (desde === hasta) return false;
+  const hora = hourKey(now, timeZone);
+  return desde < hasta ? hora >= desde && hora < hasta : hora >= desde || hora < hasta;
+}
+
+/**
+ * El instante en que toca publicar algo que vencía en horario de silencio: el
+ * primero permitido a partir de `desde`.
+ *
+ * Se avanza a pasos de un minuto en vez de sumar horas: en los cambios de
+ * horario de verano, sumar milisegundos no cae a la misma hora local.
+ */
+export function fueraDeSilencio(desde: Date, timeZone = DAY_TIME_ZONE): Date {
+  const paso = new Date(desde);
+  const limite = desde.getTime() + 36 * 60 * 60 * 1000;
+  while (enHorarioSilencioso(paso, timeZone) && paso.getTime() < limite) {
+    paso.setTime(paso.getTime() + 60 * 1000);
+  }
+  return paso;
+}
+
 export type MastodonConfig = {
   /** Origen, sin barra final: `https://mastodon.social`. */
   instance: string;
@@ -759,12 +822,19 @@ export async function processSocialOutbox(
     only?: string;
     config?: MastodonConfig | null;
     fetchImpl?: typeof fetch;
+    /** Instante de referencia (las pruebas lo fijan; el servicio usa el reloj). */
+    now?: Date;
   } = {},
 ): Promise<{ sent: number; failed: number; skipped: boolean }> {
   const config = options.config === undefined ? mastodonConfig() : options.config;
   const fetchImpl = options.fetchImpl ?? fetch;
   const limit = options.limit ?? 3;
   if (!config) return { sent: 0, failed: 0, skipped: true };
+  // De noche no se publica nada: lo que vence se queda en cola y sale al
+  // abrirse la ventana (el cron pasará a las 09:00 y lo verá vencido).
+  if (enHorarioSilencioso(options.now ?? new Date())) {
+    return { sent: 0, failed: 0, skipped: true };
+  }
   const db = getDb();
   const rows = db
     .prepare(
@@ -935,21 +1005,26 @@ export async function announceBook(input: {
     const anterior = input.ownerId ? ultimoAvisoProgramado() : null;
     const ahora = input.now ?? new Date();
     const candidato = anterior ? anterior.getTime() + separacionAviso() : 0;
-    const turno = anterior && candidato > ahora.getTime() ? new Date(candidato) : null;
+    // Ni de noche ni a las 09:00 justas si el hueco vencía de madrugada: el
+    // turno se empuja hasta la primera hora permitida. Un aviso que nace de
+    // madrugada se encola ya para las 09:00, sin intentar publicarlo.
+    const turno =
+      anterior && candidato > ahora.getTime() ? fueraDeSilencio(new Date(candidato)) : null;
+    const cuando = turno ?? (enHorarioSilencioso(ahora) ? fueraDeSilencio(ahora) : null);
 
     const id = enqueuePost({
       bookId: input.bookId,
       text,
       ownerId: input.ownerId,
       day,
-      nextAttemptAt: turno,
+      nextAttemptAt: cuando,
     });
     if (!id) return { queued: false, sent: false, media: false };
     // Con turno futuro no se intenta: lo soltará el cron cuando venza.
-    if (!turno) {
+    if (!cuando) {
       // Se intenta esa fila y no la más antigua: un atraso en la cola (la
       // instancia caída ayer) no puede retrasar el aviso de hoy.
-      const { sent } = await processSocialOutbox({ limit: 1, only: id, config });
+      const { sent } = await processSocialOutbox({ limit: 1, only: id, config, now: ahora });
       const fila = getDb()
         .prepare("SELECT media_id FROM social_outbox WHERE id = ?")
         .get(id) as { media_id: string | null } | undefined;

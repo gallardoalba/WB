@@ -39,6 +39,7 @@ import { getDb } from "./db";
 import type { Locale } from "./locale";
 import {
   dayKey,
+  enHorarioSilencioso,
   mastodonConfig,
   SOCIAL_NETWORK,
   variantIndex,
@@ -588,6 +589,13 @@ export async function processLikes(
   if (!config) return { liked: false, reason: "el bot de «me gusta» está apagado" };
   const now = options.now ?? new Date();
   const fetchImpl = options.fetchImpl ?? fetch;
+
+  // De noche tampoco se da un «me gusta»: la notificación llega al teléfono de
+  // otra persona, y a las tres de la mañana sienta igual de mal venga de quien
+  // venga.
+  if (enHorarioSilencioso(now)) {
+    return { liked: false, reason: "horario de silencio (22:00–09:00 de Berlín)" };
+  }
 
   const done = likeCountSince();
   if (done >= config.perDay) {

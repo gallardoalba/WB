@@ -8,6 +8,9 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 delete process.env.MASTODON_TOKEN;
+// El silencio nocturno se prueba en sus propias pruebas: aquí se apaga para
+// que el resto no dependa de la hora a la que se ejecute la suite.
+process.env.MASTODON_QUIET_HOURS = "off";
 delete process.env.MASTODON_LIKES;
 
 type Likes = typeof import("../src/lib/mastodon-likes.ts");
@@ -467,4 +470,36 @@ test("el historial se purga y los «me gusta» recientes se pueden leer", () => 
     .run();
   assert.equal(likes.purgeSocialLikes(180), 1);
   assert.equal(likes.likeCountSince(), 0);
+});
+
+test("de noche no se da ningún «me gusta»", async () => {
+  clearMemory();
+  const anterior = process.env.MASTODON_QUIET_HOURS;
+  delete process.env.MASTODON_QUIET_HOURS;
+  const { impl, calls } = mastodonReply({ statuses: [rawStatus()] });
+  try {
+    const resultado = await likes.processLikes({
+      config: CONFIG,
+      fetchImpl: impl,
+      // 23:30 en Berlín.
+      now: new Date("2026-11-09T22:30:00Z"),
+      maxTags: 99,
+    });
+    assert.equal(resultado.liked, false);
+    assert.match(resultado.reason ?? "", /silencio/);
+    assert.equal(calls.length, 0, "ni una petición a Mastodon");
+    assert.equal(likes.likeCountSince(), 0);
+
+    // De día vuelve a funcionar.
+    const dia = await likes.processLikes({
+      config: CONFIG,
+      fetchImpl: mastodonReply({ statuses: [rawStatus()] }).impl,
+      now: new Date("2026-11-09T10:00:00Z"),
+      maxTags: 99,
+    });
+    assert.equal(dia.liked, true);
+  } finally {
+    if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
+    else process.env.MASTODON_QUIET_HOURS = anterior;
+  }
 });
