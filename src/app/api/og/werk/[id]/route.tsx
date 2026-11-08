@@ -12,9 +12,9 @@ const BOOK_ICON = `data:image/svg+xml;utf8,${encodeURIComponent(
 )}`;
 
 /** Alto de la portada dentro de la tarjeta; el ancho sale de su proporción. */
-const COVER_HEIGHT = 500;
-/** Tope de ancho: el texto necesita su mitad de la tarjeta. */
-const COVER_MAX_WIDTH = 340;
+const COVER_HEIGHT = 552;
+/** Tope de ancho: con una portada apaisada, el texto necesita su mitad. */
+const COVER_MAX_WIDTH = 420;
 
 type CardCover = { src: string; width: number; height: number };
 
@@ -46,10 +46,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           height: "100%",
           display: "flex",
           alignItems: "center",
-          gap: 56,
+          gap: 52,
           background: "linear-gradient(135deg, #2f5741 0%, #24452f 100%)",
           color: "#f7f6f1",
-          padding: "64px 72px",
+          padding: "38px 64px",
           fontFamily: "sans-serif",
         }}
       >
