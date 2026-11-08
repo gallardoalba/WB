@@ -385,8 +385,16 @@ export function ExchangeDialog({
       !thread.keyChanged,
   );
   const actions = allowedTargets(request.role, request.status).filter(
-    (target) => !(target === "completed" && request.confirmedByMe),
+    (target) =>
+      target !== "cancelled" && !(target === "completed" && request.confirmedByMe),
   );
+  // Cancelar es la salida de emergencia del intercambio: vive al final del
+  // diálogo y desaparece en cuanto alguna de las dos partes confirma la
+  // entrega, porque a partir de ahí el libro ya cambió de manos.
+  const canCancel =
+    allowedTargets(request.role, request.status).includes("cancelled") &&
+    !request.confirmedByMe &&
+    !request.confirmedByOther;
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -564,23 +572,15 @@ export function ExchangeDialog({
             >
               {status === "completed"
                 ? t("Confirmar entrega")
-                : status === "cancelled"
-                  ? request.status === "pending"
-                    ? t("Retirar la solicitud")
-                    : t("Cancelar el intercambio")
-                  : t(ACTION_LABELS[status] ?? status)}
+                : t(ACTION_LABELS[status] ?? status)}
             </button>
           ))}
         </div>
       )}
 
-      {confirmStatus && (
+      {confirmStatus && confirmStatus !== "cancelled" && (
         <div className="exchange-confirm" role="group" aria-label={t("CONFIRMAR ACCIÓN")}>
-          <p role="alert">
-            {confirmStatus === "cancelled" && request.status === "pending"
-              ? t("Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.")
-              : t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}
-          </p>
+          <p role="alert">{t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}</p>
           <div className="dialog-actions">
             <button
               type="button"
@@ -605,6 +605,12 @@ export function ExchangeDialog({
       {request.status === "accepted" && request.confirmedByMe && (
         <p className="form-note" role="status">
           {t("Has confirmado la entrega. El intercambio se cerrará cuando la otra persona también la confirme.")}
+        </p>
+      )}
+
+      {request.status === "accepted" && !request.confirmedByMe && request.confirmedByOther && (
+        <p className="form-note" role="status">
+          {t("La otra parte ya ha confirmado la entrega. Confírmala también cuando tengas el libro.")}
         </p>
       )}
 
@@ -898,12 +904,54 @@ export function ExchangeDialog({
         </details>
       )}
 
+      {/* Última salida del intercambio, lejos de los botones de decisión: una
+          vez que alguna de las dos partes confirma la entrega, desaparece. */}
+      {canCancel && (
+        <div className="exchange-cancel">
+          {confirmStatus === "cancelled" ? (
+            <div className="exchange-confirm" role="group" aria-label={t("CONFIRMAR ACCIÓN")}>
+              <p role="alert">
+                {request.status === "pending"
+                  ? t("Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.")
+                  : t(CONFIRM_STATUS_TEXT["cancelled"] ?? "¿Confirmas esta acción?")}
+              </p>
+              <div className="dialog-actions">
+                <button
+                  type="button"
+                  className="secondary-button small"
+                  onClick={() => setConfirmStatus(null)}
+                  disabled={busy}
+                >
+                  {t("Cancelar")}
+                </button>
+                <button
+                  type="button"
+                  className="share-button small"
+                  onClick={() => void applyStatus("cancelled")}
+                  disabled={busy}
+                >
+                  {t("Confirmar")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="exchange-cancel-button"
+              onClick={() => setConfirmStatus("cancelled")}
+              disabled={busy}
+            >
+              {request.status === "pending" ? t("Retirar la solicitud") : t("Cancelar el intercambio")}
+            </button>
+          )}
+        </div>
+      )}
+
       {request.status === "completed" && request.reviewed && (
         <p className="action-feedback">
           <Star size={14} /> {t("Ya has valorado este intercambio.")}
         </p>
       )}
-
       {request.status === "completed" && !request.reviewed && (
         <form className="review-form" onSubmit={submitReview}>
           <strong>{t("¿Cómo fue el intercambio?")}</strong>

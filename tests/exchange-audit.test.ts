@@ -238,8 +238,7 @@ test("un ejemplar retirado por moderación no resucita al cerrar el intercambio"
   assert.equal(repo.getListing(copia.id, "usr_lucia"), null, "nada vuelve al catálogo solo");
 });
 
-test("un intercambio cerrado no admite más cambios", () => {
-  const listing = nuevoEjemplar();
+test("un intercambio cerrado no admite más cambios", () => {  const listing = nuevoEjemplar();
   const request = repo.createRequest("usr_diego", listing.id);
   repo.updateRequestStatus(request.id, "usr_clara", "accepted");
   repo.updateRequestStatus(request.id, "usr_diego", "completed");
@@ -252,6 +251,27 @@ test("un intercambio cerrado no admite más cambios", () => {
     assert.equal(error.status, 409, `«${target}» no debería estar permitido`);
   }
 });
+
+test("con una entrega confirmada ya no se puede cancelar el intercambio", () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+
+  // Con la entrega a medias nadie cancela: una de las dos partes ya ha dicho
+  // por escrito que el libro cambió de manos.
+  repo.updateRequestStatus(request.id, "usr_clara", "completed");
+
+  for (const quien of ["usr_clara", "usr_diego"] as const) {
+    const error = errorDe(() => repo.updateRequestStatus(request.id, quien, "cancelled"));
+    assert.equal(error.status, 409, `${quien} no debería poder cancelar`);
+    assert.match(error.message, /ya ha confirmado la entrega/);
+  }
+
+  // Y nada se ha movido: el ejemplar sigue reservado y la solicitud aceptada.
+  assert.equal(estado(request.id, "usr_clara"), "accepted");
+  assert.equal(estadoDelEjemplar(listing.id), "reserved");
+});
+
 
 /* --------------------- el libro cambia de manos ------------------------- */
 

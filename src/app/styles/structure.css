@@ -1226,6 +1226,40 @@
   line-height: 1.5;
 }
 
+/* Cancelar: texto discreto al final del diálogo, no un botón junto a las
+   decisiones del intercambio. */
+.exchange-cancel {
+  margin: 18px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.exchange-cancel-button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.exchange-cancel-button:hover,
+.exchange-cancel-button:focus-visible {
+  color: var(--coral);
+}
+
+.exchange-cancel-button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.exchange-cancel .exchange-confirm {
+  margin: 0;
+}
+
 .exchange-help {
   margin: 8px 0 12px;
   color: var(--muted);

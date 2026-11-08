@@ -174,6 +174,8 @@ export const EN: TechnicalDocument = {
             "On acceptance, competing requests move to `expired`; only the owner accepts or declines.",
             "Closing is two-sided: each party confirms separately and only the second confirmation completes the exchange.",
             "The book changes hands: the copy that was handed over stays `given` and the receiver gets a paused copy on their shelf that they can activate whenever they want.",
+            "Once a handover is confirmed the exchange can no longer be cancelled: the copy does not return to the catalogue behind the back of whoever already declared that they handed it over.",
+            "The rating (1–5 plus an optional comment) scores **the person** you swap with, not the book: one per side and exchange, only once it is completed, and it shows on their profile as an average and comments.",
             "Unanswered requests expire after 14 days and notify the person who was waiting.",
             "Blocks, suspended accounts and paused copies are filtered in SQL, not in the client.",
           ],

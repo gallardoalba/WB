@@ -102,6 +102,8 @@ Messages within an exchange and direct messages are encrypted in the browser (EC
 - On acceptance, competing requests move to `expired`; only the owner accepts or declines.
 - Closing is two-sided: each side confirms separately, and only the second confirmation completes the exchange.
 - The book changes hands: the copy handed over stays `given` and the receiver gets a paused copy on their shelf, which they can activate whenever they want.
+- Once a handover is confirmed the exchange can no longer be cancelled: the copy does not return to the catalogue behind the back of whoever already declared that they handed it over.
+- The rating (1–5 and an optional comment) scores **the person** you swap with, not the book. One per side and exchange, only once it is completed, stored in `reviews` and shown on the public profile as an average, a count and the comments.
 - Unanswered requests expire after 14 days and notify the waiting person.
 - Blocks, suspended accounts and paused copies are filtered in SQL, not in the client.
 

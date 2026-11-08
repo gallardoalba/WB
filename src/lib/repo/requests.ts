@@ -250,6 +250,10 @@ const REQUEST_ERRORS: Record<string, string> = {
 /** El estado cambió entre la lectura y la escritura (otra pestaña, otra persona). */
 const STALE_REQUEST = "El intercambio ha cambiado mientras lo mirabas. Recarga e inténtalo de nuevo.";
 
+/** Ya hay una entrega confirmada: deshacer el intercambio ya no es una opción. */
+const CANCEL_AFTER_CONFIRMATION =
+  "Una de las dos personas ya ha confirmado la entrega: el intercambio no se puede cancelar.";
+
 /**
  * Copia que estrena quien se queda el libro.
  *
@@ -312,7 +316,11 @@ export function updateRequestStatus(
 ): RequestView {
   const db = getDb();
   const row = db
-    .prepare("SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?")
+    .prepare(
+      `SELECT id, listing_id, requester_id, owner_id, status,
+              owner_confirmed_at, requester_confirmed_at
+         FROM requests WHERE id = ?`,
+    )
     .get(requestId) as
     | {
         id: string;
@@ -320,12 +328,23 @@ export function updateRequestStatus(
         requester_id: string;
         owner_id: string;
         status: RequestStatus;
+        owner_confirmed_at: string | null;
+        requester_confirmed_at: string | null;
       }
     | undefined;
 
   if (!row) throw new ApiError(404, "La solicitud no existe.");
   if (row.requester_id !== userId && row.owner_id !== userId) {
     throw new ApiError(404, "La solicitud no existe.");
+  }
+  // Con una confirmación sobre la mesa, el intercambio ya no se deshace: una de
+  // las dos personas ha declarado que el libro cambió de manos. Retirarlo desde
+  // ahí dejaría el ejemplar libre y la palabra de una de ellas en el aire.
+  if (
+    (target === "cancelled" || target === "declined") &&
+    (row.owner_confirmed_at || row.requester_confirmed_at)
+  ) {
+    throw new ApiError(409, CANCEL_AFTER_CONFIRMATION);
   }
   const role: ViewerRole = row.requester_id === userId ? "requester" : "owner";
   if (!canTransition(role, row.status, target)) {
@@ -423,8 +442,16 @@ export function updateRequestStatus(
     }
 
     {
+      // La condición repite en SQL lo que ya se comprobó arriba: si la otra
+      // parte confirma entre la lectura y esta escritura, la cancelación no
+      // pasa (y el ejemplar no se libera por detrás).
+      const guard = target === "cancelled" || target === "declined"
+        ? " AND owner_confirmed_at IS NULL AND requester_confirmed_at IS NULL"
+        : "";
       const updated = db
-        .prepare("UPDATE requests SET status = ?, updated_at = ? WHERE id = ? AND status = ?")
+        .prepare(
+          `UPDATE requests SET status = ?, updated_at = ? WHERE id = ? AND status = ?${guard}`,
+        )
         .run(target, now, requestId, row.status);
       if (updated.changes !== 1) {
         throw new ApiError(409, STALE_REQUEST);
