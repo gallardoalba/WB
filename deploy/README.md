@@ -510,9 +510,12 @@ apareció el bucle de redirecciones de `/api/requests`.
     > ~/.config/wanderbibliothek/backup-key
   chmod 600 ~/.config/wanderbibliothek/backup-key
 
-  # Cada día, con un temporizador de usuario (lingeren habilitado):
-  #   ~/.config/systemd/user/wanderbibliothek-backup-pull.{service,timer}
+  # Cada día: las unidades de `deploy/backup-pull-user.{service,timer}`.
+  install -Dm644 deploy/backup-pull-user.service ~/.config/systemd/user/wanderbibliothek-backup-pull.service
+  install -Dm644 deploy/backup-pull-user.timer   ~/.config/systemd/user/wanderbibliothek-backup-pull.timer
+  systemctl --user daemon-reload
   systemctl --user enable --now wanderbibliothek-backup-pull.timer
+  loginctl enable-linger "$USER"   # corre aunque no tengas la sesión abierta
   ```
 
   El script trae, rota (30 copias), **descifra la más reciente y comprueba que

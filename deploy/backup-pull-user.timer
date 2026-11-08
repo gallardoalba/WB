@@ -1,0 +1,12 @@
+[Unit]
+Description=Copia externa de Wanderbibliothek, una vez al día
+
+[Timer]
+# El servidor copia sobre las 03:22; esto recoge lo del día anterior.
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=20m
+# Si el portátil estaba apagado, al encenderlo se recupera la pasada perdida.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

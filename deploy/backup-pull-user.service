@@ -1,0 +1,9 @@
+[Unit]
+Description=Copia externa de Wanderbibliothek (trae la copia cifrada del servidor)
+
+[Service]
+Type=oneshot
+# Ajusta la ruta al sitio donde tengas el repositorio.
+ExecStart=%h/Desktop/wanderbibliothek/deploy/backup-pull.sh
+Nice=15
+IOSchedulingClass=idle
