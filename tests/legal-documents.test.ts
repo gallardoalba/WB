@@ -16,6 +16,7 @@ import { test } from "node:test";
 import {
   imprintDocument,
   legalConfig,
+  maskContact,
   privacyDocument,
   type LegalConfig,
   type LegalDocument,
@@ -80,11 +81,39 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
   assert.equal(sinContacto.complete, false);
 });
 
+test("la dirección de contacto se publica enmascarada", () => {
+  // El aviso legal tiene que dar un medio de contacto, pero no regalárselo a
+  // los rastreadores de correo: en el texto va `nombre[at]dominio`.
+  assert.equal(maskContact("gallardoalba@pm.me"), "gallardoalba[at]pm.me");
+  assert.equal(maskContact("  hola@wanderbibliothek.org  "), "hola[at]wanderbibliothek.org");
+  // Lo que ya no es una dirección se deja como está en vez de romperse.
+  assert.equal(maskContact("pendiente de configurar"), "pendiente de configurar");
+  assert.equal(maskContact("sin-arroba"), "sin-arroba");
+  assert.equal(maskContact("@suelta"), "@suelta");
+  assert.equal(maskContact("cola@"), "cola@");
+
+  // Y en los tres idiomas el documento sale enmascarado, sin ningún `@`.
+  for (const locale of ["de", "es", "en"] as const) {
+    for (const documento of [imprintDocument(locale, completo), privacyDocument(locale, completo)]) {
+      const cuerpo = texto(documento);
+      assert.ok(
+        cuerpo.includes(maskContact(completo.contact)),
+        `${locale}: el contacto va enmascarado (${maskContact(completo.contact)})`,
+      );
+      assert.equal(
+        cuerpo.includes(completo.contact),
+        false,
+        `${locale}: la dirección con @ no puede aparecer en el HTML`,
+      );
+    }
+  }
+});
+
 test("el aviso legal nombra al titular, la dirección y el contacto en alemán y en español", () => {
   const aleman = imprintDocument("de", completo);
   assert.equal(aleman.title, "Impressum");
   assert.match(texto(aleman), /§ 5 DDG/);
-  for (const dato of [completo.controller, completo.address, completo.contact]) {
+  for (const dato of [completo.controller, completo.address, maskContact(completo.contact)]) {
     assert.ok(texto(aleman).includes(dato), `el aviso legal alemán menciona ${dato}`);
   }
   // Los datos opcionales se etiquetan en alemán.
@@ -94,7 +123,7 @@ test("el aviso legal nombra al titular, la dirección y el contacto en alemán y
 
   const espanol = imprintDocument("es", completo);
   assert.equal(espanol.title, "Aviso legal");
-  for (const dato of [completo.controller, completo.address, completo.contact]) {
+  for (const dato of [completo.controller, completo.address, maskContact(completo.contact)]) {
     assert.ok(texto(espanol).includes(dato), `el aviso legal español menciona ${dato}`);
   }
   assert.match(texto(espanol), /Titular: Ada Lovelace/);
@@ -146,7 +175,7 @@ test("la política de privacidad cubre las mismas secciones en los tres idiomas"
     assert.ok(documento.intro.length > 0);
     assert.match(documento.updated, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(texto(documento).includes(completo.controller));
-    assert.ok(texto(documento).includes(completo.contact));
+    assert.ok(texto(documento).includes(maskContact(completo.contact)));
   }
 
   // Y con la configuración vacía también avisan de que falta configurarla.

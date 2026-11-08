@@ -116,9 +116,16 @@ test("las páginas legales avisan en vez de inventar los datos del responsable",
     LEGAL_CONTACT_EMAIL: "privacidad@example.com",
   });
   assert.equal(configured.complete, true);
+  // La dirección se publica enmascarada: el `@` literal es lo que recogen los
+  // rastreadores de correo (ver `maskContact`).
   assert.match(
     legal.privacyDocument("de", configured).sections[0]!.body.join(" "),
-    /privacidad@example\.com/,
+    /privacidad\[at\]example\.com/,
+  );
+  assert.equal(
+    legal.privacyDocument("de", configured).sections[0]!.body.join(" ").includes("privacidad@example.com"),
+    false,
+    "la dirección con @ no debe aparecer tal cual",
   );
 });
 

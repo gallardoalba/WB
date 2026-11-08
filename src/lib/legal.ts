@@ -56,6 +56,21 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
 /** Fecha de la última revisión del texto. */
 const UPDATED = "2026-11-04";
 
+/**
+ * Dirección de contacto tal y como se publica: `nombre[at]dominio`.
+ *
+ * El aviso legal obliga a dar un medio de contacto, pero una dirección escrita
+ * con su `@` es lo primero que recogen los rastreadores de correo. Con `[at]`
+ * se lee igual y el robot que copia el HTML se queda con una cadena que no es
+ * una dirección.
+ */
+export function maskContact(contact: string): string {
+  const limpio = contact.trim();
+  const arroba = limpio.lastIndexOf("@");
+  if (arroba < 1 || arroba === limpio.length - 1) return limpio;
+  return `${limpio.slice(0, arroba)}[at]${limpio.slice(arroba + 1)}`;
+}
+
 const CONTROLLER_PLACEHOLDER_ES =
   "Pendiente de configurar: define LEGAL_CONTROLLER, LEGAL_ADDRESS y LEGAL_CONTACT_EMAIL en el entorno del servicio.";
 const CONTROLLER_PLACEHOLDER_DE =
@@ -64,7 +79,7 @@ const CONTROLLER_PLACEHOLDER_DE =
 export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocument {
   if (locale === "en") return privacyDocumentEN(config);
   const responsible = config.complete
-    ? [config.controller, config.address, config.contact].filter(Boolean)
+    ? [config.controller, config.address, maskContact(config.contact)].filter(Boolean)
     : [locale === "de" ? CONTROLLER_PLACEHOLDER_DE : CONTROLLER_PLACEHOLDER_ES];
 
   if (locale === "de") {
@@ -277,7 +292,7 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
     ? [
         `${de ? "Anbieter" : "Titular"}: ${config.controller}`,
         `${de ? "Anschrift" : "Dirección"}: ${config.address}`,
-        `${de ? "Kontakt" : "Contacto"}: ${config.contact}`,
+          `${de ? "Kontakt" : "Contacto"}: ${maskContact(config.contact)}`,
         ...(config.phone ? [`${de ? "Telefon" : "Teléfono"}: ${config.phone}`] : []),
         ...(config.register ? [`${de ? "Registereintrag" : "Registro"}: ${config.register}`] : []),
         ...(config.vatId ? [`${de ? "USt-IdNr." : "NIF/IVA"}: ${config.vatId}`] : []),

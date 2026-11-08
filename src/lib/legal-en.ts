@@ -8,7 +8,7 @@
  * inventar una dirección.
  */
 
-import type { LegalConfig, LegalDocument } from "./legal";
+import { maskContact, type LegalConfig, type LegalDocument } from "./legal";
 
 /** Fecha de la última revisión del texto (la misma que en `legal.ts`). */
 const UPDATED = "2026-11-04";
@@ -18,7 +18,7 @@ const CONTROLLER_PLACEHOLDER_EN =
 
 export function privacyDocumentEN(config: LegalConfig): LegalDocument {
   const responsible = config.complete
-    ? [config.controller, config.address, config.contact].filter(Boolean)
+    ? [config.controller, config.address, maskContact(config.contact)].filter(Boolean)
     : [CONTROLLER_PLACEHOLDER_EN];
 
   return {
@@ -127,7 +127,7 @@ export function imprintDocumentEN(config: LegalConfig): LegalDocument {
     ? [
         `Provider: ${config.controller}`,
         `Address: ${config.address}`,
-        `Contact: ${config.contact}`,
+        `Contact: ${maskContact(config.contact)}`,
         ...(config.phone ? [`Phone: ${config.phone}`] : []),
         ...(config.register ? [`Register entry: ${config.register}`] : []),
         ...(config.vatId ? [`VAT ID: ${config.vatId}`] : []),
