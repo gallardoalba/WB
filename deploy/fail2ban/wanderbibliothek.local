@@ -1,0 +1,33 @@
+# Jails del borde para Wanderbibliothek.
+#
+#   sudo cp deploy/fail2ban/wb-nginx-scan.conf /etc/fail2ban/filter.d/
+#   sudo cp deploy/fail2ban/wanderbibliothek.local /etc/fail2ban/jail.d/
+#   sudo fail2ban-client reload
+#
+# Los dos trabajan sobre los registros de nginx que escribe `deploy/nginx.conf`:
+# el primero sobre el `access.log` (rutas de escáner con 4xx, incluido el 444
+# que devuelve `location ~* (\.php|\.env|…)`) y el segundo sobre el `error.log`
+# (las líneas «limiting requests» del `limit_req`).
+#
+# ⚠ `ignoreip` incluye la IP pública del servidor a propósito: el propio host
+# pide su sitio al generar la tarjeta social de cada libro (`/api/og/werk/<id>`
+# se descarga por HTTP para adjuntarla a Mastodon) y un baneo de sí mismo
+# rompería esos anuncios.
+
+[wb-nginx-scan]
+enabled = true
+filter = wb-nginx-scan
+logpath = /var/log/nginx/wanderbibliothek.access.log
+          /var/log/nginx/access.log
+maxretry = 5
+findtime = 1h
+bantime = 1d
+
+[wb-nginx-limit]
+enabled = true
+filter = nginx-limit-req
+logpath = /var/log/nginx/wanderbibliothek.error.log
+ignoreip = 127.0.0.1/8 ::1
+maxretry = 5
+findtime = 10m
+bantime = 1h

@@ -348,15 +348,46 @@ El `nginx.conf` de `deploy/` añade tres cosas que la aplicación no puede hacer
 sola:
 
 - **Límite de ritmo en el borde** (`limit_req`): 10 peticiones/minuto por IP en
-  `/api/auth/*` y 300 en el resto. La app ya limita en SQLite, pero cada intento
-  rechazado sigue siendo una escritura: el límite del proxy evita que un flood
-  convierta el disco en el cuello de botella. El global es holgado a propósito
-  (varios usuarios pueden compartir IP detrás de un NAT). Si pones un CDN
-  delante, configura `real_ip` o el límite agrupará a todos los visitantes en la
-  IP del CDN.
+  `/api/auth/*` y **120/minuto (2 por segundo, con margen de 120)** en el resto.
+  La app ya limita en SQLite, pero cada intento rechazado sigue siendo una
+  escritura: el límite del proxy evita que un flood convierta el disco en el
+  cuello de botella. El margen cubre una carga de página normal (~30 ficheros de
+  golpe) y sigue cortando los barridos de cientos de peticiones; con 300/minuto
+  y margen 300 **ningún escáner lo tocaba**. Si pones un CDN delante, configura
+  `real_ip` o el límite agrupará a todos los visitantes en la IP del CDN.
+- **Rutas de escáner con `444`**: `.php`, `.env`, `/.git`, `/wp-*`, `.sql`,
+  `.bak`, `.old`, `.swp` y `.DS_Store` cierran la conexión sin respuesta y sin
+  llegar a Node. Se registran en el `access.log` con estado 444, así que el jail
+  `wb-nginx-scan` sigue contándolas. Ninguna ruta real de la aplicación contiene
+  esos patrones.
 - **`/api/cron/maintenance` solo desde el propio host** (`allow 127.0.0.1;`): el
   token ya la protege, pero no hay razón para exponer una tarea de escritura.
 - **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
+
+Si además usas fail2ban (recomendado), dos jails cubren el borde. Las plantillas
+están en `deploy/fail2ban/`:
+
+```bash
+sudo cp deploy/fail2ban/wb-nginx-scan.conf /etc/fail2ban/filter.d/
+sudo cp deploy/fail2ban/wanderbibliothek.local /etc/fail2ban/jail.d/
+sudo fail2ban-client reload
+```
+
+```ini
+[wb-nginx-scan]     # 5 respuestas 4xx de escáner en 1 h → 1 día de ban
+filter = wb-nginx-scan
+logpath = /var/log/nginx/wanderbibliothek.access.log
+
+[wb-nginx-limit]    # 5 «limiting requests» en 10 min → 1 h de ban
+filter = nginx-limit-req
+logpath = /var/log/nginx/wanderbibliothek.error.log
+ignoreip = 127.0.0.1/8 ::1 <IP pública del servidor>
+```
+
+El `ignoreip` del segundo jail importa: fail2ban ya ignora la IP propia
+(`ignoreself`), pero conviene dejarlo escrito porque el propio servidor pide su
+sitio público al generar la tarjeta social de cada libro, y una IP baneada
+rompería esos anuncios.
 
 ### `www` y la forma canónica
 
