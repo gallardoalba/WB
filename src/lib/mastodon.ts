@@ -555,6 +555,13 @@ export async function announceBook(input: {
       seed: input.bookId,
     });
 
+    // Si la obra ya tiene aviso, se sale antes de subir nada: una imagen subida
+    // y nunca adjunta se queda huérfana en la biblioteca de medios de la cuenta.
+    const already = getDb()
+      .prepare("SELECT 1 FROM social_outbox WHERE network = ? AND subject = ?")
+      .get(SOCIAL_NETWORK, input.bookId);
+    if (already) return { queued: false, sent: false, media: false };
+
     // La portada se sube antes de encolar: así el id queda guardado y un
     // reintento publica exactamente lo mismo, con su imagen.
     let mediaId: string | null = null;
