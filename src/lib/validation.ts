@@ -491,6 +491,23 @@ export const catalogParamsSchema = z.object({
     .max(500, "No hay más de 500 páginas.")
     .optional()
     .default(1),
+  // Cuántos ejemplares trae la página. El catálogo pide una fila de la rejilla
+  // (una por scroll); sin este parámetro se usa el tamaño de la primera página.
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1, "La página no puede estar vacía.")
+    .max(48, "La página es demasiado grande.")
+    .optional(),
+  // Desde qué ejemplar continuar. El scroll infinito pide tiradas de tamaño
+  // distinto (una fila según el ancho), así que cuenta por desplazamiento y no
+  // por número de página: `page` sigue existiendo para los enlaces clásicos.
+  offset: z.coerce
+    .number()
+    .int()
+    .min(0, "El desplazamiento no puede ser negativo.")
+    .max(5000, "El desplazamiento es demasiado grande.")
+    .optional(),
 });
 
 export type CatalogParams = z.infer<typeof catalogParamsSchema>;

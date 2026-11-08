@@ -25,10 +25,11 @@ import {
   type ListingRow,
 } from "./shared";
 
-// Diez por página: en pantallas anchas la rejilla del catálogo tiene cinco
-// columnas (≥1800 px), así que quedan dos filas completas y ninguna tarjeta
-// suelta. En el resto de anchos sigue siendo una página corta de recorrer.
-export const PAGE_SIZE = 10;
+// Quince por página: tres filas completas de cinco columnas en pantallas
+// anchas. Al hacer scroll se añade una fila más cada vez (lo pide el cliente
+// con `pageSize`), así que la página inicial no obliga a media docena de
+// tiradas de red.
+export const PAGE_SIZE = 15;
 
 const ORDER_BY: Record<SortMode, string> = {
   // `distance_km` es la distancia calculada desde la ciudad de quien mira.
@@ -90,24 +91,33 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
     )
     .get(binds) as { total: number };
 
+  // Tamaño de página: el de la primera pintura o el que pida el scroll
+  // (una fila de la rejilla). Se acota para que nadie pida el catálogo entero.
+  const pageSize = Math.min(Math.max(params.pageSize ?? PAGE_SIZE, 1), 48);
   // Un `?page=99` (enlace viejo, filtro que reduce los resultados) no debe
   // enseñar una página vacía con «Página 99 de 2»: se cae a la última real.
-  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.min(requestedPage, lastPage);
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
+  const page = params.offset === undefined ? Math.min(requestedPage, lastPage) : requestedPage;
+  // El scroll infinito trae una fila más detrás de lo ya pintado: cuenta por
+  // desplazamiento, porque el tamaño de cada tirada depende del ancho de la
+  // rejilla. Las páginas numeradas siguen calculándolo desde `page`.
+  const offset = params.offset ?? (page - 1) * pageSize;
 
   const rows = db
     .prepare(
       `${listingSelect(distance.expression)} ${distance.join} ${where}
        ORDER BY ${ORDER_BY[params.sort]} LIMIT @limit OFFSET @offset`,
     )
-    .all({ ...binds, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }) as ListingRow[];
+    .all({ ...binds, limit: pageSize, offset }) as ListingRow[];
 
   return {
     items: rows.map(toListingView),
     total,
     page,
-    pageSize: PAGE_SIZE,
-    hasMore: page * PAGE_SIZE < total,
+    pageSize,
+    // Con desplazamiento manda lo que se ha traído de verdad: al final de la
+    // lista la última tirada puede ser más corta que `pageSize`.
+    hasMore: offset + rows.length < total,
   };
 }
 

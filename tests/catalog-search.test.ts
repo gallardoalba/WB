@@ -60,32 +60,51 @@ function publicar(userId: string, title: string, author: string, isbn: string | 
   });
 }
 
-test("el catálogo va de diez en diez", async () => {
+test("el catálogo va de quince en quince y el scroll pide una fila", async () => {
   const { PAGE_SIZE } = await import("../src/lib/repo/catalog.ts");
-  assert.equal(PAGE_SIZE, 10, "diez tarjetas: dos filas completas de cinco columnas");
+  assert.equal(PAGE_SIZE, 15, "quince tarjetas: tres filas completas de cinco columnas");
 
   const user = nuevaCuenta("Paginador", "paginador@example.test");
-  for (let index = 1; index <= 12; index += 1) {
+  for (let index = 1; index <= 22; index += 1) {
     publicar(user.id, `Paginador ${String(index).padStart(2, "0")}`, "Autora", null);
   }
 
   const primera = repo.catalogPage(null, catalogParams({ q: "paginador" }));
-  assert.equal(primera.total, 12);
-  assert.equal(primera.items.length, 10);
-  assert.equal(primera.pageSize, 10);
+  assert.equal(primera.total, 22);
+  assert.equal(primera.items.length, 15);
+  assert.equal(primera.pageSize, 15);
   assert.equal(primera.hasMore, true);
 
   const segunda = repo.catalogPage(null, catalogParams({ q: "paginador", page: 2 }));
-  assert.equal(segunda.items.length, 2);
+  assert.equal(segunda.items.length, 7);
   assert.equal(segunda.hasMore, false);
   // Ninguna tarjeta se repite entre páginas.
   const ids = new Set([...primera.items, ...segunda.items].map((listing) => listing.id));
-  assert.equal(ids.size, 12);
+  assert.equal(ids.size, 22);
+
+  // El scroll pide una fila: cinco en pantalla ancha, tres en portátil. Va por
+  // desplazamiento porque cada tirada tiene un tamaño distinto según el ancho,
+  // y `page` no vale: la página 2 con `pageSize` 5 devolvería lo ya pintado.
+  const fila = repo.catalogPage(null, catalogParams({ q: "paginador", pageSize: 5, offset: 15 }));
+  assert.equal(fila.items.length, 5);
+  assert.equal(fila.pageSize, 5);
+  assert.equal(fila.hasMore, true);
+  const pintados = new Set(primera.items.map((listing) => listing.id));
+  assert.equal(
+    fila.items.some((listing) => pintados.has(listing.id)),
+    false,
+    "la fila nueva no repite ninguna tarjeta de la primera página",
+  );
+
+  // La última tirada es más corta que la fila y ya no queda nada detrás.
+  const cola = repo.catalogPage(null, catalogParams({ q: "paginador", pageSize: 5, offset: 20 }));
+  assert.equal(cola.items.length, 2);
+  assert.equal(cola.hasMore, false);
 
   // Un enlace viejo con una página que ya no existe cae a la última real.
   const fuera = repo.catalogPage(null, catalogParams({ q: "paginador", page: 99 }));
   assert.equal(fuera.page, 2);
-  assert.equal(fuera.items.length, 2);
+  assert.equal(fuera.items.length, 7);
 });
 
 test("el buscador ignora términos demasiado cortos y los comodines de SQL", () => {

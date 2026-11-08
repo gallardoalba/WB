@@ -350,6 +350,116 @@ export default function WanderbibliothekApp({
     });
   }, [page]);
 
+  // Scroll infinito del catálogo: la primera pintura llega del servidor y cada
+  // fila siguiente se pide a `/api/listings` cuando el final asoma en pantalla
+  // (una fila de la rejilla, no una página entera).
+  type MoreState = {
+    key: string;
+    items: ListingView[];
+    hasMore: boolean;
+  };
+  const [more, setMore] = useState<MoreState | null>(null);
+  // El estado de carga lleva la clave de los filtros: al cambiar de filtro se
+  // ignora el anterior sin un efecto que escriba estado.
+  const [load, setLoad] = useState<{ key: string; state: "loading" | "error" } | null>(null);
+  const loadingMore = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Cambiar cualquier filtro (o la página de la URL) invalida lo ya cargado.
+  const filterKey = [
+    view,
+    filters.q,
+    filters.category,
+    filters.language,
+    filters.sort,
+    filters.radius,
+    filters.shelf,
+    filters.feed,
+    filters.tag,
+    page,
+  ].join("|");
+  const loadState = load && load.key === filterKey ? load.state : "idle";
+
+  const currentMore = more && more.key === filterKey ? more : null;
+  const visibleListings = currentMore ? [...listings, ...currentMore.items] : listings;
+  const canLoadMore = view === "discover" && (currentMore ? currentMore.hasMore : hasMore);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore.current || !canLoadMore || view !== "discover") return;
+    loadingMore.current = true;
+    setLoad({ key: filterKey, state: "loading" });
+    try {
+      // Una fila de la rejilla en este ancho (5 en pantalla ancha, 3 en
+      // portátil). En una o dos columnas una fila sería una o dos tarjetas:
+      // se piden cuatro para no encadenar una petición por cada libro.
+      const grid = document.getElementById("book-grid");
+      const columns = grid
+        ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length
+        : 5;
+      const pageSize = columns >= 3 ? Math.min(columns, 12) : 4;
+      const query = new URLSearchParams({
+        view: "discover",
+        // Cada tirada añade una fila detrás de lo ya pintado, así que se pide
+        // por desplazamiento: el tamaño de fila cambia con el ancho.
+        offset: String(visibleListings.length),
+        pageSize: String(pageSize),
+        sort: filters.sort,
+      });
+      if (filters.q) query.set("q", filters.q);
+      if (filters.category !== "Todos") query.set("category", filters.category);
+      if (filters.language !== "Todos") query.set("language", filters.language);
+      if (filters.radius > 0) query.set("radius", String(filters.radius));
+      if (filters.tag) query.set("tag", filters.tag);
+
+      const data = await api<{ items: ListingView[]; page: number; hasMore: boolean }>(
+        `/api/listings?${query.toString()}`,
+      );
+      setMore((previous) => {
+        const base = previous?.key === filterKey ? previous : { key: filterKey, items: [], hasMore: true };
+        const seen = new Set([...listings, ...base.items].map((item) => item.id));
+        const fresh = data.items.filter((item) => !seen.has(item.id));
+        return {
+          key: filterKey,
+          items: [...base.items, ...fresh],
+          hasMore: data.hasMore,
+        };
+      });
+      setLoad(null);
+    } catch {
+      setLoad({ key: filterKey, state: "error" });
+    } finally {
+      loadingMore.current = false;
+    }
+  }, [
+    canLoadMore,
+    filterKey,
+    filters.category,
+    filters.language,
+    filters.q,
+    filters.radius,
+    filters.sort,
+    filters.tag,
+    listings,
+    view,
+    visibleListings.length,
+  ]);
+
+  useEffect(() => {
+    if (view !== "discover" || !canLoadMore) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+    // Sin margen extra: al añadir una fila el centinela sale de la pantalla y
+    // vuelve a entrar con el siguiente scroll (si quedara dentro, no habría
+    // nuevo aviso de intersección y la lista se quedaría parada).
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { rootMargin: "0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [canLoadMore, loadMore, view]);
+
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
 
@@ -1138,7 +1248,7 @@ export default function WanderbibliothekApp({
                 className={view === "home" ? "book-grid home-grid" : "book-grid"}
                 id="book-grid"
                 tabIndex={-1}
-                aria-busy={isPending || undefined}
+                aria-busy={isPending || loadState === "loading" || undefined}
               >
                 {isPending &&
                   listings.length === 0 &&
@@ -1153,7 +1263,7 @@ export default function WanderbibliothekApp({
                     </div>
                   ))}
                 <div className={isPending ? "book-grid-content is-pending" : "book-grid-content"}>
-                {listings.map((listing) => {
+                {visibleListings.map((listing) => {
                   const favorite = isFavorite(listing.id, listing.isFavorite);
                   return (
                     <ListingCard
@@ -1185,7 +1295,7 @@ export default function WanderbibliothekApp({
                   );
                 })}
 
-                {listings.length === 0 && (
+                {visibleListings.length === 0 && (
                   <EmptyState
                     icon={<BookOpen size={24} />}
                     title={
@@ -1233,7 +1343,35 @@ export default function WanderbibliothekApp({
                 </div>
               )}
 
-              {(view === "discover" || view === "shelf") && total > pageSize && (
+              {view === "discover" && (total > pageSize || loadState === "loading") && (
+                <div className="catalog-more">
+                  <span className="catalog-more-status" role="status" aria-live="polite">
+                    {loadState === "loading"
+                      ? t("Cargando más libros…")
+                      : t("Mostrando {shown} de {total}", {
+                          shown: visibleListings.length,
+                          total,
+                        })}
+                  </span>
+                  {loadState === "error" && (
+                    <button
+                      type="button"
+                      className="secondary-button small"
+                      onClick={() => {
+                        setLoad(null);
+                        void loadMore();
+                      }}
+                    >
+                      {t("Reintentar")}
+                    </button>
+                  )}
+                  {/* Centinela del scroll infinito: cuando entra en pantalla se
+                      pide la fila siguiente. */}
+                  <div ref={sentinelRef} className="catalog-sentinel" aria-hidden="true" />
+                </div>
+              )}
+
+              {view === "shelf" && total > pageSize && (
                 <nav className="pager" aria-label={t("Paginación")}>
                   <button
                     type="button"
