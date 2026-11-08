@@ -81,18 +81,33 @@ export async function processOutbox(limit = 20): Promise<{ sent: number; failed:
 }
 
 /**
- * Elimina correos entregados o fallidos antiguos.
+ * Elimina correos entregados o fallidos antiguos y, aparte, los pendientes
+ * atascados.
  *
- * Por defecto 7 días: el cuerpo guarda enlaces de verificación y de
- * restablecimiento, cuyos tokens caducan en 24 h y 1 h. Conservarlos un mes no
- * aporta nada y mantiene datos personales de más. Los pendientes no se tocan.
+ * Por defecto 7 días para lo terminado: el cuerpo guarda enlaces de
+ * verificación y de restablecimiento, cuyos tokens caducan en 24 h y 1 h.
+ * Conservarlos un mes no aporta nada y mantiene datos personales de más.
+ *
+ * Un pendiente se reintenta cinco veces con espera creciente (una hora como
+ * mucho), así que a los 30 días ya no es trabajo: es una fila muerta que sigue
+ * llevando el token en el cuerpo. Antes se quedaba para siempre porque la poda
+ * solo miraba los estados finales.
  */
-export function purgeOutbox(days = 7): number {
-  return getDb()
+export function purgeOutbox(days = 7, stuckDays = 30): number {
+  const db = getDb();
+  const terminados = db
     .prepare(
       `DELETE FROM mail_outbox
         WHERE status <> 'pending'
           AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)`,
     )
     .run(`-${days} days`).changes;
+  const atascados = db
+    .prepare(
+      `DELETE FROM mail_outbox
+        WHERE status = 'pending'
+          AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)`,
+    )
+    .run(`-${stuckDays} days`).changes;
+  return terminados + atascados;
 }

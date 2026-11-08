@@ -1,5 +1,10 @@
 # Actualizaciones de dependencias y de las propias acciones del CI.
 #
+# Las acciones de `.github/workflows/ci.yml` van fijadas por SHA (una etiqueta
+# como `@v4` es un puntero móvil: si se compromete el repositorio de la acción,
+# el siguiente trabajo ejecuta lo que le pongan). Dependabot es lo que las mueve
+# al SHA de la versión nueva.
+#
 # Los avisos de `npm audit` de la cadena de ESLint son de desarrollo: producción
 # está a cero (`npm audit --omit=dev`). Aun así se vigilan aquí para subirlos
 # cuando haya versión compatible.

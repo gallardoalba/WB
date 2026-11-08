@@ -49,7 +49,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
           "Confirmation and reset links: 24 hours and 1 hour respectively; they are valid only once.",
           "Sent emails: 7 days after delivery.",
           "IP pseudonyms: no longer than 1 day.",
-          "Notices: 90 days after being read and 180 days at most. Activity in the public area: 180 days.",
+          "Notices: 90 days after being read and 180 days at most. Activity in the public area and in clubs: 180 days.",
           "Moderation log: up to 730 days (configurable).",
           "Account and profile: until the account is deleted.",
           "Server logs: IP address, path without the query string and response code, following the system’s rotation (`logrotate`, 14 days by default). Search terms and single-use links are not logged.",
@@ -60,6 +60,8 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         body: [
           "Email provider: on this service, Brevo (Sendinblue SAS, Paris), which processes the data on our instructions and within the EU; it receives the address and the text of the notice, never the content of encrypted messages.",
           "Book covers: the images are downloaded through our server and cached; Open Library (Internet Archive) sees the server’s IP address and the ISBN, not the IP address of the visitor.",
+          "Other book data: to complete the bibliographic record the server queries the German National Library (services.dnb.de) and, as a fallback source of covers, Google Books (Google Ireland Ltd.); both receive only the ISBN and the server’s IP address.",
+          "Place names: the town typed by the person is checked against Nominatim (OpenStreetMap Foundation) to catch typos. Only the town name is sent, never the visitor’s IP address.",
           "Cloudflare Turnstile: only if enabled, when registering.",
           "Hosting: the provider on whose infrastructure this service runs.",
           "There are no analytics, advertising or tracking services, and no external fonts.",

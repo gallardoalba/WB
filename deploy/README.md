@@ -497,8 +497,29 @@ apareció el bucle de redirecciones de `/api/requests`.
   de 14 copias.
 - Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
   se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
-  sirven.
-- `WANDERBIBLIOTHEK_BACKUP_HOOK` permite enviarlas fuera (`rsync`, `rclone`, S3).
+  sirven. Sin clave, la copia queda en claro con correos y hashes dentro, así que
+  `env-check` lo avisa al arrancar (una variable **vacía** cuenta como ausente:
+  era la causa de que las copias se guardaran sin cifrar).
+- Una copia en el mismo disco que la base no protege de lo que más pasa (el disco
+  o el propio servidor se van enteros). `deploy/backup-pull.sh` **trae** las
+  copias al portátil, que funciona aunque el portátil esté detrás de un NAT:
+
+  ```bash
+  # Una vez: la clave, fuera del servidor y con permisos cerrados.
+  ssh wanderbibliothek 'sudo sed -n "s/^WANDERBIBLIOTHEK_BACKUP_KEY=//p" /etc/wanderbibliothek/env' \
+    > ~/.config/wanderbibliothek/backup-key
+  chmod 600 ~/.config/wanderbibliothek/backup-key
+
+  # Cada día, con un temporizador de usuario (lingeren habilitado):
+  #   ~/.config/systemd/user/wanderbibliothek-backup-pull.{service,timer}
+  systemctl --user enable --now wanderbibliothek-backup-pull.timer
+  ```
+
+  El script trae, rota (30 copias), **descifra la más reciente y comprueba que
+  abre como SQLite**: una copia que no se puede restaurar no es una copia.
+- `WANDERBIBLIOTHEK_BACKUP_HOOK` permite lo contrario, enviarlas desde el
+  servidor (`rsync`, `rclone`, S3); `env-check` avisa si no hay ni gancho ni
+  copia externa.
 
 Restauración (ensáyala antes de necesitarla):
 

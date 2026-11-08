@@ -231,7 +231,7 @@ export const EN: TechnicalDocument = {
             ["`MAIL_WEBHOOK_URL`", "unset", "Receives `{to, subject, text}`; sending goes through `mail_outbox` with retries."],
             ["`MAIL_WEBHOOK_TOKEN`", "unset", "`Bearer` authentication for the mail webhook."],
             ["`MAINTENANCE_TOKEN`", "unset", "Token for the `POST /api/cron/maintenance` cron; without it, 404."],
-            ["`AUDIT_RETENTION_DAYS`", "`0`", "Days that `admin_audit` is kept (0 = forever)."],
+            ["`AUDIT_RETENTION_DAYS`", "`730`", "Days that `admin_audit` is kept (0 = forever)."],
             ["`ADMIN_EMAIL` / `ADMIN_PASSWORD`", "unset", "Create the first administrator if none exists."],
             ["`REQUIRE_EMAIL_VERIFICATION`", "unset", "`1` requires a confirmed email address to publish, request, comment and write."],
             ["`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`", "unset", "Enable Cloudflare Turnstile on registration."],
@@ -286,7 +286,7 @@ export const EN: TechnicalDocument = {
           kind: "list",
           items: [
             "`npm run db:backup` uses the `.backup()` API of SQLite, checks the integrity, rotates the backups, encrypts if there is a key and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while it is running with WAL active.",
-            "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, and sends the reminders for the clubs.",
+            "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
             "Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` returned by a 500 is the first 8 characters of that id.",
             "A single instance: SQLite has a single writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.",

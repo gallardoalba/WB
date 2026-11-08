@@ -64,6 +64,7 @@ export type MaintenanceReport = {
   authAttempts: number;
   notifications: number;
   events: number;
+  productEvents: number;
   audit: number;
   clubReminders: number;
   covers: number;
@@ -97,8 +98,18 @@ export function runMaintenance(): MaintenanceReport {
       WHERE book_id IS NOT NULL AND book_id NOT IN (SELECT id FROM books)`,
   );
   const events = changes("DELETE FROM events WHERE created_at < ?", daysAgo(180));
-  // La auditoría se conserva por defecto; con AUDIT_RETENTION_DAYS se poda.
-  const auditDays = Number(process.env.AUDIT_RETENTION_DAYS ?? 0) || 0;
+  // `product_events` guarda visitas a clubes y avisos de mensajes nuevos **con
+  // `user_id`**: es un dato personal de actividad, no una estadística anónima, y
+  // sin esta poda crecía para siempre. Mismo plazo que `events`.
+  const productEvents = changes(
+    "DELETE FROM product_events WHERE created_at < ?",
+    daysAgo(180),
+  );
+  // La auditoría de moderación se poda a los 730 días, que es lo que publica la
+  // política de privacidad. `AUDIT_RETENTION_DAYS=0` la conserva sin límite para
+  // quien prefiera el histórico completo (y así lo tiene que decir la política).
+  const auditSetting = process.env.AUDIT_RETENTION_DAYS?.trim();
+  const auditDays = auditSetting === "0" ? 0 : Number(auditSetting ?? 730) || 730;
   const audit =
     auditDays > 0
       ? changes("DELETE FROM admin_audit WHERE created_at < ?", daysAgo(auditDays))
@@ -129,6 +140,7 @@ export function runMaintenance(): MaintenanceReport {
     authAttempts,
     notifications,
     events,
+    productEvents,
     audit,
     clubReminders,
     covers,

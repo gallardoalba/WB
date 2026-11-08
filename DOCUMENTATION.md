@@ -141,7 +141,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `MAIL_WEBHOOK_URL` | unset | Receives `{to, subject, text}`; sending goes through `mail_outbox` with retries. |
 | `MAIL_WEBHOOK_TOKEN` | unset | `Bearer` authentication for the mail webhook. |
 | `MAINTENANCE_TOKEN` | unset | Token for `POST /api/cron/maintenance`; without it the route answers 404. |
-| `AUDIT_RETENTION_DAYS` | `0` | Days `admin_audit` is kept (0 = forever). |
+| `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | unset | Create the first admin account when none exists. |
 | `REQUIRE_EMAIL_VERIFICATION` | unset | `1` requires a confirmed address to publish, request, comment and write. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. |
@@ -169,7 +169,7 @@ npx playwright install chromium && npm run test:e2e
 ## Operations
 
 - `npm run db:backup` uses SQLite's `.backup()` API, checks integrity, rotates backups, encrypts when a key is present and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while WAL is active.
-- `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, and sends the reading circle reminders.
+- `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
 - Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.

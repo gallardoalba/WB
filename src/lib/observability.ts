@@ -1,20 +1,81 @@
+/** Longitud máxima de un texto que sale de aquí (mensaje, traza, contexto). */
+const MAX_TEXTO = 300;
+/** Una traza de pila recortada sigue sirviendo; entera puede llevar rutas y datos. */
+const MAX_TRAZA = 2_000;
+/** Tope de claves por objeto del contexto, para que un volcado no se lleve la memoria. */
+const MAX_CLAVES = 20;
+
+/** Claves cuyo valor nunca sale del proceso. */
+const CLAVE_SENSIBLE =
+  /token|password|contrase[ñn]a|secret|clave|authorization|cookie|code|c[oó]digo|e-?mail|correo/i;
+
+/**
+ * Recorta y enmascara un texto antes de mandarlo fuera.
+ *
+ * El webhook es un tercero y la consola del servidor acaba en un fichero que se
+ * rota, así que ni uno ni otro deben recibir «el correo x@y falló», un Bearer ni
+ * el token de un enlace de reseteo. Se conserva lo que permite diagnosticar
+ * (el dominio del correo y algo de contexto) y se tapa el resto.
+ */
+export function redactarTexto(valor: string, max = MAX_TEXTO): string {
+  const sinCorreo = valor.replace(
+    /([\w.+-])[\w.+-]*@([\w-]+(?:\.[\w-]+)+)/g,
+    "$1***@$2",
+  );
+  const sinToken = sinCorreo
+    .replace(/\bBearer\s+[\w.~+/-]+=*/gi, "Bearer [oculto]")
+    .replace(/\b[a-f0-9]{24,}\b/gi, "[token]")
+    .replace(/\b[A-Za-z0-9_-]{40,}\b/g, "[token]");
+  return sinToken.length > max ? `${sinToken.slice(0, max)}…` : sinToken;
+}
+
+/** Aplica `redactarTexto` a un valor de contexto, con profundidad y tamaño acotados. */
+export function redactarContexto(valor: unknown, profundidad = 0): unknown {
+  if (valor === null || valor === undefined) return valor;
+  if (typeof valor === "string") return redactarTexto(valor);
+  if (typeof valor === "number" || typeof valor === "boolean") return valor;
+  if (valor instanceof Error) return redactarTexto(valor.message);
+  if (profundidad >= 2) return "[…]";
+  if (Array.isArray(valor)) {
+    return valor.slice(0, MAX_CLAVES).map((item) => redactarContexto(item, profundidad + 1));
+  }
+  if (typeof valor === "object") {
+    const salida: Record<string, unknown> = {};
+    for (const [clave, item] of Object.entries(valor as Record<string, unknown>).slice(
+      0,
+      MAX_CLAVES,
+    )) {
+      salida[clave] = CLAVE_SENSIBLE.test(clave) ? "[oculto]" : redactarContexto(item, profundidad + 1);
+    }
+    return salida;
+  }
+  return "[…]";
+}
+
 /**
  * Registro de errores de servidor.
  *
  * Siempre escribe en consola; si `ERROR_WEBHOOK_URL` está definido, envía
  * además un JSON al endpoint (Sentry, Logtail, un webhook propio…). El envío
  * no bloquea la respuesta y tiene timeout.
+ *
+ * Mensaje, traza y contexto pasan por `redactarTexto`/`redactarContexto`: un
+ * webhook de errores no debe recibir correos, tokens ni el cuerpo de una
+ * petición.
  */
 export function reportError(error: unknown, context: Record<string, unknown> = {}): void {
+  const contexto = (redactarContexto(context) ?? {}) as Record<string, unknown>;
   const payload = {
     level: "error",
     at: new Date().toISOString(),
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-    context,
+    message: redactarTexto(error instanceof Error ? error.message : String(error)),
+    stack: error instanceof Error && error.stack
+      ? redactarTexto(error.stack, MAX_TRAZA)
+      : undefined,
+    context: contexto,
   };
 
-  console.error(`[error] ${payload.message}`, context, error);
+  console.error(`[error] ${payload.message}`, contexto, error);
 
   const url = process.env.ERROR_WEBHOOK_URL;
   if (!url) return;

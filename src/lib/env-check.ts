@@ -243,10 +243,33 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
   // Copias de seguridad: la rotación y el cifrado solo se descubren a las 03:20,
   // así que una clave mal escrita se avisa al arrancar en vez de dejar copias
   // en claro (o ninguna) durante semanas.
-  if (has(env, "WANDERBIBLIOTHEK_BACKUP_KEY") && !isKeyOf32Bytes(env.WANDERBIBLIOTHEK_BACKUP_KEY!)) {
+  if (!has(env, "WANDERBIBLIOTHEK_BACKUP_KEY")) {
+    warn(
+      "WANDERBIBLIOTHEK_BACKUP_KEY",
+      "Sin clave, la copia diaria se guarda en claro: el fichero lleva correos, hashes de contraseña y el texto cifrado de los mensajes. Genérala con `openssl rand -hex 32` y guárdala fuera del servidor.",
+    );
+  } else if (!isKeyOf32Bytes(env.WANDERBIBLIOTHEK_BACKUP_KEY!)) {
     warn(
       "WANDERBIBLIOTHEK_BACKUP_KEY",
       "No son 32 bytes en hexadecimal (64 caracteres) ni en base64: la copia diaria fallará y no habrá respaldo cifrado. Genérala con `openssl rand -hex 32`.",
+    );
+  }
+  // Una copia en el mismo disco que la base no protege de lo que más pasa
+  // (el disco y el servidor se van juntos). Se puede sacar de aquí con el gancho
+  // o trayéndola desde otra máquina (`deploy/backup-pull.sh`), que es lo
+  // recomendado cuando el servidor no tiene destino al que empujar.
+  if (!has(env, "WANDERBIBLIOTHEK_BACKUP_HOOK") && env.WANDERBIBLIOTHEK_BACKUP_OFFSITE !== "1") {
+    warn(
+      "WANDERBIBLIOTHEK_BACKUP_HOOK",
+      "La copia se queda en el mismo servidor que la base: si se pierde el disco, se pierden las dos. Define un gancho que la suba fuera (`rclone`, `scp`, `restic`…) o trae las copias desde otra máquina con `deploy/backup-pull.sh` y marca `WANDERBIBLIOTHEK_BACKUP_OFFSITE=1`.",
+    );
+  }
+  // El registro es el punto de entrada favorito de los robots. Sin captcha
+  // solo lo frenan la cuota por IP y la verificación de correo.
+  if (!has(env, "TURNSTILE_SECRET_KEY") || !has(env, "TURNSTILE_SITE_KEY")) {
+    warn(
+      "TURNSTILE_SITE_KEY",
+      "Turnstile está apagado: el registro depende solo de la cuota por IP y de la verificación de correo. Con las dos claves (`TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`) se activa sin tocar código.",
     );
   }
   if (

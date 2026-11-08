@@ -399,3 +399,67 @@ test("un webhook que falla no rompe la respuesta ni ensucia el registro de error
     delete process.env.ERROR_WEBHOOK_URL;
   }
 });
+
+test("lo que sale hacia el webhook va redactado: ni correos, ni tokens, ni claves", async () => {
+  const { reportError, redactarTexto, redactarContexto } = await import(
+    "../src/lib/observability.ts"
+  );
+
+  // Texto suelto: el correo conserva el dominio (sirve para diagnosticar) y se
+  // tapa la parte que identifica a la persona.
+  assert.equal(
+    redactarTexto("no se pudo avisar a lectora@example.org"),
+    "no se pudo avisar a l***@example.org",
+  );
+  assert.equal(redactarTexto("Authorization: Bearer abc.def-123"), "Authorization: Bearer [oculto]");
+  assert.equal(redactarTexto("token 0123456789abcdef0123456789abcdef"), "token [token]");
+  assert.ok(redactarTexto("x".repeat(500)).length <= 301, "los textos se recortan");
+
+  // Contexto: las claves sensibles no se serializan y los objetos anidados se
+  // recorren con un tope de profundidad.
+  assert.deepEqual(
+    redactarContexto({
+      scope: "api",
+      email: "lectora@example.org",
+      password: "secreto",
+      token: "abc",
+      nested: { nota: "hola lectora@example.org", nivel: { fondo: "no llego" } },
+    }),
+    {
+      scope: "api",
+      email: "[oculto]",
+      password: "[oculto]",
+      token: "[oculto]",
+      nested: { nota: "hola l***@example.org", nivel: "[…]" },
+    },
+  );
+
+  process.env.ERROR_WEBHOOK_URL = "https://avisos.example.test/redactado";
+  const enviados: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    enviados.push(String(init?.body));
+    return new Response("ok");
+  }) as typeof fetch;
+  const consola = console.error;
+  console.error = () => undefined;
+
+  try {
+    reportError(new Error("fallo al enviar a lectora@example.org"), {
+      email: "lectora@example.org",
+      authorization: "Bearer abc.def",
+      requestId: "req_1",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(enviados.length, 1);
+    assert.equal(enviados[0]!.includes("lectora@example.org"), false, "el correo no viaja entero");
+    assert.equal(enviados[0]!.includes("Bearer abc.def"), false, "el token no viaja");
+    assert.match(enviados[0]!, /l\*\*\*@example\.org/);
+    assert.match(enviados[0]!, /req_1/, "lo que sí ayuda a diagnosticar se conserva");
+  } finally {
+    globalThis.fetch = original;
+    console.error = consola;
+    delete process.env.ERROR_WEBHOOK_URL;
+  }
+});

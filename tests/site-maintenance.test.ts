@@ -108,6 +108,31 @@ test("el mantenimiento devuelve un informe con recuentos y se puede repetir", ()
   assert.equal(typeof repo.runMaintenance(), "object", "dos pasadas seguidas no rompen nada");
 });
 
+test("los eventos de club (que llevan user_id) no se quedan para siempre", async () => {
+  const { getDb } = await import("../src/lib/db/index.ts");
+  const db = getDb();
+  const meter = (id: string, dias: number) =>
+    db
+      .prepare(
+        `INSERT INTO product_events (id, type, user_id, club_id, created_at)
+         VALUES (?, 'club_view', NULL, NULL, ?)`,
+      )
+      .run(id, new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString());
+
+  meter("evt_viejo", 200);
+  meter("evt_reciente", 5);
+
+  const informe = repo.runMaintenance();
+  assert.equal(informe.productEvents, 1, "solo cae el que pasó de 180 días");
+  const quedan = db
+    .prepare("SELECT id FROM product_events ORDER BY id")
+    .all() as { id: string }[];
+  assert.deepEqual(
+    quedan.map((row) => row.id),
+    ["evt_reciente"],
+  );
+});
+
 test("la caducidad de solicitudes se ejecuta como mucho una vez por ventana", () => {
   const primera = repo.expireStaleRequestsThrottled(5);
   assert.equal(typeof primera, "number");

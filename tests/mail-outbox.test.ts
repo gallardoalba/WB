@@ -249,15 +249,17 @@ test("la pasada respeta el límite y atiende primero lo más antiguo", async () 
   assert.equal(fila("mail_nuevo")?.status, "pending", "el límite deja trabajo para la siguiente pasada");
 });
 
-test("la limpieza borra lo antiguo entregado o fallido, nunca lo pendiente", () => {
+test("la limpieza borra lo antiguo entregado o fallido y los pendientes atascados", () => {
   insertar("mail_enviado", "sent", 0, "-30 days");
   insertar("mail_fallido", "failed", 5, "-30 days");
-  insertar("mail_pendiente", "pending", 0, "-30 days");
+  insertar("mail_pendiente", "pending", 2, "-3 days");
+  insertar("mail_atascado", "pending", 4, "-45 days");
   insertar("mail_reciente", "sent", 0, "-1 days");
 
-  assert.equal(outbox.purgeOutbox(7), 2);
+  assert.equal(outbox.purgeOutbox(7), 3);
   assert.equal(fila("mail_enviado"), undefined);
   assert.equal(fila("mail_fallido"), undefined);
-  assert.ok(fila("mail_pendiente"), "un pendiente antiguo sigue siendo trabajo por hacer");
+  assert.equal(fila("mail_atascado"), undefined, "un pendiente de hace 45 días ya no es trabajo");
+  assert.ok(fila("mail_pendiente"), "un pendiente de hace 3 días puede reintentarse todavía");
   assert.ok(fila("mail_reciente"), "lo reciente se conserva para poder investigar");
 });
