@@ -35,7 +35,26 @@ step() { STEP=$((STEP + 1)); printf '\n%s── Paso %d: %s%s\n' "$BOLD" "$STEP"
 ok()   { OK=$((OK + 1));     printf '    %sOK%s    %s\n' "$GREEN" "$NC" "$1"; }
 warn() { printf '    %sAVISO%s %s\n' "$YELLOW" "$NC" "$1"; }
 fail() { FAIL=$((FAIL + 1)); printf '    %sFALLO%s %s\n' "$RED" "$NC" "$1" >&2; }
-
+# Las variables `NEXT_PUBLIC_*` se incrustan en el bundle **al compilar**: si el
+# build no las ve, el navegador se queda sin ellas aunque estén en el entorno del
+# servicio (le pasa a la clave pública de Turnstile). Se exportan una a una y
+# solo esas: el resto del fichero lleva la base real y las claves, que no pintan
+# nada en una compilación.
+cargar_publicas() {
+  [ -r "$ENV_FILE" ] || return 0
+  local linea clave valor
+  while IFS= read -r linea; do
+    case "$linea" in
+      NEXT_PUBLIC_*=*)
+        clave=${linea%%=*}
+        valor=${linea#*=}
+        valor=${valor%\"}; valor=${valor#\"}
+        valor=${valor%\'}; valor=${valor#\'}
+        export "$clave=$valor"
+        ;;
+    esac
+  done < "$ENV_FILE"
+}
 # ── Configuración ──────────────────────────────────────────────────────────
 REPO_URL="${REPO_URL:-https://github.com/gallardoalba/wanderbibliothek.git}"
 BRANCH="${BRANCH:-main}"
@@ -47,6 +66,7 @@ NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-available/wanderbibliothek}"
 BACKUP_SERVICE="${BACKUP_SERVICE:-wanderbibliothek-backup.service}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 HEALTH_TRIES="${HEALTH_TRIES:-30}"
+ENV_FILE="${ENV_FILE:-/etc/wanderbibliothek/env}"
 KEEP="${KEEP:-5}"
 NODE_BIN="${NODE_BIN:-node}"
 NPM_BIN="${NPM_BIN:-npm}"
@@ -242,6 +262,9 @@ fi
 
 # ── Paso 5: compilar ───────────────────────────────────────────────────────
 step "Instalar dependencias y compilar"
+# Las `NEXT_PUBLIC_*` tienen que estar **antes** del build: se incrustan en el
+# bundle. Ver `cargar_publicas`.
+cargar_publicas
 if [ "$DRY_RUN" -eq 1 ]; then
   run "$NPM_BIN" --prefix "$RELEASE_DIR" ci
   run "$NPM_BIN" --prefix "$RELEASE_DIR" run build
