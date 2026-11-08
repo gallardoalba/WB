@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
+import { PNG } from "pngjs";
+
+import { isJpeg } from "../src/lib/cover-convert.ts";
+
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 // El bot arranca apagado: cada prueba enciende lo que necesita.
 delete process.env.MASTODON_TOKEN;
@@ -315,6 +319,34 @@ test("quedarse sin red deja el aviso para el siguiente intento", async () => {
     .get("bok_sin_red") as { status: string; last_error: string };
   assert.equal(row.status, "pending");
   assert.match(row.last_error, /ECONNREFUSED/);
+});
+
+test("la imagen del aviso es la tarjeta del sitio, ya en JPG", async () => {
+  // El sitio pinta la tarjeta (portada sobre el verde de la casa) y el bot la
+  // recompone: un PNG de 1200×630 con una foto dentro pesa el triple.
+  const png = PNG.sync.write(
+    (() => {
+      const image = new PNG({ width: 1200, height: 630 });
+      image.data.fill(120);
+      return image;
+    })(),
+  );
+  const { impl, calls } = fakeFetch(() =>
+    new Response(new Uint8Array(png), { status: 200, headers: { "content-type": "image/png" } }),
+  );
+  const media = await mastodon.mediaForPost("https://wanderbibliothek.org", "bok_tarjeta", impl);
+  assert.ok(media, "tiene que devolver una imagen");
+  assert.equal(media.contentType, "image/jpeg");
+  assert.equal(isJpeg(media.data), true);
+  assert.equal(calls[0]!.url, "https://wanderbibliothek.org/api/og/werk/bok_tarjeta");
+});
+
+test("si la tarjeta no se puede pintar, se sube la portada suelta", async () => {
+  // Sin fila de libro no hay portada en disco: el resultado es «sin imagen»,
+  // pero lo que importa es que no revienta y que no sube el JSON del error.
+  const { impl } = fakeFetch(() => jsonResponse({ error: "boom" }, 500));
+  const media = await mastodon.mediaForPost("https://wanderbibliothek.org", "bok_sin_nada", impl);
+  assert.equal(media, null);
 });
 
 test("la portada se sube con su texto alternativo y devuelve el id", async () => {

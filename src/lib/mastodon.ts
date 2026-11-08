@@ -27,6 +27,7 @@
  */
 import { randomUUID } from "node:crypto";
 
+import { toJpeg } from "./cover-convert";
 import { getCover, readUploadedCover } from "./covers";
 import { getDb } from "./db";
 import { DEFAULT_LOCALE, localePath, type Locale } from "./locale";
@@ -390,6 +391,34 @@ export async function coverForBook(
   return getCover(row.isbn, { title: row.title, author: row.author });
 }
 
+/**
+ * Imagen que se adjunta al aviso: la tarjeta que genera el sitio (portada
+ * enmarcada sobre el verde de la casa, 1200×630) y, si esa no se puede pintar,
+ * la portada suelta.
+ *
+ * La tarjeta se pide por HTTP al propio sitio porque la genera `next/og` en una
+ * ruta; cuando falla se sigue adelante con la portada, que es mejor que dejar el
+ * aviso sin imagen. En los dos casos se acaba en JPG: un PNG de 1200×630 con una
+ * foto dentro pesa el triple.
+ */
+export async function mediaForPost(
+  base: string,
+  bookId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ data: Buffer; contentType: string } | null> {
+  try {
+    const url = `${base.replace(/\/+$/, "")}/api/og/werk/${bookId}`;
+    const response = await fetchImpl(url, { signal: AbortSignal.timeout(15000) });
+    if (response.ok) {
+      const png = Buffer.from(await response.arrayBuffer());
+      return { data: toJpeg(png), contentType: "image/jpeg" };
+    }
+  } catch {
+    // Sin tarjeta se intenta la portada; ver abajo.
+  }
+  return coverForBook(bookId);
+}
+
 export type PostResult =
   | { ok: true; id: string; url: string }
   | { ok: false; error: string; retryable: boolean };
@@ -680,21 +709,21 @@ export async function announceBook(input: {
       seed: input.bookId,
     });
 
-    // La portada se sube antes de encolar: así el id queda guardado y un
+    // La imagen se sube antes de encolar: así el id queda guardado y un
     // reintento publica exactamente lo mismo, con su imagen.
     let mediaId: string | null = null;
     try {
-      const cover = await coverForBook(input.bookId);
-      if (cover) {
+      const media = await mediaForPost(input.base, input.bookId);
+      if (media) {
         const uploaded = await uploadMedia(config, {
-          data: cover.data,
-          contentType: cover.contentType,
+          data: media.data,
+          contentType: media.contentType,
           description: coverAlt(locale, input.title, input.author),
         });
         if (uploaded.ok) mediaId = uploaded.id;
       }
     } catch {
-      // Sin portada se publica igual: el aviso es lo importante.
+      // Sin imagen se publica igual: el aviso es lo importante.
     }
 
     const id = enqueuePost({ bookId: input.bookId, text, mediaId });

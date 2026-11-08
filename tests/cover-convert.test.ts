@@ -4,7 +4,7 @@ import { test } from "node:test";
 import jpeg from "jpeg-js";
 import { PNG } from "pngjs";
 
-import { MAX_COVER_PIXELS, MAX_COVER_SIDE, isJpeg, isPng, toJpeg } from "../src/lib/cover-convert.ts";
+import { MAX_COVER_PIXELS, MAX_COVER_SIDE, imageDimensions, isJpeg, isPng, toJpeg } from "../src/lib/cover-convert.ts";
 import { ApiError } from "../src/lib/errors.ts";
 
 /** PNG cuadrado de un solo color, con alfa opcional. */
@@ -49,6 +49,19 @@ test("isJpeg e isPng miran los primeros bytes, no el nombre del archivo", () => 
   assert.equal(isPng(makePng(2, 2)), true);
   assert.equal(isPng(Buffer.from("GIF89a")), false);
   assert.equal(isJpeg(Buffer.from("PNG")), false);
+});
+
+test("las dimensiones se leen sin decodificar la imagen", () => {
+  // Es lo que permite encajar una portada en la tarjeta sin pagar el
+  // decodificado del original.
+  assert.deepEqual(imageDimensions(makePng(37, 91)), { width: 37, height: 91 });
+  const jpegData = jpeg.encode(
+    { data: Buffer.alloc(24 * 36 * 4), width: 24, height: 36 },
+    80,
+  ).data;
+  assert.deepEqual(imageDimensions(Buffer.from(jpegData)), { width: 24, height: 36 });
+  assert.equal(imageDimensions(Buffer.from("GIF89a")), null);
+  assert.equal(imageDimensions(Buffer.alloc(0)), null);
 });
 
 test("un JPG se devuelve tal cual, sin recomprimir", () => {

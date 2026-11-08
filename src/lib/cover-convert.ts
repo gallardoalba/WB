@@ -55,6 +55,40 @@ function declaredPngSize(data: Buffer): { width: number; height: number } | null
   return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
 }
 
+/**
+ * Ancho y alto de una imagen, sin decodificarla entera.
+ *
+ * Sirve para encajar una portada en una tarjeta sin pagar el decodificado: el
+ * JPEG se lee recorriendo sus marcadores hasta el SOF y el PNG en la cabecera
+ * IHDR. Devuelve `null` si el formato no se reconoce.
+ */
+export function imageDimensions(data: Buffer): { width: number; height: number } | null {
+  if (isPng(data)) return declaredPngSize(data);
+  if (!isJpeg(data)) return null;
+  let offset = 2;
+  while (offset + 9 < data.length) {
+    if (data[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    const marker = data[offset + 1]!;
+    // Los marcadores SOF (menos DHT, JPG y DAC) llevan las dimensiones.
+    const isStartOfFrame =
+      marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+    if (isStartOfFrame) {
+      return { width: data.readUInt16BE(offset + 7), height: data.readUInt16BE(offset + 5) };
+    }
+    if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+      offset += 2;
+      continue;
+    }
+    const length = data.readUInt16BE(offset + 2);
+    if (length < 2) return null;
+    offset += 2 + length;
+  }
+  return null;
+}
+
 /** Aplana la transparencia sobre blanco: un JPG no tiene canal alfa. */
 function flattenOnWhite(pixels: Buffer): Buffer {
   const out = Buffer.allocUnsafe(pixels.length);

@@ -20,9 +20,9 @@ import {
   announceBook,
   composeStatus,
   coverAlt,
-  coverForBook,
   localeForLanguage,
   mastodonConfig,
+  mediaForPost,
   processSocialOutbox,
   purgeSocialOutbox,
   STATUS_LIMIT,
@@ -158,17 +158,17 @@ async function main() {
       }),
     );
 
-    // La portada: se comprueba aquí para no llevarse la sorpresa al publicar.
-    const cover = await coverForBook(book.id).catch(() => null);
+    // La imagen exacta que se subiría: la tarjeta del sitio o, si falla, la portada.
+    const cover = await mediaForPost(siteUrl(), book.id).catch(() => null);
     console.log(
       cover
-        ? `Portada: ${cover.contentType}, ${Math.round(cover.data.byteLength / 1024)} KB → se adjunta al aviso.`
-        : "Portada: no hay (el aviso saldría solo con texto).",
+        ? `Imagen: ${cover.contentType}, ${Math.round(cover.data.byteLength / 1024)} KB → se adjunta al aviso.`
+        : "Imagen: no hay (el aviso saldría solo con texto).",
     );
 
     if (options.media) {
       if (!cover) {
-        console.error("No hay portada que subir para esta obra.");
+        console.error("No hay imagen que subir para esta obra.");
         process.exit(1);
       }
       // Subir sin publicar sirve para comprobar el permiso `write:media`.
