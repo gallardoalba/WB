@@ -76,11 +76,12 @@ test("la instancia se normaliza y la visibilidad no acepta inventos", () => {
   );
 });
 
-test("hay una veintena de formulaciones por idioma", () => {
+test("hay cincuenta formulaciones por idioma", () => {
   for (const locale of ["de", "es", "en"] as const) {
-    assert.ok(
-      mastodon.leadVariants(locale).length >= 20,
-      `${locale}: solo ${mastodon.leadVariants(locale).length} variantes`,
+    assert.equal(
+      mastodon.leadVariants(locale).length,
+      50,
+      `${locale}: ${mastodon.leadVariants(locale).length} variantes`,
     );
   }
 });
@@ -102,17 +103,35 @@ test("todas las formulaciones son enunciativas: sin exclamaciones ni emoji", () 
     }
   }
   // Dos variantes calcadas serían una variante menos, y nadie lo notaría.
-  assert.equal(seen.size, 60, "hay formulaciones duplicadas");
+  assert.equal(seen.size, 150, "hay formulaciones duplicadas");
 });
 
 test("la variante depende del id de la obra y se reparte", () => {
-  assert.equal(mastodon.variantIndex("bok_abc", 20), mastodon.variantIndex("bok_abc", 20));
+  assert.equal(mastodon.variantIndex("bok_abc", 50), mastodon.variantIndex("bok_abc", 50));
   const used = new Set<number>();
-  for (let index = 0; index < 200; index += 1) {
-    used.add(mastodon.variantIndex(`bok_${index}`, 20));
+  for (let index = 0; index < 2000; index += 1) {
+    used.add(mastodon.variantIndex(`bok_${index}`, 50));
   }
-  assert.equal(used.size, 20, `solo se usan ${used.size} de 20 variantes`);
+  assert.equal(used.size, 50, `solo se usan ${used.size} de 50 variantes`);
   assert.equal(mastodon.variantIndex("bok_x", 0), 0);
+});
+
+test("la combinación de etiquetas cambia de un libro a otro", () => {
+  for (const locale of ["de", "es", "en"] as const) {
+    const pool = mastodon.tagPool(locale);
+    const combos = new Set<string>();
+    for (let index = 0; index < 200; index += 1) {
+      const tags = mastodon.hashtagsFor(locale, `bok_${index}`);
+      assert.equal(tags.length, 3, "la casa y dos del fondo");
+      assert.equal(tags[0], pool[0], "la etiqueta de la casa va siempre primero");
+      assert.equal(new Set(tags).size, 3, `etiquetas repetidas: ${tags.join(", ")}`);
+      for (const tag of tags) assert.ok(pool.includes(tag), `${tag} no está en el fondo de ${locale}`);
+      combos.add(tags.join(" "));
+    }
+    // Con seis candidatas y dos elegidas sin repetir, y contando el orden, salen
+    // treinta combinaciones: el reparto tiene que cubrirlas todas.
+    assert.equal(combos.size, 30, `${locale}: solo ${combos.size} combinaciones distintas`);
+  }
 });
 
 test("el aviso lleva el texto elegido, el enlace y las etiquetas", () => {
@@ -146,12 +165,18 @@ test("cada idioma escribe con sus comillas y sus etiquetas", () => {
   const de = mastodon.composeStatus({ ...base, locale: "de" });
   const es = mastodon.composeStatus({ ...base, locale: "es" });
   const en = mastodon.composeStatus({ ...base, locale: "en" });
-  assert.match(de, /#Bücher/);
-  assert.match(es, /#Libros/);
-  assert.match(en, /#Books/);
   assert.match(de, /„T“/);
   assert.match(es, /«T»/);
   assert.match(en, /“T”/);
+  // Las etiquetas salen del fondo de cada idioma, no de una lista fija.
+  for (const [locale, text] of [
+    ["de", de],
+    ["es", es],
+    ["en", en],
+  ] as const) {
+    const tags = (text.match(/#\S+/g) ?? []).map((tag) => tag.slice(1));
+    assert.deepEqual(tags, mastodon.hashtagsFor(locale, base.seed));
+  }
 });
 
 test("un título enorme se recorta y el enlace sobrevive", () => {
@@ -382,7 +407,10 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
     assert.equal(row.status, "sent");
     // El ejemplar está en español: enlace con prefijo y etiquetas en español.
     assert.match(row.body, /https:\/\/wanderbibliothek\.org\/es\/werk\/bok_anuncio/);
-    assert.match(row.body, /#Libros/);
+    assert.match(row.body, /#Wanderbibliothek/);
+    for (const tag of mastodon.hashtagsFor("es", "bok_anuncio")) {
+      assert.ok(row.body.includes(`#${tag}`), `falta #${tag}`);
+    }
 
     // La segunda vez no se vuelve a anunciar.
     const again = await mastodon.announceBook({
