@@ -81,8 +81,11 @@ test("Twitter repite el título de la página, no el del sitio", () => {
     description: "Un ejemplar.",
     type: "book",
   });
-  assert.equal(twitter?.card, "summary_large_image");
-  assert.equal(twitter?.title, "Der Proceß — Franz Kafka");
+  // `Metadata["twitter"]` es una unión en los tipos de Next; aquí se mira el
+  // objeto que devuelve la función, no la forma general.
+  const tags = twitter as { card?: string; title?: string };
+  assert.equal(tags.card, "summary_large_image");
+  assert.equal(tags.title, "Der Proceß — Franz Kafka");
 });
 
 test("acepta una imagen ya absoluta sin duplicar el dominio", () => {
