@@ -25,7 +25,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test \"tests/*.test.ts\"",
+    "test": "node --enable-source-maps --import tsx --test \"tests/*.test.ts\"",
     "typecheck": "next typegen && tsc --noEmit",
     "db:reset": "rm -f .data/wanderbibliothek.db .data/wanderbibliothek.db-wal .data/wanderbibliothek.db-shm",
     "db:backup": "node --import tsx scripts/backup.ts",
@@ -39,7 +39,7 @@
     "smoke": "node --import tsx scripts/smoke.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "test:e2e": "playwright test",
-    "test:coverage": "node --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
+    "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
   },
   "engines": {
     "node": ">=22"

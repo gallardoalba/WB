@@ -76,3 +76,26 @@ test("las rutas que leen la URL pública se renderizan por petición", () => {
     );
   }
 });
+
+test("ninguna prueba escribe en la base de desarrollo", () => {
+  // Pasó una vez: un archivo de pruebas se olvidó de `WANDERBIBLIOTHEK_DB` y
+  // `getDb()` abrió `.data/wanderbibliothek.db`. La prueba «pasaba» la primera
+  // vez y fallaba en la segunda, y por el camino creó una cuenta y cambió roles
+  // en la base de quien estaba desarrollando. Quien toca la base lo declara.
+  const directorio = path.join(process.cwd(), "tests");
+  const offenders: string[] = [];
+  // Solo cuentan los módulos que abren la conexión: `migrations.ts` o
+  // `schema.ts` se usan con una base propia (`new Database(":memory:")`).
+  const CONEXION = /(?:from|import\()\s*"\.\.\/src\/lib\/(?:repo|db\/index)(?:\.ts)?"/;
+  for (const nombre of readdirSync(directorio)) {
+    if (!nombre.endsWith(".test.ts")) continue;
+    const source = readFileSync(path.join(directorio, nombre), "utf8");
+    if (!CONEXION.test(source)) continue;
+    if (!/WANDERBIBLIOTHEK_DB\s*=/.test(source)) offenders.push(nombre);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `Estas pruebas deben fijar WANDERBIBLIOTHEK_DB (:memory: o un fichero temporal): ${offenders.join(", ")}`,
+  );
+});

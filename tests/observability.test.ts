@@ -321,3 +321,81 @@ test("una caché vieja se poda y la reciente se queda", () => {
   assert.deepEqual(readdirSync(dir).sort(), ["9788433998873.miss", "notas.txt"]);
   rmSync(dir, { recursive: true, force: true });
 });
+
+/* --------------------------- webhook de errores ---------------------------- */
+
+test("con ERROR_WEBHOOK_URL el error se envía fuera, con token y sin bloquear", async () => {
+  const { reportError } = await import("../src/lib/observability.ts");
+  process.env.ERROR_WEBHOOK_URL = "https://avisos.example.test/errores";
+  process.env.ERROR_WEBHOOK_TOKEN = "token-de-prueba";
+
+  const enviados: { url: string; init?: RequestInit }[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    enviados.push({ url: String(input), init });
+    return new Response("ok");
+  }) as typeof fetch;
+  const consola = console.error;
+  const errores: string[] = [];
+  console.error = (...args: unknown[]) => errores.push(args.join(" "));
+
+  try {
+    // Un valor que no es un Error también se registra: lo que llega puede ser
+    // cualquier cosa lanzada desde una ruta.
+    reportError("algo raro", { reference: "abcd1234", scope: "api" });
+    reportError(new Error("fallo interno"), { scope: "api" });
+
+    // El envío es asíncrono y no se espera: se le da un turno al bucle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(enviados.length, 2, "cada error se manda al webhook");
+    assert.equal(enviados[0]!.url, "https://avisos.example.test/errores");
+    const cabeceras = enviados[0]!.init?.headers as Record<string, string>;
+    assert.equal(cabeceras.authorization, "Bearer token-de-prueba", "lleva el token configurado");
+    assert.equal(cabeceras["content-type"], "application/json");
+
+    const cuerpo = JSON.parse(String(enviados[1]!.init?.body)) as {
+      level: string;
+      message: string;
+      context: Record<string, unknown>;
+    };
+    assert.equal(cuerpo.level, "error");
+    assert.equal(cuerpo.message, "fallo interno");
+    assert.deepEqual(cuerpo.context, { scope: "api" });
+    assert.ok(errores.some((linea) => linea.includes("fallo interno")), "también queda en consola");
+  } finally {
+    globalThis.fetch = original;
+    console.error = consola;
+    delete process.env.ERROR_WEBHOOK_URL;
+    delete process.env.ERROR_WEBHOOK_TOKEN;
+  }
+});
+
+test("un webhook que falla no rompe la respuesta ni ensucia el registro de errores", async () => {
+  const { reportError } = await import("../src/lib/observability.ts");
+  process.env.ERROR_WEBHOOK_URL = "https://avisos.example.test/roto";
+  delete process.env.ERROR_WEBHOOK_TOKEN;
+
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error("sin red");
+  }) as typeof fetch;
+  const consola = { error: console.error, warn: console.warn };
+  const avisos: string[] = [];
+  console.error = () => undefined;
+  console.warn = (...args: unknown[]) => avisos.push(args.join(" "));
+
+  try {
+    reportError(new Error("fallo con webhook roto"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.ok(
+      avisos.some((linea) => linea.includes("no se pudo enviar el error al webhook")),
+      "el fallo del webhook se anota como aviso, no como error",
+    );
+  } finally {
+    globalThis.fetch = original;
+    console.error = consola.error;
+    console.warn = consola.warn;
+    delete process.env.ERROR_WEBHOOK_URL;
+  }
+});

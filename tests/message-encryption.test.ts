@@ -11,8 +11,8 @@
  * - los mensajes anteriores a la v40 (un solo sobre sin destinatario) siguen
  *   leyéndose.
  *
- * La parte que toca IndexedDB (`ensureIdentity`) no se puede probar en Node y
- * se valida en el navegador; aquí se prueba todo lo demás.
+ * La parte que toca IndexedDB (la identidad del navegador) se prueba aparte, en
+ * `e2e-identity.test.ts`, con un doble del almacén.
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
