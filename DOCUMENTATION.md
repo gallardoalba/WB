@@ -17,15 +17,15 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               73 handlers grouped by domain
+    api/               72 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v40), seed
+    db/                connection, base schema (v2), migrations (v3–v43), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
-    secret-box.ts      reversible encryption with a key ring (TOTP, shipping)
+    secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
 tests/                 331 unit and integration tests (45 files)
@@ -69,11 +69,11 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/health` | Service and database status. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 73 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
+The API has 72 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
-- `/api/requests`, `/api/requests/[id]` and its children (`events` over SSE, `messages`, `read`, `review`, `handover`, `handover/shipping`, `handover/verify`): the whole exchange lifecycle.
+- `/api/requests`, `/api/requests/[id]` and its children (`events` over SSE, `messages`, `read`, `review`): the whole exchange lifecycle.
 - `/api/books/*`: work search, comments, likes, per-work alerts and reading states.
 - `/api/clubs/*`: circle, members, moderators, invitations, attendance, transfer, forum, votes and join requests.
 - `/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messages, following and blocking.
@@ -90,15 +90,15 @@ The API has 73 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
-Migrations are versioned with `PRAGMA user_version` (currently v40) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail.
+Migrations are versioned with `PRAGMA user_version` (currently v43) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. The last three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account.
 
-Shipping data (`ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) is stored encrypted with `APP_ENCRYPTION_KEY`, and every value is bound to its request and its column through AAD (`ship:<request>:<field>`): a ciphertext moved to another row cannot be opened. It is only decrypted in the view of the two people in the exchange, and notifications never repeat the destination.
+The hand-over and shipping columns (`handover_code`, `handover_method`, `ship_kind`, `ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the exchange conversation and each side confirms in the platform once it has the book, with no code and no addresses.
 
 Messages within an exchange and direct messages are encrypted in the browser (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 with AAD). The server stores the envelope and the key fingerprint, and rejects plain text as soon as either side has published a key (409).
 
 - A copy is only reserved if it is still `available`, inside the same transaction.
 - On acceptance, competing requests move to `expired`; only the owner accepts or declines.
-- Closing is two-sided: each side confirms separately with the six-digit code, and only the second confirmation completes the exchange.
+- Closing is two-sided: each side confirms separately, and only the second confirmation completes the exchange.
 - Unanswered requests expire after 14 days and notify the waiting person.
 - Blocks, suspended accounts and paused copies are filtered in SQL, not in the client.
 

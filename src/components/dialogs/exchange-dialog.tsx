@@ -713,7 +713,7 @@ export function ExchangeDialog({
       )}
 
       {/* Cómo se hace llegar el libro no lo decide la plataforma: se acuerda
-          aquí. Solo el código de entrega confirma que ha llegado. */}
+          aquí. Cada parte confirma cuando lo tiene. */}
       {request.status === "accepted" && (
         <p className="form-hint exchange-agree">
           {t(
