@@ -61,6 +61,7 @@ const EXPECTED_TABLES = [
   "requests",
   "reviews",
   "sessions",
+  "social_likes",
   "social_outbox",
   "throttle",
   "user_keys",
@@ -70,7 +71,17 @@ const EXPECTED_TABLES = [
 /** Columnas que más fácil se pierden en una migración mal escrita. */
 const REQUIRED_COLUMNS: Record<string, string[]> = {
   books: ["isbn", "language", "work_key", "title_key", "cover_url"],
-  listings: ["book_id", "owner_id", "condition", "city", "status", "search_key", "notes"],
+  listings: [
+    "book_id",
+    "owner_id",
+    "condition",
+    "city",
+    "status",
+    "search_key",
+    "notes",
+    "from_listing_id",
+    "from_request_id",
+  ],
   requests: [
     "status",
     "handover_code",

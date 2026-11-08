@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { handleApiError, json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { processSocialOutbox, purgeSocialOutbox } from "@/lib/mastodon";
+import { processLikes, purgeSocialLikes } from "@/lib/mastodon-likes";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
@@ -29,7 +30,20 @@ export async function POST(request: Request) {
     // aquí van los reintentos, y los entregados antiguos se purgan.
     const social = await processSocialOutbox({ limit: 5 });
     const purgedSocial = purgeSocialOutbox();
-    return json({ ok: true, mail, purgedMail, social, purgedSocial, ...runMaintenance() });
+    // «Me gusta» a publicaciones sobre libros. Se apaga solo si falta
+    // `MASTODON_LIKES=on`, y respeta su propio tope y su descanso.
+    const likes = await processLikes();
+    const purgedLikes = purgeSocialLikes();
+    return json({
+      ok: true,
+      mail,
+      purgedMail,
+      social,
+      purgedSocial,
+      likes,
+      purgedLikes,
+      ...runMaintenance(),
+    });
   } catch (error) {
     return handleApiError(error);
   }

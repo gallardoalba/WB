@@ -220,7 +220,8 @@ Con `MASTODON_TOKEN` definido, cada obra que entra en el catálogo se anuncia en
 el perfil del proyecto. El token se crea en la instancia —**Preferencias →
 Desarrollo → Nueva aplicación**— con los permisos `write:statuses`, `write:media`
 (para adjuntar la portada) y `read:accounts`; el tercero es el que usa
-`mastodon:test` para comprobar que la credencial vale.
+`mastodon:test` para comprobar que la credencial vale. Para los «me gusta» hace
+falta además **`write:favourites`**: sin ese permiso la instancia contesta 403.
 
 El formulario pide un **URI de redirección** que aquí no se usa nunca (el token
 se copia de la propia página de la aplicación, no se pide por OAuth): sirve
@@ -274,6 +275,43 @@ Si un post no sale, el motivo está en la propia cola:
 ```bash
 sudo sqlite3 /var/lib/wanderbibliothek/wanderbibliothek.db \
   "select subject, status, attempts, last_error from social_outbox order by created_at desc limit 10;"
+```
+
+#### «Me gusta» a publicaciones sobre libros (opcional)
+
+Con `MASTODON_LIKES=on` el bot también lee: recorre las líneas de tiempo de
+etiquetas de libros y pulsa el corazón de lo que parece una persona hablando de
+un libro. **Está apagado por defecto** porque actúa sobre lo que escriben otras
+personas; sin esa variable no hace ni una petición.
+
+Todo lo que hay debajo existe para que no parezca spam:
+
+- **Por etiqueta, nunca por búsqueda libre.** Etiquetas por idioma
+  (`#Bücher`, `#Buch`, `#Lesen`, `#Literatur`, `#Buchtipp` · `#Libros`,
+  `#Lectura`, `#Libro`, `#Literatura` · `#Books`, `#Bookstodon`, `#Reading`,
+  `#BookRecommendation`) y se descarta lo que no está en ese idioma. Con
+  `MASTODON_LIKES_TAGS` se pueden poner otras (separadas por comas).
+- **Pocos y espaciados.** `MASTODON_LIKES_PER_DAY` (8 por defecto, máximo 40) en
+  una ventana de 24 h y `MASTODON_LIKES_MIN_GAP_MINUTES` (25, mínimo 5) entre dos
+  pulsaciones. El cron pasa cada 15 minutos, así que dos «me gusta» nunca caen
+  seguidos.
+- **Una por cuenta y día.** Si alguien publica cuatro cosas sobre libros, se le
+  pulsa una; el resto parecería acoso.
+- **Solo lo legible sin cuenta**: estados públicos o no listados, originales
+  (nada de boosts), sin marcar como sensibles, con texto de más de 60 caracteres
+  y una palabra de libros dentro, de los últimos siete días.
+- **Memoria**: `social_likes` guarda cada estado pulsado (clave única por red y
+  estado), así que el mismo post no se repite nunca. Se purga a los 180 días.
+
+```bash
+# Enseña qué le gustaría, sin pulsar nada (y sin gastar cuota de «me gusta»)
+sudo npm --prefix /srv/wanderbibliothek/current run mastodon:test -- --gustar
+
+# Lo pulsa de verdad
+sudo npm ... run mastodon:test -- --gustar-enviar
+
+# Historial de los últimos «me gusta»
+sudo npm ... run mastodon:test -- --gustos
 ```
 
 

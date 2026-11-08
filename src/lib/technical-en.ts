@@ -52,7 +52,7 @@ export const EN: TechnicalDocument = {
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v44), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v45), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -132,7 +132,7 @@ export const EN: TechnicalDocument = {
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",
-            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`.",
+            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries the Mastodon outbox, purges old rows and, with `MASTODON_LIKES=on`, gives a few well-spaced favourites to book posts.",
           ],
         },
       ],
@@ -153,7 +153,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v44) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own.",
+          text: "Migrations are versioned with `PRAGMA user_version` (current: v45) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited.",
         },
         {
           kind: "p",
@@ -245,6 +245,11 @@ export const EN: TechnicalDocument = {
               "`MASTODON_TOKEN`",
               "unset",
               "Enables the bot that announces every work on Mastodon; without it nothing is queued or posted.",
+            ],
+            [
+              "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
+              "off / 8 / 25",
+              "Turns on favouriting of book posts: daily cap, minimum gap and `MASTODON_LIKES_TAGS` for your own hashtags. Needs `write:favourites` on the token.",
             ],
           ],
         },

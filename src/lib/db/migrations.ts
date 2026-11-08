@@ -1425,6 +1425,34 @@ function migrateToV44(db: Db) {
 }
 
 /**
+ * v45: el bot recuerda a qué estados ha dado «me gusta».
+ *
+ * Sin esta tabla el bot repetiría la misma publicación cada pasada (y eso sí
+ * que parece spam). `status_id` es único por red, así que un estado solo se
+ * pulsa una vez; `account_acct` y `created_at` sostienen la regla de «cómo
+ * mucho, una vez por cuenta y por día».
+ */
+function migrateToV45(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_likes (
+      id TEXT PRIMARY KEY,
+      network TEXT NOT NULL,
+      status_id TEXT NOT NULL,
+      account_acct TEXT NOT NULL,
+      status_url TEXT,
+      tag TEXT,
+      locale TEXT,
+      created_at TEXT NOT NULL,
+      UNIQUE (network, status_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS social_likes_created ON social_likes(network, created_at);
+    CREATE INDEX IF NOT EXISTS social_likes_account ON social_likes(network, account_acct, created_at);
+  `);
+  db.pragma("user_version = 45");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1553,6 +1581,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 42) migrateToV42(db);
   if (userVersion(db) < 43) migrateToV43(db);
   if (userVersion(db) < 44) migrateToV44(db);
+  if (userVersion(db) < 45) migrateToV45(db);
 
   backfillSearchKeys(db);
 }

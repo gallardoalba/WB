@@ -5,6 +5,9 @@
  *   sudo npm ... run mastodon:test -- --libro bok_123      # enseña el aviso
  *   sudo npm ... run mastodon:test -- --enviar bok_123     # lo publica
  *   sudo npm ... run mastodon:test -- --cola               # reintenta pendientes
+ *   sudo npm ... run mastodon:test -- --gustar             # enseña qué le gustaría
+ *   sudo npm ... run mastodon:test -- --gustar-enviar      # da el «me gusta»
+ *   sudo npm ... run mastodon:test -- --gustos             # historial de «me gusta»
  *
  * Sin banderas no publica nada: lee el token, pregunta a la instancia quién es
  * y muestra un aviso de ejemplo con su longitud real. Así se comprueba una
@@ -29,17 +32,27 @@ import {
   uploadMedia,
   workUrl,
 } from "../src/lib/mastodon";
+import {
+  likeCountSince,
+  likesConfig,
+  processLikes,
+  purgeSocialLikes,
+  recentLikes,
+} from "../src/lib/mastodon-likes";
 import { getBook } from "../src/lib/repo";
 import { siteUrl } from "../src/lib/site";
 
 const USAGE =
-  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--cola] [--env /ruta]";
+  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--cola] [--gustar] [--gustar-enviar] [--gustos] [--env /ruta]";
 
 type Options = {
   libro: string | null;
   media: string | null;
   enviar: string | null;
   cola: boolean;
+  gustar: boolean;
+  gustarEnviar: boolean;
+  gustos: boolean;
   entorno: string;
 };
 
@@ -49,12 +62,27 @@ function parseArgs(argv: string[]): Options {
     media: null,
     enviar: null,
     cola: false,
+    gustar: false,
+    gustarEnviar: false,
+    gustos: false,
     entorno: "/etc/wanderbibliothek/env",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]!;
     if (arg === "--cola") {
       options.cola = true;
+      continue;
+    }
+    if (arg === "--gustar") {
+      options.gustar = true;
+      continue;
+    }
+    if (arg === "--gustar-enviar") {
+      options.gustarEnviar = true;
+      continue;
+    }
+    if (arg === "--gustos") {
+      options.gustos = true;
       continue;
     }
     if (arg === "--libro" || arg === "--media" || arg === "--enviar" || arg === "--env") {
@@ -212,6 +240,45 @@ async function main() {
     console.log(`Cola: ${result.sent} enviados, ${result.failed} fallidos.`);
     const purged = purgeSocialOutbox();
     if (purged > 0) console.log(`Purgados ${purged} avisos entregados antiguos.`);
+  }
+
+  if (options.gustos) {
+    const historial = recentLikes(10);
+    console.log(`\n«Me gusta» recientes (se guardan para no repetirlos): ${historial.length}`);
+    for (const fila of historial) {
+      console.log(
+        ` ${fila.created_at} · #${fila.tag ?? "?"} · @${fila.account_acct} · ${fila.status_url ?? fila.status_id}`,
+      );
+    }
+    console.log(`En las últimas 24 h: ${likeCountSince()}.`);
+  }
+
+  if (options.gustar || options.gustarEnviar) {
+    const likes = likesConfig();
+    if (!likes) {
+      console.error(
+        "El bot de «me gusta» está apagado: añade MASTODON_LIKES=on al entorno (y un token con write:favourites).",
+      );
+    } else {
+      console.log(
+        `«Me gusta»: tope ${likes.perDay} en 24 h, separación mínima ${likes.minGapMinutes} min, ya lleva ${likeCountSince()}.`,
+      );
+      const result = await processLikes({
+        config: likes,
+        dryRun: !options.gustarEnviar,
+      });
+      console.log(`\n${result.liked ? "Pulsado" : "Nada pulsado"}: ${result.reason}.`);
+      if (result.status) {
+        console.log(
+          ` Estado ${result.status.id} · #${result.status.tag} (${result.status.locale}) · @${result.status.account}`,
+        );
+        console.log(` ${result.status.url ?? "(sin URL)"}`);
+      }
+      if (result.liked) {
+        const purged = purgeSocialLikes();
+        if (purged > 0) console.log(`Purgados ${purged} «me gusta» antiguos.`);
+      }
+    }
   }
 }
 
