@@ -181,12 +181,13 @@ test("el panel de administración abre con sus secciones", async ({ page }) => {
   await page.goto("/admin");
 
   // La administración ya tiene entrada propia en la barra lateral: /admin no
-  // se confunde con la página de cuenta.
+  // se confunde con la página de cuenta. El enlace lleva el prefijo del idioma
+  // de la página (`/es/admin`), que es la URL canónica del castellano.
   await expect(
     page.getByRole("navigation", { name: "Administración" }).getByRole("link", {
       name: "Moderación",
     }),
-  ).toHaveAttribute("href", "/admin");
+  ).toHaveAttribute("href", "/es/admin");
 
   // En producción el panel exige segundo factor. Sin TOTP ya no responde «Esta
   // página no existe»: explica el requisito y ofrece el camino para activarlo.
