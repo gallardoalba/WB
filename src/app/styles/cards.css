@@ -341,12 +341,15 @@
    que pesa más que la autoría y que el género que van debajo. Sin altura
    mínima: reservar dos líneas dejaba un renglón en blanco bajo los títulos
    cortos, y las tarjetas ya se alinean por abajo con la fila de quien publica.
-   El hueco hasta la autoría son 5 px y no 2: con `line-height` 1.16 el
-   descendente de la última línea («philosophy», «Günther») quedaba pegado a la
-   mayúscula de debajo y se leía como un solapamiento. */
+   El hueco hasta la autoría son 5 px (3 de `padding` + 2 de margen). El
+   `padding-bottom` no es decorativo: con `-webkit-line-clamp` y
+   `overflow: hidden` el recorte cae en el borde del `padding`, y sin esos 3 px
+   el descendente de la «g» de «technology» se cortaba a la altura del renglón
+   (la caja de línea mide 1.2em y hay fuentes cuyo descendente no cabe). */
 .book-details h3 {
   display: -webkit-box;
-  margin: 0 0 5px;
+  margin: 0 0 2px;
+  padding-bottom: 3px;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
