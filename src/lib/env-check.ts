@@ -173,6 +173,25 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
       "Retírala del entorno cuando el administrador ya exista: no hace falta para arrancar y queda legible en la configuración del servicio.",
     );
   }
+
+  // El bot de Mastodon es opcional, pero un token mal copiado (con espacios, a
+  // medias) falla en silencio: la cola se llena y el perfil no publica nada.
+  if (has(env, "MASTODON_TOKEN")) {
+    const token = env.MASTODON_TOKEN?.trim() ?? "";
+    if (token.length < 20) {
+      warn(
+        "MASTODON_TOKEN",
+        "Parece incompleto (un token de Mastodon ronda los 40 caracteres): el bot encolará avisos que la instancia rechazará.",
+      );
+    }
+    const instance = env.MASTODON_INSTANCE?.trim();
+    if (instance && !instance.startsWith("https://")) {
+      warn(
+        "MASTODON_INSTANCE",
+        "Tiene que empezar por https://: el token viaja en una cabecera y el bot se queda apagado si no lo es.",
+      );
+    }
+  }
   // Un par a medias no crea la cuenta y el operador se queda esperando: se
   // avisa ahora, no cuando falle el primer acceso a /admin.
   if (has(env, "ADMIN_EMAIL") !== has(env, "ADMIN_PASSWORD")) {

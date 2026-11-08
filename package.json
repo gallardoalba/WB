@@ -36,6 +36,7 @@
     "legal:env": "node --import tsx scripts/legal-env.ts",
     "user:verify": "node --import tsx scripts/verify-user.ts",
     "mail:test": "node --import tsx scripts/mail-test.ts",
+    "mastodon:test": "node --import tsx scripts/mastodon.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "test:e2e": "playwright test",

@@ -110,6 +110,7 @@ consecuencias están comentadas en el propio fichero; el resumen:
 | `TRUST_PROXY=1` | Todas las peticiones comparten la cuota global: un cliente puede agotar el login del sitio |
 | `WANDERBIBLIOTHEK_DB` | La base se crea dentro de la release y se pierde en el siguiente despliegue |
 | `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | `/privacidad` y `/aviso-legal` salen con un aviso de que faltan datos; el Impressum es obligatorio en Alemania |
+| `MASTODON_TOKEN` | El bot no publica: el catálogo funciona igual, solo no hay avisos en el perfil |
 
 Al arrancar, `[env]` también avisa (sin bloquear) de los errores que solo se
 notarían semanas después: un `MAINTENANCE_TOKEN` de menos de 24 caracteres, una
@@ -212,6 +213,49 @@ sudo journalctl -u wanderbibliothek -n 50 | grep '\[mail\]'
 Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 —el 401 o el 400 con el `code` de Brevo— está una línea antes. El cron
 (`/api/cron/maintenance`) reintenta con espera creciente hasta cinco veces.
+
+### Bot de Mastodon (opcional)
+
+Con `MASTODON_TOKEN` definido, cada obra que entra en el catálogo se anuncia en
+el perfil del proyecto. Se crea el token en la instancia —**Preferencias →
+Desarrollo → Nueva aplicación**— con los permisos `write:statuses` y
+`read:accounts`; el segundo es el que usa `mastodon:test` para comprobar que la
+credencial vale.
+
+```bash
+# Solo comprueba: dice quién es el token y enseña el texto, sin publicar nada
+sudo npm --prefix /srv/wanderbibliothek/current run mastodon:test
+
+# El aviso de una obra concreta, y su publicación de verdad
+sudo npm ... run mastodon:test -- --libro bok_123
+sudo npm ... run mastodon:test -- --enviar bok_123
+
+# Reintentar lo que quedó pendiente (el cron también lo hace cada hora)
+sudo npm ... run mastodon:test -- --cola
+```
+
+Lo que hay que saber:
+
+- **Un aviso por obra, no por ejemplar.** Si tres personas ponen el mismo libro,
+  el perfil no lo repite: la tabla `social_outbox` tiene una clave única por red
+  y obra.
+- **El post se encola en la base.** Si la instancia no contesta, el aviso no se
+  pierde: se reintenta con espera creciente (5 intentos) desde el cron. Un token
+  revocado o un texto inválido se marcan como fallidos sin reintentar.
+- **Idempotencia.** Cada envío lleva `Idempotency-Key` con el id de la fila, así
+  que un reintento no publica dos veces el mismo estado.
+- **Sin datos personales**: título, autoría y enlace a `/werk/<obra>`. Ni ciudad
+  ni nombre de quien publica.
+- **En desarrollo no se publica**: si `NEXT_PUBLIC_SITE_URL` es localhost, el
+  aviso se descarta antes de encolarse.
+
+Si un post no sale, el motivo está en la propia cola:
+
+```bash
+sudo sqlite3 /var/lib/wanderbibliothek/wanderbibliothek.db \
+  "select subject, status, attempts, last_error from social_outbox order by created_at desc limit 10;"
+```
+
 
 ## 5. Servicio, proxy y tareas programadas
 

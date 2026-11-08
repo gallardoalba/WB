@@ -146,6 +146,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `LEGAL_VAT_ID` / `LEGAL_PHONE` / `LEGAL_REGISTER` | unset | Optional details for the imprint. |
 | `SEED_DEMO` | `1` outside production | Seeds demo data; in production only with an explicit `1`. |
 | `GOOGLE_BOOKS_API_KEY` | unset | Raises the Google Books quota for covers. |
+| `MASTODON_TOKEN` | unset | Enables the bot that announces every new work on Mastodon; without it nothing is queued or posted. |
 
 ## Tests and continuous integration
 

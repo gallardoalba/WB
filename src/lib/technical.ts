@@ -258,6 +258,11 @@ const ES: TechnicalDocument = {
             ["`LEGAL_VAT_ID` / `LEGAL_PHONE` / `LEGAL_REGISTER`", "sin definir", "Datos opcionales del aviso legal."],
             ["`SEED_DEMO`", "`1` fuera de producción", "Siembra los datos de demostración; en producción solo con `1` explícito."],
             ["`GOOGLE_BOOKS_API_KEY`", "sin definir", "Sube la cuota de Google Books para las portadas."],
+            [
+              "`MASTODON_TOKEN`",
+              "sin definir",
+              "Activa el bot que anuncia cada obra en Mastodon; sin él no se encola ni se publica nada.",
+            ],
           ],
         },
       ],
@@ -625,6 +630,11 @@ const DE: TechnicalDocument = {
             ["`LEGAL_VAT_ID` / `LEGAL_PHONE` / `LEGAL_REGISTER`", "nicht gesetzt", "Optionale Angaben für das Impressum."],
             ["`SEED_DEMO`", "`1` außerhalb der Produktion", "Legt Demodaten an; in Produktion nur mit ausdrücklicher `1`."],
             ["`GOOGLE_BOOKS_API_KEY`", "nicht gesetzt", "Erhöht das Kontingent von Google Books für Cover."],
+            [
+              "`MASTODON_TOKEN`",
+              "nicht gesetzt",
+              "Aktiviert den Bot, der jedes Werk auf Mastodon ankündigt; ohne ihn wird nichts eingereiht oder veröffentlicht.",
+            ],
           ],
         },
       ],

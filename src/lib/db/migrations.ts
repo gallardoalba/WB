@@ -1319,6 +1319,42 @@ function migrateToV40(db: Db) {
 }
 
 /**
+ * v41: cola de avisos en redes sociales.
+ *
+ * El bot de Mastodon no publica desde la petición: encola aquí y lo intenta el
+ * `after()` (y el cron, si falla). La clave única por red y obra es lo que evita
+ * que el mismo libro se anuncie tres veces porque lo pongan tres personas.
+ *
+ * `attempts`/`next_attempt_at` repiten el esquema de `mail_outbox`, que ya está
+ * probado en producción; `external_id`/`external_url` guardan el estado creado
+ * para poder borrarlo a mano si hiciera falta.
+ */
+function migrateToV41(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS social_outbox (
+      id TEXT PRIMARY KEY,
+      network TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT NOT NULL,
+      last_error TEXT,
+      external_id TEXT,
+      external_url TEXT,
+      created_at TEXT NOT NULL,
+      sent_at TEXT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS social_outbox_subject
+      ON social_outbox(network, subject);
+    CREATE INDEX IF NOT EXISTS social_outbox_pending
+      ON social_outbox(status, next_attempt_at);
+  `);
+
+  db.pragma("user_version = 41");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1443,6 +1479,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 38) migrateToV38(db);
   if (userVersion(db) < 39) migrateToV39(db);
   if (userVersion(db) < 40) migrateToV40(db);
+  if (userVersion(db) < 41) migrateToV41(db);
 
   backfillSearchKeys(db);
 }

@@ -5,6 +5,7 @@ import { getSessionUser, requireUser } from "@/lib/auth";
 import { cityName } from "@/lib/city-name";
 import { getCover } from "@/lib/covers";
 import { notifyIndexNow } from "@/lib/indexnow";
+import { announceBook } from "@/lib/mastodon";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
@@ -71,6 +72,18 @@ export async function POST(request: Request) {
         `${base}/es/werk/${listing.bookId}`,
         `${base}/en/werk/${listing.bookId}`,
       ]),
+    );
+    // Aviso en Mastodon, también en `after()` y tan silencioso como el anterior:
+    // el post se encola en la base, así que un fallo de la instancia no pierde el
+    // aviso ni retrasa la respuesta. Un post por obra, no por ejemplar.
+    after(() =>
+      announceBook({
+        bookId: listing.bookId,
+        title: input.title,
+        author: input.author,
+        language: input.language ?? null,
+        base,
+      }),
     );
     // La demanda se calcula después de publicar: si alguien buscaba la obra
     // en la misma ciudad, la persona que publica lo ve de inmediato.

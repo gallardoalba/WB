@@ -33,7 +33,7 @@ function makeClub(overrides: Partial<Parameters<RepoModule["createClub"]>[1]> = 
 test("la v19 añade encuentros, política de entrada, progreso y asistencia", () => {
   const db = dbModule.getDb();
   assert.equal(db.pragma("user_version", { simple: true }), dbModule.SCHEMA_VERSION);
-  assert.equal(dbModule.SCHEMA_VERSION, 40);
+  assert.equal(dbModule.SCHEMA_VERSION, 41);
   const columns = (table: string) =>
     (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
   for (const column of ["meets_at", "status", "join_policy", "progress", "progress_note"]) {

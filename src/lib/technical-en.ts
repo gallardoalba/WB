@@ -234,6 +234,11 @@ export const EN: TechnicalDocument = {
             ["`LEGAL_VAT_ID` / `LEGAL_PHONE` / `LEGAL_REGISTER`", "unset", "Optional details for the legal notice."],
             ["`SEED_DEMO`", "`1` outside production", "Seeds the demo data; in production only with an explicit `1`."],
             ["`GOOGLE_BOOKS_API_KEY`", "unset", "Raises the Google Books quota for the covers."],
+            [
+              "`MASTODON_TOKEN`",
+              "unset",
+              "Enables the bot that announces every work on Mastodon; without it nothing is queued or posted.",
+            ],
           ],
         },
       ],

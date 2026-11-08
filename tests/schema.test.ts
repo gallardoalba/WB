@@ -61,6 +61,7 @@ const EXPECTED_TABLES = [
   "requests",
   "reviews",
   "sessions",
+  "social_outbox",
   "throttle",
   "user_keys",
   "users",

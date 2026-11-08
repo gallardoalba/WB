@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { handleApiError, json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { processSocialOutbox, purgeSocialOutbox } from "@/lib/mastodon";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
@@ -24,7 +25,11 @@ export async function POST(request: Request) {
     hit({ bucket: "cron:maintenance", key: "all", limit: 6, windowMs: 60 * 60 * 1000 });
     const mail = await processOutbox(50);
     const purgedMail = purgeOutbox();
-    return json({ ok: true, mail, purgedMail, ...runMaintenance() });
+    // Avisos de Mastodon que no salieron al publicar (instancia caída, 429):
+    // aquí van los reintentos, y los entregados antiguos se purgan.
+    const social = await processSocialOutbox({ limit: 5 });
+    const purgedSocial = purgeSocialOutbox();
+    return json({ ok: true, mail, purgedMail, social, purgedSocial, ...runMaintenance() });
   } catch (error) {
     return handleApiError(error);
   }
