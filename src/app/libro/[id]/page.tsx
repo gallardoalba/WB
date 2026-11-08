@@ -11,6 +11,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
 import { pick } from "@/lib/locale";
 import { getListing, countBookComments } from "@/lib/repo";
+import { socialMetadata } from "@/lib/social";
 import { formatDistance, formatWhen, initialsOf, toneForId } from "@/lib/text";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -41,17 +42,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       en: `Share «${listing.title}» by ${listing.author} with ${listing.owner.name} in ${listing.city}.`,
     }),
     alternates: { canonical: `/libro/${listing.id}` },
-    openGraph: {
-      type: "book",
+    ...socialMetadata({
+      locale,
+      path: `/libro/${listing.id}`,
       title: `${listing.title} — ${listing.author}`,
       description: pick(locale, {
         es: `Ejemplar compartido por ${listing.owner.name} en ${listing.city}.`,
         de: `Exemplar von ${listing.owner.name} in ${listing.city}.`,
         en: `Copy shared by ${listing.owner.name} in ${listing.city}.`,
       }),
-      url: `/libro/${listing.id}`,
-      images: listing.coverUrl ? [listing.coverUrl] : undefined,
-    },
+      image: listing.coverUrl,
+      type: "book",
+    }),
   };
 }
 

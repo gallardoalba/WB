@@ -18,6 +18,7 @@ import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import type { MessageKey } from "@/lib/i18n";
 import { localeTag, pick } from "@/lib/locale";
+import { socialMetadata } from "@/lib/social";
 import { ReaderCard } from "@/components/reader-card";
 import {
   getPublicProfile,
@@ -76,8 +77,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       en: `${profile.published} shared books by ${profile.user.name} in ${profile.user.city}.`,
     }),
     alternates: { canonical: `/u/${profile.user.id}` },
-    openGraph: {
-      type: "profile",
+    ...socialMetadata({
+      locale,
+      path: `/u/${profile.user.id}`,
       title: pick(locale, {
         es: `${profile.user.name} en Wanderbibliothek`,
         de: `${profile.user.name} auf Wanderbibliothek`,
@@ -88,8 +90,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         de: `Teile Bücher mit ${profile.user.name} in ${profile.user.city}.`,
         en: `Share books with ${profile.user.name} in ${profile.user.city}.`,
       }),
-      url: `/u/${profile.user.id}`,
-    },
+      type: "profile",
+    }),
   };
 }
 

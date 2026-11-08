@@ -12,7 +12,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
-import { pick } from "@/lib/locale";
+import { socialMetadata } from "@/lib/social";import { pick } from "@/lib/locale";
 import { ListPicker } from "@/components/list-picker";
 import {
   countBookWants,
@@ -58,17 +58,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       en: `Discussion and available copies of «${book.title}» by ${book.author} across Europe.`,
     }),
     alternates: { canonical: `/obra/${canonicalId}` },
-    openGraph: {
-      type: "book",
+    ...socialMetadata({
+      locale,
+      path: `/obra/${book.id}`,
       title: `${book.title} — ${book.author}`,
       description: pick(locale, {
         es: `Comenta «${book.title}» y descubre quién lo tiene cerca.`,
         de: `Sprich über «${book.title}» und entdecke, wer es in deiner Nähe hat.`,
         en: `Talk about «${book.title}» and find out who has it near you.`,
       }),
-      url: `/obra/${book.id}`,
-      images: book.coverUrl ? [book.coverUrl] : undefined,
-    },
+      image: book.coverUrl,
+      type: "book",
+    }),
   };
 }
 

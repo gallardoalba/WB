@@ -8,6 +8,7 @@ import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { alternatesFor } from "@/lib/seo";
+import { socialMetadata } from "@/lib/social";
 import { getReadingList } from "@/lib/repo";
 import { formatWhen } from "@/lib/text";
 
@@ -34,12 +35,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }),
     alternates: alternatesFor(locale, `/listas/${list.id}`),
     robots: list.items > 0 ? { index: true, follow: true } : { index: false, follow: true },
-    openGraph: {
-      type: "article",
+    ...socialMetadata({
+      locale,
+      path: `/listas/${list.id}`,
       title: list.title,
       description: list.description || t("{n} libros recomendados.", { n: list.items }),
-      url: `/listas/${list.id}`,
-    },
+      type: "article",
+    }),
   };
 }
 

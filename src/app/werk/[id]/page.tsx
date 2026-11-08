@@ -8,6 +8,7 @@ import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { alternatesFor } from "@/lib/seo";
+import { socialMetadata } from "@/lib/social";
 import { getPublicWork } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
 import { toneForId } from "@/lib/text";
@@ -59,12 +60,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Sin ejemplares la página no aporta nada nuevo: se deja rastrear el enlace
     // pero no se indexa una ficha vacía.
     robots: work.copies > 0 ? { index: true, follow: true } : { index: false, follow: true },
-    openGraph: {
-      type: "book",
+    ...socialMetadata({
+      locale,
+      path: `/werk/${work.id}`,
       title: `${work.title} — ${work.author}`,
       description,
-      url: `/werk/${work.id}`,
-    },
+      image: work.coverUrl,
+      type: "book",
+    }),
   };
 }
 
