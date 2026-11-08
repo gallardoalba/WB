@@ -92,14 +92,19 @@ test("sin MASTODON_LIKES el bot de «me gusta» está apagado", () => {
   assert.equal(likes.likesConfig({ MASTODON_LIKES: "on" }), null, "sin token tampoco");
 });
 
-test("por defecto solo se miran cuentas e idioma alemán", () => {
+test("por defecto se miran los tres idiomas y un tope de 40 al día", () => {
   const config = likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on" });
-  assert.deepEqual(config?.locales, ["de"]);
+  assert.deepEqual(config?.locales, ["de", "es", "en"]);
   assert.equal(config?.perDay, 40);
   assert.equal(config?.perAccount, 1);
 });
 
-test("los idiomas se pueden ampliar y lo que no existe se descarta", () => {
+test("los idiomas se pueden recortar y lo que no existe se descarta", () => {
+  assert.deepEqual(
+    likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on", MASTODON_LIKES_LOCALES: "de" })
+      ?.locales,
+    ["de"],
+  );
   assert.deepEqual(
     likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on", MASTODON_LIKES_LOCALES: "de,es" })
       ?.locales,
@@ -108,7 +113,7 @@ test("los idiomas se pueden ampliar y lo que no existe se descarta", () => {
   assert.deepEqual(
     likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on", MASTODON_LIKES_LOCALES: "fr" })
       ?.locales,
-    ["de"],
+    ["de", "es", "en"],
   );
   assert.deepEqual(
     likes.likesConfig({
@@ -137,8 +142,52 @@ test("solo se pulsa a cuentas que dicen en su perfil que leen", () => {
   }
 });
 
-test("por cuenta se puede limitar a más de un «me gusta» al día", () => {
-  const cuenta = new Map([["lectora", 2]]);
+test("también vale en castellano y en inglés, cada uno con su etiqueta", () => {
+  const castellano = likes.toStatus({
+    id: "901",
+    content:
+      "<p>Terminé <em>El infinito en un junco</em> y lo recomiendo a quien lea novela o ensayo: un libro para leer con lápiz en la mano.</p>",
+    language: "es",
+    created_at: new Date().toISOString(),
+    visibility: "public",
+    reblog: null,
+    favourited: false,
+    sensitive: false,
+    account: {
+      id: "50",
+      acct: "lectora.es",
+      bot: false,
+      statuses_count: 200,
+      note: "<p>Lectura, libros y novela negra</p>",
+    },
+  })!;
+  assert.deepEqual(likes.likeableStatus(castellano, { locale: "es" }), { ok: true });
+  // La misma publicación no vale para la etiqueta alemana: el idioma manda.
+  const enAleman = likes.likeableStatus(castellano, { locale: "de" });
+  assert.equal(enAleman.ok, false);
+
+  const ingles = likes.toStatus({
+    id: "902",
+    content:
+      "<p>Just finished <em>Piranesi</em> and I keep recommending it: a book that asks to be read twice, slowly, with the window open.</p>",
+    language: "en",
+    created_at: new Date().toISOString(),
+    visibility: "public",
+    reblog: null,
+    favourited: false,
+    sensitive: false,
+    account: {
+      id: "51",
+      acct: "reader.en",
+      bot: false,
+      statuses_count: 200,
+      note: "<p>Reader, bookseller, reviews of novels</p>",
+    },
+  })!;
+  assert.deepEqual(likes.likeableStatus(ingles, { locale: "en" }), { ok: true });
+});
+
+test("por cuenta se puede limitar a más de un «me gusta» al día", () => {  const cuenta = new Map([["lectora", 2]]);
   const conTope1 = likes.likeableStatus(status(), { locale: "de", accountsLiked: cuenta });
   assert.equal(conTope1.ok, false);
   const conTope2 = likes.likeableStatus(status(), {

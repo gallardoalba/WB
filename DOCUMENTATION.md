@@ -80,7 +80,7 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
-- `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It also retries the Mastodon outbox, purges old rows and, if `MASTODON_LIKES=on`, favourites up to 40 German book posts a day, one every 25 minutes at most and only for accounts whose bio talks about books.
+- `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It also retries the Mastodon outbox, purges old rows and, if `MASTODON_LIKES=on`, favourites up to 40 book posts a day in German, Spanish or English, one every 25 minutes at most and only for accounts whose bio talks about books.
 
 ## Data
 

@@ -273,7 +273,7 @@ const ES: TechnicalDocument = {
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
               "apagado / 40 / 25",
-              "Enciende los «me gusta» a publicaciones sobre libros: tope en 24 h, separación mínima y `MASTODON_LIKES_TAGS` para etiquetas propias. Por defecto solo cuentas alemanas que hablan de libros en su biografía (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Necesita `write:favourites` en el token.",
+              "Enciende los «me gusta» a publicaciones sobre libros: tope en 24 h, separación mínima y `MASTODON_LIKES_TAGS` para etiquetas propias. Mira los tres idiomas (de, es, en) y solo cuentas que hablan de libros en su biografía (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Necesita `write:favourites` en el token.",
             ],
           ],
         },
@@ -657,7 +657,7 @@ const DE: TechnicalDocument = {
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
               "aus / 40 / 25",
-              "Schaltet «Gefällt mir» für Buchbeiträge ein: Tagesgrenze, Mindestabstand und `MASTODON_LIKES_TAGS` für eigene Hashtags. Standardmäßig nur deutschsprachige Konten, die in ihrer Biografie von Büchern sprechen (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Braucht `write:favourites` im Token.",
+              "Schaltet «Gefällt mir» für Buchbeiträge ein: Tagesgrenze, Mindestabstand und `MASTODON_LIKES_TAGS` für eigene Hashtags. Sieht alle drei Sprachen (de, es, en) und nur Konten, die in ihrer Biografie von Büchern sprechen (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Braucht `write:favourites` im Token.",
             ],
           ],
         },

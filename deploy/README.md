@@ -286,11 +286,13 @@ personas; sin esa variable no hace ni una petición.
 
 Todo lo que hay debajo existe para que no parezca spam:
 
-- **Por etiqueta, nunca por búsqueda libre.** Etiquetas alemanas
-  (`#Bücher`, `#Buch`, `#Lesen`, `#Literatur`, `#Buchtipp`) y se descarta lo que
-  no está escrito en alemán. Con `MASTODON_LIKES_TAGS` se pueden poner otras
-  (separadas por comas) y con `MASTODON_LIKES_LOCALES` añadir idiomas (por
-  defecto solo `de`).
+- **Por etiqueta, nunca por búsqueda libre.** Etiquetas de libros en los tres
+  idiomas de la casa —`#Bücher`, `#Buch`, `#Lesen`, `#Literatur`, `#Buchtipp` ·
+  `#Libros`, `#Lectura`, `#Libro`, `#Literatura` · `#Books`, `#Bookstodon`,
+  `#Reading`, `#BookRecommendation`— y se descarta lo que no está escrito en el
+  idioma de su etiqueta. Con `MASTODON_LIKES_TAGS` se pueden poner otras
+  (separadas por comas) y con `MASTODON_LIKES_LOCALES=de` se puede dejar solo
+  en alemán.
 - **Solo cuentas que leen.** Además de la etiqueta, la **biografía** de la cuenta
   tiene que hablar de libros («Bücherwurm», «Leseratte», «Rezensionen»,
   «Buchhandlung»…): el corazón va a personas que hablan de libros, no a cuentas

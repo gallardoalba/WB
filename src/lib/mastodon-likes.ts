@@ -8,15 +8,15 @@
  *
  * - **Apagado por defecto.** Solo se enciende con `MASTODON_LIKES=on` y un
  *   token: actúa sobre lo que escriben otras personas, así que no se hace solo.
- * - **Solo alemán, por defecto.** El perfil y su público son alemanes, así que
- *   se miran las etiquetas alemanas y se descarta todo lo que no esté escrito en
- *   ese idioma (`MASTODON_LIKES_LOCALES` amplía la lista si hiciera falta).
+ * - **Los tres idiomas de la casa.** Se miran etiquetas alemanas, castellanas e
+ *   inglesas y se descarta lo que no esté escrito en el idioma de su etiqueta
+ *   (`MASTODON_LIKES_LOCALES=de` deja solo el alemán).
  * - **Personas que leen, no cuentas de paso.** Además del libro en la
  *   publicación, la **biografía** de la cuenta tiene que hablar de libros
  *   («Bücherwurm», «Leseratte», «Rezensionen»…): así el corazón va a quien lee y
  *   no a quien usa la etiqueta de moda.
  * - **Por etiqueta, nunca por búsqueda libre.** Se leen las líneas de tiempo de
- *   etiquetas de libros (`#Bücher`, `#Lesen`, `#Literatur`…) y se descarta lo
+ *   etiquetas de libros (`#Bücher`, `#Libros`, `#Bookstodon`…) y se descarta lo
  *   que no está en el idioma de la etiqueta.
  * - **Pocas y espaciadas.** Un tope en 24 h (`MASTODON_LIKES_PER_DAY`, 40 por
  *   defecto) y una separación mínima entre pulsaciones
@@ -122,20 +122,19 @@ function parseTags(raw: string | undefined): string[] | null {
 const KNOWN_LOCALES: Locale[] = ["de", "es", "en"];
 
 /**
- * Idiomas que se miran. Por defecto **solo alemán**: el perfil y su público son
- * alemanes, y repartir corazones en castellano o inglés desde una cuenta
- * alemana se lee como un bot.
+ * Idiomas que se miran: los tres de la casa (alemán, castellano e inglés).
  *
- * `MASTODON_LIKES_LOCALES=de,es` amplía la lista; lo que no sea un idioma
+ * Se pueden dejar en alemán con `MASTODON_LIKES_LOCALES=de` si algún día el
+ * perfil solo quiere hablar con su público directo; lo que no sea un idioma
  * conocido se descarta.
  */
 function parseLocales(raw: string | undefined): Locale[] {
-  if (!raw) return ["de"];
+  if (!raw) return ["de", "es", "en"];
   const locales = raw
     .split(/[,\s]+/)
     .map((value) => value.trim().toLowerCase().slice(0, 2))
     .filter((value): value is Locale => KNOWN_LOCALES.includes(value as Locale));
-  return locales.length > 0 ? [...new Set(locales)] : ["de"];
+  return locales.length > 0 ? [...new Set(locales)] : ["de", "es", "en"];
 }
 
 /**
