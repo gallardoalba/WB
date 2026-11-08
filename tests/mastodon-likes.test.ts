@@ -183,15 +183,26 @@ test("no se pulsa al propio bot, ni dos veces a la misma cuenta o al mismo estad
 
 /* ------------------------------ la llamada -------------------------------- */
 
-test("la línea de tiempo de la etiqueta se pide con su límite y sin local", async () => {
+test("la línea de tiempo de la etiqueta se pide sin token y con su límite", async () => {
   const { impl, calls } = fakeFetch(() => jsonResponse([]));
   const page = await likes.tagTimeline(CONFIG, "Bücher", { limit: 5, fetchImpl: impl });
   assert.equal(page.ok, true);
   assert.match(calls[0]!.url, /\/api\/v1\/timelines\/tag\/B%C3%BCcher\?limit=5&local=false$/);
-  assert.equal(
-    (calls[0]!.init.headers as Record<string, string>).authorization,
-    "Bearer secreto",
-  );
+  // Las líneas de tiempo de etiquetas son públicas: leer sin token evita
+  // pedirle a la cuenta un permiso más (`read:statuses`).
+  assert.equal(calls[0]!.init.headers, undefined);
+});
+
+test("si al token le falta write:favourites, el motivo lo dice", async () => {
+  clearMemory();
+  const { impl } = mastodonReply({
+    statuses: [rawStatus()],
+    favouriteMessage: "This action is outside the authorized scopes",
+    favourite: 403,
+  });
+  const result = await likes.processLikes({ config: CONFIG, fetchImpl: impl, maxTags: 99 });
+  assert.equal(result.liked, false);
+  assert.match(result.reason, /write:favourites/);
 });
 
 test("un 404 de etiqueta no se reintenta y un 429 sí", async () => {
@@ -209,14 +220,20 @@ test("un 404 de etiqueta no se reintenta y un 429 sí", async () => {
 /* ------------------------------- una pasada ------------------------------ */
 
 /** Servidor de mentira con cuenta propia, una etiqueta y un «me gusta». */
-function mastodonReply(options: { statuses: unknown[]; favourite?: number } = { statuses: [] }) {
+function mastodonReply(
+  options: { statuses: unknown[]; favourite?: number; favouriteMessage?: string } = {
+    statuses: [],
+  },
+) {
   return fakeFetch((url, init) => {
     if (url.includes("/accounts/verify_credentials")) {
       return jsonResponse({ id: "999", acct: "wanderbibliothek", username: "wanderbibliothek" });
     }
     if (url.includes("/timelines/tag/")) return jsonResponse(options.statuses);
     if (url.includes("/favourite") && (init.method ?? "GET") === "POST") {
-      return jsonResponse({ id: "111" }, options.favourite ?? 200);
+      return options.favouriteMessage
+        ? jsonResponse({ error: options.favouriteMessage }, options.favourite ?? 200)
+        : jsonResponse({ id: "111" }, options.favourite ?? 200);
     }
     return jsonResponse({ error: "no esperado" }, 500);
   });

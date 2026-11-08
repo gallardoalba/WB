@@ -275,7 +275,14 @@ export type TimelinePage =
   | { ok: true; statuses: MastodonStatus[] }
   | { ok: false; error: string; retryable: boolean };
 
-/** Línea de tiempo de una etiqueta (`local=false`: también lo remoto). */
+/**
+ * Línea de tiempo de una etiqueta (`local=false`: también lo remoto).
+ *
+ * Se pide **sin token a propósito**: las líneas de tiempo de etiquetas son
+ * públicas y así el bot no necesita `read:statuses` —solo el permiso de pulsar
+ * (`write:favourites`)—. Si una instancia privada lo rechazara, el fallo se
+ * queda en «no había nada» y no se pulsa nada.
+ */
 export async function tagTimeline(
   config: MastodonConfig,
   tag: string,
@@ -285,10 +292,7 @@ export async function tagTimeline(
   const limit = options.limit ?? 20;
   const url = `${config.instance}/api/v1/timelines/tag/${encodeURIComponent(tag)}?limit=${limit}&local=false`;
   try {
-    const response = await fetchImpl(url, {
-      headers: { authorization: `Bearer ${config.token}` },
-      signal: AbortSignal.timeout(8000),
-    });
+    const response = await fetchImpl(url, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       return {
@@ -574,7 +578,16 @@ export async function processLikes(
     }
     const result = await favouriteStatus(config, pick.id, fetchImpl);
     if (!result.ok) {
-      return { liked: false, reason: `no se pudo dar «me gusta»: ${result.error}`, status: chosen };
+      // El error típico de una instalación nueva: el token no lleva
+      // `write:favourites`, y Mastodon lo llama «outside the authorized scopes».
+      const pista = /scope/i.test(result.error)
+        ? " (al token le falta el permiso write:favourites)"
+        : "";
+      return {
+        liked: false,
+        reason: `no se pudo dar «me gusta»: ${result.error}${pista}`,
+        status: chosen,
+      };
     }
     recordLike({
       statusId: pick.id,
