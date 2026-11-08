@@ -22,7 +22,7 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v43), seed
+    db/                connection, base schema (v2), migrations (v3–v44), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -90,15 +90,18 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
-Migrations are versioned with `PRAGMA user_version` (currently v43) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. The last three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account.
+Migrations are versioned with `PRAGMA user_version` (currently v44) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own.
 
 The hand-over and shipping columns (`handover_code`, `handover_method`, `ship_kind`, `ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the exchange conversation and each side confirms in the platform once it has the book, with no code and no addresses.
+
+An exchange never leaves the book orphaned. When it closes, the copy that was handed over stays `given` (it is the record of what happened) and the receiver gets **a copy of their own**: same edition, same condition, their city, paused. `listings.from_listing_id` and `from_request_id` keep the trail, and the unique index on `from_request_id` makes sure one exchange can never produce two copies. From their shelf the receiver can activate it and the book travels again.
 
 Messages within an exchange and direct messages are encrypted in the browser (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 with AAD). The server stores the envelope and the key fingerprint, and rejects plain text as soon as either side has published a key (409).
 
 - A copy is only reserved if it is still `available`, inside the same transaction.
 - On acceptance, competing requests move to `expired`; only the owner accepts or declines.
 - Closing is two-sided: each side confirms separately, and only the second confirmation completes the exchange.
+- The book changes hands: the copy handed over stays `given` and the receiver gets a paused copy on their shelf, which they can activate whenever they want.
 - Unanswered requests expire after 14 days and notify the waiting person.
 - Blocks, suspended accounts and paused copies are filtered in SQL, not in the client.
 

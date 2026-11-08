@@ -9,7 +9,7 @@ The platform is deliberately built as a counter-model to commercial marketplaces
 ## What the platform does
 
 - **Publishing books.** Put the books you have finished on the shelf in a couple of steps, with the condition they are in and where they are. Readers nearby find them and can ask for them.
-- **Swapping.** Request, acceptance, hand-over agreed in the conversation, a confirmation from both sides, then a review. Each side confirms separately, so nobody can close an exchange on their own.
+- **Swapping.** Request, acceptance, hand-over agreed in the conversation, a confirmation from both sides, then a review. Each side confirms separately, so nobody can close an exchange on their own. When it closes, the copy that travelled stays as a record and the person who received it gets a copy of their own, paused on their shelf until they offer it.
 - **No addresses on the platform.** The platform never asks how the book travels: they agree that in the conversation and each side confirms when the copy arrives.
 - **Talking without being overheard.** Each exchange opens a conversation that is encrypted end to end, and readers who follow each other can write privately; the server stores sealed envelopes it cannot open.
 - **Reading circles.** Organised by city, with a current read, meetings, an attendance list, a vote on the next book and a forum only members can read.

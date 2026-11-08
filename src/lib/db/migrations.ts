@@ -1396,6 +1396,35 @@ function migrateToV43(db: Db) {
 }
 
 /**
+ * v44: el ejemplar cambia de manos.
+ *
+ * Cuando un intercambio se cierra, la fila del ejemplar original queda `given`
+ * (es el histórico del intercambio) y quien lo recibe estrena **su propia
+ * copia**, en pausa y en su ciudad, para que el libro pueda volver a viajar.
+ *
+ * `from_listing_id` y `from_request_id` dejan el rastro de por dónde ha pasado
+ * la copia, y el índice único impide que un mismo intercambio genere dos
+ * herederos (los `NULL` de las copias normales no chocan entre sí: el índice es
+ * parcial).
+ */
+function migrateToV44(db: Db) {
+  const columns = (db.pragma("table_info(listings)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("from_listing_id")) {
+    db.exec("ALTER TABLE listings ADD COLUMN from_listing_id TEXT");
+  }
+  if (!columns.includes("from_request_id")) {
+    db.exec("ALTER TABLE listings ADD COLUMN from_request_id TEXT");
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS listings_from_request
+      ON listings(from_request_id) WHERE from_request_id IS NOT NULL;
+  `);
+  db.pragma("user_version = 44");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1523,6 +1552,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 41) migrateToV41(db);
   if (userVersion(db) < 42) migrateToV42(db);
   if (userVersion(db) < 43) migrateToV43(db);
+  if (userVersion(db) < 44) migrateToV44(db);
 
   backfillSearchKeys(db);
 }

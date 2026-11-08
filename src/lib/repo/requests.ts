@@ -12,6 +12,7 @@ import type {
 } from "../domain";
 import { publishRequestMessage } from "../live";
 import { canTransition, listingStatusFor } from "../request-flow";
+import { normalizeText } from "../text";
 import { areBlocked, messageEnvelopesFor, nowIso } from "./shared";
 import {
   assertVerified,
@@ -249,6 +250,61 @@ const REQUEST_ERRORS: Record<string, string> = {
 /** El estado cambió entre la lectura y la escritura (otra pestaña, otra persona). */
 const STALE_REQUEST = "El intercambio ha cambiado mientras lo mirabas. Recarga e inténtalo de nuevo.";
 
+/**
+ * Copia que estrena quien se queda el libro.
+ *
+ * El ejemplar que se entrega queda `given` como histórico del intercambio, así
+ * que el libro seguiría fuera de circulación para siempre. Aquí nace la copia
+ * de quien lo recibe: misma edición y misma condición, en su ciudad y **en
+ * pausa**, porque tenerlo no es lo mismo que ofrecerlo. Desde «Mi estantería»
+ * puede activarla y el libro vuelve a viajar.
+ *
+ * Devuelve el id de la copia nueva, o `null` si el ejemplar original ya no
+ * existe (por ejemplo, borrado con la cuenta).
+ */
+function createReceivedCopy(
+  requestId: string,
+  listingId: string,
+  receiverId: string,
+): string | null {
+  const db = getDb();
+  const source = db
+    .prepare(
+      `SELECT l.book_id, l.condition, b.title, b.author, u.city AS receiver_city
+       FROM listings l
+       JOIN books b ON b.id = l.book_id
+       JOIN users u ON u.id = ?
+       WHERE l.id = ?`,
+    )
+    .get(receiverId, listingId) as
+    | { book_id: string; condition: string; title: string; author: string; receiver_city: string }
+    | undefined;
+  if (!source) return null;
+
+  const id = `lst_${randomUUID()}`;
+  // El índice único de `from_request_id` es la última red: si el cierre se
+  // repitiera por cualquier vía, no hay dos copias para el mismo intercambio.
+  const { changes } = db
+    .prepare(
+      `INSERT OR IGNORE INTO listings
+         (id, book_id, owner_id, condition, city, distance_km, status, search_key,
+          notes, created_at, from_listing_id, from_request_id)
+       VALUES (?, ?, ?, ?, ?, NULL, 'paused', ?, '', ?, ?, ?)`,
+    )
+    .run(
+      id,
+      source.book_id,
+      receiverId,
+      source.condition,
+      source.receiver_city,
+      normalizeText(`${source.title} ${source.author} ${source.receiver_city}`),
+      nowIso(),
+      listingId,
+      requestId,
+    );
+  return changes === 1 ? id : null;
+}
+
 export function updateRequestStatus(
   requestId: string,
   userId: string,
@@ -305,13 +361,19 @@ export function updateRequestStatus(
       const otherId = row.requester_id === userId ? row.owner_id : row.requester_id;
 
       if (confirmations.owner_confirmed_at && confirmations.requester_confirmed_at) {
-        db.prepare(
-          "UPDATE requests SET status = 'completed', updated_at = ? WHERE id = ? AND status = 'accepted'",
-        ).run(now, requestId);
-        // Un ejemplar retirado por moderación no puede «resucitar» al completar.
+        const closed = db
+          .prepare(
+            "UPDATE requests SET status = 'completed', updated_at = ? WHERE id = ? AND status = 'accepted'",
+          )
+          .run(now, requestId);
+        // Ya estaba cerrado (reintento): no se repiten avisos ni copias.
+        if (closed.changes !== 1) return;
+        // Un ejemplar retirado por moderación no puede «resucitar» al completar,
+        // pero tampoco se pierde: quien lo recibe estrena su propia copia.
         db.prepare("UPDATE listings SET status = 'given' WHERE id = ? AND status <> 'removed'").run(
           row.listing_id,
         );
+        const receivedId = createReceivedCopy(requestId, row.listing_id, row.requester_id);
         db.prepare(
           "INSERT INTO events (id, type, actor_id, listing_id, request_id, created_at) VALUES (?, 'completed', ?, ?, ?, ?)",
         ).run(`evt_${randomUUID()}`, userId, row.listing_id, requestId, now);
@@ -323,6 +385,16 @@ export function updateRequestStatus(
           listingId: row.listing_id,
           requestId,
         });
+        if (receivedId) {
+          notify({
+            userId: row.requester_id,
+            type: "completed",
+            title: "El libro ya está en tu estantería",
+            body: `«${listingTitle(row.listing_id)}»`,
+            listingId: receivedId,
+            requestId,
+          });
+        }
       } else {
         notify({
           userId: otherId,

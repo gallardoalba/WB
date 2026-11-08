@@ -230,6 +230,12 @@ test("un ejemplar retirado por moderación no resucita al cerrar el intercambio"
     .prepare("SELECT status FROM listings WHERE id = ?")
     .get(listing.id) as { status: string };
   assert.equal(fila.status, "removed", "la retirada de moderación es definitiva");
+
+  // El libro físico no se pierde: quien lo recibe tiene su copia, en pausa.
+  const copia = copiaRecibida(request.id);
+  assert.ok(copia, "la copia de quien lo recibe no depende de la publicación retirada");
+  assert.equal(copia.status, "paused");
+  assert.equal(repo.getListing(copia.id, "usr_lucia"), null, "nada vuelve al catálogo solo");
 });
 
 test("un intercambio cerrado no admite más cambios", () => {
@@ -245,6 +251,102 @@ test("un intercambio cerrado no admite más cambios", () => {
     );
     assert.equal(error.status, 409, `«${target}» no debería estar permitido`);
   }
+});
+
+/* --------------------- el libro cambia de manos ------------------------- */
+
+type FilaCopia = {
+  id: string;
+  owner_id: string;
+  status: string;
+  city: string;
+  condition: string;
+  book_id: string;
+  from_listing_id: string | null;
+  from_request_id: string | null;
+};
+
+/** La copia que un intercambio deja a quien lo recibe (null si no hay). */
+function copiaRecibida(requestId: string): FilaCopia | undefined {
+  return dbModule
+    .getDb()
+    .prepare(
+      `SELECT id, owner_id, status, city, condition, book_id, from_listing_id, from_request_id
+         FROM listings WHERE from_request_id = ?`,
+    )
+    .get(requestId) as FilaCopia | undefined;
+}
+
+/** Intercambio cerrado (las dos partes confirman) y devuelve la copia nueva. */
+function intercambioCerrado(owner = "usr_clara", receptor = "usr_diego") {
+  const listing = nuevoEjemplar(owner);
+  const original = dbModule
+    .getDb()
+    .prepare("SELECT book_id, condition, city FROM listings WHERE id = ?")
+    .get(listing.id) as { book_id: string; condition: string; city: string };
+  const request = repo.createRequest(receptor, listing.id);
+  repo.updateRequestStatus(request.id, owner, "accepted");
+  repo.updateRequestStatus(request.id, receptor, "completed");
+  repo.updateRequestStatus(request.id, owner, "completed");
+  const copia = copiaRecibida(request.id);
+  assert.ok(copia, "el cierre tiene que dejar una copia para quien lo recibe");
+  return { listing, original, request, copia };
+}
+
+test("al cerrarse, el ejemplar entregado sigue con su dueño y el receptor estrena copia", () => {
+  const { listing, original, copia } = intercambioCerrado();
+
+  // El original no se borra ni cambia de dueño: es el histórico del intercambio.
+  assert.equal(copia.from_listing_id, listing.id);
+  assert.equal(copia.from_request_id !== null, true);
+  assert.equal(estadoDelEjemplar(listing.id, "usr_clara"), "given");
+
+  // La copia nueva es de quien lo recibe, en su ciudad y con la misma edición.
+  assert.equal(copia.owner_id, "usr_diego");
+  assert.equal(copia.book_id, original.book_id, "la copia es de la misma edición");
+  assert.equal(copia.condition, original.condition, "hereda el estado del ejemplar");
+  assert.equal(copia.city, "Mannheim", "vive donde vive quien la recibe");
+  assert.notEqual(copia.city, original.city);
+  assert.equal(copia.status, "paused", "recibirlo no es ofrecerlo");
+});
+
+test("la copia recibida la ve su dueño y nadie más hasta que la active", () => {
+  const { copia } = intercambioCerrado();
+
+  assert.ok(repo.getListing(copia.id, "usr_diego"), "está en la estantería de quien lo recibe");
+  assert.equal(repo.getListing(copia.id, "usr_ana"), null, "en pausa no es pública");
+  assert.ok(
+    avisoConTitulo("usr_diego", "El libro ya está en tu estantería"),
+    "quien lo recibe tiene que enterarse",
+  );
+
+  repo.setListingStatus("usr_diego", copia.id, "available");
+
+  const publica = repo.getListing(copia.id, "usr_lucia");
+  assert.ok(publica, "al activarla vuelve al catálogo");
+  assert.equal(publica.city, "Mannheim");
+
+  // Y el libro sigue viajando: la copia nueva admite otra solicitud.
+  const otra = repo.createRequest("usr_lucia", copia.id);
+  assert.equal(otra.status, "pending");
+  repo.updateRequestStatus(otra.id, "usr_diego", "accepted");
+  assert.equal(estadoDelEjemplar(copia.id, "usr_diego"), "reserved");
+});
+
+test("un cierre repetido no duplica la copia", () => {
+  const { request } = intercambioCerrado();
+  const contar = () =>
+    (
+      dbModule
+        .getDb()
+        .prepare("SELECT COUNT(*) AS total FROM listings WHERE from_request_id = ?")
+        .get(request.id) as { total: number }
+    ).total;
+
+  assert.equal(contar(), 1);
+  const error = errorDe(() => repo.updateRequestStatus(request.id, "usr_diego", "completed"));
+  assert.equal(error.status, 409);
+  assert.equal(contar(), 1, "un intercambio, una copia");
 });
 
 /* ------------------------- conversación del intercambio ------------------ */
