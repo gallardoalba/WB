@@ -12,9 +12,20 @@ const BOOK_ICON = `data:image/svg+xml;utf8,${encodeURIComponent(
 )}`;
 
 /** Alto de la portada dentro de la tarjeta; el ancho sale de su proporción. */
-const COVER_HEIGHT = 552;
+const COVER_HEIGHT = 520;
 /** Tope de ancho: con una portada apaisada, el texto necesita su mitad. */
-const COVER_MAX_WIDTH = 420;
+const COVER_MAX_WIDTH = 400;
+/** Margen interior y separación entre portada y texto. */
+const PADDING_X = 64;
+const GAP = 52;
+const CARD_WIDTH = 1200;
+const CARD_HEIGHT = 630;
+/**
+ * El margen vertical se deduce de la portada: así la marca arranca a la misma
+ * altura que el borde superior del libro y el dominio acaba a la del inferior,
+ * en vez de sobresalir por arriba y por abajo.
+ */
+const PADDING_Y = Math.round((CARD_HEIGHT - COVER_HEIGHT) / 2);
 
 type CardCover = { src: string; width: number; height: number };
 
@@ -37,6 +48,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const cover = await cardCover(work.id, work.isbn);
   const title = clamp(work.title, 90);
   const author = clamp(work.author, 64);
+  // El ancho del texto se calcula en píxeles: con `flexGrow` a secas, Satori
+  // deja crecer el bloque y un título largo se sale de la tarjeta.
+  const textWidth = CARD_WIDTH - PADDING_X * 2 - GAP - (cover?.width ?? 0);
 
   return new ImageResponse(
     (
@@ -45,30 +59,28 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           width: "100%",
           height: "100%",
           display: "flex",
-          alignItems: "center",
-          gap: 52,
+          // `stretch` para que la columna de texto ocupe todo el alto: con la
+          // marca arriba y el dominio abajo, la mitad derecha no queda vacía.
+          alignItems: "stretch",
+          gap: GAP,
           background: "linear-gradient(135deg, #2f5741 0%, #24452f 100%)",
           color: "#f7f6f1",
-          padding: "38px 64px",
+          padding: `${PADDING_Y}px ${PADDING_X}px`,
           fontFamily: "sans-serif",
         }}
       >
         {cover ? (
-          <div style={{ display: "flex", flexShrink: 0 }}>
-            {/* Satori solo entiende `img`; el SVG de la marca va incrustado arriba. */}
+          <div style={{ display: "flex", alignSelf: "center", flexShrink: 0 }}>
+            {/* Satori solo entiende `img`; el SVG de la marca va incrustado arriba.
+                Sin sombra: recorta `box-shadow` y no aplica `filter: blur`, así
+                que el borde claro es lo que separa la portada del fondo. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cover.src}
               alt=""
               width={cover.width}
               height={cover.height}
-              style={{
-                borderRadius: 3,
-                border: "1px solid rgba(247, 246, 241, 0.22)",
-                // La sombra es lo que separa la portada del fondo: sin ella, el
-                // borde recto parece un recorte pegado.
-                boxShadow: "0 26px 54px rgba(9, 20, 15, 0.45)",
-              }}
+              style={{ borderRadius: 3, border: "1px solid rgba(247, 246, 241, 0.3)" }}
             />
           </div>
         ) : null}
@@ -77,16 +89,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           style={{
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
-            gap: 20,
-            flexGrow: 1,
-            minWidth: 0,
+            // La marca arriba, la obra en el centro y el dominio abajo: así la
+            // mitad derecha se lee de arriba abajo y no queda un hueco vacío
+            // debajo de un título corto.
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            textAlign: "left",
+            width: textWidth,
+            flexShrink: 0,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={BOOK_ICON} alt="" width={44} height={44} style={{ borderRadius: 11 }} />
-            <span style={{ display: "flex", fontSize: 25, fontWeight: 700, letterSpacing: -0.2 }}>
+            <img src={BOOK_ICON} alt="" width={48} height={48} style={{ borderRadius: 12 }} />
+            <span style={{ display: "flex", fontSize: 28, fontWeight: 700, letterSpacing: -0.2 }}>
               Wanderbibliothek
             </span>
           </div>
@@ -94,26 +110,57 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           <div
             style={{
               display: "flex",
-              fontSize: 68,
-              fontWeight: 700,
-              lineHeight: 1.05,
-              letterSpacing: -1.4,
-              lineClamp: 3,
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 18,
+              width: textWidth,
             }}
           >
-            {title}
-          </div>
+            <div
+              style={{
+                display: "flex",
+                width: textWidth,
+                fontSize: 84,
+                fontWeight: 700,
+                lineHeight: 1.02,
+                letterSpacing: -2,
+                lineClamp: 3,
+                textAlign: "left",
+              }}
+            >
+              {title}
+            </div>
 
-          <div style={{ display: "flex", fontSize: 33, lineHeight: 1.3, opacity: 0.88 }}>
-            {author}
+            <div
+              style={{
+                display: "flex",
+                fontSize: 38,
+                lineHeight: 1.25,
+                opacity: 0.88,
+                textAlign: "left",
+              }}
+            >
+              {author}
+            </div>
+
+            {/* Un filete corto: separa el texto del dominio y da peso al bloque. */}
+            <div
+              style={{
+                display: "flex",
+                width: 96,
+                height: 3,
+                marginTop: 4,
+                background: "#d9c6a2",
+                opacity: 0.9,
+              }}
+            />
           </div>
 
           <div
             style={{
               display: "flex",
-              marginTop: 10,
               fontSize: 21,
-              letterSpacing: 2.6,
+              letterSpacing: 2.8,
               textTransform: "uppercase",
               color: "#d9c6a2",
             }}
