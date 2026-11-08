@@ -460,11 +460,12 @@ export function readUploadedCover(bookId: string): Cover | null {
 }
 
 /**
- * Las portadas subidas por las personas son JPG, y solo JPG.
+ * Lo que se guarda como portada subida es siempre JPG, y solo JPG.
  *
+ * La interfaz acepta además PNG porque `cover-convert.ts` lo convierte antes de
+ * llegar aquí; esta capa se queda como última puerta y no negocia formatos.
  * Se comprueba por los primeros bytes (`FF D8 FF`), no por la extensión ni por
- * el `Content-Type` declarado: los dos los elige quien sube el archivo. Es la
- * misma regla que enseña la interfaz, así que no hay dos políticas.
+ * el `Content-Type` declarado: los dos los elige quien sube el archivo.
  */
 export function isJpegCover(data: Buffer): boolean {
   return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;

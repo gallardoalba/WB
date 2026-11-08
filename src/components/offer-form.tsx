@@ -17,8 +17,8 @@ const MAX_TAGS = 3;
 /**
  * Sube la portada de una obra recién creada. La foto se reduce antes en el
  * navegador (una del móvil ocupa 8 MB y el servidor acepta 4), el cuerpo va en
- * crudo con `image/jpeg` y el servidor comprueba los primeros bytes, no lo
- * declarado.
+ * crudo con su tipo real —JPG o PNG— y el servidor comprueba los primeros
+ * bytes, no lo declarado.
  *
  * Devuelve el motivo cuando falla: «no se pudo subir» a secas obliga a mirar
  * el registro del servidor para algo que casi siempre explica la respuesta.
@@ -36,7 +36,7 @@ async function uploadCover(bookId: string, file: File): Promise<{ ok: true } | {
   try {
     const response = await fetch(`/api/cover/book/${bookId}`, {
       method: "PUT",
-      headers: { "content-type": "image/jpeg" },
+      headers: { "content-type": body.type || "image/jpeg" },
       body,
     });
     if (response.ok) return { ok: true };

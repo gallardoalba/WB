@@ -1,5 +1,6 @@
 import { handleApiError, json } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
+import { toJpeg } from "@/lib/cover-convert";
 import { readUploadedCover, removeUploadedCover, saveUploadedCover } from "@/lib/covers";
 import { ApiError } from "@/lib/errors";
 import {
@@ -53,6 +54,10 @@ export async function GET(
  * `image/*`), no un formulario: así un formulario cross-site no puede usarlo
  * —no puede enviar ese `Content-Type`— y el guardia de origen lo cierra del
  * todo. El tipo real se comprueba por los primeros bytes, no por lo declarado.
+ *
+ * Se acepta JPG y PNG; el PNG se convierte a JPG antes de guardarlo, de modo que
+ * la política de almacenamiento sigue siendo una sola (`saveUploadedCover`)
+ * venga la imagen de donde venga.
  */
 export async function PUT(
   request: Request,
@@ -73,16 +78,28 @@ export async function PUT(
     if (Number.isFinite(declared) && declared > MAX_BYTES) {
       throw new ApiError(413, "La imagen pesa demasiado (máximo 4 MB).");
     }
-    const data = Buffer.from(await request.arrayBuffer());
-    if (data.byteLength > MAX_BYTES) {
+    const raw = Buffer.from(await request.arrayBuffer());
+    if (raw.byteLength > MAX_BYTES) {
       throw new ApiError(413, "La imagen pesa demasiado (máximo 4 MB).");
+    }
+    // El PNG se convierte aquí; un JPG pasa tal cual. Lanza 415/422/413 si no
+    // es ninguna de las dos cosas o si no se puede leer.
+    const data = toJpeg(raw);
+    // Un PNG de 4 MB puede crecer al recomprimirlo —raro, pero pasa con texturas
+    // y ruido—: sin esta comprobación el rechazo saldría como «pesa menos de
+    // 1 KB», que no explica nada.
+    if (data.byteLength > MAX_BYTES) {
+      throw new ApiError(
+        413,
+        "La imagen ocupa demasiado al convertirla a JPG: usa una más pequeña o reduce su tamaño.",
+      );
     }
 
     const saved = saveUploadedCover(bookId, data);
     if (!saved) {
       throw new ApiError(
         422,
-        "El archivo no es un JPG válido o pesa menos de 1 KB: sube una foto en JPG (máximo 4 MB).",
+        "El archivo no es una portada válida o pesa menos de 1 KB: sube una foto en JPG o PNG (máximo 4 MB).",
       );
     }
 

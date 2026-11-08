@@ -11,8 +11,9 @@ import { useI18n } from "./i18n-provider";
  *
  * No sube nada: el formulario guarda el archivo y lo envía cuando la obra ya
  * existe, porque antes de publicar no hay `bookId` al que asociarlo. El
- * servidor solo acepta JPG; el filtro de aquí existe para decirlo en el momento
- * y no después de rellenar todo el formulario.
+ * servidor acepta JPG y PNG (el PNG se convierte a JPG al guardarlo); el filtro
+ * de aquí existe para decirlo en el momento y no después de rellenar todo el
+ * formulario.
  */
 export function CoverFilePicker({
   file,
@@ -49,8 +50,8 @@ export function CoverFilePicker({
       return;
     }
     // El tipo declarado a veces viene vacío: el nombre del archivo lo resuelve.
-    if (chosen.type !== "image/jpeg" && !/\.jpe?g$/i.test(chosen.name)) {
-      setError(t("La portada tiene que ser un archivo JPG."));
+    if (!/^image\/(jpeg|png)$/.test(chosen.type) && !/\.(jpe?g|png)$/i.test(chosen.name)) {
+      setError(t("La portada tiene que ser un archivo JPG o PNG."));
       onChange(null);
       return;
     }
@@ -63,7 +64,7 @@ export function CoverFilePicker({
         ref={inputRef}
         id="offer-cover"
         type="file"
-        accept="image/jpeg,.jpg,.jpeg"
+        accept="image/jpeg,image/png,.jpg,.jpeg,.png"
         className="sr-only"
         onChange={choose}
         tabIndex={-1}
@@ -85,7 +86,7 @@ export function CoverFilePicker({
           className="secondary-button small"
           onClick={() => inputRef.current?.click()}
         >
-          <ImagePlus size={14} /> {t("Añadir portada (JPG)")}
+          <ImagePlus size={14} /> {t("Añadir portada (JPG o PNG)")}
         </button>
       )}
       {error && (
@@ -95,7 +96,7 @@ export function CoverFilePicker({
       )}
       <small className="form-hint">
         {t(
-          "Opcional. Sin portada se usa la del ISBN, si existe. Solo JPG; si la foto es muy grande, se reduce sola.",
+          "Opcional. Sin portada se usa la del ISBN, si existe. JPG o PNG; si la imagen es muy grande, se reduce sola.",
         )}
       </small>
     </div>

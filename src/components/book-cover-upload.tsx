@@ -39,11 +39,11 @@ export function BookCoverUpload({
     event.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError(t("La portada tiene que ser un archivo JPG."));
+      setError(t("La portada tiene que ser un archivo JPG o PNG."));
       return;
     }
-    if (file.type !== "image/jpeg" && !/\.jpe?g$/i.test(file.name)) {
-      setError(t("La portada tiene que ser un archivo JPG."));
+    if (!/^image\/(jpeg|png)$/.test(file.type) && !/\.(jpe?g|png)$/i.test(file.name)) {
+      setError(t("La portada tiene que ser un archivo JPG o PNG."));
       return;
     }
     if (file.size > MAX_SOURCE_BYTES) {
@@ -55,8 +55,10 @@ export function BookCoverUpload({
     setError("");
     setFeedback("");
     try {
-      // La foto se reduce en el navegador: el servidor solo acepta JPG de 4 MB.
-      // Si no se puede decodificar aquí, se intenta con el original.
+      // La foto se reduce en el navegador y sale ya en JPG: el servidor admite
+      // 4 MB y también acepta PNG, pero llegar con algo más pequeño siempre es
+      // mejor. Si no se puede decodificar aquí, se manda el original y el
+      // servidor hace la conversión.
       let body: Blob = file;
       try {
         body = await prepareCover(file);
@@ -65,7 +67,7 @@ export function BookCoverUpload({
       }
       const response = await fetch(`/api/cover/book/${bookId}`, {
         method: "PUT",
-        headers: { "content-type": "image/jpeg" },
+        headers: { "content-type": body.type || "image/jpeg" },
         body,
       });
       if (!response.ok) {
@@ -110,7 +112,7 @@ export function BookCoverUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,.jpg,.jpeg"
+        accept="image/jpeg,image/png,.jpg,.jpeg,.png"
         className="sr-only"
         onChange={upload}
         tabIndex={-1}
@@ -136,7 +138,7 @@ export function BookCoverUpload({
       )}
       <p className="cover-upload-hint">
         {t(
-          "Si nadie tiene la portada, sube una foto tuya en JPG; si es muy grande, se reduce sola.",
+          "Si nadie tiene la portada, sube una foto tuya en JPG o PNG; si es muy grande, se reduce sola.",
         )}
       </p>
       {feedback && (
