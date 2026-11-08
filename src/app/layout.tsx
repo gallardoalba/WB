@@ -7,7 +7,7 @@ import { DE, EN, translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { LOCALES, pick, type Locale } from "@/lib/locale";
 import { messagesById } from "@/lib/message-id";
-import { BRAND, REPOSITORY } from "@/lib/brand";
+import { BRAND, MASTODON, REPOSITORY } from "@/lib/brand";
 import { OG_COPY, OG_SIZE, ogImagePath } from "@/lib/og";
 import { siteUrl } from "@/lib/site";
 
@@ -58,7 +58,7 @@ function siteSchema(locale: Locale) {
         url: `${base}/`,
         description,
         logo: { "@type": "ImageObject", url: `${base}/icons/icon-512.png` },
-        sameAs: [REPOSITORY],
+        sameAs: [REPOSITORY, MASTODON],
       },
     ],
   };
@@ -150,6 +150,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Enlace verificado del fediverso: Mastodon marca la cuenta como propia
+            cuando esta página apunta a ella con `rel="me"`. Va en el encabezado
+            y sin más valores de `rel` para que la comprobación no dependa de cómo
+            los lea cada servidor. */}
+        <link rel="me" href={MASTODON} />
       </head>
       <body>
         {/* Datos estructurados de la marca. Google los lee aunque abajo

@@ -99,3 +99,25 @@ test("ninguna prueba escribe en la base de desarrollo", () => {
     `Estas pruebas deben fijar WANDERBIBLIOTHEK_DB (:memory: o un fichero temporal): ${offenders.join(", ")}`,
   );
 });
+
+test("la cuenta de Mastodon se declara con rel=me en el encabezado", () => {
+  // Mastodon da por verificada una cuenta si la página a la que apunta su
+  // enlace devuelve un `rel="me"` hacia el perfil, y lo comprueba sobre el HTML
+  // servido: sin ejecutar JavaScript. Va en <head>, así que no se ve ni ocupa
+  // sitio en la interfaz.
+  const layout = readFileSync(path.join(process.cwd(), "src", "app", "layout.tsx"), "utf8");
+  const head = /<head>([\s\S]*?)<\/head>/.exec(layout)?.[1] ?? "";
+  assert.match(
+    head,
+    /<link[^>]*rel="me"[^>]*href=\{MASTODON\}/,
+    "el <link rel=\"me\"> tiene que estar dentro de <head> y apuntar a MASTODON",
+  );
+
+  const brand = readFileSync(path.join(process.cwd(), "src", "lib", "brand.ts"), "utf8");
+  const perfil = /export const MASTODON = "([^"]+)"/.exec(brand)?.[1] ?? "";
+  assert.equal(
+    perfil,
+    "https://mastodon.social/@wanderbibliothek",
+    "el perfil declarado tiene que ser la cuenta real del fediverso",
+  );
+});
