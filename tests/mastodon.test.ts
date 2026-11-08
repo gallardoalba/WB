@@ -659,3 +659,38 @@ test("el aviso espera la portada que el formulario sube después del alta", asyn
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("la administración anuncia cada libro del día, sin el tope de uno", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  let posted = 0;
+  globalThis.fetch = (async () => {
+    posted += 1;
+    return jsonResponse({ id: String(posted) });
+  }) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+  const now = new Date("2026-11-08T19:00:00Z");
+  const anunciar = (bookId: string, sinTopeDiario: boolean) =>
+    mastodon.announceBook({
+      bookId,
+      title: "Eclipse of reason",
+      author: "Max Horkheimer",
+      base: "https://wanderbibliothek.org",
+      ownerId: "usr_admin",
+      sinTopeDiario,
+      now,
+    });
+
+  try {
+    const primera = await anunciar("bok-admin-1", true);
+    const segunda = await anunciar("bok-admin-2", true);
+    // La misma persona sin la marca: el segundo libro del día ya no se anuncia.
+    const tercera = await anunciar("bok-admin-3", false);
+    assert.equal(primera.queued, true);
+    assert.equal(segunda.queued, true, "la administración no tiene tope diario");
+    assert.equal(tercera.queued, false, "sin la marca sigue valiendo el tope");
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+  }
+});

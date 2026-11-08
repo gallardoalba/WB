@@ -749,6 +749,12 @@ export async function announceBook(input: {
    * aviso tiene que esperarla o la tarjeta se pinta sin ella.
    */
   esperarPortada?: boolean;
+  /**
+   * Sin tope de un aviso al día (solo para la administración, que cataloga
+   * fondos enteros). El tope existe para no inundar la instancia desde una
+   * cuenta cualquiera.
+   */
+  sinTopeDiario?: boolean;
   /** Instante del aviso; las pruebas lo fijan para no depender del reloj. */
   now?: Date;
 }): Promise<{ queued: boolean; sent: boolean; media: boolean }> {
@@ -776,8 +782,10 @@ export async function announceBook(input: {
     if (already) return { queued: false, sent: false, media: false };
 
     // Un aviso por persona y día: el primero que llegue es el que se publica.
+    // La administración queda fuera (cataloga fondos enteros y cada obra nueva
+    // merece su aviso), pero la clave única por obra sigue impidiendo repetir.
     const day = dayKey(input.now ?? new Date());
-    if (input.ownerId) {
+    if (input.ownerId && !input.sinTopeDiario) {
       const today = getDb()
         .prepare("SELECT 1 FROM social_outbox WHERE network = ? AND owner_id = ? AND day = ?")
         .get(SOCIAL_NETWORK, input.ownerId, day);

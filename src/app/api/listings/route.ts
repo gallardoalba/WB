@@ -95,6 +95,8 @@ export async function POST(request: Request) {
         ownerId: user.id,
         // Si el formulario trae portada, la sube justo después de esto.
         esperarPortada: input.withCover,
+        // La administración anuncia cada obra nueva, sin el tope de una al día.
+        sinTopeDiario: publicaSinTope(user),
       }),
     );
     // La demanda se calcula después de publicar: si alguien buscaba la obra
