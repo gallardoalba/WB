@@ -26,9 +26,11 @@ const CONFIG: LikeConfig = {
   instance: "https://mastodon.social",
   token: "secreto",
   visibility: "public",
-  perDay: 8,
+  perDay: 40,
   minGapMinutes: 25,
   tags: null,
+  locales: ["de"],
+  perAccount: 1,
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -51,7 +53,13 @@ function rawStatus(overrides: Record<string, unknown> = {}) {
     reblog: null,
     favourited: false,
     sensitive: false,
-    account: { id: "42", acct: "lectora", bot: false, statuses_count: 120 },
+    account: {
+      id: "42",
+      acct: "lectora",
+      bot: false,
+      statuses_count: 120,
+      note: "<p>Bücherwurm · lese jeden Abend zwei Kapitel</p>",
+    },
     ...overrides,
   };
 }
@@ -84,8 +92,65 @@ test("sin MASTODON_LIKES el bot de «me gusta» está apagado", () => {
   assert.equal(likes.likesConfig({ MASTODON_LIKES: "on" }), null, "sin token tampoco");
 });
 
+test("por defecto solo se miran cuentas e idioma alemán", () => {
+  const config = likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on" });
+  assert.deepEqual(config?.locales, ["de"]);
+  assert.equal(config?.perDay, 40);
+  assert.equal(config?.perAccount, 1);
+});
+
+test("los idiomas se pueden ampliar y lo que no existe se descarta", () => {
+  assert.deepEqual(
+    likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on", MASTODON_LIKES_LOCALES: "de,es" })
+      ?.locales,
+    ["de", "es"],
+  );
+  assert.deepEqual(
+    likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on", MASTODON_LIKES_LOCALES: "fr" })
+      ?.locales,
+    ["de"],
+  );
+  assert.deepEqual(
+    likes.likesConfig({
+      MASTODON_TOKEN: "t",
+      MASTODON_LIKES: "on",
+      MASTODON_LIKES_LOCALES: "ES-ES,de",
+    })?.locales,
+    ["es", "de"],
+  );
+});
+
+test("solo se pulsa a cuentas que dicen en su perfil que leen", () => {
+  const sinLibros = likes.likeableStatus(
+    status({ account: { id: "9", acct: "tienda", bot: false, statuses_count: 90, note: "<p>Kaffee und Kuchen</p>" } }),
+    { locale: "de" },
+  );
+  assert.equal(sinLibros.ok, false);
+  if (!sinLibros.ok) assert.equal(sinLibros.reason, "la cuenta no dice nada de libros");
+
+  for (const nota of ["Bücherwurm", "Leseratte aus Köln", "Ich rezensiere Romane", "Buchhandlung Weber"]) {
+    const conLibros = likes.likeableStatus(
+      status({ account: { id: "9", acct: "x", bot: false, statuses_count: 90, note: `<p>${nota}</p>` } }),
+      { locale: "de" },
+    );
+    assert.equal(conLibros.ok, true, `${nota}: debería valer`);
+  }
+});
+
+test("por cuenta se puede limitar a más de un «me gusta» al día", () => {
+  const cuenta = new Map([["lectora", 2]]);
+  const conTope1 = likes.likeableStatus(status(), { locale: "de", accountsLiked: cuenta });
+  assert.equal(conTope1.ok, false);
+  const conTope2 = likes.likeableStatus(status(), {
+    locale: "de",
+    accountsLiked: cuenta,
+    maxPerAccount: 3,
+  });
+  assert.equal(conTope2.ok, true);
+});
+
 test("los topes se pueden ajustar y se quedan en un rango sensato", () => {
-  assert.equal(likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on" })?.perDay, 15);
+  assert.equal(likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on" })?.perDay, 40);
   assert.equal(
     likes.likesConfig({
       MASTODON_TOKEN: "t",
@@ -107,7 +172,7 @@ test("los topes se pueden ajustar y se quedan en un rango sensato", () => {
     MASTODON_LIKES_PER_DAY: "999",
     MASTODON_LIKES_MIN_GAP_MINUTES: "1",
   });
-  assert.equal(feroz?.perDay, 40);
+  assert.equal(feroz?.perDay, 60);
   assert.equal(feroz?.minGapMinutes, 5);
 });
 
@@ -168,7 +233,7 @@ test("no se pulsa al propio bot, ni dos veces a la misma cuenta o al mismo estad
 
   const cuentaRepetida = likes.likeableStatus(status(), {
     locale: "de",
-    accountsLiked: new Set(["lectora"]),
+    accountsLiked: new Map([["lectora", 1]]),
   });
   assert.equal(cuentaRepetida.ok, false);
   if (!cuentaRepetida.ok) assert.equal(cuentaRepetida.reason, "ya le gustó a esa cuenta hoy");
@@ -336,8 +401,9 @@ test("las etiquetas del día se barajan de forma estable", () => {
   assert.equal(primera.length, 3);
 
   // Con el orden completo se ve que el reparto cambia al día siguiente.
+  const todos = { ...CONFIG, locales: ["de", "es", "en"] as const };
   const todas = (fecha: Date) =>
-    likes.tagsForRun(CONFIG, fecha, 99).map((entry) => entry.tag);
+    likes.tagsForRun({ ...todos, locales: [...todos.locales] }, fecha, 99).map((entry) => entry.tag);
   assert.notDeepEqual(todas(day), todas(new Date("2026-11-09T10:00:00Z")));
 });
 

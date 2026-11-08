@@ -286,17 +286,21 @@ personas; sin esa variable no hace ni una petición.
 
 Todo lo que hay debajo existe para que no parezca spam:
 
-- **Por etiqueta, nunca por búsqueda libre.** Etiquetas por idioma
-  (`#Bücher`, `#Buch`, `#Lesen`, `#Literatur`, `#Buchtipp` · `#Libros`,
-  `#Lectura`, `#Libro`, `#Literatura` · `#Books`, `#Bookstodon`, `#Reading`,
-  `#BookRecommendation`) y se descarta lo que no está en ese idioma. Con
-  `MASTODON_LIKES_TAGS` se pueden poner otras (separadas por comas).
-- **Pocos y espaciados.** `MASTODON_LIKES_PER_DAY` (15 por defecto, máximo 40) en
+- **Por etiqueta, nunca por búsqueda libre.** Etiquetas alemanas
+  (`#Bücher`, `#Buch`, `#Lesen`, `#Literatur`, `#Buchtipp`) y se descarta lo que
+  no está escrito en alemán. Con `MASTODON_LIKES_TAGS` se pueden poner otras
+  (separadas por comas) y con `MASTODON_LIKES_LOCALES` añadir idiomas (por
+  defecto solo `de`).
+- **Solo cuentas que leen.** Además de la etiqueta, la **biografía** de la cuenta
+  tiene que hablar de libros («Bücherwurm», «Leseratte», «Rezensionen»,
+  «Buchhandlung»…): el corazón va a personas que hablan de libros, no a cuentas
+  que sueltan la etiqueta para ganar alcance.
+- **Pocos y espaciados.** `MASTODON_LIKES_PER_DAY` (40 por defecto, máximo 60) en
   una ventana de 24 h y `MASTODON_LIKES_MIN_GAP_MINUTES` (25, mínimo 5) entre dos
   pulsaciones. El cron pasa cada 15 minutos, así que dos «me gusta» nunca caen
   seguidos.
 - **Una por cuenta y día.** Si alguien publica cuatro cosas sobre libros, se le
-  pulsa una; el resto parecería acoso.
+  pulsa una; el resto parecería acoso (`MASTODON_LIKES_PER_ACCOUNT`, 1 a 3).
 - **Solo lo legible sin cuenta**: estados públicos o no listados, originales
   (nada de boosts), sin marcar como sensibles, con texto de más de 60 caracteres
   y una palabra de libros dentro, de los últimos siete días.

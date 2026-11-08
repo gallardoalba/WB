@@ -8,15 +8,22 @@
  *
  * - **Apagado por defecto.** Solo se enciende con `MASTODON_LIKES=on` y un
  *   token: actúa sobre lo que escriben otras personas, así que no se hace solo.
+ * - **Solo alemán, por defecto.** El perfil y su público son alemanes, así que
+ *   se miran las etiquetas alemanas y se descarta todo lo que no esté escrito en
+ *   ese idioma (`MASTODON_LIKES_LOCALES` amplía la lista si hiciera falta).
+ * - **Personas que leen, no cuentas de paso.** Además del libro en la
+ *   publicación, la **biografía** de la cuenta tiene que hablar de libros
+ *   («Bücherwurm», «Leseratte», «Rezensionen»…): así el corazón va a quien lee y
+ *   no a quien usa la etiqueta de moda.
  * - **Por etiqueta, nunca por búsqueda libre.** Se leen las líneas de tiempo de
- *   etiquetas de libros (`#Bücher`, `#Libros`, `#Bookstodon`…) y se descarta lo
+ *   etiquetas de libros (`#Bücher`, `#Lesen`, `#Literatur`…) y se descarta lo
  *   que no está en el idioma de la etiqueta.
- * - **Pocas y espaciadas.** Un tope en 24 h (`MASTODON_LIKES_PER_DAY`, 15 por
+ * - **Pocas y espaciadas.** Un tope en 24 h (`MASTODON_LIKES_PER_DAY`, 40 por
  *   defecto) y una separación mínima entre pulsaciones
  *   (`MASTODON_LIKES_MIN_GAP_MINUTES`, 25). Como el cron pasa cada 15 minutos,
  *   nunca hay dos seguidas.
  * - **Una vez por cuenta y día.** Si alguien publica cuatro cosas sobre libros,
- *   se le pulsa una: el resto parecería acoso.
+ *   se le pulsa una: el resto parecería acoso (`MASTODON_LIKES_PER_ACCOUNT`, 1).
  * - **Solo lo que se puede leer sin cuenta.** Estados públicos o no listados,
  *   originales (nada de boosts), sin marcar como sensibles, con texto de verdad
  *   y una palabra de libros dentro, de los últimos siete días.
@@ -55,6 +62,20 @@ const BOOK_WORDS: Record<Locale, RegExp> = {
   en: /\b(book|books|reading|read|novel|author|writer|literature|publisher|library)\b/i,
 };
 
+/**
+ * La biografía de la cuenta tiene que decir que lee.
+ *
+ * Es lo que separa a una persona que habla de libros de una cuenta que suelta
+ * un `#Bücher` para ganar alcance: quien lee lo cuenta en su perfil («Bücherwurm»,
+ * «Leseratte», «Rezensionen», «Buchblog»…). La comprobación es generosa, pero
+ * sin ella el filtro solo miraba la publicación.
+ */
+const BIO_WORDS: Record<Locale, RegExp> = {
+  de: /(buch|büch|leseratte|lese|lesen|literat|autor|rezens|verlag|bibliothek|roman|lyrik)/i,
+  es: /(libro|lector|lectura|literat|autor|reseñ|novela|editorial|biblioteca|poesía)/i,
+  en: /(book|reader|reading|literat|author|writer|review|novel|publisher|library|poetry)/i,
+};
+
 /** Prefijo del código ISO que tiene que traer el estado para ese idioma. */
 const LANGUAGE_PREFIX: Record<Locale, string> = { de: "de", es: "es", en: "en" };
 
@@ -76,6 +97,10 @@ export type LikeConfig = MastodonConfig & {
   minGapMinutes: number;
   /** Etiquetas propias; `null` deja las de cada idioma. */
   tags: string[] | null;
+  /** Idiomas que se miran: por defecto solo el alemán. */
+  locales: Locale[];
+  /** Cuántas publicaciones de una misma cuenta se pueden pulsar en 24 h. */
+  perAccount: number;
 };
 
 function clamp(value: string | undefined, fallback: number, min: number, max: number): number {
@@ -94,6 +119,25 @@ function parseTags(raw: string | undefined): string[] | null {
   return tags.length > 0 ? tags : null;
 }
 
+const KNOWN_LOCALES: Locale[] = ["de", "es", "en"];
+
+/**
+ * Idiomas que se miran. Por defecto **solo alemán**: el perfil y su público son
+ * alemanes, y repartir corazones en castellano o inglés desde una cuenta
+ * alemana se lee como un bot.
+ *
+ * `MASTODON_LIKES_LOCALES=de,es` amplía la lista; lo que no sea un idioma
+ * conocido se descarta.
+ */
+function parseLocales(raw: string | undefined): Locale[] {
+  if (!raw) return ["de"];
+  const locales = raw
+    .split(/[,\s]+/)
+    .map((value) => value.trim().toLowerCase().slice(0, 2))
+    .filter((value): value is Locale => KNOWN_LOCALES.includes(value as Locale));
+  return locales.length > 0 ? [...new Set(locales)] : ["de"];
+}
+
 /**
  * Configuración de los «me gusta», o `null` si están apagados.
  *
@@ -106,7 +150,7 @@ export function likesConfig(
   const base = mastodonConfig(env);
   if (!base) return null;
   if (!TRUTHY.has((env.MASTODON_LIKES ?? "").trim().toLowerCase())) return null;
-  const perDay = clamp(env.MASTODON_LIKES_PER_DAY, 15, 0, 40);
+  const perDay = clamp(env.MASTODON_LIKES_PER_DAY, 40, 0, 60);
   // Un 0 explícito es «no des ninguno», no «usa el valor por defecto».
   if (perDay === 0) return null;
   return {
@@ -114,6 +158,8 @@ export function likesConfig(
     perDay,
     minGapMinutes: clamp(env.MASTODON_LIKES_MIN_GAP_MINUTES, 25, 5, 24 * 60),
     tags: parseTags(env.MASTODON_LIKES_TAGS),
+    locales: parseLocales(env.MASTODON_LIKES_LOCALES),
+    perAccount: clamp(env.MASTODON_LIKES_PER_ACCOUNT, 1, 1, 3),
   };
 }
 
@@ -122,6 +168,8 @@ export type MastodonStatus = {
   url: string | null;
   /** Texto sin HTML, que es lo que se mira para decidir. */
   text: string;
+  /** Biografía de la cuenta, también sin HTML. */
+  bio: string;
   language: string | null;
   createdAt: string;
   visibility: string;
@@ -145,6 +193,7 @@ type RawStatus = {
     id?: string;
     acct?: string;
     username?: string;
+    note?: string;
     bot?: boolean;
     statuses_count?: number;
   };
@@ -190,6 +239,7 @@ export function toStatus(raw: RawStatus): MastodonStatus | null {
     id,
     url: raw.url ?? null,
     text: statusText(html),
+    bio: statusText(raw.account?.note ?? ""),
     language: raw.language ? raw.language.toLowerCase() : null,
     createdAt: raw.created_at ?? "",
     visibility: raw.visibility ?? "public",
@@ -217,6 +267,7 @@ export type Rejection =
   | "ya le gustó a esa cuenta hoy"
   | "texto demasiado corto"
   | "no habla de libros"
+  | "la cuenta no dice nada de libros"
   | "demasiado antiguo"
   | "otro idioma";
 
@@ -233,8 +284,10 @@ export function likeableStatus(
     now?: Date;
     /** Cuenta del bot: nunca se pulsa a sí mismo. */
     myAccountId?: string | null;
-    /** Cuentas a las que ya se pulsó en las últimas 24 h. */
-    accountsLiked?: Set<string>;
+    /** Cuántas veces se ha pulsado a cada cuenta en las últimas 24 h. */
+    accountsLiked?: Map<string, number>;
+    /** Tope por cuenta en esa ventana (1 por defecto). */
+    maxPerAccount?: number;
     /** Estados ya pulsados alguna vez (memoria del bot). */
     statusesLiked?: Set<string>;
   },
@@ -252,12 +305,18 @@ export function likeableStatus(
     return { ok: false, reason: "es nuestro propio estado" };
   }
   if (status.account.statuses < MIN_STATUSES) return { ok: false, reason: "cuenta sin recorrido" };
-  if (options.accountsLiked?.has(status.account.acct.toLowerCase())) {
+  const accountKey = status.account.acct.toLowerCase();
+  if ((options.accountsLiked?.get(accountKey) ?? 0) >= (options.maxPerAccount ?? 1)) {
     return { ok: false, reason: "ya le gustó a esa cuenta hoy" };
   }
   if (status.text.length < MIN_TEXT) return { ok: false, reason: "texto demasiado corto" };
   if (!BOOK_WORDS[options.locale].test(status.text)) {
     return { ok: false, reason: "no habla de libros" };
+  }
+  // La cuenta tiene que decir en su perfil que lee: así el «me gusta» va a
+  // personas que hablan de libros, no a cuentas que usan la etiqueta de moda.
+  if (!BIO_WORDS[options.locale].test(status.bio)) {
+    return { ok: false, reason: "la cuenta no dice nada de libros" };
   }
   const created = Date.parse(status.createdAt);
   if (!Number.isFinite(created)) return { ok: false, reason: "demasiado antiguo" };
@@ -388,18 +447,23 @@ export function likeCountSince(hours = 24, network = SOCIAL_NETWORK): number {
   return row.total;
 }
 
-/** Cuentas ya pulsadas en la ventana: una por cuenta y día. */
-export function accountsLikedSince(hours = 24, network = SOCIAL_NETWORK): Set<string> {
+/** Cuántas veces se ha pulsado a cada cuenta en la ventana (24 h por defecto). */
+export function accountLikeCountsSince(
+  hours = 24,
+  network = SOCIAL_NETWORK,
+): Map<string, number> {
   const rows = getDb()
     .prepare(
-      `SELECT DISTINCT account_acct FROM social_likes
-        WHERE network = ? AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)`,
+      `SELECT account_acct, COUNT(*) AS total FROM social_likes
+        WHERE network = ? AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
+        GROUP BY account_acct`,
     )
-    .all(network, `-${hours} hours`) as { account_acct: string }[];
-  return new Set(rows.map((row) => row.account_acct.toLowerCase()));
+    .all(network, `-${hours} hours`) as { account_acct: string; total: number }[];
+  return new Map(rows.map((row) => [row.account_acct.toLowerCase(), row.total]));
 }
 
-export function lastLikeAt(network = SOCIAL_NETWORK): Date | null {  const row = getDb()
+export function lastLikeAt(network = SOCIAL_NETWORK): Date | null {
+  const row = getDb()
     .prepare("SELECT created_at FROM social_likes WHERE network = ? ORDER BY created_at DESC LIMIT 1")
     .get(network) as { created_at: string } | undefined;
   if (!row) return null;
@@ -487,11 +551,11 @@ export function purgeSocialLikes(days = 180): number {
 export function tagsForRun(
   config: LikeConfig,
   now: Date,
-  maxTags = 3,
+  maxTags = 99,
 ): { tag: string; locale: Locale }[] {
   const day = dayKey(now);
   const candidates: { tag: string; locale: Locale }[] = [];
-  for (const locale of Object.keys(LIKE_TAGS) as Locale[]) {
+  for (const locale of config.locales) {
     const tags = config.tags ?? LIKE_TAGS[locale];
     for (const tag of tags) candidates.push({ tag, locale });
   }
@@ -541,11 +605,13 @@ export async function processLikes(
 
   const me = await botAccount(config, fetchImpl);
   if (!me.ok) return { liked: false, reason: `no se pudo comprobar la cuenta: ${me.error}` };
-  const accountsLiked = accountsLikedSince();
+  const accountsLiked = accountLikeCountsSince();
   const statusesLiked = likedStatusIds();
 
-  for (const { tag, locale } of tagsForRun(config, now, options.maxTags ?? 3)) {
-    const page = await tagTimeline(config, tag, { fetchImpl });
+  for (const { tag, locale } of tagsForRun(config, now, options.maxTags)) {
+    // 40 por etiqueta: con cuarenta «me gusta» al día hay que mirar más de lo
+    // que cabe en la primera página.
+    const page = await tagTimeline(config, tag, { fetchImpl, limit: 40 });
     if (!page.ok) {
       // Un 429 o una instancia caída paran la pasada; un 404 de etiqueta no.
       if (page.retryable) return { liked: false, reason: `la instancia no responde: ${page.error}` };
@@ -558,6 +624,7 @@ export async function processLikes(
           now,
           myAccountId: me.id,
           accountsLiked,
+          maxPerAccount: config.perAccount,
           statusesLiked,
         }).ok,
     );

@@ -248,8 +248,8 @@ export const EN: TechnicalDocument = {
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
-              "off / 15 / 25",
-              "Turns on favouriting of book posts: daily cap, minimum gap and `MASTODON_LIKES_TAGS` for your own hashtags. Needs `write:favourites` on the token.",
+              "off / 40 / 25",
+              "Turns on favouriting of book posts: daily cap, minimum gap and `MASTODON_LIKES_TAGS` for your own hashtags. By default only German-speaking accounts whose bio talks about books (`MASTODON_LIKES_LOCALES`, `MASTODON_LIKES_PER_ACCOUNT`). Needs `write:favourites` on the token.",
             ],
           ],
         },
