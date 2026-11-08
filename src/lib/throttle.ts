@@ -209,3 +209,15 @@ export function guard(request: Request, quota: Quota): void {
   assertSameOrigin(request);
   hit(quota);
 }
+
+/**
+ * ¿Esta cuenta publica sin tope?
+ *
+ * La administración queda fuera de las cuotas de publicación: catalogar un fondo
+ * entero de una sentada es trabajo normal del servicio, y el freno existe contra
+ * el abuso de una cuenta cualquiera, no contra quien lo mantiene. Lo que se salta
+ * es el recuento, no la guardia de mismo origen (el CSRF se sigue exigiendo).
+ */
+export function publicaSinTope(user: { isAdmin: boolean } | null | undefined): boolean {
+  return Boolean(user?.isAdmin);
+}

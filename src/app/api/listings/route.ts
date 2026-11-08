@@ -8,7 +8,7 @@ import { notifyIndexNow } from "@/lib/indexnow";
 import { announceBook } from "@/lib/mastodon";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
-import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
+import { assertSameOrigin, clientKey, guard, hasClientIp, hit, publicaSinTope } from "@/lib/throttle";
 import { catalogParamsSchema, listingSchema } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -44,13 +44,22 @@ export async function POST(request: Request) {
     // acota el abuso de una cuenta. Diez al día se quedaba corto para quien
     // cataloga su estantería de una sentada —y el aviso decía «espera un
     // momento» cuando la espera era de horas—.
-    guard(request, { bucket: "listing:create:burst", key: user.id, limit: 5, windowMs: 60_000 });
-    guard(request, {
-      bucket: "listing:create",
-      key: user.id,
-      limit: 40,
-      windowMs: 24 * 60 * 60 * 1000,
-    });
+    //
+    // La administración queda fuera: catalogar un fondo entero de una sentada es
+    // trabajo normal del servicio y el freno existe contra el abuso de una
+    // cuenta cualquiera, no contra quien lo mantiene. La guardia de mismo origen
+    // se aplica igual (es la que protege del CSRF).
+    if (publicaSinTope(user)) {
+      assertSameOrigin(request);
+    } else {
+      guard(request, { bucket: "listing:create:burst", key: user.id, limit: 5, windowMs: 60_000 });
+      guard(request, {
+        bucket: "listing:create",
+        key: user.id,
+        limit: 40,
+        windowMs: 24 * 60 * 60 * 1000,
+      });
+    }
     const listing = createListing(
       user.id,
       input.city ? { ...input, city: await cityName(input.city) } : input,

@@ -148,3 +148,12 @@ test("una cuota diaria no promete «un momento»: la espera es de horas", () => 
   assert.ok((error.retryAfter ?? 0) > 3600, `Retry-After inesperado: ${error.retryAfter}`);
   assert.deepEqual(error.details, { retryAfterSeconds: error.retryAfter });
 });
+
+test("la administración publica sin tope; el resto, no", () => {
+  // El freno de publicaciones existe contra el abuso de una cuenta cualquiera:
+  // quien mantiene el servicio y cataloga un fondo entero no es ese caso.
+  assert.equal(throttle.publicaSinTope({ isAdmin: true }), true);
+  assert.equal(throttle.publicaSinTope({ isAdmin: false }), false);
+  assert.equal(throttle.publicaSinTope(null), false);
+  assert.equal(throttle.publicaSinTope(undefined), false);
+});
