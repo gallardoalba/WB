@@ -109,7 +109,10 @@ export async function handleApiError(
     const headers: Record<string, string> = {};
     if (error.retryAfter) headers["Retry-After"] = String(error.retryAfter);
     return json(
-      { error: translate(locale, error.message), details: error.details },
+      {
+        error: translate(locale, error.message, error.vars),
+        details: error.details,
+      },
       error.status,
       headers,
     );

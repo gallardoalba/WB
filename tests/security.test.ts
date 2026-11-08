@@ -100,3 +100,51 @@ test("con TRUST_PROXY acepta el host reenviado por el proxy", () => {
     (error: unknown) => error instanceof Error && "status" in error && error.status === 403,
   );
 });
+
+/** Captura el 429 de un `hit()` que se pasa de la cuota. */
+function quotaError(quota: { bucket: string; key: string; limit: number; windowMs: number }) {
+  try {
+    throttle.hit(quota);
+  } catch (error) {
+    return error as Error & {
+      status?: number;
+      retryAfter?: number;
+      details?: unknown;
+      vars?: Record<string, number>;
+    };
+  }
+  assert.fail("la cuota tenía que rechazar el intento");
+}
+
+test("una espera corta se anuncia como un momento", () => {
+  const quota = { bucket: "espera-corta", key: "u1", limit: 1, windowMs: 60_000 };
+  throttle.hit(quota);
+  const error = quotaError(quota);
+  assert.equal(error.status, 429);
+  assert.match(error.message, /inténtalo de nuevo/);
+  assert.equal(error.vars, undefined, "un minuto de espera no necesita marcador");
+  assert.ok((error.retryAfter ?? 0) <= 60, `Retry-After inesperado: ${error.retryAfter}`);
+  assert.deepEqual(error.details, { retryAfterSeconds: error.retryAfter });
+});
+
+test("una espera de minutos se anuncia en minutos", () => {
+  const quota = { bucket: "espera-minutos", key: "u1", limit: 1, windowMs: 30 * 60 * 1000 };
+  throttle.hit(quota);
+  const error = quotaError(quota);
+  // Antes decía «Espera un momento» con una espera de media hora.
+  assert.doesNotMatch(error.message, /un momento/);
+  assert.match(error.message, /\{minutos\}/);
+  assert.ok((error.vars?.minutos ?? 0) >= 29, `minutos inesperados: ${error.vars?.minutos}`);
+});
+
+test("una cuota diaria no promete «un momento»: la espera es de horas", () => {
+  const quota = { bucket: "espera-larga", key: "u1", limit: 1, windowMs: 24 * 60 * 60 * 1000 };
+  throttle.hit(quota);
+  const error = quotaError(quota);
+  assert.equal(error.status, 429);
+  assert.doesNotMatch(error.message, /un momento/);
+  assert.match(error.message, /\{horas\}/);
+  assert.ok((error.vars?.horas ?? 0) >= 23, `horas inesperadas: ${error.vars?.horas}`);
+  assert.ok((error.retryAfter ?? 0) > 3600, `Retry-After inesperado: ${error.retryAfter}`);
+  assert.deepEqual(error.details, { retryAfterSeconds: error.retryAfter });
+});

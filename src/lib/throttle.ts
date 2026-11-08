@@ -10,6 +10,28 @@ if (process.env.NODE_ENV === "production" && process.env.TRUST_PROXY !== "1") {
 
 export type Quota = { bucket: string; key: string; limit: number; windowMs: number };
 
+/** Hasta cinco minutos de espera, «un momento» es la verdad. */
+const SHORT_WAIT_SECONDS = 300;
+const SHORT_WAIT_MESSAGE = "Demasiadas peticiones. Espera un momento e inténtalo de nuevo.";
+/**
+ * Cuotas largas: quien publica su décimo libro del día no espera un momento,
+ * espera horas. Prometer lo contrario hace que la persona reintente en bucle y
+ * crea que la aplicación está rota. El `{marcador}` lo rellena `waitMessage()`.
+ */
+const WAIT_MINUTES_MESSAGE =
+  "Has llegado al límite de esta acción. Podrás volver a intentarlo dentro de {minutos} min.";
+const WAIT_HOURS_MESSAGE =
+  "Has llegado al límite de esta acción. Podrás volver a intentarlo dentro de {horas} h.";
+
+/** Mensaje del 429 y valores para el marcador, según lo que falte para el hueco. */
+function waitMessage(retryAfter: number): { message: string; vars?: Record<string, number> } {
+  if (retryAfter <= SHORT_WAIT_SECONDS) return { message: SHORT_WAIT_MESSAGE };
+  if (retryAfter < 3600) {
+    return { message: WAIT_MINUTES_MESSAGE, vars: { minutos: Math.ceil(retryAfter / 60) } };
+  }
+  return { message: WAIT_HOURS_MESSAGE, vars: { horas: Math.ceil(retryAfter / 3600) } };
+}
+
 let cleanupTicks = 0;
 
 /** True cuando el despliegue declara un proxy propio y la IP es fiable. */
@@ -52,8 +74,11 @@ export function hit(quota: Quota): void {
       const now = Date.parse(row.clock);
       const oldest = row.oldest ? Date.parse(row.oldest) : now;
       const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000));
-      throw new ApiError(429, "Demasiadas peticiones. Espera un momento e inténtalo de nuevo.", {
+      const { message, vars } = waitMessage(retryAfter);
+      throw new ApiError(429, message, {
         retryAfter,
+        details: { retryAfterSeconds: retryAfter },
+        vars,
       });
     }
 

@@ -39,10 +39,15 @@ export async function POST(request: Request) {
     // cuantos formularios mal enviados dejan la cuenta sin poder publicar el
     // resto del día). El rechazo es una respuesta 422 barata y sin escrituras.
     const input = listingSchema.parse(await readJson(request));
+    // Dos cuotas, no una: un tope corto frena el envío en bucle y el diario
+    // acota el abuso de una cuenta. Diez al día se quedaba corto para quien
+    // cataloga su estantería de una sentada —y el aviso decía «espera un
+    // momento» cuando la espera era de horas—.
+    guard(request, { bucket: "listing:create:burst", key: user.id, limit: 5, windowMs: 60_000 });
     guard(request, {
       bucket: "listing:create",
       key: user.id,
-      limit: 10,
+      limit: 40,
       windowMs: 24 * 60 * 60 * 1000,
     });
     const listing = createListing(
