@@ -110,7 +110,7 @@ const VIEW_LABELS = {
 } satisfies Record<View, MessageKey>;
 
 const VIEW_TITLES = {
-  home: "Libros que buscan lector",
+  home: "La estantería común",
   discover: "Encuentra tu próxima historia",
   shelf: "Tu estantería guardada",
   community: "La lectura se comparte",
