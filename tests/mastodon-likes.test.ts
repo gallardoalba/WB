@@ -85,7 +85,7 @@ test("sin MASTODON_LIKES el bot de «me gusta» está apagado", () => {
 });
 
 test("los topes se pueden ajustar y se quedan en un rango sensato", () => {
-  assert.equal(likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on" })?.perDay, 8);
+  assert.equal(likes.likesConfig({ MASTODON_TOKEN: "t", MASTODON_LIKES: "on" })?.perDay, 15);
   assert.equal(
     likes.likesConfig({
       MASTODON_TOKEN: "t",

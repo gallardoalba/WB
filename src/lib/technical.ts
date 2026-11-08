@@ -272,7 +272,7 @@ const ES: TechnicalDocument = {
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
-              "apagado / 8 / 25",
+              "apagado / 15 / 25",
               "Enciende los «me gusta» a publicaciones sobre libros: tope en 24 h, separación mínima y `MASTODON_LIKES_TAGS` para etiquetas propias. Necesita `write:favourites` en el token.",
             ],
           ],
@@ -656,7 +656,7 @@ const DE: TechnicalDocument = {
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
-              "aus / 8 / 25",
+              "aus / 15 / 25",
               "Schaltet «Gefällt mir» für Buchbeiträge ein: Tagesgrenze, Mindestabstand und `MASTODON_LIKES_TAGS` für eigene Hashtags. Braucht `write:favourites` im Token.",
             ],
           ],

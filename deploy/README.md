@@ -291,7 +291,7 @@ Todo lo que hay debajo existe para que no parezca spam:
   `#Lectura`, `#Libro`, `#Literatura` · `#Books`, `#Bookstodon`, `#Reading`,
   `#BookRecommendation`) y se descarta lo que no está en ese idioma. Con
   `MASTODON_LIKES_TAGS` se pueden poner otras (separadas por comas).
-- **Pocos y espaciados.** `MASTODON_LIKES_PER_DAY` (8 por defecto, máximo 40) en
+- **Pocos y espaciados.** `MASTODON_LIKES_PER_DAY` (15 por defecto, máximo 40) en
   una ventana de 24 h y `MASTODON_LIKES_MIN_GAP_MINUTES` (25, mínimo 5) entre dos
   pulsaciones. El cron pasa cada 15 minutos, así que dos «me gusta» nunca caen
   seguidos.

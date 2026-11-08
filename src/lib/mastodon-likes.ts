@@ -11,7 +11,7 @@
  * - **Por etiqueta, nunca por búsqueda libre.** Se leen las líneas de tiempo de
  *   etiquetas de libros (`#Bücher`, `#Libros`, `#Bookstodon`…) y se descarta lo
  *   que no está en el idioma de la etiqueta.
- * - **Pocas y espaciadas.** Un tope en 24 h (`MASTODON_LIKES_PER_DAY`, 8 por
+ * - **Pocas y espaciadas.** Un tope en 24 h (`MASTODON_LIKES_PER_DAY`, 15 por
  *   defecto) y una separación mínima entre pulsaciones
  *   (`MASTODON_LIKES_MIN_GAP_MINUTES`, 25). Como el cron pasa cada 15 minutos,
  *   nunca hay dos seguidas.
@@ -106,7 +106,7 @@ export function likesConfig(
   const base = mastodonConfig(env);
   if (!base) return null;
   if (!TRUTHY.has((env.MASTODON_LIKES ?? "").trim().toLowerCase())) return null;
-  const perDay = clamp(env.MASTODON_LIKES_PER_DAY, 8, 0, 40);
+  const perDay = clamp(env.MASTODON_LIKES_PER_DAY, 15, 0, 40);
   // Un 0 explícito es «no des ninguno», no «usa el valor por defecto».
   if (perDay === 0) return null;
   return {
