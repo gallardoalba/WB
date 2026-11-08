@@ -162,3 +162,39 @@ test("los mensajes dicen qué se rompe, no solo qué variable falta", () => {
   // El texto se lee en journalctl: debe explicar la consecuencia.
   assert.ok(lines.some((line) => /administración responde 403/.test(line)));
 });
+
+test("una clave antigua mal formada se detecta antes de necesitarla", () => {
+  const conRotacion = complete({
+    APP_ENCRYPTION_OLD_KEYS: `2025-06:${"b".repeat(64)}`,
+  });
+  // Con claves antiguas pero sin id para la activa: funciona, pero se avisa.
+  const aviso = checkEnv(conRotacion).find((item) => item.key === "APP_ENCRYPTION_KEY_ID");
+  assert.equal(aviso?.severity, "warn");
+  assert.match(aviso!.message, /2026-11/);
+  // Con id explícito, el aviso desaparece.
+  assert.ok(
+    !checkEnv({ ...conRotacion, APP_ENCRYPTION_KEY_ID: "2026-11" }).some(
+      (item) => item.key === "APP_ENCRYPTION_KEY_ID",
+    ),
+  );
+
+  // Una entrada que no es una clave de 32 bytes es un error, y el mensaje
+  // muestra el principio de la entrada para localizarla.
+  const rota = checkEnv(
+    complete({ APP_ENCRYPTION_OLD_KEYS: `2025-06:${"b".repeat(64)},2024-01:corta` }),
+  ).find((item) => item.key === "APP_ENCRYPTION_OLD_KEYS");
+  assert.equal(rota?.severity, "error");
+  assert.match(rota!.message, /2024-01:corta/);
+});
+
+test("un TRUSTED_PROXY_HOPS que no es un entero positivo se avisa", () => {
+  for (const valor of ["0", "-2", "dos"]) {
+    const issue = checkEnv(complete({ TRUSTED_PROXY_HOPS: valor })).find(
+      (item) => item.key === "TRUSTED_PROXY_HOPS",
+    );
+    assert.equal(issue?.severity, "warn", `«${valor}» debería avisarse`);
+    assert.match(issue!.message, /1 salto/);
+  }
+  // Un valor razonable no genera nada.
+  assert.deepEqual(checkEnv(complete({ TRUSTED_PROXY_HOPS: "2" })), []);
+});

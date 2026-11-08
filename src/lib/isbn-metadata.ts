@@ -307,13 +307,15 @@ function decode(value: string): string {
 
 /** «„Der eindimensionale Mensch“» → «Der eindimensionale Mensch». */
 export function stripQuotes(value: string): string {
-  return value
+  const limpio = value
     // Las comillas bibliográficas alemanas no son parte del título ni del
     // sello: la DNB las pone para delimitar el nombre, no para citarlo.
     .replace(/[„“‚‘«»]/g, "")
-    .replace(/^"/, "")
-    .replace(/"$/, "")
     .trim();
+  // Las comillas rectas solo se quitan si envuelven **todo** el valor. Antes se
+  // borraba la última aunque cerrara una cita dentro del texto, y
+  // «El "Quijote"» acababa como «El "Quijote».
+  return /^"[\s\S]*"$/.test(limpio) ? limpio.slice(1, -1).trim() : limpio;
 }
 
 /** «Emcke, Carolin [Verfasser]» → «Carolin Emcke». Traductores fuera. */
