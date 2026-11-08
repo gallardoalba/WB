@@ -5,11 +5,10 @@ import { getCover, readUploadedCover } from "@/lib/covers";
 import { OG_SIZE } from "@/lib/og";
 import { getPublicWork } from "@/lib/repo";
 
-/* El mismo libro abierto del icono de la app, incrustado como SVG: Satori no
-   tiene las fuentes ni los recursos del sitio, así que la marca viaja dentro de
-   la propia imagen. */
+/* El mismo libro abierto del icono de la app, invertido: crema sobre el verde de
+   la tarjeta, porque el verde del icono original se confunde con el fondo. */
 const BOOK_ICON = `data:image/svg+xml;utf8,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2f5741"/><g fill="#f7f6f1"><path d="M31 17.33C25.33 13.07 16.67 12.53 10.67 14.13v33.07c6-1.6 14.67-1.07 20.33 3.2V17.33z"/><path d="M33 17.33c5.67-4.26 14.33-4.8 20.33-3.2v33.07c-6-1.6-14.67-1.07-20.33 3.2V17.33z"/></g></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#f7f6f1"/><g fill="#2f5741"><path d="M31 17.33C25.33 13.07 16.67 12.53 10.67 14.13v33.07c6-1.6 14.67-1.07 20.33 3.2V17.33z"/><path d="M33 17.33c5.67-4.26 14.33-4.8 20.33-3.2v33.07c-6-1.6-14.67-1.07-20.33 3.2V17.33z"/></g></svg>`,
 )}`;
 
 /** Alto de la portada dentro de la tarjeta; el ancho sale de su proporción. */
