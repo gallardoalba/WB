@@ -86,6 +86,24 @@ test("un PNG opaco no se altera al aplanarlo", () => {
   assert.ok(decoded.data[1]! > 170, `verde alto esperado, llegó ${decoded.data[1]}`);
 });
 
+test("una portada real de PNG sale con un tamaño que el almacén acepta", () => {
+  // `saveUploadedCover` rechaza por debajo de 1 KB, y el lector de la caché
+  // también: si la conversión dejara un archivo minúsculo, el libro se quedaría
+  // sin portada sin que nadie supiera por qué. Se prueba con ruido, que es el
+  // peor caso para el JPG (poco compresible).
+  const png = new PNG({ width: 300, height: 450 });
+  for (let index = 0; index < png.data.length; index += 4) {
+    png.data[index] = (index * 7) % 256;
+    png.data[index + 1] = (index * 13) % 256;
+    png.data[index + 2] = (index * 29) % 256;
+    png.data[index + 3] = 255;
+  }
+  const result = toJpeg(PNG.sync.write(png));
+  assert.equal(isJpeg(result), true);
+  assert.ok(result.byteLength > 1_000, `solo ${result.byteLength} bytes: por debajo del mínimo`);
+  assert.ok(result.byteLength < 4 * 1024 * 1024, `${result.byteLength} bytes: pasa del máximo`);
+});
+
 test("lo que no es ni JPG ni PNG se rechaza con 415", () => {
   expectApiError(415, () => toJpeg(Buffer.from("GIF89a...............")));
   expectApiError(415, () => toJpeg(Buffer.from("RIFF....WEBPVP8 ")));
