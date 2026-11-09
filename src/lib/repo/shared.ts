@@ -149,31 +149,20 @@ export const BLOCK_FILTER = `
   )
 `;
 
-/**
- * Iniciales de quien publica, para el catálogo abierto: «Ana María Ruiz» →
- * «A. R.».
- *
- * Sin sesión se sabe que hay alguien cerca y que dos tarjetas son de personas
- * distintas, pero no su nombre. Se queda la primera y la última palabra: en un
- * nombre compuesto interesa el apellido, no el segundo nombre de pila.
- */
-export function ownerInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const picked = parts.length > 2 ? [parts[0], parts[parts.length - 1]] : parts;
-  return picked
-    .slice(0, 2)
-    .map((part) => `${part.charAt(0).toUpperCase()}.`)
-    .join(" ");
+/** `2026-11-09T…` → `2026-11-01T…`: el mes basta y no señala el día. */
+function monthOf(iso: string): string {
+  return /^\d{4}-\d{2}/.test(iso) ? `${iso.slice(0, 7)}-01T00:00:00.000Z` : "";
 }
 
 /**
  * Vista pública de un ejemplar.
  *
- * `viewerId` decide si se puede saber **quién** lo publica: sin sesión solo
- * viajan las iniciales y ningún id, porque ese id abre el perfil. El valor por
- * defecto enmascara, para que un llamador nuevo no exponga la identidad por
- * olvido.
+ * `viewerId` decide cuánto se cuenta: sin sesión solo viajan los datos del
+ * libro y la ciudad. Ni nombre, ni iniciales, ni id (abre el perfil), ni la nota
+ * libre del anuncio —donde la gente escribe nombres y direcciones—, ni la fecha
+ * exacta de publicación, que cruzada con el aviso del bot permite atribuir la
+ * aportación a alguien. El valor por defecto es el más cerrado, para que un
+ * llamador nuevo no exponga de más por olvido.
  */
 export function toListingView(row: ListingRow, viewerId?: string | null): ListingView {
   const anonymous = !viewerId;
@@ -192,10 +181,12 @@ export function toListingView(row: ListingRow, viewerId?: string | null): Listin
     // permite imágenes del propio origen.
     coverUrl: normalizeCoverUrl(row.cover_url, row.isbn),
     status: row.status,
-    createdAt: row.created_at,
-    notes: row.notes,
+    // Al mes: el día exacto empareja la publicación con el aviso público del
+    // bot y delata rutinas.
+    createdAt: anonymous ? monthOf(row.created_at) : row.created_at,
+    notes: anonymous ? "" : row.notes,
     owner: anonymous
-      ? { id: "", name: ownerInitials(row.owner_name), masked: true }
+      ? { id: "", name: "", masked: true }
       : { id: row.owner_id, name: row.owner_name },
     tags: row.tags ? row.tags.split("|") : [],
     isMine: Boolean(row.is_mine),

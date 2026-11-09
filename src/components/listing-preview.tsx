@@ -72,7 +72,9 @@ export function ListingPreview({
               ))}
             </p>
           )}
-          {listing.notes && (
+          {/* La nota es texto libre de quien publica —«lo dejé a nombre de…»—:
+              sin sesión no se enseña, aunque el servidor ya no la envíe. */}
+          {listing.notes && !listing.owner.masked && (
             <div className="preview-note">
               <h3>{t("Nota de quien lo comparte")}</h3>
               <p>{listing.notes}</p>
@@ -89,19 +91,16 @@ export function ListingPreview({
         </div>
       </div>
 
-      <p className="preview-owner">
-        <span
-          className={`avatar tone-${toneForId(
-            listing.owner.masked ? listing.id : listing.owner.id,
-          )}`}
-        >
-          {initialsOf(listing.owner.name)}
-        </span>
-        {/* Esta vista es para quien aún no ha entrado: nunca el nombre. */}
-        {listing.owner.masked
-          ? t("Compartido por una persona de la comunidad")
-          : t("Compartido por {name}", { name: listing.owner.name })}
-      </p>
+      {/* Sin sesión no hay autoría: la ciudad ya está en los datos del
+          ejemplar, arriba, así que esta línea sobra entera. */}
+      {!listing.owner.masked && (
+        <p className="preview-owner">
+          <span className={`avatar tone-${toneForId(listing.owner.id)}`}>
+            {initialsOf(listing.owner.name)}
+          </span>
+          {t("Compartido por {name}", { name: listing.owner.name })}
+        </p>
+      )}
 
       <section className="preview-how">
         <h3>{t("Cómo funciona el intercambio")}</h3>

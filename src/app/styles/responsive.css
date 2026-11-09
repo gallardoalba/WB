@@ -675,6 +675,55 @@
   background: var(--paper-lift);
 }
 
+/* Sesiones abiertas: una línea por acceso, con el botón a la derecha. */
+.session-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.session-what {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.session-current {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--green-soft, rgba(47, 87, 65, 0.12));
+  color: var(--green-strong);
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+}
+
+.session-when {
+  margin-left: auto;
+  color: var(--muted-2);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 560px) {
+  .session-when {
+    margin-left: 0;
+  }
+}
+
 .danger-zone {
   border-color: var(--coral);
   background: var(--coral-soft);

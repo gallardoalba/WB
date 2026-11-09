@@ -4,14 +4,11 @@ import { before, test } from "node:test";
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
-type SharedModule = typeof import("../src/lib/repo/shared.ts");
 
 let repo: RepoModule;
-let ownerInitials: SharedModule["ownerInitials"];
 
 before(async () => {
   repo = await import("../src/lib/repo.ts");
-  ownerInitials = (await import("../src/lib/repo/shared.ts")).ownerInitials;
 });
 
 const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -30,18 +27,36 @@ const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
   ...overrides,
 });
 
-/** «A.» o «A. R.»: iniciales, nunca un nombre completo. */
-const SOLO_INICIALES = /^[A-ZÁÉÍÓÚÜÑ]\.( [A-ZÁÉÍÓÚÜÑ]\.)?$/;
-
+/** Sin sesión no queda ni un dato que permita reconocer o correlacionar. */
 test("sin sesión el catálogo no revela quién publica", () => {
   const { items } = repo.catalogPage(null, params());
   assert.ok(items.length > 0, "el catálogo de demostración está vacío");
   for (const item of items) {
     assert.equal(item.owner.masked, true, `«${item.title}» viaja sin enmascarar`);
-    // El id abre el perfil, así que tampoco puede viajar.
+    // Ni el id (abre el perfil) ni el nombre ni las iniciales.
     assert.equal(item.owner.id, "", `«${item.title}» expone el id de su dueño`);
-    assert.match(item.owner.name, SOLO_INICIALES, `«${item.owner.name}» no son iniciales`);
+    assert.equal(item.owner.name, "", `«${item.title}» expone el nombre de su dueño`);
+    // La nota es texto libre: puede llevar un nombre o una dirección.
+    assert.equal(item.notes, "", `«${item.title}» expone la nota del anuncio`);
+    // Solo el mes: el día exacto se cruza con el aviso público del bot.
+    assert.match(item.createdAt, /^\d{4}-\d{2}-01T00:00:00\.000Z$/);
   }
+});
+
+test("sin sesión el catálogo se queda en la primera página", () => {
+  const primera = repo.catalogPage(null, params());
+  assert.equal(primera.hasMore, false);
+  const segunda = repo.catalogPage(null, params({ page: 2 }));
+  assert.equal(segunda.page, 1);
+  assert.deepEqual(
+    segunda.items.map((item) => item.id),
+    primera.items.map((item) => item.id),
+  );
+  const porDesplazamiento = repo.catalogPage(null, params({ offset: 15 }));
+  assert.deepEqual(
+    porDesplazamiento.items.map((item) => item.id),
+    primera.items.map((item) => item.id),
+  );
 });
 
 test("con sesión el catálogo sigue mostrando nombres y perfiles", () => {
@@ -52,6 +67,26 @@ test("con sesión el catálogo sigue mostrando nombres y perfiles", () => {
     assert.ok(item.owner.id.startsWith("usr_"), `«${item.title}» pierde el enlace al perfil`);
     assert.ok(item.owner.name.trim().length > 0);
   }
+  // La fecha vuelve a ser exacta: no todos los ejemplares caen en el día 1.
+  assert.ok(items.some((item) => item.createdAt.slice(8, 10) !== "01"));
+});
+
+test("la nota del anuncio solo viaja con sesión", () => {
+  // Con sesión llega el id real de quien publica, que es lo que hace falta para
+  // editar como esa persona.
+  const mine = repo.catalogPage("usr_ana", params()).items[0];
+  assert.ok(mine, "el catálogo de demostración está vacío");
+  repo.editListing(mine.owner.id, mine.id, {
+    condition: mine.condition,
+    city: mine.city,
+    tags: [],
+    notes: "Lo dejé a nombre de Ana en el portal 3",
+  });
+  assert.ok(
+    repo.getListing(mine.id, mine.owner.id)?.notes.includes("portal 3"),
+    "con sesión la nota se conserva",
+  );
+  assert.equal(repo.getListing(mine.id, null)?.notes, "");
 });
 
 test("la ficha del ejemplar se enmascara sin sesión y no con ella", () => {
@@ -62,7 +97,7 @@ test("la ficha del ejemplar se enmascara sin sesión y no con ella", () => {
   assert.ok(anonymous);
   assert.equal(anonymous.owner.masked, true);
   assert.equal(anonymous.owner.id, "");
-  assert.match(anonymous.owner.name, SOLO_INICIALES);
+  assert.equal(anonymous.owner.name, "");
   // El resto de la ficha sigue siendo público: lo que se protege es la identidad.
   assert.equal(anonymous.title, first.title);
   assert.equal(anonymous.city, first.city);
@@ -80,12 +115,7 @@ test("las sugerencias de la misma categoría también van enmascaradas", () => {
   for (const item of repo.similarListings(first.bookId, null)) {
     assert.equal(item.owner.masked, true);
     assert.equal(item.owner.id, "");
+    assert.equal(item.owner.name, "");
+    assert.equal(item.notes, "");
   }
-});
-
-test("las iniciales quedan en la primera y la última palabra del nombre", () => {
-  assert.equal(ownerInitials("Ana María Ruiz"), "A. R.");
-  assert.equal(ownerInitials("Cristóbal Gallardo"), "C. G.");
-  assert.equal(ownerInitials("Beyoncé"), "B.");
-  assert.equal(ownerInitials("   "), "?");
 });

@@ -187,8 +187,8 @@ export type ListingView = {
   createdAt: string;
   notes: string;
   /**
-   * Quien lo publica. Sin sesión llega **enmascarado**: `masked` es `true`, el
-   * id viene vacío (no hay enlace al perfil) y el nombre son solo iniciales.
+   * Quien lo publica. Sin sesión llega **sin identidad**: `masked` es `true` y
+   * el id y el nombre vienen vacíos. La ciudad va aparte, en `city`.
    */
   owner: { id: string; name: string; masked?: boolean };
   tags: string[];

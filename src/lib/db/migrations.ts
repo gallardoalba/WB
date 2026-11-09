@@ -1491,6 +1491,25 @@ function migrateToV46(db: Db) {
 }
 
 /**
+ * Las sesiones guardan quién las abrió y cuándo se usaron por última vez: es lo
+ * que permite a la persona ver sus accesos y cerrar uno solo.
+ */
+function migrateToV47(db: Db) {
+  const columns = (db.pragma("table_info(sessions)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("user_agent")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''");
+  }
+  if (!columns.includes("last_seen_at")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN last_seen_at TEXT");
+  }
+  // Las sesiones que ya existían: el último uso conocido es el alta.
+  db.exec("UPDATE sessions SET last_seen_at = created_at WHERE last_seen_at IS NULL");
+  db.pragma("user_version = 47");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1621,6 +1640,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 44) migrateToV44(db);
   if (userVersion(db) < 45) migrateToV45(db);
   if (userVersion(db) < 46) migrateToV46(db);
+  if (userVersion(db) < 47) migrateToV47(db);
 
   backfillSearchKeys(db);
 }

@@ -80,7 +80,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         heading: "6. Visibility of the data",
         body: [
           "The profile (name, city, biography, books) is visible to signed-in users: this is what the community lives on.",
-          "The home page and the catalogue can be browsed without an account, but without signing in it does not show who offers each copy: only initials, city and the book details.",
+          "The home page and the catalogue can be browsed without an account, but without signing in only a first page is shown, with the book details and the city of each copy: never who offers it, their note or the exact date.",
           "Search engines may not index the catalogue or the profiles (robots.txt).",
         ],
       },

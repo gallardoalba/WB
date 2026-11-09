@@ -57,8 +57,9 @@ fun TwoFactorScreen(viewModel: AppViewModel) {
 
     var state by remember { mutableStateOf<TotpState?>(null) }
     var setup by remember { mutableStateOf<TotpSetup?>(null) }
-    var password by rememberSaveable { mutableStateOf("") }
-    var code by rememberSaveable { mutableStateOf("") }
+    // Contraseña y código de un solo uso: en memoria, no en el estado guardado.
+    var password by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var isError by rememberSaveable { mutableStateOf(false) }

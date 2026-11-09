@@ -410,6 +410,12 @@
   font-weight: 600;
 }
 
+/* Sin sesión la fila solo lleva la ciudad: se alinea a la izquierda en vez de
+   dejar el hueco de un avatar y un nombre que ya no existen. */
+.owner-row-anon .distance {
+  margin-left: 0;
+}
+
 .distance {
   display: flex;
   align-items: center;

@@ -382,7 +382,11 @@ export default function WanderbibliothekApp({
 
   const currentMore = more && more.key === filterKey ? more : null;
   const visibleListings = currentMore ? [...listings, ...currentMore.items] : listings;
-  const canLoadMore = view === "discover" && (currentMore ? currentMore.hasMore : hasMore);
+  // Sin sesión el catálogo es una muestra de una página: ni scroll infinito ni
+  // botón de «ver más». Los ejemplares ya no llevan autoría; tampoco hace falta
+  // dejar recorrer el catálogo entero sin cuenta.
+  const canLoadMore =
+    Boolean(user) && view === "discover" && (currentMore ? currentMore.hasMore : hasMore);
 
   const loadMore = useCallback(async () => {
     if (loadingMore.current || !canLoadMore || view !== "discover") return;
@@ -1351,7 +1355,8 @@ export default function WanderbibliothekApp({
                 </div>
               )}
 
-              {view === "discover" && (total > pageSize || loadState === "loading") && (
+              {view === "discover" &&
+                (total > pageSize || loadState === "loading") && (
                 <div className="catalog-more">
                   <span className="catalog-more-status" role="status" aria-live="polite">
                     {loadState === "loading"
@@ -1361,7 +1366,7 @@ export default function WanderbibliothekApp({
                           total,
                         })}
                   </span>
-                  {loadState === "error" && (
+                  {loadState === "error" && user && (
                     <button
                       type="button"
                       className="secondary-button small"

@@ -81,23 +81,18 @@ export function ListingCard({
             </Link>
           ))}
         </div>
-        <div className="owner-row">
-          {/* Sin sesión el ejemplar llega con la identidad enmascarada: quedan
-              las iniciales (para que dos tarjetas no se confundan) y la ciudad,
-              pero ni el nombre ni el enlace al perfil. */}
-          <span
-            className={`avatar owner-avatar tone-${toneForId(
-              listing.owner.masked ? listing.id : listing.owner.id,
-            )}`}
-          >
-            {initialsOf(listing.owner.name)}
-          </span>
-          {listing.owner.masked ? (
-            <span className="owner-name">{t("Una persona de la comunidad")}</span>
-          ) : (
-            <Link href={`/u/${listing.owner.id}`} className="owner-name">
-              {listing.isMine ? t("Tú") : listing.owner.name}
-            </Link>
+        <div className={listing.owner.masked ? "owner-row owner-row-anon" : "owner-row"}>
+          {/* Sin sesión no hay autoría: ni avatar, ni nombre, ni iniciales.
+              Queda la ciudad, que es lo que sirve para decidir si lo pides. */}
+          {!listing.owner.masked && (
+            <>
+              <span className={`avatar owner-avatar tone-${toneForId(listing.owner.id)}`}>
+                {initialsOf(listing.owner.name)}
+              </span>
+              <Link href={`/u/${listing.owner.id}`} className="owner-name">
+                {listing.isMine ? t("Tú") : listing.owner.name}
+              </Link>
+            </>
           )}
           <span className="distance">
             <MapPin size={12} />

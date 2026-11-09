@@ -9,6 +9,7 @@ import type { RequestView, SessionUser } from "@/lib/domain";
 import { formatWhen } from "@/lib/text";
 import { CityField } from "./city-field";
 import { useI18n } from "./i18n-provider";
+import { SessionsPanel } from "./sessions-panel";
 
 type KeyHistory = {
   keyId: string;
@@ -769,6 +770,8 @@ export function AccountSettings({
           </form>
         </details>
       </div>
+
+      <SessionsPanel />
 
       <div className="account-settings-footer">
         <button type="button" className="secondary-button" onClick={logout} disabled={pending}>

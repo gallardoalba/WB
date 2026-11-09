@@ -101,6 +101,8 @@ data class Listing(
     val notes: String,
     val ownerId: String,
     val ownerName: String,
+    /** Sin sesión el servidor no manda identidad: ni nombre ni id. */
+    val ownerMasked: Boolean = false,
     val tags: List<String>,
     val isMine: Boolean,
     val isFavorite: Boolean,
@@ -128,6 +130,7 @@ data class Listing(
                 notes = json.text("notes"),
                 ownerId = owner?.text("id").orEmpty(),
                 ownerName = owner?.text("name").orEmpty(),
+                ownerMasked = owner?.bool("masked") ?: false,
                 tags = json.strings("tags"),
                 isMine = json.bool("isMine"),
                 isFavorite = json.bool("isFavorite"),

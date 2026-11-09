@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -28,9 +29,10 @@ fun PasswordScreen(viewModel: AppViewModel, onChanged: () -> Unit) {
     val texts = LocalTexts.current
     val scope = rememberCoroutineScope()
 
-    var current by rememberSaveable { mutableStateOf("") }
-    var next by rememberSaveable { mutableStateOf("") }
-    var repeat by rememberSaveable { mutableStateOf("") }
+    // Secretos en `remember`, nunca en el estado guardado en disco.
+    var current by remember { mutableStateOf("") }
+    var next by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var isError by rememberSaveable { mutableStateOf(false) }

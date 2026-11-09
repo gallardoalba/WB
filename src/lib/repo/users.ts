@@ -441,3 +441,85 @@ export function listPublicKeyHistory(
 export function hasPublicKey(userId: string): boolean {
   return listPublicKeyRecords(userId).length > 0;
 }
+
+/* -------------------------------- sesiones -------------------------------- */
+
+export type SessionInfo = {
+  /** Hash del token: sirve para cerrar esa sesión, no para usarla. */
+  id: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+  expiresAt: string;
+  /** Navegador o app, ya reducido a una palabra. Cadena vacía si no se sabe. */
+  device: string;
+  current: boolean;
+};
+
+/**
+ * Nombre corto de quien abrió la sesión.
+ *
+ * Se guarda el `User-Agent` completo, pero a la persona se le enseña una
+ * palabra: lo que necesita es reconocer el sitio («¿desde el móvil?»), no la
+ * cadena entera.
+ */
+export function describeAgent(userAgent: string): string {
+  const ua = userAgent.toLowerCase();
+  if (!ua) return "";
+  if (ua.includes("wanderbibliothek-android")) return "App";
+  if (ua.includes("android")) return "Android";
+  if (ua.includes("iphone") || ua.includes("ipad")) return "iOS";
+  if (ua.includes("firefox/")) return "Firefox";
+  if (ua.includes("edg/")) return "Edge";
+  if (ua.includes("chrome/") || ua.includes("crios/")) return "Chrome";
+  if (ua.includes("safari/")) return "Safari";
+  return "Web";
+}
+
+/** Sesiones vivas de la cuenta, la usada más recientemente primero. */
+export function listSessions(userId: string, currentId: string | null): SessionInfo[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT id, created_at, last_seen_at, expires_at, user_agent
+         FROM sessions
+        WHERE user_id = ? AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        ORDER BY COALESCE(last_seen_at, created_at) DESC`,
+    )
+    .all(userId) as {
+    id: string;
+    created_at: string;
+    last_seen_at: string | null;
+    expires_at: string;
+    user_agent: string;
+  }[];
+  return rows.map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    lastSeenAt: row.last_seen_at,
+    expiresAt: row.expires_at,
+    device: describeAgent(row.user_agent),
+    current: currentId !== null && row.id === currentId,
+  }));
+}
+
+/** Cierra una sesión concreta; el id va con el usuario para que nadie cierre la de otro. */
+export function revokeSession(userId: string, sessionId: string): boolean {
+  return (
+    getDb().prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(sessionId, userId)
+      .changes > 0
+  );
+}
+
+/**
+ * Marca el último uso, como mucho cada cinco minutos: escribir en cada petición
+ * convertiría la lectura de la sesión en una escritura.
+ */
+export function touchSession(sessionId: string): void {
+  getDb()
+    .prepare(
+      `UPDATE sessions SET last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE id = ?
+          AND (last_seen_at IS NULL
+               OR last_seen_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-5 minutes'))`,
+    )
+    .run(sessionId);
+}

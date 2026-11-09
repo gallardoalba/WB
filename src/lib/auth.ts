@@ -5,6 +5,7 @@ import { getDb } from "./db";
 import { ApiError } from "./errors";
 import type { SessionUser } from "./domain";
 import { getTotpState } from "./repo/totp";
+import { touchSession } from "./repo/users";
 import { normalizeLocale } from "./locale";
 
 const BASE_COOKIE = "b2p_session";
@@ -34,7 +35,7 @@ export function sessionCookieOptions() {
   };
 }
 
-export function createSession(userId: string): string {
+export function createSession(userId: string, userAgent = ""): string {
   const db = getDb();
   const token = randomBytes(32).toString("hex");
   const now = new Date();
@@ -42,8 +43,18 @@ export function createSession(userId: string): string {
 
   db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now.toISOString());
   db.prepare(
-    "INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-  ).run(hashToken(token), userId, now.toISOString(), expiresAt.toISOString());
+    `INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, last_seen_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    // El navegador se guarda en crudo: es lo que permite enseñar «Chrome» o
+    // «App» en la lista de sesiones. `last_seen_at` nace en el alta.
+  ).run(
+    hashToken(token),
+    userId,
+    now.toISOString(),
+    expiresAt.toISOString(),
+    userAgent.slice(0, 300),
+    now.toISOString(),
+  );
   // Tope por cuenta: se conservan las 10 sesiones más recientes. Evita que un
   // cliente que inicia sesión en bucle llene la tabla sin límite.
   db.prepare(
@@ -106,6 +117,10 @@ export function userForToken(token: string | undefined): SessionUser | null {
     return null;
   }
 
+  // Marca de último uso para la lista de sesiones (escribe como mucho cada
+  // cinco minutos).
+  touchSession(sessionId);
+
   // Renovación deslizante: si a la sesión le queda menos de una semana se
   // alarga hasta 14 días, sin superar nunca el tope absoluto de 30.
   if (row.renew) {
@@ -140,6 +155,19 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   for (const name of READABLE_COOKIES) {
     const value = cookieStore.get(name)?.value;
     if (value) return userForToken(value);
+  }
+  return null;
+}
+
+/**
+ * Id (hash) de la sesión que acompaña a esta petición. Nunca sale de aquí el
+ * token: el hash solo sirve para señalar «este dispositivo» y para cerrarla.
+ */
+export async function currentSessionId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  for (const name of READABLE_COOKIES) {
+    const value = cookieStore.get(name)?.value;
+    if (value) return hashToken(value);
   }
   return null;
 }

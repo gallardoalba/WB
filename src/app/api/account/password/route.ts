@@ -21,7 +21,7 @@ export async function PATCH(request: Request) {
     changePassword(user.id, await hashPassword(newPassword));
     // Se cierran todas las sesiones y se renueva la del dispositivo actual.
     destroyUserSessions(user.id);
-    const token = createSession(user.id);
+    const token = createSession(user.id, request.headers.get("user-agent") ?? "");
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
 
     return json({ ok: true });

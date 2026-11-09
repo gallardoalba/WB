@@ -18,6 +18,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -74,7 +75,8 @@ fun AccountScreen(
     var isError by rememberSaveable { mutableStateOf(false) }
     var exporting by rememberSaveable { mutableStateOf(false) }
     var askDelete by rememberSaveable { mutableStateOf(false) }
-    var password by rememberSaveable { mutableStateOf("") }
+    // La contraseña de confirmación no se guarda en disco.
+    var password by remember { mutableStateOf("") }
     var deleting by rememberSaveable { mutableStateOf(false) }
 
     fun openPage(path: String) {
@@ -95,6 +97,9 @@ fun AccountScreen(
                 val json = withContext(Dispatchers.IO) { viewModel.repo.exportData() }
                 val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.ROOT).format(Date())
                 val dir = File(context.cacheDir, "export").apply { mkdirs() }
+                // Una exportación lleva perfil e historial en claro: la de la vez
+                // anterior no tiene por qué seguir en la caché.
+                withContext(Dispatchers.IO) { dir.listFiles()?.forEach { it.delete() } }
                 val file = File(dir, "wanderbibliothek-$stamp.json")
                 withContext(Dispatchers.IO) { file.writeText(json) }
                 val uri = FileProvider.getUriForFile(

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       // la única pista fiable de lo que entiende quien se registra.
       locale: await getLocale(),
     });
-    const token = createSession(user.id);
+    const token = createSession(user.id, request.headers.get("user-agent") ?? "");
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
     // El enlace de confirmación sale después de responder: un proveedor lento
     // no retrasa el registro.

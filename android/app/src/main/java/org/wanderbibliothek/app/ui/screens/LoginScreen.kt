@@ -39,7 +39,9 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
 
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    // `remember` y no `rememberSaveable`: la contraseña no debe acabar en el
+    // estado guardado del Activity, que el sistema escribe en disco.
+    var password by remember { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
     var needsCode by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }

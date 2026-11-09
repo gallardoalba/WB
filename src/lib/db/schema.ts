@@ -6,7 +6,7 @@
  * que lleva a las instalaciones antiguas hasta ese mismo estado.
  */
 
-export const SCHEMA_VERSION = 46;
+export const SCHEMA_VERSION = 47;
 
 /** Hash fijo de "demo1234": evita ejecutar scrypt al sembrar la base. */
 export const DEMO_PASSWORD_HASH =
@@ -29,7 +29,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  -- Para poder enseñar las sesiones en la cuenta y cerrar una sola.
+  user_agent TEXT NOT NULL DEFAULT '',
+  last_seen_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS books (

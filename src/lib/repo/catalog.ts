@@ -97,11 +97,19 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
   // Un `?page=99` (enlace viejo, filtro que reduce los resultados) no debe
   // enseñar una página vacía con «Página 99 de 2»: se cae a la última real.
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
-  const page = params.offset === undefined ? Math.min(requestedPage, lastPage) : requestedPage;
+  // Sin sesión el catálogo es una muestra: solo la primera página. Así no hay
+  // forma de recorrerlo entero por la API ni saltando a `?page=2`, y la tarjeta
+  // de cada libro no acumula contexto de lo que alguien publicó ni cuándo.
+  const anonimo = !userId;
+  const page = anonimo
+    ? 1
+    : params.offset === undefined
+      ? Math.min(requestedPage, lastPage)
+      : requestedPage;
   // El scroll infinito trae una fila más detrás de lo ya pintado: cuenta por
   // desplazamiento, porque el tamaño de cada tirada depende del ancho de la
   // rejilla. Las páginas numeradas siguen calculándolo desde `page`.
-  const offset = params.offset ?? (page - 1) * pageSize;
+  const offset = anonimo ? 0 : (params.offset ?? (page - 1) * pageSize);
 
   const rows = db
     .prepare(
@@ -117,7 +125,7 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
     pageSize,
     // Con desplazamiento manda lo que se ha traído de verdad: al final de la
     // lista la última tirada puede ser más corta que `pageSize`.
-    hasMore: offset + rows.length < total,
+    hasMore: anonimo ? false : offset + rows.length < total,
   };
 }
 

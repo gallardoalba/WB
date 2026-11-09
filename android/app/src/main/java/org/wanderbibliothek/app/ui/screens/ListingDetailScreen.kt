@@ -230,10 +230,13 @@ fun ListingDetailScreen(
                                 StatusPill(listing.status, texts)
                                 Pill(Labels.of(listing.condition, lang))
                             }
-                            Text(
-                                text = texts.format("owner", listing.ownerName),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            // Sin sesión no hay autoría: solo la ciudad.
+                            if (!listing.ownerMasked) {
+                                Text(
+                                    text = texts.format("owner", listing.ownerName),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             Text(
                                 text = listing.city,
                                 style = MaterialTheme.typography.labelSmall,

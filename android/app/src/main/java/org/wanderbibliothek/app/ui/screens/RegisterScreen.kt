@@ -1,6 +1,7 @@
 package org.wanderbibliothek.app.ui.screens
 
 import android.graphics.Color
+import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -52,8 +53,9 @@ fun RegisterScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var city by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var repeat by rememberSaveable { mutableStateOf("") }
+    // Las contraseñas no van al estado guardado: se quedan en memoria.
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
     var ageConfirmed by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -195,12 +197,17 @@ private fun TurnstileWebView(
                     view: WebView,
                     request: WebResourceRequest,
                 ): Boolean {
-                    val url = request.url.toString()
-                    // Solo la página del servidor y el propio widget: cualquier
-                    // otro destino se descarta.
-                    return !(url.startsWith(serverUrl) ||
-                        url.startsWith("https://challenges.cloudflare.com") ||
-                        url.startsWith("about:"))
+                    val url = request.url
+                    // Origen exacto, no prefijo: `wanderbibliothek.org.evil.tld`
+                    // empieza por la misma cadena y no debe conservar el puente.
+                    val server = Uri.parse(serverUrl)
+                    val mismoServidor =
+                        url.scheme == server.scheme &&
+                            url.host == server.host &&
+                            url.port == server.port
+                    val captcha =
+                        url.scheme == "https" && url.host == "challenges.cloudflare.com"
+                    return !(mismoServidor || captcha || url.scheme == "about")
                 }
             }
             webView.addJavascriptInterface(

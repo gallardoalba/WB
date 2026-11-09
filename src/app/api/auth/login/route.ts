@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     }
 
     clearAuthFailures(attemptKey);
-    const token = createSession(account.id);
+    const token = createSession(account.id, request.headers.get("user-agent") ?? "");
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
     const user = {
       id: account.id,
