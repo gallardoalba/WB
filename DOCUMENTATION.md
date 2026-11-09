@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 698 unit and integration tests (89 files)
+tests/                 699 unit and integration tests (89 files)
 e2e/                   51 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -175,7 +175,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 698 unit and integration tests in 89 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 699 unit and integration tests in 89 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

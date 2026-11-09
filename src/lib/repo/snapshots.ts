@@ -1,8 +1,7 @@
 import { getDb } from "../db";
 import type { ActivityView, AppSnapshot, ListingView, SessionUser, StatsView } from "../domain";
-import type { CatalogParams } from "../validation";
 import { listAvailabilityAlerts } from "./alerts";
-import { PAGE_SIZE, catalogPage, shelfListings } from "./catalog";
+import { PAGE_SIZE, catalogPage, shelfListings, type CatalogPageParams } from "./catalog";
 import { listClubs } from "./clubs";
 import { listRecentComments } from "./comments";
 import { listPublicReadingLists } from "./lists";
@@ -20,7 +19,7 @@ import { getStats, listActivity } from "./stats";
  */
 export function getSnapshot(
   user: SessionUser | null,
-  params: CatalogParams,
+  params: CatalogPageParams,
   shared?: { stats: StatsView; activity: ActivityView[] },
 ): AppSnapshot {
   const viewerId = user?.id ?? null;

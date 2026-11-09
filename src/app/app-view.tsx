@@ -57,7 +57,10 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
   if (raw.offer === "1") redirect("/ofrecer");
 
   const [stats, activity] = await Promise.all([publicStats(), publicActivity()]);
-  const snapshot = getSnapshot(user, params, { stats, activity });
+  // La portada no ordena por cercanía ni por fecha: enseña una muestra del
+  // catálogo (ver `shuffleOrder`). `shuffle` viaja aparte de la URL para que el
+  // scroll infinito del catálogo siga trayendo páginas coherentes.
+  const snapshot = getSnapshot(user, { ...params, shuffle: view === "home" }, { stats, activity });
 
   // La portada del primer ejemplar es el LCP de la portada y del catálogo (lo
   // señala el propio Next al medir). Declararla aquí hace que el navegador la

@@ -52,7 +52,32 @@ const ORDER_BY: Record<SortMode, string> = {
   title: "b.title COLLATE NOCASE ASC",
 };
 
-export function catalogPage(userId: string | null, params: CatalogParams): PagedListings {
+/**
+ * Orden «al azar» de la portada.
+ *
+ * La portada no enseña los últimos ejemplares sino una muestra del catálogo.
+ * `ORDER BY RANDOM()` cambiaría la selección en cada visita —y al volver atrás—,
+ * que se lee como un fallo; aquí el orden sale de mezclar el `rowid` con un
+ * sello que cambia cada hora: la muestra se mantiene mientras dura la hora y se
+ * renueva sola. La mezcla es un generador congruencial lineal (`× 1103515245
+ * mód 2³¹−1`), que aplicado a rowids seguidos da una permutación sin orden
+ * visible. Con decenas de miles de ejemplares habría que muestrear antes en vez
+ * de ordenar el catálogo entero.
+ */
+export function shuffleOrder(now = Date.now()): string {
+  const horas = Math.floor(now / 3_600_000);
+  // La semilla se mantiene por encima de mil millones a propósito: multiplicar
+  // el rowid por un número pequeño (que es lo que sale la mitad de las horas)
+  // deja la lista ordenada, y entonces el «azar» no se nota. Por encima de mil
+  // millones cada fila da más de una vuelta al módulo y el orden se rompe.
+  const semilla = 1_000_000_007 + ((1_103_515_245 * horas) % 1_000_000_007);
+  return `(l.rowid * ${semilla}) % 2147483647`;
+}
+
+/** Lo que necesita el catálogo; `shuffle` solo lo pone la portada. */
+export type CatalogPageParams = CatalogParams & { shuffle?: boolean };
+
+export function catalogPage(userId: string | null, params: CatalogPageParams): PagedListings {
   const db = getDb();
   const viewer = userId ?? "";
   const requestedPage = Math.max(1, params.page);
@@ -120,7 +145,7 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
   const rows = db
     .prepare(
       `${listingSelect(distance.expression)} ${distance.join} ${where}
-       ORDER BY ${ORDER_BY[params.sort]} LIMIT @limit OFFSET @offset`,
+       ORDER BY ${params.shuffle ? shuffleOrder() : ORDER_BY[params.sort]} LIMIT @limit OFFSET @offset`,
     )
     .all({ ...binds, limit: pageSize, offset }) as ListingRow[];
 
