@@ -8,7 +8,7 @@ The running instance serves the same content in Spanish and German at `/document
 
 A modular monolith on Next.js 16 (App Router with Cache Components), strict TypeScript and SQLite through `better-sqlite3`. One single process: SQLite has one writer and the live notification bus lives in memory.
 
-No third-party services are required. Covers and bibliographic records are fetched by the server and cached on disk, so the browser never talks to anyone else.
+No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records) and Nominatim (city coordinates); with `MASTODON_TOKEN` or `INDEXNOW_KEY` it also talks to Mastodon and IndexNow. The browser only talks to this instance.
 
 The code is MIT licensed.
 
@@ -174,7 +174,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 702 unit and integration tests in 86 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 705 unit and integration tests in 87 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

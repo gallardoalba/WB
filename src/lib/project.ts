@@ -101,7 +101,7 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Catalogación cuidada",
-              text: "las fichas se rellenan con la DNB (MARC21) y Open Library, con sello, año, colección y clasificación.",
+              text: "las fichas se rellenan con la DNB (MARC21) y Open Library, con sello, año, colección y clasificación; las consultas salen del servidor y se guardan en disco, así que el navegador no habla con ellos.",
             },
             {
               label: "Accesibilidad",
@@ -222,7 +222,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Sorgfältige Titelaufnahme",
-              text: "die Daten kommen aus der DNB (MARC21) und Open Library — mit Verlag, Jahr, Reihe und Klassifikation.",
+              text: "die Daten kommen aus der DNB (MARC21) und Open Library — mit Verlag, Jahr, Reihe und Klassifikation; die Abfragen gehen vom Server aus und werden auf der Platte zwischengespeichert, der Browser spricht nicht mit ihnen.",
             },
             {
               label: "Barrierefreiheit",
@@ -343,7 +343,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Careful cataloguing",
-              text: "records are filled from the DNB (MARC21) and Open Library — with publisher, year, series and classification.",
+              text: "records are filled from the DNB (MARC21) and Open Library — with publisher, year, series and classification; the lookups are made by the server and cached on disk, so the browser never talks to them.",
             },
             {
               label: "Accessibility",

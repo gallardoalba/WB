@@ -170,3 +170,68 @@ test("la mensajería directa guarda un sobre por dispositivo", async () => {
     ["android", "web"],
   );
 });
+
+test("al rotar la clave, el historial anterior deja de ser legible", async () => {
+  // Ejemplar y conversación propios: nada que ver con los de las pruebas de arriba.
+  const listing = repo.createListing("usr_lucia", {
+    title: "Rotación de clave",
+    author: "Autora de prueba",
+    category: "Ficción",
+    language: "Español",
+    condition: "Buen estado",
+    city: "Stuttgart",
+    isbn: null,
+    tags: [],
+  });
+  const request = repo.createRequest("usr_marcos", listing.id);
+  repo.updateRequestStatus(request.id, "usr_lucia", "accepted");
+
+  await repo.changePublicKey("usr_lucia", jwk("lucia-vieja"));
+  // Marcos ya publicó clave en las pruebas de arriba: rotarla pide contraseña.
+  await repo.changePublicKey("usr_marcos", jwk("marcos-web"), { password: "demo1234" });
+  const viejaId = repo.getPublicKeyRecord("usr_lucia", "web")!.keyId;
+  const marcosId = repo.getPublicKeyRecord("usr_marcos", "web")!.keyId;
+
+  // Mensaje hacia Lucía: el sobre va a la clave que tenía entonces.
+  const antes = repo.addEncryptedMessage(request.id, "usr_marcos", {
+    keyId: marcosId,
+    envelopes: [{ keyId: viejaId, ciphertext: CIPHERTEXT, iv: IV }],
+  });
+
+  // Lucía cambia la clave de su navegador (reinstalación, otro aparato…).
+  await repo.changePublicKey("usr_lucia", jwk("lucia-nueva"), { password: "demo1234" });
+  const nuevaId = repo.getPublicKeyRecord("usr_lucia", "web")!.keyId;
+  assert.notEqual(nuevaId, viejaId, "la ranura tiene una clave nueva");
+
+  // El mensaje sigue guardado con su sobre, pero ninguna clave activa de Lucía
+  // lo abre: el historial previo se pierde por diseño, no por un fallo.
+  const guardado = repo
+    .listMessages(request.id, "usr_lucia")
+    .messages.find((item) => item.id === antes.id);
+  assert.ok(guardado, "el mensaje sigue en el servidor");
+  assert.deepEqual(
+    guardado!.envelopes.map((sobre) => sobre.keyId),
+    [viejaId],
+    "su único sobre es para la clave anterior",
+  );
+  assert.equal(
+    repo.listPublicKeyRecords("usr_lucia").some((clave) => clave.keyId === viejaId),
+    false,
+    "la clave vieja ya no se puede usar para cifrar",
+  );
+
+  // El historial conserva la clave pública —sirve para auditar, no para
+  // descifrar— y anota cuándo se sustituyó.
+  const anterior = repo
+    .listPublicKeyHistory("usr_lucia", 20)
+    .find((entrada) => entrada.keyId === viejaId);
+  assert.ok(anterior, "la clave anterior queda en el historial");
+  assert.ok(anterior!.replacedAt, "y con la fecha de sustitución");
+
+  // Un mensaje nuevo viaja solo con la clave vigente.
+  const despues = repo.addEncryptedMessage(request.id, "usr_marcos", {
+    keyId: marcosId,
+    envelopes: [{ keyId: nuevaId, ciphertext: CIPHERTEXT, iv: IV }],
+  });
+  assert.deepEqual(despues.envelopes.map((sobre) => sobre.keyId), [nuevaId]);
+});

@@ -14,7 +14,7 @@ The platform is deliberately built as a counter-model to commercial marketplaces
 - **Talking without being overheard.** Each exchange opens a conversation that is encrypted end to end, and readers who follow each other can write privately; the server stores sealed envelopes it cannot open.
 - **Reading circles.** Organised by city, with a current read, meetings, an attendance list, a vote on the next book and a forum only members can read.
 - **Lists, directory, activity.** Reading lists as public curation, a directory of readers sorted by distance, and a stream of what is happening around you.
-- **Self-hosted.** One instance runs on a small server with SQLite, without third-party services.
+- **Self-hosted.** One instance runs on a small server with SQLite, with no third-party service needed to work: mail (Brevo or any webhook) and the Mastodon bot are optional. The server itself does query Open Library, Google Books and the DNB for covers and records (and Nominatim for cities), and caches the results on disk; the browser never talks to them.
 
 ## Principles
 
