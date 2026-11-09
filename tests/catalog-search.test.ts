@@ -330,36 +330,24 @@ test("los índices FTS siguen al alta, al cambio de título y a la baja", () => 
   assert.equal(enIndice("books_fts", "borrable"), 0);
 });
 
-test("la portada enseña una muestra al azar y no los últimos ejemplares", async () => {
-  const { shuffleOrder } = await import("../src/lib/repo/catalog.ts");
-
+test("la portada enseña una muestra al azar y no los últimos ejemplares", () => {
   const user = nuevaCuenta("Azar", "azar@example.test");
   for (let index = 1; index <= 8; index += 1) {
     publicar(user.id, `Azar ${index}`, "Autora");
   }
 
+  // Cada visita baraja otra vez: recargar la portada trae otros libros.
   const base = catalogParams({ q: "azar", shuffle: true });
-  const barajada = repo.catalogPage(null, base);
-
-  // Estable mientras dura el sello: recargar la portada no la baraja otra vez.
-  assert.deepEqual(
-    repo.catalogPage(null, base).items.map((listing) => listing.id),
-    barajada.items.map((listing) => listing.id),
+  const ordenes = new Set(
+    Array.from({ length: 5 }, () =>
+      repo.catalogPage(null, base).items.map((listing) => listing.id).join(","),
+    ),
   );
+  assert.ok(ordenes.size > 1, "cinco visitas no pueden dar la misma portada");
 
   // Es una muestra del catálogo, no otra lista.
+  const barajada = [...ordenes][0].split(",");
   const porFecha = repo.catalogPage(null, catalogParams({ q: "azar" }));
   const conocidos = new Set(porFecha.items.map((listing) => listing.id));
-  assert.ok(barajada.items.every((listing) => conocidos.has(listing.id)));
-
-  // No ordena por fecha ni por cercanía: eso es lo que hace `ORDER_BY`.
-  const orden = shuffleOrder();
-  assert.ok(!orden.includes("created_at") && !orden.includes("distance_km"), orden);
-
-  // Y cada hora baraja de otra forma (si no, sería un orden fijo disfrazado).
-  const hora = 3_600_000;
-  const permutaciones = new Set(
-    [0, 1, 2, 3, 4, 5].map((salto) => shuffleOrder(1_700_000_000_000 + salto * hora)),
-  );
-  assert.equal(permutaciones.size, 6, "la muestra cambia de una hora a la siguiente");
+  assert.ok(barajada.every((id) => conocidos.has(id)));
 });

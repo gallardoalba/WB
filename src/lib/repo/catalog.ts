@@ -55,24 +55,15 @@ const ORDER_BY: Record<SortMode, string> = {
 /**
  * Orden «al azar» de la portada.
  *
- * La portada no enseña los últimos ejemplares sino una muestra del catálogo.
- * `ORDER BY RANDOM()` cambiaría la selección en cada visita —y al volver atrás—,
- * que se lee como un fallo; aquí el orden sale de mezclar el `rowid` con un
- * sello que cambia cada hora: la muestra se mantiene mientras dura la hora y se
- * renueva sola. La mezcla es un generador congruencial lineal (`× 1103515245
- * mód 2³¹−1`), que aplicado a rowids seguidos da una permutación sin orden
- * visible. Con decenas de miles de ejemplares habría que muestrear antes en vez
- * de ordenar el catálogo entero.
+ * La portada no enseña los últimos ejemplares sino una muestra del catálogo, y
+ * la muestra cambia en cada visita: recargar trae otros libros, que es lo que
+ * se espera de un escaparate. La primera versión sembraba el orden con la hora
+ * —estable durante sesenta minutos— y en la práctica parecía que la portada se
+ * había quedado congelada. `RANDOM()` se evalúa por consulta y por fila; con un
+ * catálogo de decenas de miles de ejemplares habría que muestrear antes en vez
+ * de ordenar todo.
  */
-export function shuffleOrder(now = Date.now()): string {
-  const horas = Math.floor(now / 3_600_000);
-  // La semilla se mantiene por encima de mil millones a propósito: multiplicar
-  // el rowid por un número pequeño (que es lo que sale la mitad de las horas)
-  // deja la lista ordenada, y entonces el «azar» no se nota. Por encima de mil
-  // millones cada fila da más de una vuelta al módulo y el orden se rompe.
-  const semilla = 1_000_000_007 + ((1_103_515_245 * horas) % 1_000_000_007);
-  return `(l.rowid * ${semilla}) % 2147483647`;
-}
+const HOME_ORDER = "RANDOM()";
 
 /** Lo que necesita el catálogo; `shuffle` solo lo pone la portada. */
 export type CatalogPageParams = CatalogParams & { shuffle?: boolean };
@@ -145,7 +136,7 @@ export function catalogPage(userId: string | null, params: CatalogPageParams): P
   const rows = db
     .prepare(
       `${listingSelect(distance.expression)} ${distance.join} ${where}
-       ORDER BY ${params.shuffle ? shuffleOrder() : ORDER_BY[params.sort]} LIMIT @limit OFFSET @offset`,
+       ORDER BY ${params.shuffle ? HOME_ORDER : ORDER_BY[params.sort]} LIMIT @limit OFFSET @offset`,
     )
     .all({ ...binds, limit: pageSize, offset }) as ListingRow[];
 
