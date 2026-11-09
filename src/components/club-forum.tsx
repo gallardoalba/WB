@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Heart, MessagesSquare, Reply, Trash2, TriangleAlert } from "lucide-react";
 import { api } from "@/lib/client-api";
@@ -21,31 +21,32 @@ type Page = { posts: ClubPostView[]; hasMore: boolean; total: number };
 function PostReport({ postId }: { postId: string }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
-  const [details, setDetails] = useState("");
-  const [pending, setPending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
+  // Campos sin controlar: los lee la acción del formulario, así que no hace
+  // falta un estado por campo ni apagar el botón a mano.
+  const [estado, denunciar, enviando] = useActionState(
+    async (_previo: { error: string; enviada: boolean }, formData: FormData) => {
+      try {
+        await api("/api/reports", {
+          method: "POST",
+          body: {
+            targetType: "club_post",
+            targetId: postId,
+            reason: String(formData.get("reason") ?? REPORT_REASONS[0]),
+            details: String(formData.get("details") ?? ""),
+          },
+        });
+        return { error: "", enviada: true };
+      } catch (caught) {
+        return {
+          error: caught instanceof Error ? caught.message : t("No se pudo enviar la denuncia."),
+          enviada: false,
+        };
+      }
+    },
+    { error: "", enviada: false },
+  );
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending(true);
-    setError("");
-    try {
-      await api("/api/reports", {
-        method: "POST",
-        body: { targetType: "club_post", targetId: postId, reason, details },
-      });
-      setSent(true);
-      setOpen(false);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("No se pudo enviar la denuncia."));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  if (sent) return <span className="comment-action">{t("Denuncia enviada, gracias")}</span>;
+  if (estado.enviada) return <span className="comment-action">{t("Denuncia enviada, gracias")}</span>;
 
   return (
     <div className="comment-report">
@@ -58,15 +59,11 @@ function PostReport({ postId }: { postId: string }) {
         <TriangleAlert size={13} /> {t("Denunciar")}
       </button>
       {open && (
-        <form onSubmit={submit}>
+        <form action={denunciar}>
           <label className="sr-only" htmlFor={`motivo-${postId}`}>
             {t("Motivo de la denuncia")}
           </label>
-          <select
-            id={`motivo-${postId}`}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-          >
+          <select id={`motivo-${postId}`} name="reason" defaultValue={REPORT_REASONS[0]}>
             {REPORT_REASONS.map((option) => (
               <option key={option} value={option}>
                 {t(option)}
@@ -78,17 +75,16 @@ function PostReport({ postId }: { postId: string }) {
           </label>
           <input
             id={`detalle-${postId}`}
-            value={details}
-            onChange={(event) => setDetails(event.target.value)}
+            name="details"
             maxLength={500}
             placeholder={t("¿Qué ocurre? (opcional)")}
           />
-          <button type="submit" className="secondary-button small" disabled={pending}>
+          <button type="submit" className="secondary-button small" disabled={enviando}>
             {t("Enviar")}
           </button>
-          {error && (
+          {estado.error && (
             <span className="form-error" role="alert">
-              {error}
+              {estado.error}
             </span>
           )}
         </form>
@@ -122,14 +118,17 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
     setFeedback("");
   };
 
-  async function publish(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /**
+   * Publicar es una acción de formulario: la transición y el «publicando» los
+   * lleva React. El estado devuelto no se usa porque los avisos van a
+   * `feedback`/`error`, compartidos con responder y borrar.
+   */
+  const [, publicar, publicando] = useActionState(async () => {
     const text = body.trim();
     if (text.length < 2) {
       setError(t("Escribe al menos 2 caracteres."));
-      return;
+      return null;
     }
-    setPending(true);
     reset();
     try {
       const data = await api<{ post: ClubPostView }>(`/api/clubs/${clubId}/posts`, {
@@ -142,10 +141,9 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
       setFeedback(t("Mensaje publicado."));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo publicar el mensaje."));
-    } finally {
-      setPending(false);
     }
-  }
+    return null;
+  }, null);
 
   async function publishReply(event: FormEvent<HTMLFormElement>, parentId: string) {
     event.preventDefault();
@@ -376,7 +374,7 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
         </span>
       </div>
 
-      <form className="comment-form" onSubmit={publish}>
+      <form className="comment-form" action={publicar}>
         <label className="sr-only" htmlFor="club-post-body">
           {t("Tu mensaje para el club")}
         </label>
@@ -393,7 +391,7 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
           <span className="comment-remaining">
             {t("{n} caracteres", { n: MAX_LENGTH - body.length })}
           </span>
-          <button className="share-button small" type="submit" disabled={pending}>
+          <button className="share-button small" type="submit" disabled={publicando}>
             {t("Publicar mensaje")}
           </button>
         </div>

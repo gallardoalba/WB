@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EyeOff, Heart, MessageCircle, Reply, Trash2, TriangleAlert } from "lucide-react";
@@ -73,30 +73,32 @@ function CommentBody({ comment }: { comment: BookCommentView }) {
 function CommentReport({ commentId }: { commentId: string }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
-  const [details, setDetails] = useState("");
-  const [pending, setPending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
+  // Los campos van sin controlar y los lee la propia acción: así el formulario
+  // no necesita un estado por campo ni un `pending` que apagar a mano.
+  const [estado, denunciar, enviando] = useActionState(
+    async (_previo: { error: string; enviada: boolean }, formData: FormData) => {
+      try {
+        await api("/api/reports", {
+          method: "POST",
+          body: {
+            targetType: "comment",
+            targetId: commentId,
+            reason: String(formData.get("reason") ?? REPORT_REASONS[0]),
+            details: String(formData.get("details") ?? ""),
+          },
+        });
+        return { error: "", enviada: true };
+      } catch (caught) {
+        return {
+          error: caught instanceof Error ? caught.message : t("No se pudo enviar la denuncia."),
+          enviada: false,
+        };
+      }
+    },
+    { error: "", enviada: false },
+  );
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending(true);
-    setError("");
-    try {
-      await api("/api/reports", {
-        method: "POST",
-        body: { targetType: "comment", targetId: commentId, reason, details },
-      });
-      setSent(true);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("No se pudo enviar la denuncia."));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  if (sent) {
+  if (estado.enviada) {
     return <span className="comment-action">{t("Denuncia enviada, gracias")}</span>;
   }
 
@@ -111,15 +113,11 @@ function CommentReport({ commentId }: { commentId: string }) {
         <TriangleAlert size={13} /> {t("Denunciar")}
       </button>
       {open && (
-        <form onSubmit={submit}>
+        <form action={denunciar}>
           <label className="sr-only" htmlFor={`reason-${commentId}`}>
             {t("Motivo de la denuncia")}
           </label>
-          <select
-            id={`reason-${commentId}`}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-          >
+          <select id={`reason-${commentId}`} name="reason" defaultValue={REPORT_REASONS[0]}>
             {REPORT_REASONS.map((option) => (
               <option key={option} value={option}>
                 {t(option)}
@@ -131,17 +129,16 @@ function CommentReport({ commentId }: { commentId: string }) {
           </label>
           <input
             id={`details-${commentId}`}
-            value={details}
-            onChange={(event) => setDetails(event.target.value)}
+            name="details"
             maxLength={500}
             placeholder={t("¿Qué ocurre? (opcional)")}
           />
-          <button type="submit" className="secondary-button small" disabled={pending}>
+          <button type="submit" className="secondary-button small" disabled={enviando}>
             {t("Enviar")}
           </button>
-          {error && (
+          {estado.error && (
             <span className="form-error" role="alert">
-              {error}
+              {estado.error}
             </span>
           )}
         </form>
@@ -174,14 +171,19 @@ export function BookComments({
     setFeedback("");
   };
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /**
+   * Publicar es una acción de formulario: React la envuelve en una transición y
+   * da el «publicando» sin un `pending` a mano (antes había un `finally` que, si
+   * se olvidaba, dejaba el botón muerto). El estado que devuelve no se usa
+   * porque los avisos van a `feedback`/`error`, que comparte con borrar y con
+   * «me gusta».
+   */
+  const [, publicar, publicando] = useActionState(async () => {
     const text = body.trim();
     if (text.length < 2) {
       setError(t("Escribe al menos 2 caracteres."));
-      return;
+      return null;
     }
-    setPending(true);
     reset();
     try {
       const data = await api<{ comment: BookCommentView }>(`/api/books/${bookId}/comments`, {
@@ -195,10 +197,9 @@ export function BookComments({
       setFeedback(t("Comentario publicado."));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo publicar el comentario."));
-    } finally {
-      setPending(false);
     }
-  }
+    return null;
+  }, null);
 
   async function submitReply(event: FormEvent<HTMLFormElement>, parentId: string) {
     event.preventDefault();
@@ -445,7 +446,7 @@ export function BookComments({
       </div>
 
       {isAuthenticated ? (
-        <form className="comment-form" onSubmit={submit}>
+        <form className="comment-form" action={publicar}>
           <label className="sr-only" htmlFor="comment-body">
             {t("Tu comentario")}
           </label>
@@ -470,7 +471,7 @@ export function BookComments({
             <span className="comment-remaining">
               {t("{n} caracteres", { n: MAX_LENGTH - body.length })}
             </span>
-            <button className="share-button small" type="submit" disabled={pending}>
+            <button className="share-button small" type="submit" disabled={publicando}>
               {t("Publicar comentario")}
             </button>
           </div>

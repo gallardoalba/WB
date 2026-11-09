@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import type { KeyboardEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -451,6 +458,14 @@ export default function WanderbibliothekApp({
     visibleListings.length,
   ]);
 
+  // `useEffectEvent` para que el observer no se vuelva a montar cada vez que
+  // cambia la identidad de `loadMore` (que depende de la lista y de todos los
+  // filtros, o sea de casi todo): se suscribe una vez por vista y aun así llama
+  // siempre a la versión actual.
+  const pedirMas = useEffectEvent(() => {
+    void loadMore();
+  });
+
   useEffect(() => {
     if (view !== "discover" || !canLoadMore) return;
     const node = sentinelRef.current;
@@ -460,13 +475,13 @@ export default function WanderbibliothekApp({
     // nuevo aviso de intersección y la lista se quedaría parada).
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+        if (entries.some((entry) => entry.isIntersecting)) pedirMas();
       },
       { rootMargin: "0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [canLoadMore, loadMore, view]);
+  }, [canLoadMore, view]);
 
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
@@ -494,12 +509,17 @@ export default function WanderbibliothekApp({
     requestAnimationFrame(() => document.getElementById(`community-tab-${next}`)?.focus());
   };
 
-  // Búsqueda con retardo: el filtrado se resuelve en el servidor.
+  // Búsqueda con retardo: el filtrado se resuelve en el servidor. La navegación
+  // va dentro de un `useEffectEvent` para que el temporizador solo se reinicie
+  // cuando cambia lo que se escribe (antes lo reiniciaba cualquier re-render,
+  // porque `navigate` cambia de identidad con la página y los filtros).
+  const buscar = useEffectEvent(() => navigate({ q: search, page: 1 }));
+
   useEffect(() => {
     if (search === filters.q) return;
-    const timer = setTimeout(() => navigate({ q: search, page: 1 }), 350);
+    const timer = setTimeout(() => buscar(), 350);
     return () => clearTimeout(timer);
-  }, [search, filters.q, navigate]);
+  }, [search, filters.q]);
 
   const refresh = useCallback(() => {
     startTransition(() => router.refresh());

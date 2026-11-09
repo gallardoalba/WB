@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 import { Lock, Send, TriangleAlert } from "lucide-react";
 import { Dialog } from "./dialog";
 import { api } from "@/lib/client-api";
@@ -148,7 +156,17 @@ export function DirectMessageDialog({
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
-  const [sending, setSending] = useState(false);
+  /**
+   * Mensajes que están saliendo. Se pintan en el acto con su texto en claro y
+   * desaparecen cuando el hilo real vuelve del servidor: cifrar y esperar la
+   * respuesta tarda lo bastante como para que el silencio se lea como «no se
+   * ha enviado».
+   */
+  const [envios, agregarEnvio] = useOptimistic<
+    { id: string; texto: string; hora: string }[],
+    { id: string; texto: string; hora: string }
+  >([], (previos, envio) => [...previos, envio]);
+  const [sending, startTransition] = useTransition();
   const [hasKey, setHasKey] = useState(false);
   const [keyChanged, setKeyChanged] = useState(false);
   const privateKeyRef = useRef<CryptoKey | null>(null);
@@ -187,34 +205,40 @@ export function DirectMessageDialog({
   useEffect(() => {
     if (!open) return;
     bottomRef.current?.scrollIntoView({ block: "nearest" });
-  }, [open, thread?.messages.length, texts]);
+  }, [open, thread?.messages.length, texts, envios.length]);
 
-  async function send(event: FormEvent) {
+  function send(event: FormEvent) {
     event.preventDefault();
     const body = draft.trim();
     if (!body || !thread || !privateKeyRef.current || !myKeyIdRef.current) return;
-    setSending(true);
+    const peerId = thread.peer.id;
+    const meId = thread.me.id;
+    const keyId = myKeyIdRef.current;
+    const privateKey = privateKeyRef.current;
     setError("");
-    try {
-      const conversationId = directConversationId(thread.me.id, thread.peer.id);
-      const envelopes = await encryptForRecipients(
-        privateKeyRef.current,
-        peerKeysRef.current,
-        conversationId,
-        body,
-        directAad(conversationId, thread.me.id, myKeyIdRef.current),
-      );
-      await api(`/api/direct/${thread.peer.id}`, {
-        method: "POST",
-        body: { keyId: myKeyIdRef.current, envelopes },
-      });
-      setDraft("");
-      await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("No se pudo enviar el mensaje."));
-    } finally {
-      setSending(false);
-    }
+    // Dentro de una transición: así el mensaje optimista aparece ya y React lo
+    // retira solo cuando llega el hilo de verdad (o al fallar).
+    startTransition(async () => {
+      agregarEnvio({ id: `envio-${Date.now()}`, texto: body, hora: new Date().toISOString() });
+      try {
+        const conversationId = directConversationId(meId, peerId);
+        const envelopes = await encryptForRecipients(
+          privateKey,
+          peerKeysRef.current,
+          conversationId,
+          body,
+          directAad(conversationId, meId, keyId),
+        );
+        await api(`/api/direct/${peerId}`, {
+          method: "POST",
+          body: { keyId, envelopes },
+        });
+        setDraft("");
+        await load();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : t("No se pudo enviar el mensaje."));
+      }
+    });
   }
 
   const loading = !thread && !error;
@@ -279,7 +303,7 @@ export function DirectMessageDialog({
         {thread?.canMessage && (
           <>
             <ol className="dm-thread">
-              {thread.messages.length === 0 && (
+              {thread.messages.length === 0 && envios.length === 0 && (
                 <li className="dm-empty">
                   {t("Aún no hay mensajes. Escribe el primero: se cifra en tu navegador antes de salir.")}
                 </li>
@@ -302,6 +326,14 @@ export function DirectMessageDialog({
                   </li>
                 );
               })}
+              {envios.map((envio) => (
+                <li key={envio.id} className="dm-line mine dm-pending">
+                  <div className="dm-bubble">
+                    <p>{envio.texto}</p>
+                    <time dateTime={envio.hora}>{t("Enviando…")}</time>
+                  </div>
+                </li>
+              ))}
             </ol>
             <div ref={bottomRef} />
 
