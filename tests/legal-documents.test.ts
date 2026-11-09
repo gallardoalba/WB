@@ -83,8 +83,10 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
 
 test("la dirección de contacto se publica enmascarada", () => {
   // El aviso legal tiene que dar un medio de contacto, pero no regalárselo a
-  // los rastreadores de correo: en el texto va `nombre[at]dominio`.
-  assert.equal(maskContact("gallardoalba@pm.me"), "gallardoalba[at]pm[dot]me");
+  // los rastreadores de correo: en el texto va `nombre[at]dominio[dot]tld`.
+  // Las direcciones de ejemplo son inventadas a propósito: el repositorio es
+  // público y no debe servir para cosechar la de verdad.
+  assert.equal(maskContact("lectora@ejemplo.org"), "lectora[at]ejemplo[dot]org");
   assert.equal(maskContact("  hola@wanderbibliothek.org  "), "hola[at]wanderbibliothek[dot]org");
   // Los puntos del usuario se quedan: lo que se tapa es el dominio.
   assert.equal(maskContact("nombre.apellido@ejemplo.es"), "nombre.apellido[at]ejemplo[dot]es");
