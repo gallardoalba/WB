@@ -714,13 +714,13 @@ export function enqueuePost(input: {
   return result.changes > 0 ? id : null;
 }
 
-/** Separación mínima entre dos avisos encolados: 2 horas. */
-export const SOCIAL_GAP_MIN_MS = 2 * 60 * 60 * 1000;
-/** Separación máxima entre dos avisos encolados: 3 horas. */
-export const SOCIAL_GAP_MAX_MS = 3 * 60 * 60 * 1000;
+/** Separación mínima entre dos avisos encolados: 4 horas. */
+export const SOCIAL_GAP_MIN_MS = 4 * 60 * 60 * 1000;
+/** Separación máxima entre dos avisos encolados: 7 horas. */
+export const SOCIAL_GAP_MAX_MS = 7 * 60 * 60 * 1000;
 
 /**
- * Banda de separación, en minutos: `MASTODON_GAP_MINUTES="120-180"`.
+ * Banda de separación, en minutos: `MASTODON_GAP_MINUTES="240-420"`.
  *
  * Existe para poder hacer una prueba real desde la web sin esperar el turno:
  * con `0` no hay espera y cada obra se anuncia en el acto. Un valor raro se
@@ -741,7 +741,7 @@ function bandaSeparacion(): [number, number] {
 }
 
 /**
- * Separación aleatoria entre dos avisos: entre 2 y 3 horas por defecto.
+ * Separación aleatoria entre dos avisos: entre 4 y 7 horas por defecto.
  *
  * Quien cataloga diez libros de una sentada no debe convertir su cuenta en un
  * aluvión para quien la sigue, y un hueco fijo parecería programado. El azar se
@@ -782,7 +782,7 @@ function ultimoAvisoProgramado(): Date | null {
  * Sube la imagen del aviso **justo antes de publicarlo**.
  *
  * No se sube al encolar porque un aviso puede esperar horas o días en la cola
- * (una tanda va separada 2–3 horas) y Mastodon descarta los medios que no se
+ * (una tanda va separada 4–7 horas) y Mastodon descarta los medios que no se
  * adjuntan en 24 horas: el post saldría sin portada o fallaría. El id queda
  * anotado en la fila para que un reintento adjunte la misma imagen en vez de
  * subir otra.
@@ -1066,7 +1066,7 @@ export async function announceBook(input: {
 
     // Un aviso detrás de otro, pero no a la vez: quien publica diez libros de una
     // sentada tiene su primer aviso en el acto y los demás en cola, separados
-    // entre 2 y 3 horas (`separacionAviso`). Así el catálogo crece sin que la
+    // entre 4 y 7 horas (`separacionAviso`). Así el catálogo crece sin que la
     // cuenta parezca un robot que escupe veinte posts seguidos.
     const anterior = input.ownerId ? ultimoAvisoProgramado() : null;
     const ahora = input.now ?? new Date();

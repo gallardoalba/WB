@@ -244,7 +244,7 @@ export const EN: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "unset",
-              "Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 2 to 3 hours (the administration has no daily cap).",
+              "Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 4 to 7 hours (the administration has no daily cap).",
             ],
             [
               "`MASTODON_QUIET_HOURS`",

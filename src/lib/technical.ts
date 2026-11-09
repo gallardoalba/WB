@@ -268,7 +268,7 @@ const ES: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "sin definir",
-              "Activa el bot que anuncia en Mastodon las obras que publica una cuenta de administración (las de la comunidad no llegan a la cola); sin él no se encola ni se publica nada. Un aviso por obra y cuenta y día; si se publican varias de golpe, el primero sale en el acto y los demás se encolan con una separación aleatoria de 2 a 3 horas (la administración, además, no tiene tope diario).",
+              "Activa el bot que anuncia en Mastodon las obras que publica una cuenta de administración (las de la comunidad no llegan a la cola); sin él no se encola ni se publica nada. Un aviso por obra y cuenta y día; si se publican varias de golpe, el primero sale en el acto y los demás se encolan con una separación aleatoria de 4 a 7 horas (la administración, además, no tiene tope diario).",
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
@@ -657,7 +657,7 @@ const DE: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "nicht gesetzt",
-              "Aktiviert den Bot, der auf Mastodon die Werke ankündigt, die ein Administrationskonto veröffentlicht (Werke aus der Community erreichen die Warteschlange nicht); ohne ihn wird nichts eingereiht oder veröffentlicht. Ein Hinweis pro Werk und Konto und Tag; bei mehreren auf einmal geht der erste sofort raus und die übrigen warten mit einem zufälligen Abstand von 2 bis 3 Stunden (die Administration hat außerdem keine Tagesgrenze).",
+              "Aktiviert den Bot, der auf Mastodon die Werke ankündigt, die ein Administrationskonto veröffentlicht (Werke aus der Community erreichen die Warteschlange nicht); ohne ihn wird nichts eingereiht oder veröffentlicht. Ein Hinweis pro Werk und Konto und Tag; bei mehreren auf einmal geht der erste sofort raus und die übrigen warten mit einem zufälligen Abstand von 4 bis 7 Stunden (die Administration hat außerdem keine Tagesgrenze).",
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",

@@ -258,6 +258,10 @@ regla por olvido. El envío manual (`--enviar`) cuenta como administración.
   convierte el perfil en una lista de la compra: se anuncia el primer libro del
   día y los demás se quedan sin aviso. El día se cuenta en hora alemana
   (Europe/Berlin), no en UTC. El envío a mano (`--enviar`) no pasa por ese tope.
+- **Y espaciados.** Si se publican varias obras de golpe, la primera sale en el
+  acto y las demás esperan un hueco aleatorio de **4 a 7 horas**
+  (`MASTODON_GAP_MINUTES`, por defecto `240-420`) para que el perfil no parezca
+  un robot. Con `0` no hay espera: solo para una prueba desde la web.
 - **Registro sobrio**: una frase enunciativa, sin emoji ni exclamaciones, el
   enlace y tres etiquetas. Hay veinte formulaciones por idioma y la variante se
   elige con un hash del id de la obra, así que el mismo libro siempre se anuncia

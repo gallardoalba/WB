@@ -499,7 +499,7 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
   }) as unknown as typeof fetch;
   process.env.MASTODON_TOKEN = "tok";
   // Horas simuladas: el primer aviso sale en el acto y los siguientes esperan
-  // el turno de la cuenta (2-3 h). Media hora después ya no toca, y al día
+  // el turno de la cuenta (4-7 h). Media hora después ya no toca, y al día
   // siguiente la cola vuelve a estar libre. Las fechas son lógicas: la prueba
   // no debe depender del reloj real del equipo.
   const primeraHora = new Date("2026-11-08T09:00:00Z");
@@ -524,7 +524,7 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
     assert.deepEqual(primero, { queued: true, sent: true, media: false });
     assert.deepEqual(segundo, { queued: false, sent: false, media: false }, "el segundo libro del día no se anuncia");
     // Otra persona sí tiene su aviso, pero entra en el turno de la cuenta: el
-    // bot publica de uno en uno, separado 2-3 horas.
+    // bot publica de uno en uno, separado 4-7 horas.
     assert.deepEqual(
       { queued: otraPersona.queued, sent: otraPersona.sent },
       { queued: true, sent: false },
@@ -758,7 +758,7 @@ test("la administración anuncia cada libro del día, sin el tope de uno", async
   }
 });
 
-test("la separación entre avisos encolados está entre 2 y 3 horas", () => {
+test("la separación entre avisos encolados está entre 4 y 7 horas", () => {
   assert.equal(mastodon.separacionAviso(() => 0), mastodon.SOCIAL_GAP_MIN_MS);
   assert.equal(mastodon.separacionAviso(() => 1), mastodon.SOCIAL_GAP_MAX_MS);
   const medio = mastodon.separacionAviso(() => 0.5);
