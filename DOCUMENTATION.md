@@ -17,7 +17,7 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               72 handlers grouped by domain
+    api/               71 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 716 unit and integration tests (89 files)
+tests/                 698 unit and integration tests (89 files)
 e2e/                   51 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -69,7 +69,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/health` | Service and database status. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 72 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
+The API has 71 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -175,7 +175,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 716 unit and integration tests in 89 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 698 unit and integration tests in 89 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

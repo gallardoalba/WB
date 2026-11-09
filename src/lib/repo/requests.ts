@@ -12,7 +12,7 @@ import type {
 } from "../domain";
 import { publishRequestMessage } from "../live";
 import { canTransition, listingStatusFor } from "../request-flow";
-import { normalizeText } from "../text";
+import { normalizeCoverUrl, normalizeText } from "../text";
 import { areBlocked, FALTAN_SOBRES, messageEnvelopesFor, nowIso } from "./shared";
 import {
   assertVerified,
@@ -79,7 +79,9 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
       id: row.listing_id,
       title: row.title,
       author: row.author,
-      coverUrl: row.cover_url,
+      // Misma regla que en el catálogo: una portada antigua (de Open Library o
+      // servida por ISBN) se anula al leer.
+      coverUrl: normalizeCoverUrl(row.cover_url),
       status: row.listing_status,
     },
     requester: { id: row.requester_id, name: row.requester_name, city: row.requester_city },

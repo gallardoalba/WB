@@ -71,7 +71,7 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y route handlers (App Router)",
-            "    api/               72 handlers agrupados por dominio",
+            "    api/               71 handlers agrupados por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          armazón de servidor e islas de cliente",
@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 716 pruebas unitarias y de integración (89 ficheros)",
+            "tests/                 698 pruebas unitarias y de integración (89 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -142,7 +142,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 72 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
+          text: "La API tiene 71 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
         },
         {
           kind: "list",
@@ -322,7 +322,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 716 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 51 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 698 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 51 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -508,7 +508,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 716 Unit- und Integrationstests (89 Dateien)",
+            "tests/                 698 Unit- und Integrationstests (89 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -748,7 +748,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 716 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 51 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 698 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 51 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

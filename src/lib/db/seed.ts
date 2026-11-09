@@ -6,7 +6,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { hashPasswordSync } from "../password";
-import { coverFromIsbn, normalizeText } from "../text";
+import { normalizeText } from "../text";
 import type { Db } from "./index";
 
 export const DEMO_PASSWORD_HASH =
@@ -223,7 +223,7 @@ export function seed(db: Db) {
         book.category,
         book.language,
         // Se sirve desde la propia app: la CSP no permite imágenes de terceros.
-        coverFromIsbn(book.isbn),
+        null,
         createdAt,
       );
       insertListing.run(

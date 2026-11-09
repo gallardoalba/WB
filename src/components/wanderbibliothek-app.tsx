@@ -326,12 +326,19 @@ export default function WanderbibliothekApp({
   // Al cambiar de vista el foco sigue donde estaba y el lector de pantalla no
   // anuncia nada nuevo. Se mueve al título de la vista (que recibirá
   // `tabIndex={-1}`); en la primera pintura no se toca.
+  //
+  // La página nueva empieza por arriba: `router.replace` va con `scroll: false`
+  // para que filtrar no dé saltos, así que al pasar de la portada al catálogo
+  // el navegador conservaba la altura de la vista anterior y «Descubrir todos
+  // los libros» abría el catálogo a media página.
   const viewRef = useRef(view);
   useEffect(() => {
     if (viewRef.current === view) return;
     viewRef.current = view;
+    window.scrollTo({ top: 0, left: 0 });
     const heading = document.querySelector<HTMLElement>("#main-content h1");
-    heading?.focus();
+    // `preventScroll`: si no, enfocar el título vuelve a desplazar la página.
+    heading?.focus({ preventScroll: true });
   }, [view]);
 
   // Al pasar de página la lista nueva se pinta por encima y la persona se
@@ -1342,10 +1349,10 @@ export default function WanderbibliothekApp({
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => {
-                      navigate({ view: "discover", page: 1 });
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
+                    // El salto al principio lo hace el efecto que vigila el
+                    // cambio de vista; aquí no se anima nada para no pelearse
+                    // con él.
+                    onClick={() => navigate({ view: "discover", page: 1 })}
                   >
                     <Compass size={16} /> {t("Descubrir todos los libros")}
                   </button>

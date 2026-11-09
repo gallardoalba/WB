@@ -81,7 +81,7 @@ export default async function Page({ searchParams }: PageProps) {
   };
 
   return (
-    <SiteShell user={viewer} section="lectores" title={t("Lectores")}>
+    <SiteShell user={viewer} section="lectores" title={t("Lectores")} wide>
       <PageHeader
         overline={t("DIRECTORIO DE LA REGIÓN")}
         title={`${t("Lectores de")} ${regionName(locale)}`}

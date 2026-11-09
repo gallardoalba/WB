@@ -28,7 +28,7 @@
 import { randomUUID } from "node:crypto";
 
 import { toJpeg } from "./cover-convert";
-import { getCover, readUploadedCover, uploadedCoverPath } from "./covers";
+import { readUploadedCover, uploadedCoverPath } from "./covers";
 import { getDb, type Db } from "./db";
 import { DEFAULT_LOCALE, localePath, type Locale } from "./locale";
 import { siteUrl } from "./site";
@@ -493,17 +493,16 @@ export async function esperarPortadaSubida(
   }
 }
 
-/** Portada de la obra: la subida a mano manda; si no, la del ISBN (y se cachea). */
+/**
+ * Portada de la obra: la que subió quien publica el ejemplar.
+ *
+ * Antes había un segundo camino que la descargaba del ISBN; ya no existe, así
+ * que un aviso de una obra sin portada subida sale solo con texto.
+ */
 export async function coverForBook(
   bookId: string,
 ): Promise<{ data: Buffer; contentType: string } | null> {
-  const uploaded = readUploadedCover(bookId);
-  if (uploaded) return uploaded;
-  const row = getDb().prepare("SELECT isbn, title, author FROM books WHERE id = ?").get(bookId) as
-    | { isbn: string | null; title: string; author: string }
-    | undefined;
-  if (!row?.isbn) return null;
-  return getCover(row.isbn, { title: row.title, author: row.author });
+  return readUploadedCover(bookId);
 }
 
 /**

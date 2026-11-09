@@ -2,10 +2,24 @@ import { randomUUID } from "node:crypto";
 import { getDb, type Db } from "../db";
 import { ApiError } from "../errors";
 import type { ListingStatus, ListingView, PagedListings, SortMode } from "../domain";
-import { coverFromIsbn, normalizeText } from "../text";
+import { normalizeCoverUrl, normalizeText } from "../text";
 import { cachedIsbnMetadata } from "../isbn-metadata";
 import { workKeyFromOpenLibrary, workKeyFromTitle } from "../work";
 import type { CatalogParams, ListingInput } from "../validation";
+
+/**
+ * Lo que necesita el repositorio para crear un ejemplar.
+ *
+ * La API y el formulario ya exigen idioma y ciudad (`listingSchema`), pero aquí
+ * se aceptan sin ellos porque hay dos valores de reserva: el idioma queda como
+ * «No especificado» y la ciudad cae en la del propietario. Así las llamadas
+ * internas (semilla, pruebas, altas antiguas) siguen funcionando sin inventar
+ * datos, mientras que el camino público no puede dejar la ficha a medias.
+ */
+type ListingInputOpcional = Omit<ListingInput, "language" | "city"> & {
+  language?: ListingInput["language"];
+  city?: ListingInput["city"];
+};
 import { getUserById, assertVerified } from "./users";
 import { notifyAvailability } from "./alerts";
 import { notifyBookWants } from "./wants";
@@ -228,7 +242,7 @@ function writeListingTags(db: Db, listingId: string, tags: string[]): void {
   for (const tag of tags.slice(0, 3)) insert.run(listingId, tag);
 }
 
-export function createListing(ownerId: string, input: ListingInput): ListingView {
+export function createListing(ownerId: string, input: ListingInputOpcional): ListingView {
   const db = getDb();
   const owner = getUserById(ownerId);
   if (!owner) throw new ApiError(401, "Necesitas iniciar sesión.");
@@ -239,7 +253,8 @@ export function createListing(ownerId: string, input: ListingInput): ListingView
   const titleKey = normalizeText(input.title);
   const searchKey = normalizeText(`${input.title} ${input.author} ${city}`);
   const now = nowIso();
-  const coverUrl = coverFromIsbn(input.isbn);
+  // La portada llega después, subida a mano (`/api/cover/book/<id>`).
+  const coverUrl: string | null = null;
   // Clave de obra: la de Open Library (agrupa traducciones) o, si no se
   // conoce, la derivada del título y la autoría. La segunda sirve para unir
   // las ediciones que ya estén en el catálogo con la misma fórmula.
@@ -539,7 +554,10 @@ function toBookView(row: BookRow): BookView {
     isbn: row.isbn,
     category: row.category,
     language: row.language,
-    coverUrl: row.cover_url,
+    // Igual que en los ejemplares: las URLs de portada de versiones anteriores
+    // (las de Open Library y las que se servían por ISBN) se anulan al leer, o
+    // la ficha pediría una ruta que ya no existe.
+    coverUrl: normalizeCoverUrl(row.cover_url),
     publisher: row.publisher ?? null,
     year: row.year ?? null,
     series: row.series ?? null,
@@ -662,13 +680,13 @@ export function setBookCoverUrl(bookId: string, coverUrl: string | null): void {
   getDb().prepare("UPDATE books SET cover_url = ? WHERE id = ?").run(coverUrl, bookId);
 }
 
-/** Al quitar la portada subida se vuelve a la del ISBN (la busca el servidor). */
+/** Al quitar la portada subida la ficha queda sin imagen hasta que se suba otra. */
 export function resetBookCover(bookId: string): void {
   const row = getDb().prepare("SELECT isbn FROM books WHERE id = ?").get(bookId) as
     | { isbn: string | null }
     | undefined;
   if (!row) return;
-  setBookCoverUrl(bookId, coverFromIsbn(row.isbn));
+  setBookCoverUrl(bookId, null);
 }
 
 /** Copias disponibles de una obra, ordenadas por cercanía y estado. */

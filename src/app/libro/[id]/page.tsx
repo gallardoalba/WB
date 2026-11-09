@@ -78,7 +78,6 @@ export default async function Page({ params }: PageProps) {
           <BookCover
             id={listing.id}
             title={listing.title}
-            author={listing.author}
             coverUrl={listing.coverUrl}
             sizes="(max-width: 700px) 70vw, 280px"
           />

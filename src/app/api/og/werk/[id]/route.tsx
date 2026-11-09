@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 import { imageDimensions } from "@/lib/cover-convert";
-import { getCover, readUploadedCover } from "@/lib/covers";
+import { readUploadedCover } from "@/lib/covers";
 import { OG_SIZE } from "@/lib/og";
 import { ogRateLimit } from "@/lib/og-limit";
 import { getPublicWork } from "@/lib/repo";
@@ -49,7 +49,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const work = getPublicWork(id);
   if (!work) return new Response("Not found", { status: 404 });
 
-  const cover = await cardCover(work.id, work.isbn);
+  const cover = await cardCover(work.id);
   const title = clamp(work.title, 90);
   const author = clamp(work.author, 64);
   // El ancho del texto se calcula en píxeles: con `flexGrow` a secas, Satori
@@ -196,9 +196,10 @@ function clamp(text: string, max: number): string {
  * no tenga que salir a la red. Se prefiere la subida a mano; si no hay, la del
  * ISBN (que queda en caché de disco, así que solo se paga la primera vez).
  */
-async function cardCover(bookId: string, isbn: string | null): Promise<CardCover | null> {
+async function cardCover(bookId: string): Promise<CardCover | null> {
   const uploaded = readUploadedCover(bookId);
-  const cover = uploaded ?? (isbn ? await getCover(isbn).catch(() => null) : null);
+  // Sin portada subida no hay tarjeta: la aplicación ya no descarga la del ISBN.
+  const cover = uploaded;
   if (!cover) return null;
   const size = imageDimensions(cover.data);
   if (!size) return null;

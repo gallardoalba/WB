@@ -68,7 +68,7 @@ export default async function Page({ searchParams }: PageProps) {
   };
 
   return (
-    <SiteShell user={viewer} section="listas" title={t("Listas")}>
+    <SiteShell user={viewer} section="listas" title={t("Listas")} wide>
       <PageHeader
         overline={t("LO QUE LA COMUNIDAD RECOMIENDA")}
         title={t("Listas de lectura")}

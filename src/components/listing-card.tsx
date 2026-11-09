@@ -40,7 +40,6 @@ export function ListingCard({
           <BookCover
             id={listing.id}
             title={listing.title}
-            author={listing.author}
             coverUrl={listing.coverUrl}
           />
         </Link>

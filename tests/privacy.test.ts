@@ -60,9 +60,13 @@ test("la CSP no autoriza ningún origen externo de imágenes", () => {
   assert.deepEqual(origins, [], `orígenes externos en img-src: ${origins.join(", ")}`);
 });
 
-test("las portadas se piden a la propia aplicación, nunca a un tercero", () => {
-  assert.equal(text.coverFromIsbn("9788420412146"), "/api/cover/9788420412146");
-  assert.equal(text.coverFromIsbn(null), null);
+test("las portadas solo pueden ser la imagen subida, nunca una de un tercero", () => {
+  assert.equal(text.normalizeCoverUrl("/api/cover/book/bok_1"), "/api/cover/book/bok_1");
+  // Las URLs externas de versiones anteriores y las que se servían por ISBN se
+  // anulan al leer: nadie pide ya una imagen a Open Library.
+  assert.equal(text.normalizeCoverUrl("https://covers.openlibrary.org/b/id/1-L.jpg"), null);
+  assert.equal(text.normalizeCoverUrl("/api/cover/9788420412146"), null);
+  assert.equal(text.normalizeCoverUrl(null), null);
   // Las URL externas ya guardadas en la base se migran (v29).
   assert.match(source("src/lib/db/migrations.ts"), /cover_url LIKE 'https:\/\/covers\.openlibrary\.org\//);
 });

@@ -56,22 +56,19 @@ export function isValidIsbn(isbn: string): boolean {
   return false;
 }
 
-export function coverFromIsbn(isbn: string | null): string | null {
-  if (!isbn || !isValidIsbn(isbn)) return null;
-  // Se pide a la propia aplicación, que la trae y la cachea en disco: así el
-  // navegador no abre una conexión con Open Library (que vería su IP y el ISBN).
-  return `/api/cover/${isbn}`;
-}
-
 /**
- * Corrige portadas guardadas con la URL externa de versiones anteriores.
- * Se aplica al leer, no solo al migrar: así ningún dato viejo puede volver a
- * romper la política de imágenes.
+ * Deja la portada en su sitio o la anula.
+ *
+ * Solo hay un origen válido: la imagen que subió quien publica el ejemplar
+ * (`/api/cover/book/<id>`). Las URLs de versiones anteriores —las externas de
+ * Open Library y las que se servían por ISBN— se anulan al leer, para que
+ * ningún dato viejo pueda volver a pintar una portada de terceros ni pedir una
+ * ruta que ya no existe.
  */
-export function normalizeCoverUrl(coverUrl: string | null, isbn: string | null): string | null {
-  if (!coverUrl || coverUrl.startsWith("https://covers.openlibrary.org/")) {
-    return coverFromIsbn(isbn);
-  }
+export function normalizeCoverUrl(coverUrl: string | null): string | null {
+  if (!coverUrl) return null;
+  if (coverUrl.startsWith("https://covers.openlibrary.org/")) return null;
+  if (coverUrl.startsWith("/api/cover/") && !coverUrl.startsWith("/api/cover/book/")) return null;
   return coverUrl;
 }
 

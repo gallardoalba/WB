@@ -19,10 +19,13 @@ import { listingSchema } from "../src/lib/validation.ts";
  * sea obligatorio al publicar.
  */
 
+// Idioma y ciudad son obligatorios desde que la ficha no puede quedar a medias;
+// el resto de campos opcionales se prueban aparte.
 const BASE = {
   title: "El nombre de la rosa",
   author: "Umberto Eco",
   category: "Ficción",
+  language: "Español",
   condition: "Buen estado",
   city: "Freiburg im Breisgau",
 };

@@ -1,13 +1,12 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { prepareCover } from "@/lib/cover-image";
 import { CATEGORIES, CONDITIONS, BOOK_LANGUAGES, tagsForCategory } from "@/lib/domain";
-import { coverFromIsbn, isValidIsbn, normalizeIsbn } from "@/lib/text";
+import { isValidIsbn, normalizeIsbn } from "@/lib/text";
 import { CityField } from "./city-field";
 import { CoverFilePicker } from "./cover-file-picker";
 import { useI18n } from "./i18n-provider";
@@ -91,8 +90,6 @@ export function OfferForm({
   const [language, setLanguage] = useState<string>(BOOK_LANGUAGES[0]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [scan, setScan] = useState("");
-  // Si no hay portada para ese ISBN no se enseña un icono roto.
-  const [failedPreview, setFailedPreview] = useState<string | null>(null);
   const [knownBook, setKnownBook] = useState<KnownBook | null>(null);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [editions, setEditions] = useState<OtherEdition[]>([]);
@@ -114,9 +111,6 @@ export function OfferForm({
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableTags = tagsForCategory(category);
-  const typedIsbn = normalizeIsbn(scan);
-  // Con un ISBN válido se enseña la portada antes de publicar.
-  const coverPreview = typedIsbn && isValidIsbn(typedIsbn) ? coverFromIsbn(typedIsbn) : null;
   // El título y la autoría los pone el ISBN. Solo se escriben a mano cuando
   // ningún catálogo conoce la edición (autoeditados, ediciones antiguas…).
   const manual = noIsbn || (missing && !knownBook && !metadata);
@@ -134,7 +128,6 @@ export function OfferForm({
   function resetForm() {
     formRef.current?.reset();
     setScan("");
-    setFailedPreview(null);
     setKnownBook(null);
     setMetadata(null);
     setEditions([]);
@@ -269,6 +262,14 @@ export function OfferForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // La portada ya no se busca por ISBN: o la sube quien ofrece el libro, o no
+    // se publica. Se comprueba antes de enviar nada para no crear un ejemplar
+    // sin cara que luego haya que editar a mano.
+    if (!cover) {
+      setError(t("Falta la portada: elige una imagen del libro antes de publicarlo."));
+      document.getElementById("offer-cover")?.scrollIntoView({ block: "center" });
+      return;
+    }
     const form = new FormData(event.currentTarget);
     setPending(true);
     setError("");
@@ -344,19 +345,6 @@ export function OfferForm({
               aria-describedby="offer-isbn-hint"
               onChange={(event) => onIsbnChange(event.target.value)}
             />
-            {coverPreview && failedPreview !== coverPreview && (
-              // Vista previa de la portada que se servirá desde la app.
-              <Image
-                className="isbn-preview"
-                src={coverPreview}
-                alt=""
-                aria-hidden="true"
-                width={36}
-                height={52}
-                unoptimized
-                onError={() => setFailedPreview(coverPreview)}
-              />
-            )}
           </div>
           {/* La salida para los libros que no llevan ISBN, justo debajo del
               campo: quien tiene un libro antiguo o un folleto no debe quedarse

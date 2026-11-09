@@ -133,7 +133,10 @@ export const listingSchema = z.object({
   title: trimmed(2, 120, "El título"),
   author: trimmed(2, 90, "El autor"),
   category: z.enum(CATEGORIES, { error: "Elige una categoría de la lista." }),
-  language: z.enum(BOOK_LANGUAGES, { error: "Elige un idioma de la lista." }).optional(),
+  // Obligatorios: la ficha del catálogo se filtra por idioma y por ciudad, y
+  // un ejemplar sin esos datos aparece como «No especificado» en los filtros
+  // sin que nadie pueda corregirlo desde el formulario.
+  language: z.enum(BOOK_LANGUAGES, { error: "Elige un idioma de la lista." }),
   condition: z.enum(CONDITIONS, { error: "Elige un estado del ejemplar." }),
   // Opcional: los libros antiguos, las ediciones de autor y los folletos no
   // siempre llevan ISBN. Si viene, se normaliza y se comprueba el dígito de
@@ -145,7 +148,7 @@ export const listingSchema = z.object({
     .optional()
     .transform((value) => normalizeIsbn(value))
     .refine((value) => value === null || isValidIsbn(value), "El ISBN no es válido."),
-  city: cityField.optional(),
+  city: cityField,
   tags: tagsField,
   // El formulario sube la portada en una petición **posterior** a esta (necesita
   // el id del libro). Con esta marca, el aviso de Mastodon espera unos segundos

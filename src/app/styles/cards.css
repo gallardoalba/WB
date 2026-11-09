@@ -177,82 +177,15 @@
   pointer-events: none;
 }
 
-/* Portadilla: título completo y autoría sobre el papel de la portada. Se
-   compone con los tipos de imprenta antigua de `fonts.css` y se centra con
-   aire arriba y abajo, como una página de título. */
-.cover-fallback {
-  container-type: inline-size;
-  /* Aire arriba para no chocar con la etiqueta de estado, y márgenes laterales
-     como los de una portadilla impresa. */
-  padding: 20% 11% 13%;
+/* Hueco de portada: sin imagen no se inventa una. Se ve el canto y el brillo
+   de papel de la tarjeta, con el icono de libro en el centro. */
+.cover-fallback.is-empty {
   gap: 0;
+  padding: 16px;
+  color: var(--muted);
 }
 
-.cover-title {
-  position: relative;
-  z-index: 1;
-  display: block;
-  font-family: var(--font-cover);
-  /* Tangerine tiene la caja de minúsculas muy pequeña (0,26 em), así que el
-     cuerpo va muy por encima de lo que pediría una serif: a 25 px equivale en
-     cuerpo de letra a unos 14 px de una tipografía normal. */
-  font-size: clamp(22px, 15cqw, 40px);
-  font-weight: 700;
-  line-height: 1.1;
-  /* Sin interletraje: en una caligrafía separaría las letras que van ligadas. */
-  letter-spacing: 0;
-  text-align: center;
-  text-wrap: balance;
-  hyphens: auto;
-  /* Sin recortes: el título entero, también en varias líneas. */
-  overflow-wrap: break-word;
-}
 
-/* Tres escalones según lo largo del título: es más fiable que confiar en que
-   quepa a un tamaño único. */
-.cover-fallback.is-medium .cover-title {
-  font-size: clamp(20px, 13cqw, 34px);
-}
-
-.cover-fallback.is-long .cover-title {
-  font-size: clamp(17px, 11cqw, 28px);
-  line-height: 1.14;
-}
-
-.cover-fallback.is-xlong .cover-title {
-  font-size: clamp(15px, 9.5cqw, 24px);
-  line-height: 1.16;
-}
-
-/* Filete entre título y autoría, como en una portadilla impresa. */
-.cover-rule {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 30%;
-  height: 1px;
-  margin: 9px auto 9px;
-  background: currentColor;
-  opacity: 0.6;
-}
-
-.cover-author {
-  position: relative;
-  z-index: 1;
-  display: block;
-  max-width: 100%;
-  font-family: var(--font-cover);
-  /* Como una firma al pie de la portadilla: mismo cuerpo grande que el título
-     pide la fuente, un punto por debajo y con la pluma más suelta. */
-  font-size: clamp(16px, 7.4cqw, 21px);
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: 0;
-  text-align: center;
-  text-wrap: balance;
-  overflow-wrap: break-word;
-  opacity: 0.9;
-}
 
 .condition-tag {
   position: absolute;

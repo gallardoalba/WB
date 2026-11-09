@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  coverFromIsbn,
   formatDistance,
   initialsOf,
   isValidIsbn,
@@ -44,8 +43,6 @@ test("normaliza y valida ISBN", () => {
   assert.equal(isValidIsbn("123"), false);
   // Un dígito cambiado en el ISBN real (el 8 final no cuadra) se detecta.
   assert.equal(isValidIsbn("9788413528388"), false);
-  assert.equal(coverFromIsbn("9788413528380"), "/api/cover/9788413528380");
-  assert.equal(coverFromIsbn(null), null);
 });
 
 test("formatDistance usa coma decimal y el idioma por defecto", () => {

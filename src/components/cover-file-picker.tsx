@@ -85,6 +85,7 @@ export function CoverFilePicker({
           type="button"
           className="secondary-button small"
           onClick={() => inputRef.current?.click()}
+          aria-describedby="offer-cover-hint"
         >
           <ImagePlus size={14} /> {t("Añadir portada (JPG o PNG)")}
         </button>
@@ -94,9 +95,9 @@ export function CoverFilePicker({
           {error}
         </p>
       )}
-      <small className="form-hint">
+      <small className="form-hint" id="offer-cover-hint">
         {t(
-          "Opcional. Sin portada se usa la del ISBN, si existe. JPG o PNG; si la imagen es muy grande, se reduce sola.",
+          "Obligatorio: es la cara del libro en el catálogo. JPG o PNG; si la imagen es muy grande, se reduce sola.",
         )}
       </small>
     </div>

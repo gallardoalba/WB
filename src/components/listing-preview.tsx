@@ -52,7 +52,6 @@ export function ListingPreview({
           <BookCover
             id={listing.id}
             title={listing.title}
-            author={listing.author}
             coverUrl={listing.coverUrl}
           />
           {listing.status !== "available" && (

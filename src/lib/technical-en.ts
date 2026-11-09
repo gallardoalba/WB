@@ -47,7 +47,7 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               72 handlers grouped by domain",
+            "    api/               71 handlers grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 716 unit and integration tests (89 files)",
+            "tests/                 698 unit and integration tests (89 files)",
             "e2e/                   browser tests with Playwright (6 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -118,7 +118,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 72 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
+          text: "The API has 71 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
         },
         {
           kind: "list",
@@ -298,7 +298,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 716 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 698 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

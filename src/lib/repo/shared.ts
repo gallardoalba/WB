@@ -193,7 +193,7 @@ export function toListingView(row: ListingRow, viewerId?: string | null): Listin
     distanceKm: row.distance_km,
     // Cualquier URL antigua de Open Library se sirve desde la app: la CSP solo
     // permite imágenes del propio origen.
-    coverUrl: normalizeCoverUrl(row.cover_url, row.isbn),
+    coverUrl: normalizeCoverUrl(row.cover_url),
     status: row.status,
     // Al mes: el día exacto empareja la publicación con el aviso público del
     // bot y delata rutinas.

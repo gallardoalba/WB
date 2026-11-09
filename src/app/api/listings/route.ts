@@ -3,7 +3,6 @@ import { invalidatePublicData } from "@/lib/revalidate";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { getSessionUser, requireUser } from "@/lib/auth";
 import { cityName } from "@/lib/city-name";
-import { getCover } from "@/lib/covers";
 import { notifyIndexNow } from "@/lib/indexnow";
 import { announceBook } from "@/lib/mastodon";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
@@ -65,13 +64,6 @@ export async function POST(request: Request) {
       input.city ? { ...input, city: await cityName(input.city) } : input,
     );
     invalidatePublicData();
-    // La portada se descarga ahora, no cuando la pida la primera visita: el
-    // navegador ya no habla con Open Library, así que ese segundo de espera no
-    // debe pagarlo quien abre la ficha. `after` la resuelve tras responder.
-    if (input.isbn) {
-      const isbn = input.isbn;
-      after(() => getCover(isbn).catch(() => undefined));
-    }
     // Aviso a Bing (y por él a DuckDuckGo y Ecosia) de que hay una ficha nueva.
     // Va en `after()` y nunca lanza: publicar no puede depender del buscador.
     const base = siteUrl();
