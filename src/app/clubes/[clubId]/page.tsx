@@ -14,6 +14,7 @@ import {
   ClubShare,
 } from "@/components/club-board";
 import { ClubForum } from "@/components/club-forum";
+import { SectionBoundary } from "@/components/section-boundary";
 import { ClubPoll } from "@/components/club-poll";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
@@ -372,12 +373,14 @@ export default async function Page({ params, searchParams }: PageProps) {
           todo el ancho, justo después de las fichas y sin nada entre medias. */}
       {forum ? (
         <section className="club-panel club-forum-panel">
-          <ClubForum
-            clubId={club.id}
-            initialPosts={forum.posts}
-            initialHasMore={forum.hasMore}
-            total={forum.total}
-          />
+          <SectionBoundary>
+            <ClubForum
+              clubId={club.id}
+              initialPosts={forum.posts}
+              initialHasMore={forum.hasMore}
+              total={forum.total}
+            />
+          </SectionBoundary>
         </section>
       ) : (
         <section className="club-panel club-forum-panel" id="foro">

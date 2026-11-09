@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { BookOpen, MessageCircle } from "lucide-react";
 import { ListDeleteButton, ListEditForm, ListRemoveButton } from "@/components/list-actions";
+import { SectionBoundary } from "@/components/section-boundary";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
@@ -72,15 +73,17 @@ export default async function Page({ params }: PageProps) {
         }
         aside={
           list.isMine ? (
-            <div className="list-tools">
-              <ListEditForm
-                listId={list.id}
-                title={list.title}
-                description={list.description}
-                showOwner={list.showOwner}
-              />
-              <ListDeleteButton listId={list.id} />
-            </div>
+            <SectionBoundary>
+              <div className="list-tools">
+                <ListEditForm
+                  listId={list.id}
+                  title={list.title}
+                  description={list.description}
+                  showOwner={list.showOwner}
+                />
+                <ListDeleteButton listId={list.id} />
+              </div>
+            </SectionBoundary>
           ) : undefined
         }
       />

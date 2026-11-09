@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { useActionState, useLayoutEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Heart, MessagesSquare, Reply, Trash2, TriangleAlert } from "lucide-react";
 import { api } from "@/lib/client-api";
@@ -117,6 +117,17 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
     setError("");
     setFeedback("");
   };
+
+  // Al volver al club, los avisos de la visita anterior seguían puestos (Next
+  // conserva hasta tres rutas vivas). Se limpian al ocultarse el foro.
+  useLayoutEffect(() => {
+    return () => {
+      setError("");
+      setFeedback("");
+      setReplyTo(null);
+      setReplyBody("");
+    };
+  }, []);
 
   /**
    * Publicar es una acción de formulario: la transición y el «publicando» los

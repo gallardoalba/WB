@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { MapPin, MessageCircle, Users } from "lucide-react";
 import { BookComments } from "@/components/book-comments";
+import { SectionBoundary } from "@/components/section-boundary";
 import { BookCover } from "@/components/book-cover";
 import { BookWantButton } from "@/components/book-want-button";
 import { ReadingStateButtons } from "@/components/reading-state-buttons";
@@ -188,13 +189,15 @@ export default async function Page({ params }: PageProps) {
         )}
       </div>
 
-      <BookComments
-        bookId={book.id}
-        initialComments={thread.comments}
-        initialHasMore={thread.hasMore}
-        total={thread.total}
-        isAuthenticated={Boolean(viewer)}
-      />
+      <SectionBoundary>
+        <BookComments
+          bookId={book.id}
+          initialComments={thread.comments}
+          initialHasMore={thread.hasMore}
+          total={thread.total}
+          isAuthenticated={Boolean(viewer)}
+        />
+      </SectionBoundary>
 
       <section className="work-copies" aria-labelledby="copies-title">
         <div className="feed-header">

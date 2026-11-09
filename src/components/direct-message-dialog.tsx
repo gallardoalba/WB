@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useOptimistic,
   useRef,
   useState,
@@ -206,6 +207,12 @@ export function DirectMessageDialog({
     if (!open) return;
     bottomRef.current?.scrollIntoView({ block: "nearest" });
   }, [open, thread?.messages.length, texts, envios.length]);
+
+  // El error de la visita anterior no debería recibir a quien vuelve al
+  // diálogo; el borrador sí se conserva.
+  useLayoutEffect(() => {
+    return () => setError("");
+  }, []);
 
   function send(event: FormEvent) {
     event.preventDefault();

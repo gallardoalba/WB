@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { useActionState, useLayoutEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EyeOff, Heart, MessageCircle, Reply, Trash2, TriangleAlert } from "lucide-react";
@@ -170,6 +170,19 @@ export function BookComments({
     setError("");
     setFeedback("");
   };
+
+  // Next mantiene vivas hasta tres rutas con `<Activity>`: al volver a la
+  // ficha, el aviso de la visita anterior («Comentario publicado.») seguía en
+  // pantalla, y el hueco de respuesta abierto. Se limpian al ocultarse; lo
+  // escrito en el formulario se queda, que para eso está guardado.
+  useLayoutEffect(() => {
+    return () => {
+      setError("");
+      setFeedback("");
+      setReplyTo(null);
+      setReplyBody("");
+    };
+  }, []);
 
   /**
    * Publicar es una acción de formulario: React la envuelve en una transición y

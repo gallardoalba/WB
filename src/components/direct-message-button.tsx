@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { DirectMessageDialog } from "./direct-message-dialog";
+import { SectionBoundary } from "./section-boundary";
 import { useI18n } from "./i18n-provider";
 
 /**
@@ -35,12 +36,14 @@ export function DirectMessageButton({
         )}
       </button>
       {open && (
-        <DirectMessageDialog
-          open
-          onClose={() => setOpen(false)}
-          peerId={peerId}
-          peerName={peerName}
-        />
+        <SectionBoundary>
+          <DirectMessageDialog
+            open
+            onClose={() => setOpen(false)}
+            peerId={peerId}
+            peerName={peerName}
+          />
+        </SectionBoundary>
       )}
     </>
   );

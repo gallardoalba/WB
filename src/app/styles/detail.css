@@ -529,6 +529,28 @@
   line-height: 1.6;
 }
 
+/*
+ * Frontera por sección: ocupa el hueco del widget que ha fallado, sin el peso
+ * de la tarjeta de página completa, para que se note que el resto sigue vivo.
+ */
+.section-error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+  color: var(--muted);
+}
+
+.section-error p {
+  margin: 0;
+  flex: 1 1 12ch;
+  font-size: 14px;
+}
+
 /* ============================================================
    Avisos, carga y navegación móvil
    ============================================================ */
