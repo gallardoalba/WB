@@ -681,16 +681,22 @@ export function enqueuePost(input: {
   day?: string | null;
   /** Cuándo toca publicarlo. Sin valor, ya (el cron solo mira lo que está vencido). */
   nextAttemptAt?: Date | null;
+  /**
+   * Instante de referencia. Las pruebas lo fijan para no depender del reloj;
+   * el servicio usa el del proceso. Sin él, una fila encolada con una fecha
+   * simulada se quedaría programada en el futuro real y nadie la recogería.
+   */
+  now?: Date;
 }): string | null {
   const id = `soc_${randomUUID()}`;
-  const cuando = (input.nextAttemptAt ?? new Date()).toISOString();
+  const ahora = input.now ?? new Date();
+  const cuando = (input.nextAttemptAt ?? ahora).toISOString();
   const result = getDb()
     .prepare(
       `INSERT OR IGNORE INTO social_outbox
          (id, network, subject, body, status, attempts, next_attempt_at, created_at,
           media_id, owner_id, day)
-       VALUES (?, ?, ?, ?, 'pending', 0, ?,
-               strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -698,6 +704,7 @@ export function enqueuePost(input: {
       input.bookId,
       input.text,
       cuando,
+      ahora.toISOString(),
       input.mediaId ?? null,
       input.ownerId ?? null,
       input.day ?? null,
@@ -830,9 +837,13 @@ export async function processSocialOutbox(
   const fetchImpl = options.fetchImpl ?? fetch;
   const limit = options.limit ?? 3;
   if (!config) return { sent: 0, failed: 0, skipped: true };
+  // El mismo instante para decidir qué está vencido y para anotar el envío:
+  // si se mezclara con el reloj de SQLite, una prueba con fecha simulada no
+  // recogería lo que ella misma acaba de encolar.
+  const ahora = options.now ?? new Date();
   // De noche no se publica nada: lo que vence se queda en cola y sale al
   // abrirse la ventana (el cron pasará a las 09:00 y lo verá vencido).
-  if (enHorarioSilencioso(options.now ?? new Date())) {
+  if (enHorarioSilencioso(ahora)) {
     return { sent: 0, failed: 0, skipped: true };
   }
   const db = getDb();
@@ -841,12 +852,12 @@ export async function processSocialOutbox(
       `SELECT id, subject, body, attempts, media_id
          FROM social_outbox
         WHERE network = ? AND status = 'pending'
-          AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          AND next_attempt_at <= ?
           AND (? IS NULL OR id = ?)
         ORDER BY created_at ASC
         LIMIT ?`,
     )
-    .all(SOCIAL_NETWORK, options.only ?? null, options.only ?? null, limit) as {
+    .all(SOCIAL_NETWORK, ahora.toISOString(), options.only ?? null, options.only ?? null, limit) as {
     id: string;
     subject: string;
     body: string;
@@ -866,19 +877,19 @@ export async function processSocialOutbox(
       db.prepare(
         `UPDATE social_outbox
             SET status = 'sent', external_id = ?, external_url = ?,
-                last_error = NULL, sent_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                last_error = NULL, sent_at = ?
           WHERE id = ?`,
-      ).run(result.id, result.url || null, row.id);
+      ).run(result.id, result.url || null, ahora.toISOString(), row.id);
       sent += 1;
       continue;
     }
     const attempts = row.attempts + 1;
     const finalFailure = attempts >= MAX_ATTEMPTS || !result.retryable;
     const delaySeconds = Math.min(3600, 2 ** attempts * 60);
+    const reintento = new Date(ahora.getTime() + delaySeconds * 1000).toISOString();
     db.prepare(
       `UPDATE social_outbox
-          SET attempts = ?, status = ?, last_error = ?,
-              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
+          SET attempts = ?, status = ?, last_error = ?, next_attempt_at = ?
         WHERE id = ?`,
     ).run(
       attempts,
@@ -886,7 +897,7 @@ export async function processSocialOutbox(
       // El error de Mastodon se guarda tal cual: es lo que se mira cuando un
       // post no sale («Text exceeds 500 characters», «Invalid access token»).
       result.error.slice(0, 300),
-      `+${delaySeconds} seconds`,
+      reintento,
       row.id,
     );
     failed += 1;
@@ -1018,6 +1029,7 @@ export async function announceBook(input: {
       ownerId: input.ownerId,
       day,
       nextAttemptAt: cuando,
+      now: ahora,
     });
     if (!id) return { queued: false, sent: false, media: false };
     // Con turno futuro no se intenta: lo soltará el cron cuando venza.

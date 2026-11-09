@@ -495,8 +495,12 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
     return jsonResponse({ id: String(posted) });
   }) as unknown as typeof fetch;
   process.env.MASTODON_TOKEN = "tok";
-  const manana = new Date("2026-11-08T09:00:00Z");
-  const tarde = new Date("2026-11-08T19:00:00Z");
+  // Horas simuladas: el primer aviso sale en el acto y los siguientes esperan
+  // el turno de la cuenta (2-3 h). Media hora después ya no toca, y al día
+  // siguiente la cola vuelve a estar libre. Las fechas son lógicas: la prueba
+  // no debe depender del reloj real del equipo.
+  const primeraHora = new Date("2026-11-08T09:00:00Z");
+  const mediaHora = new Date("2026-11-08T09:30:00Z");
   const diaSiguiente = new Date("2026-11-09T07:00:00Z");
   const anunciar = (bookId: string, ownerId: string, now: Date) =>
     mastodon.announceBook({
@@ -508,9 +512,9 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
       now,
     });
   try {
-    const primero = await anunciar("bok_dia_1", "usr_uno", manana);
-    const segundo = await anunciar("bok_dia_2", "usr_uno", tarde);
-    const otraPersona = await anunciar("bok_dia_3", "usr_dos", tarde);
+    const primero = await anunciar("bok_dia_1", "usr_uno", primeraHora);
+    const segundo = await anunciar("bok_dia_2", "usr_uno", mediaHora);
+    const otraPersona = await anunciar("bok_dia_3", "usr_dos", mediaHora);
     const alDiaSiguiente = await anunciar("bok_dia_4", "usr_uno", diaSiguiente);
 
     assert.deepEqual(primero, { queued: true, sent: true, media: false });
@@ -531,7 +535,7 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
     assert.deepEqual(
       filas.map((fila) => fila.subject),
       ["bok_dia_1", "bok_dia_3", "bok_dia_4"],
-      "el del mediodía no llegó a encolarse",
+      "el segundo del mismo día no llegó a encolarse",
     );
     assert.equal(filas[0]!.owner_id, "usr_uno");
     assert.equal(filas[0]!.day, "2026-11-08");
