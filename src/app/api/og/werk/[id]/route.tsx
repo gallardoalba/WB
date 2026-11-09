@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { imageDimensions } from "@/lib/cover-convert";
 import { getCover, readUploadedCover } from "@/lib/covers";
 import { OG_SIZE } from "@/lib/og";
+import { ogRateLimit } from "@/lib/og-limit";
 import { getPublicWork } from "@/lib/repo";
 
 /* El mismo libro abierto del icono de la app, invertido: crema sobre el verde de
@@ -40,7 +41,10 @@ type CardCover = { src: string; width: number; height: number };
  * Se sirve en PNG y el bot la recompone a JPG antes de subirla: un PNG de
  * 1200×630 con una foto dentro pesa varias veces más que el JPG equivalente.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const limited = ogRateLimit(request);
+  if (limited) return limited;
+
   const { id } = await params;
   const work = getPublicWork(id);
   if (!work) return new Response("Not found", { status: 404 });

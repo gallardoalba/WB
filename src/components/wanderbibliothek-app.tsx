@@ -1366,6 +1366,20 @@ export default function WanderbibliothekApp({
                       {t("Reintentar")}
                     </button>
                   )}
+                  {/* El scroll infinito depende de un `IntersectionObserver`:
+                      si no dispara (navegador antiguo, hidratación a medias,
+                      un contenedor que no hace scroll) la lista se quedaba
+                      corta sin salida. Este botón es el plan B y, de paso, la
+                      forma natural de seguir con el teclado. */}
+                  {loadState === "idle" && canLoadMore && (
+                    <button
+                      type="button"
+                      className="secondary-button small"
+                      onClick={() => void loadMore()}
+                    >
+                      {t("Ver más libros")}
+                    </button>
+                  )}
                   {/* Centinela del scroll infinito: cuando entra en pantalla se
                       pide la fila siguiente. */}
                   <div ref={sentinelRef} className="catalog-sentinel" aria-hidden="true" />

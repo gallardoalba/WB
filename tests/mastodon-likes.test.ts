@@ -491,9 +491,15 @@ test("de noche no se da ningún «me gusta»", async () => {
     assert.equal(likes.likeCountSince(), 0);
 
     // De día vuelve a funcionar.
+    // La publicación también tiene que ser de la hora simulada: con la fecha
+    // real, en cuanto la suite corre pasadas las 11:00 UTC el estado queda «en
+    // el futuro» respecto a `now` y el filtro lo descarta (la prueba fallaba
+    // según la hora del equipo).
     const dia = await likes.processLikes({
       config: CONFIG,
-      fetchImpl: mastodonReply({ statuses: [rawStatus()] }).impl,
+      fetchImpl: mastodonReply({
+        statuses: [rawStatus({ created_at: "2026-11-09T09:30:00.000Z" })],
+      }).impl,
       now: new Date("2026-11-09T10:00:00Z"),
       maxTags: 99,
     });

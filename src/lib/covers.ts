@@ -30,7 +30,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
  */
 const MIN_BYTES = 1_000;
 /** Cuánto se recuerda que un ISBN no tiene portada, para no repetir la búsqueda. */
-const MISS_TTL_MS = 24 * 60 * 60 * 1000;
+const MISS_TTL_MS = 48 * 60 * 60 * 1000;
 /**
  * Versión de la lista de proveedores. Forma parte del nombre de la marca de
  * «sin portada»: al añadir una fuente nueva se sube el número y las marcas

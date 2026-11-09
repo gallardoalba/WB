@@ -29,12 +29,14 @@ import { randomUUID } from "node:crypto";
 
 import { toJpeg } from "./cover-convert";
 import { getCover, readUploadedCover, uploadedCoverPath } from "./covers";
-import { getDb } from "./db";
+import { getDb, type Db } from "./db";
 import { DEFAULT_LOCALE, localePath, type Locale } from "./locale";
 import { siteUrl } from "./site";
 
 /** Red social del post. La tabla admite más; hoy solo hay esta. */
 export const SOCIAL_NETWORK = "mastodon";
+/** Minutos que una fila puede estar «en envío» antes de darla por abandonada. */
+const CLAIM_SECONDS = 5 * 60;
 
 /** Un estado de Mastodon admite 500 caracteres. */
 export const STATUS_LIMIT = 500;
@@ -760,8 +762,12 @@ export function separacionAviso(random: () => number = Math.random): number {
 function ultimoAvisoProgramado(): Date | null {
   const row = getDb()
     .prepare(
-      `SELECT MAX(COALESCE(sent_at, next_attempt_at, created_at)) AS enviado,
-              MAX(next_attempt_at) AS previsto
+      // Las filas «en envío» no cuentan: su `next_attempt_at` es la caducidad de
+      // la reclamación (cinco minutos), no el turno del aviso, y sumarla movía
+      // la tanda entera cinco minutos hacia atrás en cada envío.
+      `SELECT MAX(CASE WHEN status = 'sending' THEN NULL
+                       ELSE COALESCE(sent_at, next_attempt_at, created_at) END) AS enviado,
+              MAX(CASE WHEN status = 'pending' THEN next_attempt_at END) AS previsto
          FROM social_outbox WHERE network = ?`,
     )
     .get(SOCIAL_NETWORK) as { enviado: string | null; previsto: string | null } | undefined;
@@ -818,6 +824,59 @@ async function asegurarMedio(
 }
 
 /**
+ * Reclama las filas que este worker va a publicar.
+ *
+ * El estado pasa a `sending` en la misma transacción que elige las filas, así
+ * que un envío manual y el cron no publican el mismo aviso a la vez. Una
+ * reclamación abandonada vuelve a `pending` pasados cinco minutos. La
+ * `Idempotency-Key` sigue siendo la última red si el proceso muere justo
+ * después de publicar.
+ */
+function claimPosts(
+  db: Db,
+  ahora: Date,
+  limit: number,
+  only: string | null,
+): {
+  id: string;
+  subject: string;
+  body: string;
+  attempts: number;
+  media_id: string | null;
+}[] {
+  const ahoraIso = ahora.toISOString();
+  const expira = new Date(ahora.getTime() + CLAIM_SECONDS * 1000).toISOString();
+  return db.transaction(() => {
+    db.prepare(
+      `UPDATE social_outbox SET status = 'pending'
+        WHERE status = 'sending' AND next_attempt_at <= ?`,
+    ).run(ahoraIso);
+    const rows = db
+      .prepare(
+        `SELECT id, subject, body, attempts, media_id
+           FROM social_outbox
+          WHERE network = ? AND status = 'pending'
+            AND next_attempt_at <= ?
+            AND (? IS NULL OR id = ?)
+          ORDER BY created_at ASC
+          LIMIT ?`,
+      )
+      .all(SOCIAL_NETWORK, ahoraIso, only, only, limit) as {
+      id: string;
+      subject: string;
+      body: string;
+      attempts: number;
+      media_id: string | null;
+    }[];
+    const claim = db.prepare(
+      `UPDATE social_outbox SET status = 'sending', next_attempt_at = ?
+        WHERE id = ? AND status = 'pending'`,
+    );
+    return rows.filter((row) => claim.run(expira, row.id).changes === 1);
+  })();
+}
+
+/**
  * Intenta entregar los avisos pendientes. Silencioso: nunca lanza.
  *
  * `only` limita el intento a una fila concreta (la que acaba de encolar quien
@@ -847,23 +906,7 @@ export async function processSocialOutbox(
     return { sent: 0, failed: 0, skipped: true };
   }
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT id, subject, body, attempts, media_id
-         FROM social_outbox
-        WHERE network = ? AND status = 'pending'
-          AND next_attempt_at <= ?
-          AND (? IS NULL OR id = ?)
-        ORDER BY created_at ASC
-        LIMIT ?`,
-    )
-    .all(SOCIAL_NETWORK, ahora.toISOString(), options.only ?? null, options.only ?? null, limit) as {
-    id: string;
-    subject: string;
-    body: string;
-    attempts: number;
-    media_id: string | null;
-  }[];
+  const rows = claimPosts(db, ahora, limit, options.only ?? null);
 
   let sent = 0;
   let failed = 0;

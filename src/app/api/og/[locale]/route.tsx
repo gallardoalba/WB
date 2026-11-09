@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { translate } from "@/lib/i18n";
 import { matchLocale } from "@/lib/locale";
 import { OG_COPY, OG_SIZE } from "@/lib/og";
+import { ogRateLimit } from "@/lib/og-limit";
 
 /* El mismo libro abierto del icono de la app, incrustado como SVG: Satori no
    tiene las fuentes ni los recursos del sitio, así que la marca viaja dentro
@@ -31,9 +32,12 @@ const SPINES: Array<{ height: number; width: number; color: string; tilt?: numbe
  * casar con el `og:title` del idioma que sirve el proxy.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ locale: string }> },
 ) {
+  const limited = ogRateLimit(request);
+  if (limited) return limited;
+
   const { locale } = await params;
   const resolved = matchLocale(locale);
   if (!resolved) {

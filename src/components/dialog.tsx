@@ -85,7 +85,13 @@ export function Dialog({
     document.body.style.overflow = "hidden";
     openDialogs += 1;
     inertBackground();
-    panel?.focus();
+    // Si el diálogo tiene campos, el foco entra en el primero: quien navega con
+    // teclado o lector de pantalla no tiene que tabular desde el panel ni pasar
+    // por la cruz de cerrar. Sin campos, el panel (que anuncia el título).
+    const firstField = panel?.querySelector<HTMLElement>(
+      "input:not([type='hidden']):not([disabled]):not([tabindex='-1']), textarea:not([disabled]), select:not([disabled])",
+    );
+    (firstField ?? panel)?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {

@@ -1453,6 +1453,44 @@ function migrateToV45(db: Db) {
 }
 
 /**
+ * Índice de búsqueda de obras (`books_fts`).
+ *
+ * `searchBooks()` filtraba con `unaccent(title) LIKE '%término%'`, que no puede
+ * usar ningún índice: cada pulsación del selector de libros recorría la tabla
+ * entera. Aquí se crea el índice FTS5 equivalente al de `listings_fts`, con
+ * `remove_diacritics` para que «infínito» encuentre «infinito», y los tres
+ * disparadores que lo mantienen al día.
+ *
+ * `content='books'` guarda solo el índice: el texto sigue viviendo en `books`.
+ */
+function migrateToV46(db: Db) {
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
+      title, author,
+      content='books',
+      content_rowid='rowid',
+      tokenize='unicode61 remove_diacritics 2'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS books_fts_ai AFTER INSERT ON books BEGIN
+      INSERT INTO books_fts(rowid, title, author) VALUES (new.rowid, new.title, new.author);
+    END;
+    CREATE TRIGGER IF NOT EXISTS books_fts_ad AFTER DELETE ON books BEGIN
+      INSERT INTO books_fts(books_fts, rowid, title, author)
+      VALUES ('delete', old.rowid, old.title, old.author);
+    END;
+    CREATE TRIGGER IF NOT EXISTS books_fts_au AFTER UPDATE ON books BEGIN
+      INSERT INTO books_fts(books_fts, rowid, title, author)
+      VALUES ('delete', old.rowid, old.title, old.author);
+      INSERT INTO books_fts(rowid, title, author) VALUES (new.rowid, new.title, new.author);
+    END;
+
+    INSERT INTO books_fts(books_fts) VALUES ('rebuild');
+  `);
+  db.pragma("user_version = 46");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1582,6 +1620,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 43) migrateToV43(db);
   if (userVersion(db) < 44) migrateToV44(db);
   if (userVersion(db) < 45) migrateToV45(db);
+  if (userVersion(db) < 46) migrateToV46(db);
 
   backfillSearchKeys(db);
 }

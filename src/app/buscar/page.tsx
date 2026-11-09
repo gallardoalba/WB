@@ -96,7 +96,7 @@ export default async function Page({ searchParams }: PageProps) {
               name="q"
               type="search"
               defaultValue={q}
-              placeholder={t("Buscar libros, clubs, lectores…")}
+              placeholder={t("Buscar libros, clubes, lectores…")}
               maxLength={60}
             />
             <button type="submit" className="secondary-button small">

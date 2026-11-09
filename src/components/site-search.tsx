@@ -29,7 +29,7 @@ export function SiteSearch({
         type="search"
         name="q"
         defaultValue={defaultValue}
-        placeholder={t("Buscar libros, clubs, lectores…")}
+        placeholder={t("Buscar libros, clubes, lectores…")}
         maxLength={60}
         autoComplete="off"
       />

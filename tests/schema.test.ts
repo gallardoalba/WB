@@ -26,6 +26,7 @@ const EXPECTED_TABLES = [
   "book_comments",
   "book_wants",
   "books",
+  "books_fts",
   "cities",
   "city_distances",
   "club_attendance",

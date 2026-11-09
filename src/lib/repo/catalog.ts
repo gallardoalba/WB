@@ -575,8 +575,34 @@ export function searchBooks(query: string, limit = 8): { id: string; title: stri
     .replace(/[%_]/g, "")
     .slice(0, 60);
   if (terms.length < 2) return [];
+  const tope = Math.min(Math.max(limit, 1), 20);
+  const db = getDb();
+
+  // Primero el índice FTS: resuelve prefijos de palabra sin distinguir acentos
+  // («infínito» → «infinito») sin recorrer la tabla.
+  const tokens = normalizeText(terms).split(" ").filter(Boolean);
+  if (tokens.length > 0) {
+    const porIndice = db
+      .prepare(
+        `SELECT id, title, author FROM books
+          WHERE rowid IN (SELECT rowid FROM books_fts WHERE books_fts MATCH @match)
+          ORDER BY (title LIKE @prefijo COLLATE NOCASE) DESC, length(title) ASC,
+                   title COLLATE NOCASE ASC
+          LIMIT @limit`,
+      )
+      .all({ match: ftsQuery(tokens), prefijo: `${terms}%`, limit: tope }) as {
+      id: string;
+      title: string;
+      author: string;
+    }[];
+    if (porIndice.length > 0) return porIndice;
+  }
+
+  // Nadie escribe las palabras por el principio: si el término cae a media
+  // palabra, el índice no lo encuentra y se recurre a la subcadena. Solo se
+  // paga ese recorrido cuando el índice no devolvió nada.
   const like = `%${terms}%`;
-  return getDb()
+  return db
     .prepare(
       `SELECT id, title, author FROM books
         WHERE unaccent(title) LIKE unaccent(@like) OR unaccent(author) LIKE unaccent(@like)
@@ -584,7 +610,7 @@ export function searchBooks(query: string, limit = 8): { id: string; title: stri
                  title COLLATE NOCASE ASC
         LIMIT @limit`,
     )
-    .all({ like, prefijo: `${terms}%`, limit: Math.min(Math.max(limit, 1), 20) }) as {
+    .all({ like, prefijo: `${terms}%`, limit: tope }) as {
     id: string;
     title: string;
     author: string;

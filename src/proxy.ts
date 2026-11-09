@@ -20,6 +20,7 @@ const PRIVATE_PREFIXES = [
   "/cuenta",
   "/ofrecer",
   "/verificar",
+  "/verificacion",
   "/restablecer",
   "/buscar",
 ];

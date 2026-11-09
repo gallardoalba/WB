@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "./db";
+import { getDb, type Db } from "./db";
 import { sendMail, type Mail } from "./mailer";
 
 /**
@@ -21,28 +21,20 @@ export function enqueueMail(mail: Mail): string {
 }
 
 /**
- * Intenta entregar los correos pendientes. Es idempotente a nivel de fila: si
- * dos workers coinciden, ambos pueden enviar (el proveedor debería deduplicar
- * por `Message-ID`); para esta escala se ejecuta desde un único cron.
+ * Intenta entregar los correos pendientes.
+ *
+ * Cada fila se **reclama** antes de enviarla: el estado pasa a `sending` dentro
+ * de una transacción, así que si el `after()` del registro y el cron coinciden,
+ * solo uno de los dos la envía. Antes ambos leían la misma fila pendiente y la
+ * persona recibía dos veces el mismo enlace (el segundo invalidaba el primero).
+ *
+ * Una reclamación que se quede colgada (proceso caído a mitad del envío) vuelve
+ * a `pending` pasados cinco minutos, que es más que cualquier tiempo de espera
+ * del proveedor.
  */
 export async function processOutbox(limit = 20): Promise<{ sent: number; failed: number }> {
   const db = getDb();
-  const rows = db
-    .prepare(
-      `SELECT id, to_email, subject, body, attempts
-         FROM mail_outbox
-        WHERE status = 'pending'
-          AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')
-        ORDER BY created_at ASC
-        LIMIT ?`,
-    )
-    .all(limit) as {
-    id: string;
-    to_email: string;
-    subject: string;
-    body: string;
-    attempts: number;
-  }[];
+  const rows = claimPending(db, limit);
 
   let sent = 0;
   let failed = 0;
@@ -78,6 +70,53 @@ export async function processOutbox(limit = 20): Promise<{ sent: number; failed:
     failed += 1;
   }
   return { sent, failed };
+}
+
+/** Minutos que una fila puede estar «en envío» antes de darla por abandonada. */
+const CLAIM_SECONDS = 5 * 60;
+
+type ClaimedMail = {
+  id: string;
+  to_email: string;
+  subject: string;
+  body: string;
+  attempts: number;
+};
+
+/**
+ * Marca como `sending` las filas que este worker va a intentar y las devuelve.
+ *
+ * Seleccionar y marcar van en la misma transacción: con una sola conexión eso
+ * basta para que dos workers del mismo proceso no se repartan la misma fila.
+ */
+function claimPending(db: Db, limit: number): ClaimedMail[] {
+  return db.transaction(() => {
+    // Reclamaciones abandonadas por un proceso que murió a mitad.
+    db.prepare(
+      `UPDATE mail_outbox SET status = 'pending'
+        WHERE status = 'sending'
+          AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    ).run();
+
+    const rows = db
+      .prepare(
+        `SELECT id, to_email, subject, body, attempts
+           FROM mail_outbox
+          WHERE status = 'pending'
+            AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          ORDER BY created_at ASC
+          LIMIT ?`,
+      )
+      .all(limit) as ClaimedMail[];
+
+    const claim = db.prepare(
+      `UPDATE mail_outbox
+          SET status = 'sending',
+              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
+        WHERE id = ? AND status = 'pending'`,
+    );
+    return rows.filter((row) => claim.run(`+${CLAIM_SECONDS} seconds`, row.id).changes === 1);
+  })();
 }
 
 /**

@@ -105,8 +105,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         city: String,
         password: String,
         ageConfirmed: Boolean,
+        turnstileToken: String? = null,
     ): User {
-        val user = repo.register(name, email, city, password, ageConfirmed)
+        val user = repo.register(name, email, city, password, ageConfirmed, turnstileToken)
         prepareEncryption(user.id, password)
         _session.value = SessionState.SignedIn(user)
         syncLocale()

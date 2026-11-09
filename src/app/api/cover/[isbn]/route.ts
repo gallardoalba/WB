@@ -25,10 +25,15 @@ export async function GET(
     // Los ISBN de la caché no se pueden adivinar sin recorrer el catálogo, pero
     // un barrido sí: se limita por cliente. Sin proxy de confianza todas las
     // peticiones comparten clave, así que el tope global es holgado.
+    //
+    // Cada ISBN que no está en caché cuesta hasta tres peticiones salientes de
+    // 4 s (Open Library, Google Books y la búsqueda por obra): un barrido con
+    // ISBN aleatorios genera salida y CPU aunque nunca haya imágenes, así que
+    // el tope es más bajo que el de una lectura normal.
     hit(
       hasClientIp()
-        ? { bucket: "cover:ip", key: clientKey(request), limit: 300, windowMs: 60_000 }
-        : { bucket: "cover", key: "all", limit: 3000, windowMs: 60_000 },
+        ? { bucket: "cover:ip", key: clientKey(request), limit: 120, windowMs: 60_000 }
+        : { bucket: "cover", key: "all", limit: 1_200, windowMs: 60_000 },
     );
 
     const { isbn: raw } = await params;

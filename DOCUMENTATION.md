@@ -22,7 +22,7 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v45), seed
+    db/                connection, base schema (v2), migrations (v3–v46), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -90,7 +90,7 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
-Migrations are versioned with `PRAGMA user_version` (currently v45) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited.
+Migrations are versioned with `PRAGMA user_version` (currently v46) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table.
 
 The hand-over and shipping columns (`handover_code`, `handover_method`, `ship_kind`, `ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the exchange conversation and each side confirms in the platform once it has the book, with no code and no addresses.
 
@@ -144,7 +144,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | unset | Create the first admin account when none exists. |
 | `REQUIRE_EMAIL_VERIFICATION` | unset | `1` requires a confirmed address to publish, request, comment and write. |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration; the Android app solves the widget in a WebView at `/verificacion`. |
 | `ERROR_WEBHOOK_URL` / `ERROR_WEBHOOK_TOKEN` | unset | Receive 500s as JSON (Sentry, Logtail or your own webhook). |
 | `TRUST_PROXY` | unset | `1` only behind your own proxy: allows `X-Forwarded-For`/`-Host` and enables per-IP quotas. |
 | `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | unset | Fill in `/privacidad` and `/aviso-legal`. |

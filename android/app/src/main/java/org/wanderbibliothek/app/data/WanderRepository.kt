@@ -61,6 +61,7 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
         city: String,
         password: String,
         ageConfirmed: Boolean,
+        turnstileToken: String? = null,
     ): User {
         val body = JSONObject()
             .put("name", name.trim())
@@ -70,6 +71,9 @@ class WanderRepository(private val api: ApiClient, private val prefs: Prefs) {
             .put("ageConfirmed", ageConfirmed)
             .put("website", "")
             .put("startedAt", System.currentTimeMillis() - 5_000)
+        // El servidor exige token si tiene Turnstile activo; la pantalla lo pide
+        // en el WebView de `/verificacion`.
+        if (!turnstileToken.isNullOrBlank()) body.put("turnstileToken", turnstileToken)
         val json = api.post("/api/auth/register", body)
         return User.from(json.getJSONObject("user"))
     }
