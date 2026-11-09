@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { LOCALE_COOKIE, localePath, splitLocalePath, type Locale } from "@/lib/locale";
 import { useI18n } from "./i18n-provider";
 
@@ -49,7 +48,6 @@ function FlagEN() {
  */
 export function LocaleSwitcher({ locale }: { locale: Locale }) {
   const { t } = useI18n();
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function switchTo(next: Locale) {
@@ -73,21 +71,14 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
     params.delete("lang");
     const query = params.toString();
     const destino = `${localePath(next, interno)}${query ? `?${query}` : ""}`;
-    // Se compara con la URL tal cual está: si lleva `?lang=`, hay que navegar
-    // para quitarlo (un `refresh` la conservaría y el proxy volvería a forzar
-    // ese idioma).
-    const actual = `${window.location.pathname}${window.location.search}`;
     startTransition(() => {
-      // Recarga completa, no `router.push`: el idioma vive en el layout raíz
-      // (`<html lang>`, el proveedor de textos), que no se vuelve a pintar en
-      // una navegación de cliente. Solo así cambian de verdad el idioma y la
-      // dirección con su prefijo.
-      if (destino === actual) {
-        router.refresh();
-      } else {
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- el idioma vive en el layout raíz: solo una recarga completa lo aplica
-        window.location.assign(destino);
-      }
+      // Siempre recarga completa, aunque la URL no cambie (portada, `/descubrir`
+      // y demás rutas sin prefijo): el idioma vive en el layout raíz y en los
+      // textos que el proveedor guarda al montar, así que un `router.refresh()`
+      // deja la página en el idioma anterior. `assign` a la misma dirección
+      // recarga de verdad y el servidor vuelve a pintarlo todo.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- el idioma vive en el layout raíz: solo una recarga completa lo aplica
+      window.location.assign(destino);
     });
   }
 
