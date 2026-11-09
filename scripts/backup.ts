@@ -48,6 +48,17 @@ async function main() {
     process.exit(1);
   }
 
+  // El modo `wal` viaja en la cabecera de la base, así que abrir la copia deja
+  // `-shm`/`-wal` al lado. La rotación solo miraba `*.db`/`*.db.enc` y esos
+  // sidecars se acumulaban para siempre (en el servidor y en la copia externa).
+  for (const sufijo of ["-shm", "-wal"]) {
+    try {
+      unlinkSync(`${target}${sufijo}`);
+    } catch {
+      // No siempre existen: SQLite solo los crea si abrió en modo escritura.
+    }
+  }
+
   // Si hay clave, la copia se guarda cifrada y el .db plano se elimina.
   let finalFile = target;
   if (process.env.WANDERBIBLIOTHEK_BACKUP_KEY) {
@@ -71,6 +82,19 @@ async function main() {
       console.warn(`No se pudo borrar ${old}`, error);
     }
   }
+
+  // Barrido de los sidecars que dejaron las versiones anteriores del script.
+  const restos = readdirSync(targetDir).filter((name) =>
+    /^wanderbibliothek-.*\.db-(shm|wal)$/.test(name),
+  );
+  for (const resto of restos) {
+    try {
+      unlinkSync(path.join(targetDir, resto));
+    } catch {
+      // Si otro proceso lo tiene abierto, se queda para la próxima.
+    }
+  }
+  if (restos.length > 0) console.log(`Sidecars huérfanos retirados: ${restos.length}`);
 
   // Gancho opcional para copia externa (rsync, rclone, S3…).
   const hook = process.env.WANDERBIBLIOTHEK_BACKUP_HOOK;

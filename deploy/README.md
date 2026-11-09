@@ -353,6 +353,11 @@ sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
 # Bloqueo de rastreadores de IA por User-Agent (contexto `http`).
 sudo install -m 644 deploy/nginx-ai.conf /etc/nginx/conf.d/wanderbibliothek-ai.conf
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
+# El `nginx.conf` declara el `default_server` de 80 y 443 para cerrar la
+# conexión a quien llega por la IP desnuda o por un dominio que no atendemos.
+# Debian trae el suyo en `sites-enabled/default`: con los dos, `nginx -t` falla
+# con «duplicate default server».
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo certbot --nginx -d biblioteca.example.com
 sudo nginx -t && sudo systemctl reload nginx
 ```

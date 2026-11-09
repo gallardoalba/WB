@@ -36,6 +36,10 @@ mkdir -p "$DEST"
 # viaja la carpeta entera (unas pocas copias) en una sola conexión.
 ssh "$HOST" "sudo tar -C '$REMOTE' -cf - ." | tar -C "$DEST" -xf -
 
+# Restos de versiones anteriores: junto a cada copia cifrada quedaban
+# `-shm`/`-wal` huérfanos que el `tar` volvía a traer en cada pasada.
+rm -f "$DEST"/wanderbibliothek-*.db-shm "$DEST"/wanderbibliothek-*.db-wal
+
 # Rotación local: se conservan las N más recientes.
 ls -1t "$DEST"/wanderbibliothek-*.db.enc 2>/dev/null \
   | tail -n +$((KEEP + 1)) \
@@ -57,8 +61,15 @@ if [ "$VERIFY" = "1" ]; then
   fi
   TMP=$(mktemp -d)
   trap 'rm -rf "$TMP"' EXIT
-  WANDERBIBLIOTHEK_BACKUP_KEY=$(cat "$KEY_FILE") \
-    node --import tsx "$AQUI/scripts/decrypt-backup.ts" "$ULTIMA" "$TMP/copia.db" >/dev/null
+  # `--import tsx` se resuelve desde el **directorio actual**, no desde el
+  # script: sin este `cd`, cualquier ejecución fuera del repositorio (el timer
+  # de usuario arranca en $HOME) moría con ERR_MODULE_NOT_FOUND y la copia no
+  # se verificaba nunca.
+  (
+    cd "$AQUI"
+    WANDERBIBLIOTHEK_BACKUP_KEY=$(cat "$KEY_FILE") \
+      node --import tsx "$AQUI/scripts/decrypt-backup.ts" "$ULTIMA" "$TMP/copia.db"
+  ) >/dev/null
   if command -v sqlite3 >/dev/null 2>&1; then
     INTEGRIDAD=$(sqlite3 "$TMP/copia.db" "PRAGMA quick_check;")
     if [ "$INTEGRIDAD" != "ok" ]; then

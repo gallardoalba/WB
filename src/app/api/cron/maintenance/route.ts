@@ -23,7 +23,12 @@ export async function POST(request: Request) {
     const provided = header.startsWith("Bearer ") ? header.slice(7) : "";
     if (!safeEqual(provided, token)) throw new ApiError(401, "Token no válido.");
 
-    hit({ bucket: "cron:maintenance", key: "all", limit: 6, windowMs: 60 * 60 * 1000 });
+    // El timer dispara cada 15 minutos (4 pasadas por hora). El tope anterior
+    // era 6/h y se agotaba en cuanto un despliegue o una prueba manual llamaba
+    // al endpoint: la pasada se perdía con un 429 y la unidad quedaba `failed`
+    // sin que nada estuviera roto. 20/h deja margen para cinco veces el ritmo
+    // normal y sigue impidiendo que el endpoint sea un amplificador.
+    hit({ bucket: "cron:maintenance", key: "all", limit: 20, windowMs: 60 * 60 * 1000 });
 
     // Cada tarea va aislada: un fallo en una (base bloqueada un instante, un
     // proveedor que devuelve algo inesperado) no puede impedir que se ejecuten
