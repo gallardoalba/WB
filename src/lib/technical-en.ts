@@ -94,7 +94,7 @@ export const EN: TechnicalDocument = {
           head: ["Route", "Content"],
           rows: [
             ["`/`", "Public home page: hero, four figures and a row of books."],
-            ["`/descubrir`", "Full catalogue with search, categories, sorting and pagination in the URL. Visible without a session; requesting a book does require one."],
+            ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Without a session only the first page is shown, and each copy displays the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public page for the work with JSON-LD `Book`/`Offer`: the URL that gets indexed."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
             ["`/buscar`", "Global search: works, clubs, readers and lists."],

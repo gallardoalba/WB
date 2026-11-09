@@ -48,7 +48,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=â€
 | Route | Content |
 | --- | --- |
 | `/` | Public home page: hero, four figures and a single row of books. |
-| `/descubrir` | Full catalogue with search, categories, sorting and pagination in the URL. Visible without a session; requesting a copy does require one. |
+| `/descubrir` | Catalogue with search, categories, sorting and pagination in the URL. Without a session only the first page is shown, and each copy displays the book and the city, never who offers it; requesting a copy requires an account. |
 | `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; the URL search engines index. (`/buecher` redirects here to `/descubrir`.) |
 | `/ofrecer` | Publish a copy; the ISBN fills in the bibliographic record. |
 | `/buscar` | Global search: works, reading circles, readers and lists. |
