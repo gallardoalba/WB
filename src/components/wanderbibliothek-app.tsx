@@ -777,19 +777,6 @@ export default function WanderbibliothekApp({
             </div>
           </div>
 
-          {filters.tag && (view === "discover" || view === "shelf") && (
-            <p className="tag-filter-banner">
-              {t("Mostrando libros con la etiqueta")} <strong>{filters.tag}</strong>
-              <button
-                type="button"
-                className="inline-link"
-                onClick={() => navigate({ tag: "", page: 1 })}
-              >
-                {t("Quitar filtro")}
-              </button>
-            </p>
-          )}
-
           {view === "community" ? (
             <div className="community-hub">
               {/* Las secciones primero: son la navegación del hub y estaban

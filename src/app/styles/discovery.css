@@ -52,31 +52,6 @@
   color: var(--green-strong);
 }
 
-.tag-filter-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 16px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--green-pale);
-  color: var(--green-strong);
-  font-size: 14px;
-}
-
-.tag-filter-banner .inline-link {
-  border: 0;
-  background: none;
-  cursor: pointer;
-  color: var(--green-strong);
-  font-weight: 700;
-}
-
-.tag-filter-banner .inline-link:hover {
-  color: var(--ink);
-}
-
 .tag-field {
   margin: 12px 0 4px;
   padding: 10px 12px;
