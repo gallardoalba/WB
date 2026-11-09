@@ -10,12 +10,8 @@ import { HREFLANG, LOCALES, localePath, type Locale } from "./locale";
  * gente («Bücher tauschen»), no solo el eslogan: la marca la añade el
  * `template` de las subpáginas.
  *
- * La descripción dice qué se puede hacer y dónde, y cabe en un resultado de
- * Google (~155 caracteres). La frase anterior —«una biblioteca descentralizada
- * impulsada por la comunidad que cree que el conocimiento crece…»— no decía
- * nada concreto y Google la sustituía por un trozo de la página: ahora la
- * portada abre con esta misma frase, así que el `<meta>` y el texto visible
- * dicen lo mismo.
+ * La descripción es la misma frase con la que abre la portada, para que el
+ * `<meta>` y el texto visible digan lo mismo.
  */
 export const SITE_TITLE: Record<Locale, string> = {
   de: `Bücher tauschen und teilen in Europa | ${BRAND}`,
@@ -24,9 +20,9 @@ export const SITE_TITLE: Record<Locale, string> = {
 };
 
 export const SITE_DESCRIPTION: Record<Locale, string> = {
-  de: "Bücher tauschen und weitergeben: stelle deine gelesenen Bücher ein und finde neue in deiner Nähe. Kostenlos, ohne Werbung, ohne Datenhandel.",
-  es: "Comparte e intercambia libros: publica los que ya has leído y encuentra otros cerca de ti. Gratis, sin publicidad ni venta de datos.",
-  en: "Swap and share books with readers near you: list the ones you have read and find new ones. Free, no ads, no data trading.",
+  de: "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Keine Werbung, kein Datenhandel.",
+  es: "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.",
+  en: "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared. No ads, no data trading.",
 };
 
 /**

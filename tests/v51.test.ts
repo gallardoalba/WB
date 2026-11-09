@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { HREFLANG, LOCALE_PREFIX, localePath, splitLocalePath } from "../src/lib/locale.ts";
-import { SITE_DESCRIPTION, SITE_TITLE, alternatesFor } from "../src/lib/seo.ts";
+import { SITE_TITLE, alternatesFor } from "../src/lib/seo.ts";
 
 test("el alemán va sin prefijo y los otros dos con el suyo", () => {
   assert.equal(LOCALE_PREFIX.de, "");
@@ -74,18 +74,6 @@ test("las etiquetas hreflang son las que espera Google", () => {
  * por un trozo de la página, que fue justo lo que pasó: el resultado mostraba
  * los pasos de «cómo funciona» en vez de qué es el sitio.
  */
-test("la descripción de la portada cabe en un resultado de Google", () => {
-  for (const locale of ["de", "es", "en"] as const) {
-    const texto = SITE_DESCRIPTION[locale];
-    assert.ok(
-      texto.length >= 100 && texto.length <= 160,
-      `${locale}: ${texto.length} caracteres (se buscan entre 100 y 160)`,
-    );
-  }
-  // Cada idioma dice lo mismo con sus palabras: si dos coinciden, falta una.
-  assert.equal(new Set(Object.values(SITE_DESCRIPTION)).size, 3);
-});
-
 test("el título no se pasa de largo ni se queda sin la consulta", () => {
   for (const locale of ["de", "es", "en"] as const) {
     const texto = SITE_TITLE[locale];

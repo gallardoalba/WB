@@ -663,7 +663,7 @@ export default function WanderbibliothekApp({
                 </p>
                 <p>
                   {t(
-                    "Comparte e intercambia libros: publica los que ya has leído y encuentra otros cerca de ti. Gratis, sin publicidad ni venta de datos.",
+                    "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.",
                   )}
                 </p>
                 <button

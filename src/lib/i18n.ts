@@ -1270,7 +1270,7 @@ export const DE = {
   "Cancelar el intercambio": "Tausch abbrechen",
   "Retirar la solicitud": "Anfrage zurückziehen",
   "Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.": "Deine Anfrage wird zurückgezogen, das Exemplar ist wieder für andere verfügbar.",
-  "Comparte e intercambia libros: publica los que ya has leído y encuentra otros cerca de ti. Gratis, sin publicidad ni venta de datos.": "Bücher tauschen und weitergeben: stelle deine gelesenen Bücher ein und finde neue in deiner Nähe. Kostenlos, ohne Werbung, ohne Datenhandel.",
+  "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.": "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Keine Werbung, kein Datenhandel.",
   // Catálogo público (lo que indexan los buscadores)
   "Este libro no está en el catálogo": "Dieses Buch ist nicht im Katalog",
   "«{title}» de {author}: {n} ejemplares para intercambiar en {cities}.": "„{title}“ von {author}: {n} Exemplare zum Tauschen in {cities}.",
@@ -2572,7 +2572,7 @@ export const EN = {
   "Cancelar el intercambio": "Cancel the exchange",
   "Retirar la solicitud": "Withdraw request",
   "Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.": "Your request is withdrawn and the copy becomes available to others again.",
-  "Comparte e intercambia libros: publica los que ya has leído y encuentra otros cerca de ti. Gratis, sin publicidad ni venta de datos.": "Swap and share books with readers near you: list the ones you have read and find new ones. Free, no ads, no data trading.",
+  "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.": "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared. No ads, no data trading.",
   // Public catalogue (what search engines index)
   "Este libro no está en el catálogo": "This book is not in the catalogue",
   "«{title}» de {author}: {n} ejemplares para intercambiar en {cities}.": "“{title}” by {author}: {n} copies to exchange in {cities}.",
