@@ -49,6 +49,13 @@ jobs:
       - name: Auditoría de dependencias de producción
         run: npm audit --omit=dev
 
+      # Las herramientas de desarrollo también son cadena de suministro:
+      # ESLint, TypeScript y Playwright construyen y revisan lo que se
+      # publica. Se informa aparte para no confundir el riesgo de ejecución
+      # con el de construcción.
+      - name: Auditoría completa (incluye desarrollo)
+        run: npm audit
+
   e2e:
     runs-on: ubuntu-latest
     steps:

@@ -877,6 +877,29 @@ function claimPosts(
 }
 
 /**
+ * ¿Sigue habiendo algo que anunciar?
+ *
+ * Una fila puede esperar horas o días (la tanda va separada 4–7 h) y en ese
+ * tiempo el ejemplar se puede pausar, retirar o moderar. Si ya no queda ninguna
+ * copia viva, `/werk/<obra>` deja de ofrecer el libro y el aviso mandaría a la
+ * gente a una página sin nada que pedir.
+ *
+ * Si la obra no está en `books` se publica igual: ningún camino del código
+ * borra libros, así que un subject sin fila es un dato que falta (importación a
+ * medias, prueba) y no una retirada.
+ */
+function sinEjemplaresVivos(subject: string): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT (SELECT COUNT(*) FROM books WHERE id = @book) AS obra,
+              (SELECT COUNT(*) FROM listings
+                WHERE book_id = @book AND status <> 'removed') AS vivas`,
+    )
+    .get({ book: subject }) as { obra: number; vivas: number };
+  return row.obra > 0 && row.vivas === 0;
+}
+
+/**
  * Intenta entregar los avisos pendientes. Silencioso: nunca lanza.
  *
  * `only` limita el intento a una fila concreta (la que acaba de encolar quien
@@ -911,6 +934,15 @@ export async function processSocialOutbox(
   let sent = 0;
   let failed = 0;
   for (const row of rows) {
+    // La obra se retiró mientras esperaba su turno: no se anuncia una página
+    // sin ejemplares. La fila queda cerrada con el motivo, no reintentando.
+    if (sinEjemplaresVivos(row.subject)) {
+      db.prepare(
+        "UPDATE social_outbox SET status = 'failed', last_error = ? WHERE id = ?",
+      ).run("La obra ya no tiene ejemplares: no se anuncia.", row.id);
+      failed += 1;
+      continue;
+    }
     const mediaId = await asegurarMedio(config, row, fetchImpl);
     const result = await postStatus(config, row.body, row.id, {
       mediaIds: mediaId ? [mediaId] : [],

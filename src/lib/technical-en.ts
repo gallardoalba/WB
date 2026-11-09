@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 709 unit and integration tests (88 files)",
+            "tests/                 712 unit and integration tests (88 files)",
             "e2e/                   browser tests with Playwright (6 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -298,11 +298,15 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 709 unit and integration tests in 88 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 712 unit and integration tests in 88 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",
           text: "`npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.",
+        },
+        {
+          kind: "p",
+          text: "CI also audits **development** dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.",
         },
         {
           kind: "code",

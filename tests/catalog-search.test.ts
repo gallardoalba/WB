@@ -271,3 +271,61 @@ test("las obras de una cuenta salen sin duplicados y sin las retiradas", () => {
   repo.removeListing(user.id, segunda.id);
   assert.deepEqual(repo.listOwnerBooks(user.id).map((book) => book.title), ["Otra obra B"]);
 });
+
+test("los índices FTS siguen al alta, al cambio de título y a la baja", () => {
+  // `books_fts` y `listings_fts` se mantienen por triggers: si uno se queda
+  // atrás, la búsqueda devuelve lo que ya no está (o no encuentra lo nuevo) y
+  // nadie se entera hasta que alguien busca. Aquí se mira el índice, no solo el
+  // resultado público —que tiene un `LIKE` de respaldo y taparía el fallo—.
+  const user = nuevaCuenta("Índices", "indices@example.test");
+  const copia = publicar(user.id, "Niebla escarlata", "Autora Índice");
+  const db = dbModule.getDb();
+  const enIndice = (tabla: string, termino: string) =>
+    (
+      db.prepare(`SELECT COUNT(*) AS n FROM ${tabla} WHERE ${tabla} MATCH ?`).get(termino) as {
+        n: number;
+      }
+    ).n;
+
+  // Alta: los dos índices se rellenan por trigger.
+  assert.equal(enIndice("books_fts", "niebla"), 1, "la obra entra en books_fts");
+  assert.equal(enIndice("listings_fts", "escarlata"), 1, "la copia entra en listings_fts");
+
+  // Cambio de título en la ficha de la obra: se reindexa la obra y la copia.
+  repo.editListing(user.id, copia.id, {
+    condition: "Buen estado",
+    city: "Leipzig",
+    notes: "",
+    tags: [],
+    title: "Claridad de la luna",
+  });
+  assert.equal(enIndice("books_fts", "niebla"), 0, "el título viejo sale del índice");
+  assert.equal(enIndice("books_fts", "claridad"), 1);
+  assert.equal(enIndice("listings_fts", "claridad"), 1, "la copia se reindexa con la ficha nueva");
+
+  // Y la búsqueda pública lo refleja.
+  assert.ok(repo.searchBooks("clarid").length >= 1);
+  assert.equal(repo.catalogPage(null, catalogParams({ q: "claridad" })).total, 1);
+
+  // Baja física: ningún camino del código borra filas (los ejemplares se
+  // retiran con `removed`), pero el trigger de baja existe y hay que saber que
+  // funciona antes de necesitarlo. Se usan filas propias sin `events` ni
+  // referencias, que las de arriba ya arrastran el evento de publicación.
+  const ahora = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO books (id, title, title_key, author, category, created_at)
+     VALUES ('bok_borrable', 'Borrable del índice', 'borrable del indice', 'Autora', 'Ficción', ?)`,
+  ).run(ahora);
+  db.prepare(
+    `INSERT INTO listings (id, book_id, owner_id, condition, city, status, search_key, notes, created_at)
+     VALUES ('lst_borrable', 'bok_borrable', ?, 'Buen estado', 'Leipzig', 'available',
+             'borrable del indice autora leipzig', '', ?)`,
+  ).run(user.id, ahora);
+  assert.equal(enIndice("books_fts", "borrable"), 1);
+  assert.equal(enIndice("listings_fts", "borrable"), 1);
+
+  db.prepare("DELETE FROM listings WHERE id = 'lst_borrable'").run();
+  assert.equal(enIndice("listings_fts", "borrable"), 0, "el trigger de baja limpia el índice");
+  db.prepare("DELETE FROM books WHERE id = 'bok_borrable'").run();
+  assert.equal(enIndice("books_fts", "borrable"), 0);
+});

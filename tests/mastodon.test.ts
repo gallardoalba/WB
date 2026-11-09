@@ -675,6 +675,16 @@ test("el aviso espera la portada que el formulario sube después del alta", asyn
          'Español', ?, NULL, NULL, NULL, NULL, '2026-11-08T00:00:00.000Z')`,
     )
     .run(bookId, `/api/cover/book/${bookId}`);
+  // El aviso se encola al publicar un ejemplar: sin una copia viva, la cola
+  // considera que la obra ya no se puede pedir y no la anuncia.
+  dbModule
+    .getDb()
+    .prepare(
+      `INSERT OR IGNORE INTO listings (id, book_id, owner_id, condition, city, status,
+         search_key, created_at)
+       VALUES (?, ?, 'usr_admin', 'Buen estado', 'Stuttgart', 'available', ?, '2026-11-08T00:00:00.000Z')`,
+    )
+    .run(`lst_${bookId}`, bookId, "iluminaciones");
   let portadaEnDiscoAlPedirLaTarjeta = false;
   globalThis.fetch = (async (input: string | URL | Request) => {
     const url = typeof input === "string" ? input : String(input);
@@ -1008,5 +1018,48 @@ test("el cron tampoco publica de noche, aunque haya avisos vencidos", async () =
     delete process.env.MASTODON_TOKEN;
     if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
     else process.env.MASTODON_QUIET_HOURS = anterior;
+  }
+});
+
+test("una obra sin ejemplares vivos no se anuncia cuando le llega el turno", async () => {
+  clearQueue();
+  const db = dbModule.getDb();
+  // La obra existe (la cola la conoce) pero su única copia se retiró entre el
+  // encolado y el turno: el enlace a /werk ya no ofrece nada que pedir.
+  db.prepare(
+    `INSERT OR IGNORE INTO books (id, title, title_key, author, category, created_at)
+     VALUES ('bok_retirada', 'Libro retirado', 'libro retirado', 'Autoría', 'Ficción',
+             '2026-11-01T00:00:00.000Z')`,
+  ).run();
+  db.prepare(
+    `INSERT OR IGNORE INTO listings (id, book_id, owner_id, condition, city, status,
+       search_key, created_at)
+     VALUES ('lst_retirada', 'bok_retirada', 'usr_admin', 'Buen estado', 'Stuttgart',
+             'removed', 'libro retirado', '2026-11-01T00:00:00.000Z')`,
+  ).run();
+  mastodon.enqueuePost({ bookId: "bok_retirada", text: "No debería salir." });
+
+  let llamadas = 0;
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    llamadas += 1;
+    return jsonResponse({ id: "1" });
+  }) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+
+  try {
+    const resultado = await mastodon.processSocialOutbox();
+    assert.equal(resultado.sent, 0, "no se publica nada");
+    assert.equal(resultado.failed, 1);
+    assert.equal(llamadas, 0, "no se llega a hablar con Mastodon");
+
+    const fila = db
+      .prepare("SELECT status, last_error FROM social_outbox WHERE subject = 'bok_retirada'")
+      .get() as { status: string; last_error: string };
+    assert.equal(fila.status, "failed", "la fila se cierra; no se reintenta en balde");
+    assert.match(fila.last_error, /ejemplares/i);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
   }
 });

@@ -149,3 +149,39 @@ test("la documentación declara el rango de migraciones que hay de verdad", () =
     );
   assert.deepEqual(desfasados, [], `la documentación debería decir «${esperado}»`);
 });
+
+test("las cifras de la documentación no se contradicen", () => {
+  // DOCUMENTATION.md llegó a decir «331 pruebas (45 ficheros)» en el árbol y
+  // «709 en 88» tres párrafos más abajo: nadie lo vio porque el número está a
+  // mano en seis sitios. Aquí se exige que todas las menciones digan lo mismo,
+  // y que los handlers citados sean los `route.ts` que hay en el disco.
+  const ficheros = ["DOCUMENTATION.md", "src/lib/technical.ts", "src/lib/technical-en.ts"];
+  const fuentes = ficheros.map((file) => ({
+    file,
+    texto: readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8"),
+  }));
+
+  const pruebas = new Set<string>();
+  const archivos = new Set<string>();
+  const patron =
+    /(\d{3,4})\s+(?:unit and integration tests|unit- und Integrationstests|pruebas unitarias y de integración)\s*(?:in\s+|en\s+|\()?(\d{2})\s+(?:files|ficheros|Dateien)/g;
+  for (const { texto } of fuentes) {
+    for (const match of texto.matchAll(patron)) {
+      pruebas.add(match[1]!);
+      archivos.add(match[2]!);
+    }
+  }
+  assert.equal(pruebas.size, 1, `la documentación da ${[...pruebas].join(" y ")} pruebas`);
+  assert.equal(archivos.size, 1, `la documentación da ${[...archivos].join(" y ")} ficheros`);
+
+  const handlers = routeFiles(API_DIR).length;
+  for (const { file, texto } of fuentes) {
+    const citados = new Set([...texto.matchAll(/\b(\d{2}) handlers\b/g)].map((match) => match[1]!));
+    if (citados.size === 0) continue;
+    assert.deepEqual(
+      [...citados],
+      [String(handlers)],
+      `${file} cita ${[...citados].join("/")} handlers y en src/app/api hay ${handlers}`,
+    );
+  }
+});

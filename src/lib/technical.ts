@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 709 pruebas unitarias y de integración (88 ficheros)",
+            "tests/                 712 pruebas unitarias y de integración (88 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -322,11 +322,15 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 709 pruebas unitarias y de integración en 88 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 712 pruebas unitarias y de integración en 88 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
           text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker sin publicarla.",
+        },
+        {
+          kind: "p",
+          text: "El CI audita también las dependencias de **desarrollo** (`npm audit` completo): ESLint, TypeScript y Playwright construyen lo que se publica. Y el `override` de `minimatch@11` en `package.json` está porque `@typescript-eslint/typescript-estree` resolvía una versión con un aviso de ReDoS; solo afecta a la cadena de ESLint, no al runtime, y se puede retirar cuando esa dependencia lo traiga por sí sola.",
         },
         {
           kind: "code",
@@ -504,7 +508,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 709 Unit- und Integrationstests (88 Dateien)",
+            "tests/                 712 Unit- und Integrationstests (88 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -744,11 +748,15 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 709 Unit- und Integrationstests in 88 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 712 Unit- und Integrationstests in 88 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
           text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images ohne Veröffentlichung aus.",
+        },
+        {
+          kind: "p",
+          text: "Die CI prüft auch die **Entwicklungsabhängigkeiten** (vollständiges `npm audit`): ESLint, TypeScript und Playwright bauen, was veröffentlicht wird. Und das `minimatch@11`-`override` in `package.json` steht dort, weil `@typescript-eslint/typescript-estree` eine Version mit einer ReDoS-Warnung auflöste; es betrifft nur die ESLint-Kette, nicht die Laufzeit, und lässt sich entfernen, sobald diese Abhängigkeit sie selbst mitbringt.",
         },
         {
           kind: "code",
