@@ -68,4 +68,23 @@ test.describe("idioma por defecto: navegador en inglés y enlaces del correo", (
     await page.goto("/listas");
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
   });
+
+  test("después de un enlace con ?lang=es el selector vuelve a alemán", async ({ page }) => {
+    // Regresión: el `?lang=` se quedaba en la URL y el proxy lo volvía a imponer
+    // en cada navegación, así que pasar de castellano a alemán no hacía nada.
+    await page.goto("/?lang=es");
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(page).not.toHaveURL(/lang=/);
+    await waitForHydration(page);
+
+    await page.locator(".locale-select").selectOption("de");
+    await expect(page.locator("html")).toHaveAttribute("lang", "de");
+    await expect(page.locator(".hero-tagline")).toHaveText(
+      "Bücher, die reisen. Menschen, die sich begegnen.",
+    );
+
+    // Y se queda: al recargar sigue en alemán.
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "de");
+  });
 });

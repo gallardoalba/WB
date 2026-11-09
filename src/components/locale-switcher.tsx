@@ -67,13 +67,22 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
     });
     const conPrefijo = splitLocalePath(window.location.pathname);
     const interno = conPrefijo ? conPrefijo.path : window.location.pathname;
-    const destino = `${localePath(next, interno)}${window.location.search}`;
+    // `?lang=` es de un solo uso (viene de un enlace del correo): se descarta al
+    // cambiar de idioma, o volvería a imponer el anterior en cada navegación.
+    const params = new URLSearchParams(window.location.search);
+    params.delete("lang");
+    const query = params.toString();
+    const destino = `${localePath(next, interno)}${query ? `?${query}` : ""}`;
+    // Se compara con la URL tal cual está: si lleva `?lang=`, hay que navegar
+    // para quitarlo (un `refresh` la conservaría y el proxy volvería a forzar
+    // ese idioma).
+    const actual = `${window.location.pathname}${window.location.search}`;
     startTransition(() => {
       // Recarga completa, no `router.push`: el idioma vive en el layout raíz
       // (`<html lang>`, el proveedor de textos), que no se vuelve a pintar en
       // una navegación de cliente. Solo así cambian de verdad el idioma y la
       // dirección con su prefijo.
-      if (destino === `${window.location.pathname}${window.location.search}`) {
+      if (destino === actual) {
         router.refresh();
       } else {
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- el idioma vive en el layout raíz: solo una recarga completa lo aplica

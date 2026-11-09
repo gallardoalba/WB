@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { LOCALE_COOKIE, LOCALE_HEADER, matchLocale, splitLocalePath } from "@/lib/locale";
+import {
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  matchLocale,
+  splitLocalePath,
+  type Locale,
+} from "@/lib/locale";
 import { requestIdFrom, REQUEST_ID_HEADER } from "@/lib/observability";
 
 /**
@@ -111,10 +117,39 @@ export function proxy(request: NextRequest) {
   const prefijo = esApi ? null : splitLocalePath(request.nextUrl.pathname);
   const usaPrefijo = prefijo !== null && !prefijo.path.startsWith("/_next/");
 
+  /**
+   * Redirige dejando el idioma guardado en la cookie.
+   *
+   * Sin esto, entrar en `/de/…` o abrir un enlace con `?lang=…` cambiaba la
+   * vista pero no la preferencia: la siguiente navegación volvía al idioma
+   * anterior y el selector parecía no hacer nada.
+   */
+  const redirectConIdioma = (url: URL, status: number, locale: Locale) => {
+    const response = NextResponse.redirect(url, status);
+    response.cookies.set(LOCALE_COOKIE, locale, {
+      path: "/",
+      maxAge: 31536000,
+      sameSite: "lax",
+      secure: !isDev,
+    });
+    return response;
+  };
+
   if (usaPrefijo && prefijo.locale === "de") {
     const clean = new URL(request.url);
     clean.pathname = prefijo.path;
-    return NextResponse.redirect(clean, 308);
+    clean.searchParams.delete("lang");
+    return redirectConIdioma(clean, 308, "de");
+  }
+
+  // `?lang=` llega en los enlaces del correo para abrir la página en el idioma
+  // en que se escribió. Es de un solo uso: se guarda en la cookie y **se quita
+  // de la URL**. Si se quedara, cada navegación volvería a imponer ese idioma y
+  // cambiar a otro en el selector no tendría efecto.
+  if (!esApi && !usaPrefijo && fromQuery) {
+    const clean = new URL(request.url);
+    clean.searchParams.delete("lang");
+    return redirectConIdioma(clean, 307, fromQuery);
   }
 
   const idiomaForzado = usaPrefijo ? prefijo.locale : fromQuery;
