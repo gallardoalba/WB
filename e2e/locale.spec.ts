@@ -13,7 +13,7 @@ test.describe("idioma por defecto: el del navegador", () => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
     await expect(page.locator(".hero-tagline")).toHaveText(
-      "Bücher, die reisen. Menschen, die sich begegnen.",
+      "Bücher reisen, Ideen verbinden Menschen.",
     );
 
     await page.goto("/documentacion");
@@ -30,7 +30,7 @@ test.describe("idioma por defecto: el del navegador", () => {
 
     await page.reload();
     await expect(page.locator(".hero-tagline")).toHaveText(
-      "Libros que viajan. Personas que se encuentran.",
+      "Los libros viajan, las ideas conectan a las personas.",
     );
   });
 
@@ -42,7 +42,7 @@ test.describe("idioma por defecto: el del navegador", () => {
 
     await page.reload();
     await expect(page.locator(".hero-tagline")).toHaveText(
-      "Books that travel. People who meet.",
+      "Books travel, ideas connect people.",
     );
   });
 });
@@ -54,7 +54,7 @@ test.describe("idioma por defecto: navegador en inglés y enlaces del correo", (
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator(".hero-tagline")).toHaveText(
-      "Books that travel. People who meet.",
+      "Books travel, ideas connect people.",
     );
   });
 
@@ -80,7 +80,7 @@ test.describe("idioma por defecto: navegador en inglés y enlaces del correo", (
     await page.locator(".locale-select").selectOption("de");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
     await expect(page.locator(".hero-tagline")).toHaveText(
-      "Bücher, die reisen. Menschen, die sich begegnen.",
+      "Bücher reisen, Ideen verbinden Menschen.",
     );
 
     // Y se queda: al recargar sigue en alemán.

@@ -74,8 +74,8 @@ object TextCatalog {
 
         // Entdecken
         "brandName" to "Wanderbibliothek",
-        "brandTagline" to "Bücher, die reisen. Menschen, die sich begegnen.",
-        "heroSubtitle" to "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden.",
+        "brandTagline" to "Bücher reisen, Ideen verbinden Menschen.",
+        "heroSubtitle" to "Eine dezentrale Bibliothek, getragen von ihrer Gemeinschaft: Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Ohne Werbung und Tracking, mit Ende-zu-Ende-verschlüsselten Nachrichten.",
         "searchPlaceholder" to "Titel, Autor:in oder Stichwort",
         "filters" to "Filter",
         "category" to "Kategorie",
@@ -355,8 +355,8 @@ object TextCatalog {
         "signInRequired" to "Para ver esto hay que iniciar sesión.",
 
         "brandName" to "Wanderbibliothek",
-        "brandTagline" to "Libros que viajan. Personas que se encuentran.",
-        "heroSubtitle" to "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
+        "brandTagline" to "Los libros viajan, las ideas conectan a las personas.",
+        "heroSubtitle" to "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.",
         "searchPlaceholder" to "Título, autoría o palabra clave",
         "filters" to "Filtros",
         "category" to "Categoría",
@@ -623,8 +623,8 @@ object TextCatalog {
         "serverRedirectLoop" to "The server redirects in a loop. Update it or choose another one in Settings.",
         "signInRequired" to "You need to be signed in for that.",
         "brandName" to "Wanderbibliothek",
-        "brandTagline" to "Books that travel. People who meet.",
-        "heroSubtitle" to "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared.",
+        "brandTagline" to "Books travel, ideas connect people.",
+        "heroSubtitle" to "A decentralised library run by its community: knowledge grows when books, ideas and experiences are shared. No ads, no tracking, end-to-end encrypted messages.",
         "searchPlaceholder" to "Title, author or keyword",
         "filters" to "Filters",
         "category" to "Category",

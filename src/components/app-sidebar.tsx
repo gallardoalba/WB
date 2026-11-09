@@ -56,7 +56,7 @@ export function AppSidebar({
         </span>
       </Link>
       <p className="brand-tagline">
-        {t("Libros que viajan. Personas que se encuentran.")}
+        {t("Los libros viajan, las ideas conectan a las personas.")}
       </p>
 
       <nav className="primary-nav" aria-label={t("Navegación principal")}>

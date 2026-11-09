@@ -13,9 +13,9 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     }),
     short_name: BRAND,
     description: pick(locale, {
-      de: "Eine dezentrale Bibliothek, getragen von der Gemeinschaft: Bücher, Ideen und Erfahrungen teilen.",
-      es: "Una biblioteca descentralizada impulsada por la comunidad: comparte libros, ideas y experiencias.",
-      en: "A decentralised, community-driven library: share books, ideas and experiences.",
+      de: "Dezentrale, gemeinschaftliche Bibliothek: Bücher, Ideen und Erfahrungen teilen. Ohne Werbung und Tracking.",
+      es: "Biblioteca descentralizada y comunitaria: comparte libros, ideas y experiencias. Sin publicidad ni rastreo.",
+      en: "A decentralised, community-run library: share books, ideas and experiences. No ads, no tracking.",
     }),
     start_url: "/",
     scope: "/",

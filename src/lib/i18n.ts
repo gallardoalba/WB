@@ -39,7 +39,7 @@ export const DE = {
   Inicio: "Start",
   "Hecho para que las historias sigan viajando.": "Damit Geschichten weiterreisen.",
   // Lema de la marca: el mismo que la app muestra bajo el nombre.
-  "Libros que viajan. Personas que se encuentran.": "Bücher, die reisen. Menschen, die sich begegnen.",
+  "Los libros viajan, las ideas conectan a las personas.": "Bücher reisen, Ideen verbinden Menschen.",
   "Secciones de la comunidad": "Bereiche der Gemeinschaft",
   "Información y documentación": "Rechtliches und Dokumentation",
   "Código en GitHub": "Code auf GitHub",
@@ -1268,7 +1268,7 @@ export const DE = {
   "Cancelar el intercambio": "Tausch abbrechen",
   "Retirar la solicitud": "Anfrage zurückziehen",
   "Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.": "Deine Anfrage wird zurückgezogen, das Exemplar ist wieder für andere verfügbar.",
-  "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.": "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden.",
+  "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.": "Eine dezentrale Bibliothek, getragen von ihrer Gemeinschaft: Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Ohne Werbung und Tracking, mit Ende-zu-Ende-verschlüsselten Nachrichten.",
   "Los datos de envío son otra cosa: se guardan cifrados con la clave de la plataforma y solo se descifran para las dos personas del intercambio, dentro de la aplicación. El servidor de esta instancia sí puede leerlos; los mensajes no.": "Die Versanddaten sind etwas anderes: Sie werden mit dem Schlüssel der Plattform verschlüsselt gespeichert und nur für die beiden Personen des Tauschs entschlüsselt, innerhalb der Anwendung. Der Server dieser Instanz kann sie lesen – die Nachrichten nicht.",
   // Catálogo público (lo que indexan los buscadores)
   "Este libro no está en el catálogo": "Dieses Buch ist nicht im Katalog",
@@ -1340,7 +1340,7 @@ export const EN = {
   "Saltar al contenido": "Skip to content",
   Inicio: "Home",
   "Hecho para que las historias sigan viajando.": "Made so stories keep travelling.",
-  "Libros que viajan. Personas que se encuentran.": "Books that travel. People who meet.",
+  "Los libros viajan, las ideas conectan a las personas.": "Books travel, ideas connect people.",
   "Secciones de la comunidad": "Community sections",
   "Información y documentación": "Legal and documentation",
   "Código en GitHub": "Code on GitHub",
@@ -2569,7 +2569,7 @@ export const EN = {
   "Cancelar el intercambio": "Cancel the exchange",
   "Retirar la solicitud": "Withdraw request",
   "Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.": "Your request is withdrawn and the copy becomes available to others again.",
-  "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.": "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared.",
+  "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.": "A decentralised library run by its community: knowledge grows when books, ideas and experiences are shared. No ads, no tracking, end-to-end encrypted messages.",
   "Los datos de envío son otra cosa: se guardan cifrados con la clave de la plataforma y solo se descifran para las dos personas del intercambio, dentro de la aplicación. El servidor de esta instancia sí puede leerlos; los mensajes no.": "Shipping details are something else: they are stored encrypted with the platform key and only decrypted for the two people in the exchange, inside the app. This instance's server can read them; messages it cannot.",
   // Public catalogue (what search engines index)
   "Este libro no está en el catálogo": "This book is not in the catalogue",

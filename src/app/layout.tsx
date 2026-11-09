@@ -23,9 +23,9 @@ const SITE_TITLE = {
 } as const;
 
 const SITE_DESCRIPTION = {
-  de: "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden.",
-  es: "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
-  en: "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared.",
+  de: "Eine dezentrale Bibliothek, getragen von ihrer Gemeinschaft: Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Ohne Werbung und Tracking, mit Ende-zu-Ende-verschlüsselten Nachrichten.",
+  es: "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.",
+  en: "A decentralised library run by its community: knowledge grows when books, ideas and experiences are shared. No ads, no tracking, end-to-end encrypted messages.",
 } as const;
 
 /**

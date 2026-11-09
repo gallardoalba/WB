@@ -652,11 +652,11 @@ export default function WanderbibliothekApp({
                   <span className="hero-brand">{BRAND}</span>
                 </h1>
                 <p className="hero-tagline">
-                  {t("Libros que viajan. Personas que se encuentran.")}
+                  {t("Los libros viajan, las ideas conectan a las personas.")}
                 </p>
                 <p>
                   {t(
-                    "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
+                    "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.",
                   )}
                 </p>
                 <button
