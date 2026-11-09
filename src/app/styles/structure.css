@@ -794,6 +794,28 @@
   flex-direction: column;
 }
 
+/* Páginas con rejilla de libros (el perfil público) ocupan todo el ancho del
+   panel, como el catálogo: una estantería de tres columnas en 1120 px dejaba
+   tarjetas enormes y la mitad de la pantalla vacía. Las páginas de lectura
+   (lectores, clubes, listas) se quedan en el ancho contenido. */
+.content-wrap.content-wide {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+@media (min-width: 1400px) {
+  .content-wide .book-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1800px) {
+  .content-wide .book-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 .content-wrap > .page-footer {
   margin-top: auto;
 }

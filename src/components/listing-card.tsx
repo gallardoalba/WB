@@ -73,7 +73,7 @@ export function ListingCard({
           {listing.tags.slice(0, 2).map((tag) => (
             <Link
               key={tag}
-              href={`/?tag=${encodeURIComponent(tag)}`}
+              href={`/descubrir?tag=${encodeURIComponent(tag)}`}
               className="tag-chip"
               title={t("Ver libros con la etiqueta {tag}", { tag: t(tag) })}
             >

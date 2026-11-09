@@ -28,6 +28,7 @@ export async function SiteShell({
   title,
   children,
   rail = true,
+  wide = false,
 }: {
   user: SessionUser | null;
   section: RailSection;
@@ -35,6 +36,8 @@ export async function SiteShell({
   children: ReactNode;
   /** Sin barra lateral en las páginas públicas de aterrizaje (ficha de obra). */
   rail?: boolean;
+  /** Ocupa todo el ancho del panel: para páginas con rejilla de libros. */
+  wide?: boolean;
 }) {
   // Armazón renderizado en el servidor: al navegador solo bajan las islas
   // interactivas (menú de cuenta, tema, idioma), no la cabecera entera.
@@ -98,7 +101,11 @@ export async function SiteShell({
 
         {/* `tabIndex={-1}` para que el enlace de salto pueda mover el foco aquí:
             un `div` sin foco deja al teclado al principio de la página. */}
-        <div className="content-wrap" id="main-content" tabIndex={-1}>
+        <div
+          className={wide ? "content-wrap content-wide" : "content-wrap"}
+          id="main-content"
+          tabIndex={-1}
+        >
           {user && !user.emailVerified && <VerifyEmailBanner email={user.email} />}
           {children}
 

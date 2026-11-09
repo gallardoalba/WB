@@ -119,7 +119,7 @@ export default async function Page({ params }: PageProps) {
               {tags.map((tag) => (
                 <Link
                   key={tag}
-                  href={`/?tag=${encodeURIComponent(tag)}`}
+                  href={`/descubrir?tag=${encodeURIComponent(tag)}`}
                   className="tag-chip"
                 >
                   {t(tag)}

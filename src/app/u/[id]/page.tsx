@@ -123,7 +123,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   // nada más. Ni estantería, ni comentarios, ni ciudad.
   if (profile.restricted) {
     return (
-      <SiteShell user={viewer} section="perfil" title={profile.user.name}>
+      <SiteShell user={viewer} section="perfil" title={profile.user.name} wide>
         <section className="profile-hero">
           <span className={`avatar profile-avatar tone-${toneForId(profile.user.id)}`}>
             {initialsOf(profile.user.name)}
@@ -178,7 +178,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const name = profile.user.name.split(" ")[0] ?? profile.user.name;
 
   return (
-    <SiteShell user={viewer} section="perfil" title={profile.user.name}>
+    <SiteShell user={viewer} section="perfil" title={profile.user.name} wide>
       <section className="profile-hero">
         <span className={`avatar profile-avatar tone-${toneForId(profile.user.id)}`}>
           {initialsOf(profile.user.name)}
