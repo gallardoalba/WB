@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useTransition,
+  ViewTransition,
 } from "react";
 import type { KeyboardEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -1273,6 +1274,16 @@ export default function WanderbibliothekApp({
                 )}
               </div>
 
+              {/* Las tarjetas se cruzan en fundido al cambiar de filtro o de
+                  pestaña: mismo sitio, otro contenido. La `key` con los filtros
+                  es la que provoca el cruce. */}
+              <ViewTransition
+                key={filterKey}
+                name="catalog"
+                share="auto"
+                enter="auto"
+                default="none"
+              >
               <div
                 className={view === "home" ? "book-grid home-grid" : "book-grid"}
                 id="book-grid"
@@ -1363,6 +1374,7 @@ export default function WanderbibliothekApp({
                 )}
                 </div>
               </div>
+              </ViewTransition>
 
               {view === "home" && (
                 <div className="home-discover">

@@ -123,3 +123,29 @@
     transform: none;
   }
 }
+
+/* ============================================================
+   Cruce del catálogo al cambiar de filtro o pestaña
+   ============================================================ */
+
+/*
+ * Mismo sitio, otro contenido: fundido corto, sin desplazamiento. Lo dispara
+ * la `key` de `<ViewTransition>` en la rejilla (filtros + página).
+ */
+::view-transition-group(catalog) {
+  animation-duration: 200ms;
+}
+
+::view-transition-old(catalog),
+::view-transition-new(catalog) {
+  animation-timing-function: ease;
+}
+
+/* Quien pide menos movimiento no ve ningún cruce de página. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
