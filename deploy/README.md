@@ -344,6 +344,8 @@ sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer 
   wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer
 
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
+# Bloqueo de rastreadores de IA por User-Agent (contexto `http`).
+sudo install -m 644 deploy/nginx-ai.conf /etc/nginx/conf.d/wanderbibliothek-ai.conf
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
 sudo certbot --nginx -d biblioteca.example.com
 sudo nginx -t && sudo systemctl reload nginx
@@ -386,6 +388,15 @@ sola:
 - **HTTP/3** (`listen 443 quic` + `Alt-Svc`) con el módulo `http_v3_module` de
   Debian. Hay que abrir UDP: `sudo ufw allow 443/udp`. Si el navegador no lo
   negocia, sigue por HTTP/2 sin cambiar nada.
+- **Sin `POST` a la raíz.** La aplicación no tiene Server Actions, así que un
+  `POST /` solo puede ser una sonda: `location = /` lo cierra con `444`. El
+  filtro de fail2ban cuenta esas líneas como escaneo.
+- **Cuota propia para `/es/…` y `/en/…`** (`wb_lang`, 60/minuto con margen 30):
+  son las mismas páginas que la ruta sin prefijo, para SEO, y un rastreador las
+  recorre todas. Un humano pasa por una o dos.
+- **Rastreadores de IA**: `deploy/nginx-ai.conf` responde `403` por User-Agent
+  (con `robots.txt` y el sitemap exentos). ⚠ Su lista tiene que coincidir con
+  `AI_TRAINING_BOTS` de `src/app/robots.ts`; al añadir uno, se tocan los dos.
 
 Si además usas fail2ban (recomendado), dos jails cubren el borde. Las plantillas
 están en `deploy/fail2ban/`:

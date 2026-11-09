@@ -30,6 +30,11 @@ const AI_TRAINING_BOTS = [
   "AI2Bot",
   "Omgilibot",
   "PanguBot",
+  // Detectados en el informe del 9-nov: AIWebIndex se presenta como «índice
+  // legible por IA» y RootEvidence recorrió el sitio entero sin figurar en
+  // ninguna lista. Entran por la misma puerta que los demás.
+  "AIWebIndex",
+  "RootEvidence",
 ];
 
 export default async function robots() {
