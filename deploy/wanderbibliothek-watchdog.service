@@ -1,0 +1,18 @@
+[Unit]
+Description=Wanderbibliothek · vigilante (salud, disco, copias y certificado)
+Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root: lee el certificado y la carpeta de copias, y el entorno para el webhook.
+EnvironmentFile=-/etc/wanderbibliothek/env
+ExecStart=/usr/bin/bash /srv/wanderbibliothek/current/deploy/watchdog.sh
+# Sin -e: el script informa con su código de salida y el journal ya guarda el
+# detalle. Un fallo aquí no debe marcar la unidad como fallida en bucle.
+SuccessExitStatus=0 1
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=full

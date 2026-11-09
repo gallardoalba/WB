@@ -38,6 +38,12 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   // No revelar el framework usado en cada respuesta.
   poweredByHeader: false,
+  // La compresión la hace nginx, no Node: `next start` solo comprime lo que
+  // sirve él, y aquí los estáticos los sirve nginx y las respuestas dinámicas
+  // pasan por su `gzip`. Comprimir en los dos sitios solo gastaba CPU.
+  // ⚠ Requiere el bloque `gzip` de `deploy/nginx.conf`; sin un proxy delante,
+  // `next start` serviría todo sin comprimir.
+  compress: false,
   // Playwright y otras herramientas visitan 127.0.0.1 además de localhost.
   // En desarrollo también se abre la app desde el móvil o el portátil de al
   // lado (`http://192.168.0.11:3000`): Next 16 bloquea el HMR y los recursos

@@ -2,8 +2,9 @@
 Description=Wanderbibliothek · copia de seguridad diaria
 
 [Timer]
-# 03:20 con retardo aleatorio para no coincidir con otros servicios del host.
-OnCalendar=*-*-* 03:20:00
+# Cada 6 horas: la base ocupa 2 MB, así que el coste es ridículo y el RPO baja
+# de 24 h a 6 h. La copia externa por tracción sigue a las 04:30.
+OnCalendar=*-*-* 00,06,12,18:20:00
 RandomizedDelaySec=15m
 Persistent=true
 Unit=wanderbibliothek-backup.service

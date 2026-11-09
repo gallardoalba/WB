@@ -332,10 +332,16 @@ sudo npm ... run mastodon:test -- --gustos
 ```bash
 sudo cp deploy/wanderbibliothek.service deploy/wanderbibliothek-maintenance.service \
         deploy/wanderbibliothek-maintenance.timer deploy/wanderbibliothek-backup.service \
-        deploy/wanderbibliothek-backup.timer /etc/systemd/system/
+        deploy/wanderbibliothek-backup.timer deploy/wanderbibliothek-watchdog.service \
+        deploy/wanderbibliothek-watchdog.timer /etc/systemd/system/
+# Endurecimiento: ProtectSystem=strict, topes de memoria y la caché de Next
+# escribible (`ReadWritePaths`), que es donde `sharp` guarda las tallas.
+sudo install -Dm644 deploy/wanderbibliothek-hardening.conf \
+  /etc/systemd/system/wanderbibliothek.service.d/hardening.conf
 sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current
 sudo systemctl daemon-reload
-sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer wanderbibliothek-backup.timer
+sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer \
+  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer
 
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
@@ -371,6 +377,15 @@ sola:
 - **`/api/cron/maintenance` solo desde el propio host** (`allow 127.0.0.1;`): el
   token ya la protege, pero no hay razón para exponer una tarea de escritura.
 - **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
+- **Compresión y estáticos en el borde.** El vhost activa `gzip` (con
+  `gzip_proxied any`, sin él no comprime lo que viene de Node) y sirve
+  `/_next/static/` y `public/{fonts,icons,hero}/` **desde el disco de la release
+  activa**: antes los pedía a Next uno por uno y los recursos de `public/`
+  salían con `max-age=0`. Por eso la aplicación va con `compress: false` en
+  `next.config.ts`: comprimir en los dos sitios solo gastaba CPU.
+- **HTTP/3** (`listen 443 quic` + `Alt-Svc`) con el módulo `http_v3_module` de
+  Debian. Hay que abrir UDP: `sudo ufw allow 443/udp`. Si el navegador no lo
+  negocia, sigue por HTTP/2 sin cambiar nada.
 
 Si además usas fail2ban (recomendado), dos jails cubren el borde. Las plantillas
 están en `deploy/fail2ban/`:
@@ -499,8 +514,9 @@ apareció el bucle de redirecciones de `/api/requests`.
 
 ## 8. Copias de seguridad y restauración
 
-- Diaria a las 03:20 (`wanderbibliothek-backup.timer`), con `integrity_check` y rotación
-  de 14 copias.
+- **Cada 6 horas** (`wanderbibliothek-backup.timer`, a las 00:20, 06:20, 12:20 y
+  18:20; antes era diaria, pero la base ocupa ~2 MB y el RPO baja de 24 h a 6 h),
+  con `integrity_check` y rotación de 14 copias.
 - Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
   se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
   sirven. Sin clave, la copia queda en claro con correos y hashes dentro, así que
@@ -550,6 +566,21 @@ curl -fsS https://biblioteca.example.com/api/health
 Si la copia no estaba cifrada, sáltate `decrypt-backup.ts` y copia el `.db`
 directamente. La clave de copias **no** viaja en `/etc/wanderbibliothek/env` si
 la guardas fuera del servidor: pásala en la línea de órdenes, como arriba.
+
+### Vigilante (salud, disco, copias y certificado)
+
+`deploy/watchdog.sh` lo ejecuta `wanderbibliothek-watchdog.timer` cada 15
+minutos como root y comprueba cuatro cosas: que `/api/health` responde y dice
+`proxy: "trusted"`, que el disco no pasa del 85 %, que la última copia tiene
+menos de 12 h y que el certificado no caduca en menos de 14 días. Lo que falla
+va al journal; si defines `ERROR_WEBHOOK_URL` en `/etc/wanderbibliothek/env`,
+también sale un JSON a ese webhook. Los umbrales se cambian con
+`MAX_DISK_PCT`, `MAX_BACKUP_AGE_H` y `MIN_CERT_DAYS`.
+
+```bash
+sudo systemctl start wanderbibliothek-watchdog.service   # probarlo a mano
+sudo journalctl -u wanderbibliothek-watchdog -n 20
+```
 
 ## 9. Diagnóstico rápido
 

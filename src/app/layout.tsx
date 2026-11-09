@@ -150,6 +150,24 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Las dos fuentes de la portadilla (títulos sin imagen) se descubrían
+            al parsear el CSS: con `preload` empiezan antes y la portada de
+            reserva no cambia de forma al aplicarse. Van con `crossOrigin`
+            porque las fuentes siempre se piden en modo CORS. */}
+        <link
+          rel="preload"
+          href="/fonts/tangerine-700.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/tangerine-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         {/* Enlace verificado del fediverso: Mastodon marca la cuenta como propia
             cuando esta página apunta a ella con `rel="me"`. Va en el encabezado
             y sin más valores de `rel` para que la comprobación no dependa de cómo

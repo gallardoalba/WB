@@ -20,6 +20,9 @@ EnvironmentFile=/etc/wanderbibliothek/env
 Environment=NODE_ENV=production
 # Sin telemetría: el servidor no debe abrir conexiones a Vercel por su cuenta.
 Environment=NEXT_TELEMETRY_DISABLED=1
+# Tope de heap por debajo de `MemoryMax`: un OOM de V8 se ve en el registro con
+# traza, en vez de que systemd mate el proceso sin explicación.
+Environment=NODE_OPTIONS=--max-old-space-size=1024
 # Todo lo que cree el servicio (caché, copias, temporales) nace sin permisos
 # para el resto de usuarios del host.
 UMask=0077
@@ -56,6 +59,10 @@ RemoveIPC=yes
 LockPersonality=yes
 SystemCallArchitectures=native
 ReadWritePaths=/var/lib/wanderbibliothek /var/backups/wanderbibliothek
+# Caché de datos e imágenes de Next: se escribe en caliente dentro de la
+# release activa (el enlace `current` se resuelve al arrancar; el despliegue
+# reinicia el servicio, así que apunta siempre a la versión nueva).
+ReadWritePaths=/srv/wanderbibliothek/current/.next/cache
 
 [Install]
 WantedBy=multi-user.target

@@ -291,6 +291,15 @@ else
   else
     warn "no se pudieron retirar las devDependencies (no es bloqueante)"
   fi
+
+  # La caché de Next (imágenes optimizadas y datos) se escribe **en caliente**:
+  # `sharp` codifica cada talla una vez y la guarda. El build la deja como root y
+  # la unidad la declara en `ReadWritePaths`, así que solo falta cederla al
+  # usuario del servicio; sin esto cada visita recompone la imagen en CPU.
+  if id -u wanderbibliothek >/dev/null 2>&1; then
+    install -d -o wanderbibliothek -g wanderbibliothek -m 700 "$RELEASE_DIR/.next/cache"
+    ok "caché de Next cedida al usuario del servicio"
+  fi
 fi
 
 # ── Paso 6: activar ────────────────────────────────────────────────────────

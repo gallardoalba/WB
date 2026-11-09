@@ -1,0 +1,13 @@
+[Unit]
+Description=Wanderbibliothek · vigilante cada 15 minutos
+
+[Timer]
+# Cada 15 min es barato (una consulta local y una lectura de fichero) y hace que
+# una caída o una copia atrasada se noten dentro del cuarto de hora.
+OnCalendar=*:0/15
+RandomizedDelaySec=30s
+Persistent=false
+Unit=wanderbibliothek-watchdog.service
+
+[Install]
+WantedBy=timers.target
