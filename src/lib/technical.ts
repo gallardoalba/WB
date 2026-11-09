@@ -322,7 +322,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 698 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 51 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 698 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 52 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -748,7 +748,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 698 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 51 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 698 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 52 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

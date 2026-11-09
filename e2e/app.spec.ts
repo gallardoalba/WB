@@ -317,6 +317,21 @@ test("sin sesión, «Explorar libros» abre el catálogo público", async ({ pag
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
+test("«Descubrir todos los libros» abre el catálogo por arriba", async ({ page }) => {
+  await page.goto("/");
+  await waitForHydration(page);
+
+  // Con la portada desplazada al final, el catálogo se abría a media altura:
+  // el desplazamiento a cero se hacía antes de que la vista nueva tuviera su
+  // altura definitiva. Ahora lo hace el router al terminar la navegación.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+
+  await page.getByRole("button", { name: "Descubrir todos los libros" }).click();
+  await expect(page).toHaveURL(/\/descubrir/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(40);
+});
+
 test("la portada cuenta también los clubes de lectura", async ({ page }) => {
   await page.goto("/");
   await waitForHydration(page);

@@ -324,8 +324,13 @@ export default function WanderbibliothekApp({
       const query = params.toString();
       // Cada vista tiene su ruta: la URL queda compartible (`/estanteria?page=2`).
       const target = VIEW_PATHS[next.view as View] ?? pathname;
+      // Cambiar de vista empieza arriba; cambiar un filtro no mueve la página.
+      // El desplazamiento lo hace el router **después** de pintar la vista
+      // nueva: hacerlo a mano en el efecto dejaba la página a media altura
+      // cuando el contenido nuevo todavía no tenía su altura definitiva.
+      const cambiaVista = next.view !== view;
       startTransition(() => {
-        router.replace(query ? `${target}?${query}` : target, { scroll: false });
+        router.replace(query ? `${target}?${query}` : target, { scroll: cambiaVista });
       });
     },
     [filters.category, filters.feed, filters.language, filters.q, filters.radius, filters.shelf, filters.sort, filters.tag, filters.tab, filters.scope, page, pathname, router, view],
@@ -335,10 +340,9 @@ export default function WanderbibliothekApp({
   // anuncia nada nuevo. Se mueve al título de la vista (que recibirá
   // `tabIndex={-1}`); en la primera pintura no se toca.
   //
-  // La página nueva empieza por arriba: `router.replace` va con `scroll: false`
-  // para que filtrar no dé saltos, así que al pasar de la portada al catálogo
-  // el navegador conservaba la altura de la vista anterior y «Descubrir todos
-  // los libros» abría el catálogo a media página.
+  // El desplazamiento a la parte de arriba lo hace el router (`scroll: true`
+  // solo cuando cambia la vista): aquí se repite por si la vista se cambia sin
+  // pasar por `navigate`, y se aprovecha para dejar el foco en el título.
   const viewRef = useRef(view);
   useEffect(() => {
     if (viewRef.current === view) return;

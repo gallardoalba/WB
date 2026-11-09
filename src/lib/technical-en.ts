@@ -298,7 +298,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 698 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 51 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 698 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 52 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",
