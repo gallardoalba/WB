@@ -9,24 +9,10 @@ import { LOCALES, pick, type Locale } from "@/lib/locale";
 import { messagesById } from "@/lib/message-id";
 import { BRAND, MASTODON, REPOSITORY } from "@/lib/brand";
 import { OG_COPY, OG_SIZE, ogImagePath } from "@/lib/og";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/seo";
 import { siteUrl } from "@/lib/site";
 
 export const viewport: Viewport = { themeColor: "#2f5741" };
-
-/** Título y descripción de la marca: los usan los metadatos y el JSON-LD. */
-const SITE_TITLE = {
-  // El título es lo que se ve en Google: lleva la consulta («Bücher tauschen»),
-  // no solo el eslogan. La marca se añade con el `template` de las subpáginas.
-  de: `Bücher tauschen und teilen in Europa | ${BRAND}`,
-  es: `Intercambiar y compartir libros en Europa | ${BRAND}`,
-  en: `Swap and share books in Europe | ${BRAND}`,
-} as const;
-
-const SITE_DESCRIPTION = {
-  de: "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Keine Werbung, kein Datenhandel.",
-  es: "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.",
-  en: "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared. No ads, no data trading.",
-} as const;
 
 /**
  * Datos estructurados de la marca (`WebSite` + `Organization`).
