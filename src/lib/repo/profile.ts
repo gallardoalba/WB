@@ -107,7 +107,7 @@ export function getPublicProfile(
 
   return {
     user: publicUser,
-    listings: rows.map(toListingView),
+    listings: rows.map((row) => toListingView(row, viewerId)),
     listingsTotal,
     page,
     pageSize,

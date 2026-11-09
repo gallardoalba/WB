@@ -54,7 +54,7 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
 }
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-04";
+const UPDATED = "2026-11-09";
 
 /**
  * Dirección de contacto tal y como se publica: `nombre[at]dominio[dot]tld`.
@@ -146,7 +146,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           heading: "6. Sichtbarkeit der Daten",
           body: [
             "Das Profil (Name, Stadt, Biografie, Bücher) ist für angemeldete Personen sichtbar; daraus lebt die Gemeinschaft.",
-            "Suchmaschinen dürfen den Katalog und die Profile nicht indexieren (robots.txt), und der Katalog ist ohne Anmeldung nicht mehr erreichbar.",
+            "Startseite und Katalog lassen sich ohne Konto ansehen, aber ohne Anmeldung wird nicht gezeigt, wer ein Exemplar anbietet: nur Initialen, Stadt und die Buchangaben.",
+            "Suchmaschinen dürfen den Katalog und die Profile nicht indexieren (robots.txt).",
           ],
         },
         {
@@ -249,7 +250,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         heading: "6. Visibilidad de los datos",
         body: [
           "El perfil (nombre, ciudad, biografía, libros) es visible para personas con sesión iniciada: de ahí vive la comunidad.",
-          "Los buscadores no pueden indexar el catálogo ni los perfiles (robots.txt), y el catálogo ya no es accesible sin cuenta.",
+          "La portada y el catálogo se pueden ver sin cuenta, pero sin sesión no aparece quién publica cada ejemplar: solo las iniciales, la ciudad y los datos del libro.",
+          "Los buscadores no pueden indexar el catálogo ni los perfiles (robots.txt).",
         ],
       },
       {

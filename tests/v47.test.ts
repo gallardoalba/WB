@@ -160,7 +160,9 @@ test("una lista se publica sin firma salvo que quien la crea lo acepte", () => {
 });
 
 test("la edición corrige la ficha de la obra y recalcula la búsqueda", () => {
-  const listing = repo.catalogPage(null, params()).items[0];
+  // Con sesión: `owner.id` hace falta para actuar como quien publica y sin
+  // sesión llega enmascarado a propósito.
+  const listing = repo.catalogPage("usr_ana", params()).items[0];
   assert.ok(listing, "el catálogo de demostración está vacío");
 
   repo.editListing(listing.owner.id, listing.id, {

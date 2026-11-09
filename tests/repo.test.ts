@@ -202,7 +202,9 @@ test("eliminar la cuenta anonimiza el usuario y retira sus libros", () => {
   const user = repo.getUserById("usr_marcos");
   assert.equal(user?.name, "Cuenta eliminada");
   assert.equal(user?.isSuspended, true);
-  const listings = repo.catalogPage(null, params({ q: "" }));
+  // Se mira con sesión: sin ella los ids vienen enmascarados y la aserción
+  // pasaría por el motivo equivocado.
+  const listings = repo.catalogPage("usr_ana", params({ q: "" }));
   assert.equal(listings.items.some((item) => item.owner.id === "usr_marcos"), false);
 });
 
@@ -222,7 +224,7 @@ test("una cuenta suspendida deja de exponer perfil y ejemplares", () => {
 
   assert.equal(repo.getPublicProfile("usr_diego", null), null);
   assert.equal(repo.getListing("lst_2", null), null);
-  const catalog = repo.catalogPage(null, params());
+  const catalog = repo.catalogPage("usr_ana", params());
   assert.equal(catalog.items.some((item) => item.owner.id === "usr_diego"), false);
 });
 

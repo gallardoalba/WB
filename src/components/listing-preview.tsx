@@ -90,10 +90,17 @@ export function ListingPreview({
       </div>
 
       <p className="preview-owner">
-        <span className={`avatar tone-${toneForId(listing.owner.id)}`}>
+        <span
+          className={`avatar tone-${toneForId(
+            listing.owner.masked ? listing.id : listing.owner.id,
+          )}`}
+        >
           {initialsOf(listing.owner.name)}
         </span>
-        {t("Compartido por {name}", { name: listing.owner.name })}
+        {/* Esta vista es para quien aún no ha entrado: nunca el nombre. */}
+        {listing.owner.masked
+          ? t("Compartido por una persona de la comunidad")
+          : t("Compartido por {name}", { name: listing.owner.name })}
       </p>
 
       <section className="preview-how">

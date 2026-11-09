@@ -34,12 +34,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       robots: { index: false, follow: false },
     };
   }
+  // Los metadatos no llevan el nombre de quien publica: se generan también sin
+  // sesión (`getListing(id, null)`), y ahí la identidad va enmascarada. Se
+  // describe el ejemplar por la ciudad, que es lo que ayuda a decidir.
   return {
     title: `${listing.title} — ${listing.author}`,
     description: pick(locale, {
-      es: `Comparte «${listing.title}» de ${listing.author} con ${listing.owner.name} en ${listing.city}.`,
-      de: `Teile «${listing.title}» von ${listing.author} mit ${listing.owner.name} in ${listing.city}.`,
-      en: `Share «${listing.title}» by ${listing.author} with ${listing.owner.name} in ${listing.city}.`,
+      es: `Ejemplar de «${listing.title}», de ${listing.author}, disponible para intercambio en ${listing.city}.`,
+      de: `Exemplar von «${listing.title}» von ${listing.author}, zum Tauschen in ${listing.city} verfügbar.`,
+      en: `A copy of «${listing.title}» by ${listing.author}, available to exchange in ${listing.city}.`,
     }),
     alternates: { canonical: `/libro/${listing.id}` },
     ...socialMetadata({
@@ -47,9 +50,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       path: `/libro/${listing.id}`,
       title: `${listing.title} — ${listing.author}`,
       description: pick(locale, {
-        es: `Ejemplar compartido por ${listing.owner.name} en ${listing.city}.`,
-        de: `Exemplar von ${listing.owner.name} in ${listing.city}.`,
-        en: `Copy shared by ${listing.owner.name} in ${listing.city}.`,
+        es: `Ejemplar disponible para intercambio en ${listing.city}.`,
+        de: `Zum Tauschen in ${listing.city} verfügbar.`,
+        en: `Copy available to exchange in ${listing.city}.`,
       }),
       image: listing.coverUrl,
       type: "book",

@@ -11,7 +11,7 @@
 import { maskContact, type LegalConfig, type LegalDocument } from "./legal";
 
 /** Fecha de la última revisión del texto (la misma que en `legal.ts`). */
-const UPDATED = "2026-11-04";
+const UPDATED = "2026-11-09";
 
 const CONTROLLER_PLACEHOLDER_EN =
   "Not yet configured: set LEGAL_CONTROLLER, LEGAL_ADDRESS and LEGAL_CONTACT_EMAIL in the service environment.";
@@ -80,7 +80,8 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         heading: "6. Visibility of the data",
         body: [
           "The profile (name, city, biography, books) is visible to signed-in users: this is what the community lives on.",
-          "Search engines may not index the catalogue or the profiles (robots.txt), and the catalogue is no longer reachable without an account.",
+          "The home page and the catalogue can be browsed without an account, but without signing in it does not show who offers each copy: only initials, city and the book details.",
+          "Search engines may not index the catalogue or the profiles (robots.txt).",
         ],
       },
       {

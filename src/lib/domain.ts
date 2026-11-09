@@ -186,7 +186,11 @@ export type ListingView = {
   status: ListingStatus;
   createdAt: string;
   notes: string;
-  owner: { id: string; name: string };
+  /**
+   * Quien lo publica. Sin sesión llega **enmascarado**: `masked` es `true`, el
+   * id viene vacío (no hay enlace al perfil) y el nombre son solo iniciales.
+   */
+  owner: { id: string; name: string; masked?: boolean };
   tags: string[];
   isMine: boolean;
   isFavorite: boolean;

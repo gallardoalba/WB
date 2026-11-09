@@ -111,7 +111,7 @@ export function catalogPage(userId: string | null, params: CatalogParams): Paged
     .all({ ...binds, limit: pageSize, offset }) as ListingRow[];
 
   return {
-    items: rows.map(toListingView),
+    items: rows.map((row) => toListingView(row, userId)),
     total,
     page,
     pageSize,
@@ -150,7 +150,7 @@ export function similarListings(bookId: string, viewerId: string | null, limit =
       fromCity: distance.fromCity,
       limit: Math.min(Math.max(limit, 1), 8),
     }) as ListingRow[];
-  return rows.map(toListingView);
+  return rows.map((row) => toListingView(row, viewerId));
 }
 
 /** Convierte los tokens ya normalizados en una consulta FTS5 segura (prefijos, AND). */
@@ -195,7 +195,7 @@ export function shelfListings(
     }) as ListingRow[];
 
   return {
-    items: rows.map(toListingView),
+    items: rows.map((row) => toListingView(row, userId)),
     total,
     page: safePage,
     pageSize: PAGE_SIZE,
@@ -218,7 +218,7 @@ export function getListing(id: string, viewerId: string | null): ListingView | n
       userId: viewerId ?? "",
       fromCity: distance.fromCity,
     }) as ListingRow | undefined;
-  return row ? toListingView(row) : null;
+  return row ? toListingView(row, viewerId) : null;
 }
 
 /** Las etiquetas son curadas y se guardan como conjunto por ejemplar. */
@@ -707,7 +707,7 @@ export function listingsForBook(
       limit: options.limit ?? 50,
       ...(options.city ? { city: options.city } : {}),
     }) as ListingRow[];
-  return rows.map(toListingView);
+  return rows.map((row) => toListingView(row, viewerId));
 }
 
 /** Ejemplares visibles de una obra, sin el tope de la lista: da la cifra real. */

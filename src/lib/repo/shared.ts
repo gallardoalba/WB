@@ -149,7 +149,34 @@ export const BLOCK_FILTER = `
   )
 `;
 
-export function toListingView(row: ListingRow): ListingView {
+/**
+ * Iniciales de quien publica, para el catálogo abierto: «Ana María Ruiz» →
+ * «A. R.».
+ *
+ * Sin sesión se sabe que hay alguien cerca y que dos tarjetas son de personas
+ * distintas, pero no su nombre. Se queda la primera y la última palabra: en un
+ * nombre compuesto interesa el apellido, no el segundo nombre de pila.
+ */
+export function ownerInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const picked = parts.length > 2 ? [parts[0], parts[parts.length - 1]] : parts;
+  return picked
+    .slice(0, 2)
+    .map((part) => `${part.charAt(0).toUpperCase()}.`)
+    .join(" ");
+}
+
+/**
+ * Vista pública de un ejemplar.
+ *
+ * `viewerId` decide si se puede saber **quién** lo publica: sin sesión solo
+ * viajan las iniciales y ningún id, porque ese id abre el perfil. El valor por
+ * defecto enmascara, para que un llamador nuevo no exponga la identidad por
+ * olvido.
+ */
+export function toListingView(row: ListingRow, viewerId?: string | null): ListingView {
+  const anonymous = !viewerId;
   return {
     id: row.id,
     bookId: row.book_id,
@@ -167,7 +194,9 @@ export function toListingView(row: ListingRow): ListingView {
     status: row.status,
     createdAt: row.created_at,
     notes: row.notes,
-    owner: { id: row.owner_id, name: row.owner_name },
+    owner: anonymous
+      ? { id: "", name: ownerInitials(row.owner_name), masked: true }
+      : { id: row.owner_id, name: row.owner_name },
     tags: row.tags ? row.tags.split("|") : [],
     isMine: Boolean(row.is_mine),
     isFavorite: Boolean(row.is_favorite),
