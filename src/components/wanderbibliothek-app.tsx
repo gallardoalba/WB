@@ -656,7 +656,7 @@ export default function WanderbibliothekApp({
                 </p>
                 <p>
                   {t(
-                    "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.",
+                    "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.",
                   )}
                 </p>
                 <button

@@ -75,7 +75,7 @@ object TextCatalog {
         // Entdecken
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Bücher reisen, Ideen verbinden Menschen.",
-        "heroSubtitle" to "Eine dezentrale Bibliothek, getragen von ihrer Gemeinschaft: Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Ohne Werbung und Tracking, mit Ende-zu-Ende-verschlüsselten Nachrichten.",
+        "heroSubtitle" to "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Keine Werbung, kein Datenhandel.",
         "searchPlaceholder" to "Titel, Autor:in oder Stichwort",
         "filters" to "Filter",
         "category" to "Kategorie",
@@ -356,7 +356,7 @@ object TextCatalog {
 
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Los libros viajan, las ideas conectan a las personas.",
-        "heroSubtitle" to "Una biblioteca descentralizada, hecha por su comunidad: el conocimiento crece al compartir libros, ideas y experiencias. Sin publicidad ni rastreo, con mensajes cifrados de extremo a extremo.",
+        "heroSubtitle" to "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.",
         "searchPlaceholder" to "Título, autoría o palabra clave",
         "filters" to "Filtros",
         "category" to "Categoría",
@@ -624,7 +624,7 @@ object TextCatalog {
         "signInRequired" to "You need to be signed in for that.",
         "brandName" to "Wanderbibliothek",
         "brandTagline" to "Books travel, ideas connect people.",
-        "heroSubtitle" to "A decentralised library run by its community: knowledge grows when books, ideas and experiences are shared. No ads, no tracking, end-to-end encrypted messages.",
+        "heroSubtitle" to "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared. No ads, no data trading.",
         "searchPlaceholder" to "Title, author or keyword",
         "filters" to "Filters",
         "category" to "Category",
