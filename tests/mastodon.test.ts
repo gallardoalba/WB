@@ -432,6 +432,7 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
       author: "Jorge Luis Borges",
       language: "Español",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
     });
     assert.deepEqual(result, { queued: true, sent: true, media: false });
     assert.ok(calls.every((url) => !url.includes("/api/v2/media")), "sin portada no se sube nada");
@@ -454,6 +455,7 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
       author: "Jorge Luis Borges",
       language: "Español",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
     });
     assert.deepEqual(again, { queued: false, sent: false, media: false });
   } finally {
@@ -470,6 +472,7 @@ test("en desarrollo no se anuncia una URL de localhost", async () => {
       title: "T",
       author: "A",
       base: "http://localhost:3000",
+      isAdmin: true,
     });
     assert.deepEqual(result, { queued: false, sent: false, media: false });
   } finally {
@@ -508,6 +511,7 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
       title: "Título",
       author: "Autoría",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
       ownerId,
       now,
     });
@@ -557,6 +561,7 @@ test("sin persona no se aplica el tope diario (envío a mano)", async () => {
       title: "T",
       author: "A",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
       now,
     });
     const dos = await mastodon.announceBook({
@@ -564,10 +569,41 @@ test("sin persona no se aplica el tope diario (envío a mano)", async () => {
       title: "T",
       author: "A",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
       now,
     });
     assert.equal(uno.queued, true);
     assert.equal(dos.queued, true);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+  }
+});
+
+test("una cuenta que no es de administración no llega a la cola", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  const llamadas: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    llamadas.push(String(input));
+    return jsonResponse({ id: "1" });
+  }) as unknown as typeof fetch;
+  process.env.MASTODON_TOKEN = "tok";
+  try {
+    const result = await mastodon.announceBook({
+      bookId: "bok_comunidad",
+      title: "Ficciones",
+      author: "Jorge Luis Borges",
+      base: "https://wanderbibliothek.org",
+      isAdmin: false,
+    });
+    assert.deepEqual(result, { queued: false, sent: false, media: false });
+    assert.equal(llamadas.length, 0, "ni una petición a la instancia");
+    const rows = dbModule
+      .getDb()
+      .prepare("SELECT COUNT(*) AS n FROM social_outbox WHERE subject = ?")
+      .get("bok_comunidad") as { n: number };
+    assert.equal(rows.n, 0, "la cola solo recoge lo que publica la administración");
   } finally {
     globalThis.fetch = original;
     delete process.env.MASTODON_TOKEN;
@@ -581,6 +617,7 @@ test("sin token, publicar no encola nada", async () => {
     title: "T",
     author: "A",
     base: "https://wanderbibliothek.org",
+    isAdmin: true,
   });
   assert.deepEqual(result, { queued: false, sent: false, media: false });
   const rows = dbModule
@@ -665,6 +702,7 @@ test("el aviso espera la portada que el formulario sube después del alta", asyn
       title: "Iluminaciones",
       author: "Walter Benjamin",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
       esperarPortada: true,
     });
     clearTimeout(subida);
@@ -700,6 +738,7 @@ test("la administración anuncia cada libro del día, sin el tope de uno", async
       title: "Eclipse of reason",
       author: "Max Horkheimer",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
       ownerId: "usr_admin",
       sinTopeDiario,
       now,
@@ -750,6 +789,7 @@ test("veinte libros de golpe: el primero sale y los demás esperan su turno", as
         title: `Libro ${n}`,
         author: "Autora",
         base: "https://wanderbibliothek.org",
+        isAdmin: true,
         ownerId: "usr_admin",
         sinTopeDiario: true,
         now: ahora,
@@ -840,6 +880,7 @@ test("con MASTODON_GAP_MINUTES=0 dos libros seguidos salen en el acto", async ()
         title: `Libro ${n}`,
         author: "Autora",
         base: "https://wanderbibliothek.org",
+        isAdmin: true,
         ownerId: "usr_admin",
         sinTopeDiario: true,
       });
@@ -913,6 +954,7 @@ test("un aviso que nace de noche se encola para las 09:00 y no se envía", async
       title: "Eclipse of reason",
       author: "Max Horkheimer",
       base: "https://wanderbibliothek.org",
+      isAdmin: true,
       ownerId: "usr_admin",
       sinTopeDiario: true,
       now: noche,

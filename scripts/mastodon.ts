@@ -222,6 +222,9 @@ async function main() {
         author: book.author,
         language: book.language,
         base: siteUrl(),
+        // El script se lanza a mano con `sudo`, desde la administración del
+        // servicio: la regla de «solo la administración anuncia» se cumple.
+        isAdmin: true,
       });
       console.log(
         result.sent

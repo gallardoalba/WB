@@ -216,8 +216,9 @@ Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 
 ### Bot de Mastodon (opcional)
 
-Con `MASTODON_TOKEN` definido, cada obra que entra en el catálogo se anuncia en
-el perfil del proyecto. El token se crea en la instancia —**Preferencias →
+Con `MASTODON_TOKEN` definido, cada obra que publica una **cuenta de administración**
+se anuncia en el perfil del proyecto; lo que ofrece la comunidad no llega a la
+cola. El token se crea en la instancia —**Preferencias →
 Desarrollo → Nueva aplicación**— con los permisos `write:statuses`, `write:media`
 (para adjuntar la portada) y `read:accounts`; el tercero es el que usa
 `mastodon:test` para comprobar que la credencial vale. Para los «me gusta» hace
@@ -245,6 +246,11 @@ sudo npm ... run mastodon:test -- --cola
 
 Lo que hay que saber:
 
+- **Solo la administración anuncia.** El aviso se encola únicamente cuando el
+ejemplar lo publica una cuenta con `is_admin`: el perfil cuenta lo que cataloga
+el equipo, no lo que pone a la venta la comunidad. `announceBook` exige la marca
+(`isAdmin`) y sin ella no hace nada, así que una ruta nueva no puede saltarse la
+regla por olvido. El envío manual (`--enviar`) cuenta como administración.
 - **Un aviso por obra, no por ejemplar.** Si tres personas ponen el mismo libro,
   el perfil no lo repite: la tabla `social_outbox` tiene una clave única por red
   y obra.

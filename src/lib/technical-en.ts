@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 621 unit and integration tests (81 files)",
+            "tests/                 663 unit and integration tests (82 files)",
             "e2e/                   browser tests with Playwright (6 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -244,7 +244,7 @@ export const EN: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "unset",
-              "Enables the bot that announces every work on Mastodon; without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 2 to 3 hours (the administration has no daily cap).",
+              "Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 2 to 3 hours (the administration has no daily cap).",
             ],
             [
               "`MASTODON_QUIET_HOURS`",
@@ -266,7 +266,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 377 unit and integration tests in 52 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 663 unit and integration tests in 82 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

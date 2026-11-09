@@ -924,6 +924,9 @@ export function purgeSocialOutbox(days = 90): number {
  * Que la portada falle (sin imagen, `write:media` sin permiso, instancia lenta)
  * no impide el aviso: se publica el texto sin imagen.
  *
+ * Solo la administración anuncia: el perfil del bot cuenta lo que cataloga el
+ * equipo, no lo que ofrece la comunidad. Sin `isAdmin` no se encola nada.
+ *
  * Con `ownerId`, además, solo se anuncia **un libro por persona y día**: quien
  * cataloga su estantería de una sentada no convierte el perfil en una lista de
  * la compra. Se publica el primero y los demás se quedan sin aviso.
@@ -934,6 +937,12 @@ export async function announceBook(input: {
   author: string;
   language?: string | null;
   base: string;
+  /**
+   * Quien publica tiene que ser administración: es la única puerta de entrada a
+   * la cola. Va como dato obligatorio (y no como opcional) para que una llamada
+   * nueva no se cuele por olvido: sin él, `announceBook` no hace nada.
+   */
+  isAdmin: boolean;
   /** Quien publica el ejemplar. Sin él no se aplica el tope diario. */
   ownerId?: string | null;
   /**
@@ -951,6 +960,9 @@ export async function announceBook(input: {
   now?: Date;
 }): Promise<{ queued: boolean; sent: boolean; media: boolean }> {
   try {
+    // Primera puerta, antes de mirar el token o esperar la portada: una cuenta
+    // de la comunidad no llega a la cola ni deja trabajo a medias.
+    if (!input.isAdmin) return { queued: false, sent: false, media: false };
     const config = mastodonConfig();
     if (!config) return { queued: false, sent: false, media: false };
     // En desarrollo el enlace sería localhost: se publicaría una URL que no

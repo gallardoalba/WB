@@ -151,11 +151,11 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `LEGAL_VAT_ID` / `LEGAL_PHONE` / `LEGAL_REGISTER` | unset | Optional details for the imprint. |
 | `SEED_DEMO` | `1` outside production | Seeds demo data; in production only with an explicit `1`. |
 | `GOOGLE_BOOKS_API_KEY` | unset | Raises the Google Books quota for covers. |
-| `MASTODON_TOKEN` | unset | Enables the bot that announces every new work on Mastodon; without it nothing is queued or posted. |
+| `MASTODON_TOKEN` | unset | Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. |
 
 ## Tests and continuous integration
 
-`npm test` runs 331 unit and integration tests in 45 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 663 unit and integration tests in 82 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

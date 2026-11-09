@@ -85,20 +85,28 @@ export async function POST(request: Request) {
     // Aviso en Mastodon, también en `after()` y tan silencioso como el anterior:
     // el post se encola en la base, así que un fallo de la instancia no pierde el
     // aviso ni retrasa la respuesta. Un post por obra y, por persona, uno al día.
-    after(() =>
-      announceBook({
-        bookId: listing.bookId,
-        title: input.title,
-        author: input.author,
-        language: input.language ?? null,
-        base,
-        ownerId: user.id,
-        // Si el formulario trae portada, la sube justo después de esto.
-        esperarPortada: input.withCover,
-        // La administración anuncia cada obra nueva, sin el tope de una al día.
-        sinTopeDiario: publicaSinTope(user),
-      }),
-    );
+    //
+    // Solo anuncian las cuentas de administración: el perfil del bot cuenta lo
+    // que cataloga el equipo, no lo que pone a la venta la comunidad (si no, la
+    // cola y el perfil acabarían siendo un espejo de todo el catálogo).
+    // `announceBook` repite la comprobación: la regla no depende de esta ruta.
+    if (user.isAdmin) {
+      after(() =>
+        announceBook({
+          bookId: listing.bookId,
+          title: input.title,
+          author: input.author,
+          language: input.language ?? null,
+          base,
+          isAdmin: user.isAdmin,
+          ownerId: user.id,
+          // Si el formulario trae portada, la sube justo después de esto.
+          esperarPortada: input.withCover,
+          // La administración anuncia cada obra nueva, sin el tope de una al día.
+          sinTopeDiario: publicaSinTope(user),
+        }),
+      );
+    }
     // La demanda se calcula después de publicar: si alguien buscaba la obra
     // en la misma ciudad, la persona que publica lo ve de inmediato.
     const demand = countBookWants(listing.bookId, user.city, user.id);

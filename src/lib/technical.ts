@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 621 pruebas unitarias y de integración (81 ficheros)",
+            "tests/                 663 pruebas unitarias y de integración (82 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -268,7 +268,7 @@ const ES: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "sin definir",
-              "Activa el bot que anuncia cada obra en Mastodon; sin él no se encola ni se publica nada. Un aviso por obra y cuenta y día; si se publican varias de golpe, el primero sale en el acto y los demás se encolan con una separación aleatoria de 2 a 3 horas (la administración, además, no tiene tope diario).",
+              "Activa el bot que anuncia en Mastodon las obras que publica una cuenta de administración (las de la comunidad no llegan a la cola); sin él no se encola ni se publica nada. Un aviso por obra y cuenta y día; si se publican varias de golpe, el primero sale en el acto y los demás se encolan con una separación aleatoria de 2 a 3 horas (la administración, además, no tiene tope diario).",
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
@@ -290,7 +290,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 377 pruebas unitarias y de integración en 52 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 663 pruebas unitarias y de integración en 82 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -471,7 +471,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 621 Unit- und Integrationstests (81 Dateien)",
+            "tests/                 663 Unit- und Integrationstests (82 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -657,7 +657,7 @@ const DE: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "nicht gesetzt",
-              "Aktiviert den Bot, der jedes Werk auf Mastodon ankündigt; ohne ihn wird nichts eingereiht oder veröffentlicht. Ein Hinweis pro Werk und Konto und Tag; bei mehreren auf einmal geht der erste sofort raus und die übrigen warten mit einem zufälligen Abstand von 2 bis 3 Stunden (die Administration hat außerdem keine Tagesgrenze).",
+              "Aktiviert den Bot, der auf Mastodon die Werke ankündigt, die ein Administrationskonto veröffentlicht (Werke aus der Community erreichen die Warteschlange nicht); ohne ihn wird nichts eingereiht oder veröffentlicht. Ein Hinweis pro Werk und Konto und Tag; bei mehreren auf einmal geht der erste sofort raus und die übrigen warten mit einem zufälligen Abstand von 2 bis 3 Stunden (die Administration hat außerdem keine Tagesgrenze).",
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
@@ -679,7 +679,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 377 Unit- und Integrationstests in 52 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 663 Unit- und Integrationstests in 82 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
