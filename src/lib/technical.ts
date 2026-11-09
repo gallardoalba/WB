@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 663 pruebas unitarias y de integración (82 ficheros)",
+            "tests/                 697 pruebas unitarias y de integración (86 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -229,6 +229,36 @@ const ES: TechnicalDocument = {
       ],
     },
     {
+      id: "permisos",
+      heading: "Permisos por recurso",
+      blocks: [
+        {
+          kind: "p",
+          text: "La autenticación no basta: cada operación comprueba además que el recurso sea de quien la pide, y lo hace **dentro de la consulta** (`owner_id = ?` o «alguna de las dos partes»), no en un `if` del componente. Por eso un identificador ajeno responde `404` —«no existe»— y no `403`: un 403 confirmaría que existe algo con ese id.",
+        },
+        {
+          kind: "table",
+          head: ["Operación", "Sin sesión", "Otra cuenta", "Parte o dueño", "Administración"],
+          rows: [
+            ["Ver el catálogo y la ficha de una obra", "Sí", "Sí", "Sí", "Sí"],
+            ["Publicar un ejemplar", "No", "Sí, con correo confirmado", "Sí", "Sí"],
+            ["Editar, pausar o retirar un ejemplar", "No", "No", "Solo su dueño", "Retira, no edita"],
+            ["Ver una solicitud de intercambio", "No", "No", "Solo sus dos partes", "No"],
+            ["Aceptar, cancelar o confirmar un intercambio", "No", "No", "Sus dos partes, según el papel y la transición", "No"],
+            ["Leer o escribir en un hilo directo", "No", "No", "Sus participantes, con seguimiento mutuo y clave publicada", "No"],
+            ["Valorar a la otra persona", "No", "No", "Una vez, con el intercambio completado", "No"],
+            ["Comentar, escribir en un club o en una lista", "No", "Sí, con correo confirmado", "Sí", "Sí"],
+            ["Moderar: denuncias, suspensiones, borrados", "No", "No", "No", "Sí, con 2FA en producción"],
+            ["Exportar o borrar la cuenta", "No", "No", "Solo su titular", "No"],
+          ],
+        },
+        {
+          kind: "p",
+          text: "`tests/authorization.test.ts` recorre esta tabla con un dueño, una tercera cuenta y un seguimiento unilateral; las pruebas de clubes, privacidad e intercambios cubren el resto de papeles.",
+        },
+      ],
+    },
+    {
       id: "entorno",
       heading: "Variables de entorno",
       blocks: [
@@ -242,7 +272,7 @@ const ES: TechnicalDocument = {
           rows: [
             ["`WANDERBIBLIOTHEK_DB`", "`.data/wanderbibliothek.db`", "Ruta de la base SQLite (`:memory:` en las pruebas)."],
             ["`NEXT_PUBLIC_SITE_URL`", "`http://localhost:3000`", "Base de `sitemap.xml`, `robots.txt` y los canonical. Obligatoria en producción."],
-            ["`APP_ENCRYPTION_KEY`", "sin definir", "32 bytes en hex o base64 para cifrar TOTP y datos de envío. Obligatoria."],
+            ["`APP_ENCRYPTION_KEY`", "sin definir", "32 bytes en hex o base64 para cifrar el secreto TOTP. Obligatoria."],
             ["`APP_ENCRYPTION_KEY_ID`", "derivado", "Nombre legible de la clave activa; si falta se usa un prefijo de su SHA-256."],
             ["`APP_ENCRYPTION_OLD_KEYS`", "vacío", "Claves anteriores solo para leer, mientras se completa una rotación."],
             ["`WANDERBIBLIOTHEK_ALLOW_PLAINTEXT`", "vacío", "Solo desarrollo: guarda secretos en claro si no hay clave."],
@@ -290,7 +320,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 663 pruebas unitarias y de integración en 82 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 697 pruebas unitarias y de integración en 86 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -318,6 +348,7 @@ const ES: TechnicalDocument = {
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
             "Cada respuesta lleva `x-request-id` y `x-response-time`, y cada petición deja una línea `[req] {…}` en el registro. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor y el bus de avisos vive en memoria. Escalar exige PostgreSQL y Redis/pubsub.",
             "Techo medido con `npm run bench:sqlite`: unas 99 000 escrituras/s sueltas, 250 000/s en lote, 350 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
           ],
@@ -351,7 +382,7 @@ const ES: TechnicalDocument = {
           items: [
             "La guía completa (usuario de sistema, systemd, nginx, TLS, timers y restauración) está en `deploy/README.md`.",
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` y `deploy/env.example`: la aplicación escucha en `127.0.0.1:3000` y nginx pone el TLS, con `/api/requests/` sin buffering para que el canal SSE no se corte.",
-            "`deploy/wanderbibliothek-maintenance.timer` (cada 15 minutos) y `deploy/wanderbibliothek-backup.timer` (diario).",
+            "`deploy/wanderbibliothek-maintenance.timer` (cada 15 minutos) y `deploy/wanderbibliothek-backup.timer` (cada 6 horas).",
             "También hay `Dockerfile` y `docker-compose.yml` multi-etapa con solo dependencias de producción; el build de la imagen se valida en la integración continua.",
             "Si falta algo grave en la configuración, el proceso arranca pero responde 500 a todo con el motivo en el log, en lugar de parecer que funciona.",
             "`tsx` es dependencia de producción: lo usan `admin:create`, `db:backup`, `user:verify` y `smoke`, también dentro de la imagen con `npm ci --omit=dev`.",
@@ -471,7 +502,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 663 Unit- und Integrationstests (82 Dateien)",
+            "tests/                 697 Unit- und Integrationstests (86 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -618,6 +649,36 @@ const DE: TechnicalDocument = {
       ],
     },
     {
+      id: "berechtigungen",
+      heading: "Berechtigungen pro Ressource",
+      blocks: [
+        {
+          kind: "p",
+          text: "Anmeldung allein genügt nicht: jede Operation prüft zusätzlich, ob die Ressource der anfragenden Person gehört, und zwar **innerhalb der Abfrage** (`owner_id = ?` oder «eine der beiden Seiten»), nicht in einem `if` der Komponente. Deshalb antwortet eine fremde Kennung mit `404` — «existiert nicht» — und nicht mit `403`: ein 403 würde bestätigen, dass es etwas mit dieser Kennung gibt.",
+        },
+        {
+          kind: "table",
+          head: ["Operation", "Ohne Sitzung", "Anderes Konto", "Seite oder Eigentümer", "Administration"],
+          rows: [
+            ["Katalog und Werkseite ansehen", "Ja", "Ja", "Ja", "Ja"],
+            ["Ein Exemplar einstellen", "Nein", "Ja, mit bestätigter E-Mail", "Ja", "Ja"],
+            ["Exemplar bearbeiten, pausieren oder zurückziehen", "Nein", "Nein", "Nur der Eigentümer", "Zieht zurück, bearbeitet nicht"],
+            ["Eine Tauschanfrage sehen", "Nein", "Nein", "Nur ihre beiden Seiten", "Nein"],
+            ["Tausch annehmen, abbrechen oder bestätigen", "Nein", "Nein", "Die beiden Seiten, je nach Rolle und Übergang", "Nein"],
+            ["Einen Direktchat lesen oder schreiben", "Nein", "Nein", "Seine Teilnehmenden, mit gegenseitigem Folgen und veröffentlichtem Schlüssel", "Nein"],
+            ["Die andere Person bewerten", "Nein", "Nein", "Einmal, nach abgeschlossenem Tausch", "Nein"],
+            ["Kommentieren, im Club oder in einer Liste schreiben", "Nein", "Ja, mit bestätigter E-Mail", "Ja", "Ja"],
+            ["Moderieren: Meldungen, Sperren, Löschungen", "Nein", "Nein", "Nein", "Ja, in Produktion mit 2FA"],
+            ["Konto exportieren oder löschen", "Nein", "Nein", "Nur die Inhaberin", "Nein"],
+          ],
+        },
+        {
+          kind: "p",
+          text: "`tests/authorization.test.ts` geht diese Tabelle mit einer Eigentümerin, einem dritten Konto und einseitigem Folgen durch; die Club-, Datenschutz- und Tausch-Tests decken die übrigen Rollen ab.",
+        },
+      ],
+    },
+    {
       id: "umgebung",
       heading: "Umgebungsvariablen",
       blocks: [
@@ -631,7 +692,7 @@ const DE: TechnicalDocument = {
           rows: [
             ["`WANDERBIBLIOTHEK_DB`", "`.data/wanderbibliothek.db`", "Pfad der SQLite-Datenbank (`:memory:` in Tests)."],
             ["`NEXT_PUBLIC_SITE_URL`", "`http://localhost:3000`", "Basis für `sitemap.xml`, `robots.txt` und Canonicals. In Produktion Pflicht."],
-            ["`APP_ENCRYPTION_KEY`", "nicht gesetzt", "32 Byte in Hex oder Base64 für TOTP und Versanddaten. Pflicht."],
+            ["`APP_ENCRYPTION_KEY`", "nicht gesetzt", "32 Byte in Hex oder Base64 für das TOTP-Geheimnis. Pflicht."],
             ["`APP_ENCRYPTION_KEY_ID`", "abgeleitet", "Lesbarer Name des aktiven Schlüssels; fehlt er, dient ein Präfix seines SHA-256."],
             ["`APP_ENCRYPTION_OLD_KEYS`", "leer", "Frühere Schlüssel nur zum Lesen, solange eine Rotation läuft."],
             ["`WANDERBIBLIOTHEK_ALLOW_PLAINTEXT`", "leer", "Nur Entwicklung: legt Geheimnisse im Klartext ab, wenn kein Schlüssel da ist."],
@@ -679,7 +740,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 663 Unit- und Integrationstests in 82 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 697 Unit- und Integrationstests in 86 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
@@ -707,6 +768,7 @@ const DE: TechnicalDocument = {
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
             "Jede Antwort trägt `x-request-id` und `x-response-time`, und jede Anfrage hinterlässt eine Zeile `[req] {…}` im Log. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, und der Hinweis-Bus liegt im Speicher. Skalierung verlangt PostgreSQL und Redis/Pubsub.",
             "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 99 000 Einzel-Schreibvorgänge/s, 250 000/s im Stapel, 350 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
           ],
@@ -740,7 +802,7 @@ const DE: TechnicalDocument = {
           items: [
             "Die vollständige Anleitung (Systembenutzer, systemd, nginx, TLS, Timer und Wiederherstellung) steht in `deploy/README.md`.",
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` und `deploy/env.example`: die Anwendung lauscht auf `127.0.0.1:3000`, nginx macht das TLS, und `/api/requests/` läuft ohne Buffering, damit der SSE-Kanal nicht abreißt.",
-            "`deploy/wanderbibliothek-maintenance.timer` (alle 15 Minuten) und `deploy/wanderbibliothek-backup.timer` (täglich).",
+            "`deploy/wanderbibliothek-maintenance.timer` (alle 15 Minuten) und `deploy/wanderbibliothek-backup.timer` (alle 6 Stunden).",
             "Alternativ `Dockerfile` und `docker-compose.yml`, mehrstufig und nur mit Produktionsabhängigkeiten; der Image-Build wird in der CI geprüft.",
             "Fehlt etwas Wichtiges in der Konfiguration, startet der Prozess zwar, antwortet aber auf alles mit 500 und dem Grund im Log, statt funktionsfähig zu wirken.",
             "`tsx` ist eine Produktionsabhängigkeit: `admin:create`, `db:backup`, `user:verify` und `smoke` brauchen es, auch im Image mit `npm ci --omit=dev`.",

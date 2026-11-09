@@ -9,8 +9,10 @@ import path from "node:path";
  * Ahora la petición la hace el servidor, se cachea en disco y el navegador solo
  * habla con nosotros.
  *
- * El host es fijo y el ISBN llega ya validado, así que no hay SSRF posible ni
- * escritura fuera de la carpeta de caché.
+ * El ISBN llega validado y las URLs se construyen aquí, pero dos datos vienen de
+ * fuera: la miniatura que devuelve el JSON de Google Books y los destinos de las
+ * redirecciones de Open Library. Por eso cada salto pasa por una lista de hosts
+ * (`HOSTS_PERMITIDOS`) y la escritura no puede salir de la carpeta de caché.
  */
 
 /** Open Library: la portada de una edición concreta, por ISBN. */
@@ -123,25 +125,103 @@ function writeCache(isbn: string, data: Buffer): void {
   }
 }
 
-/** Descarga y valida una imagen de portada. Cualquier fallo es «no hay». */
-async function fetchImage(url: string): Promise<Cover | null> {
-  const response = await fetch(url, {
-    // Esperar aquí no bloquea la página: la tarjeta ya ocupa su sitio con el
-    // fondo de color y la imagen entra cuando llega. Con un tope más corto se
-    // perderían portadas reales solo porque el proveedor iba lento.
-    signal: AbortSignal.timeout(4_000),
-    headers: { "user-agent": "Wanderbibliothek/1.0 (portadas de libros)" },
-  });
-  if (!response.ok) return null;
+/**
+ * Hosts desde los que se acepta una portada. Todo lo demás se descarta.
+ *
+ * Las URLs de Open Library las construye este módulo, pero hay dos caminos que
+ * no son de fiar al cien por cien: la miniatura de Google Books sale del JSON
+ * de su API, y Open Library **redirige** sus portadas a `archive.org` (y este,
+ * a su vez, a `ia*.us.archive.org`). Sin lista, un JSON manipulado o un
+ * proveedor comprometido convertirían la ficha del libro en un cliente HTTP
+ * hacia la red interna del servidor.
+ */
+const HOSTS_PERMITIDOS = [
+  /^covers\.openlibrary\.org$/,
+  /^books\.google\.[a-z.]{2,10}$/,
+  /^(?:[a-z0-9-]+\.)*archive\.org$/,
+  /^(?:[a-z0-9-]+\.)*googleusercontent\.com$/,
+];
+/** Redirecciones que se siguen a mano (Open Library → archive.org → nodo). */
+const MAX_REDIRECTS = 4;
+
+function hostPermitido(url: URL): boolean {
+  return url.protocol === "https:" && HOSTS_PERMITIDOS.some((patron) => patron.test(url.hostname));
+}
+
+/**
+ * Lee el cuerpo con un tope **acumulado**.
+ *
+ * `Content-Length` es una promesa del proveedor, no un hecho: sin comprobarlo
+ * al leer, un `arrayBuffer()` sin cabecera se traga lo que le manden antes de
+ * que nadie mire el tamaño. Aquí se corta la descarga en cuanto el contador
+ * pasa de `MAX_BYTES` y lo descargado se tira.
+ */
+async function leerImagen(response: Response): Promise<Cover | null> {
   const declared = Number(response.headers.get("content-length") ?? "");
   if (Number.isFinite(declared) && declared > MAX_BYTES) return null;
+  if (!response.body) return null;
 
-  const data = Buffer.from(await response.arrayBuffer());
+  const lector = response.body.getReader();
+  const trozos: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await lector.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > MAX_BYTES) {
+        await lector.cancel().catch(() => undefined);
+        return null;
+      }
+      trozos.push(value);
+    }
+  } catch {
+    return null;
+  }
+
+  const data = Buffer.concat(trozos, total);
   const contentType = sniffImageType(data);
-  // Sin imagen reconocible, con el 1×1 de los proveedores o demasiado grande:
-  // no es una portada utilizable.
-  if (!contentType || data.length < MIN_BYTES || data.byteLength > MAX_BYTES) return null;
+  // Sin imagen reconocible o con el 1×1 de los proveedores: no es una portada.
+  if (!contentType || data.length < MIN_BYTES) return null;
   return { data, contentType };
+}
+
+/** Descarga y valida una imagen de portada. Cualquier fallo es «no hay». */
+async function fetchImage(url: string): Promise<Cover | null> {
+  let destino: URL;
+  try {
+    destino = new URL(url);
+  } catch {
+    return null;
+  }
+
+  // Las redirecciones se siguen a mano para volver a pasar la lista en cada
+  // salto: con `redirect: "follow"` la primera petición ya habría salido.
+  for (let salto = 0; salto <= MAX_REDIRECTS; salto += 1) {
+    if (!hostPermitido(destino)) return null;
+    const response = await fetch(destino, {
+      // Esperar aquí no bloquea la página: la tarjeta ya ocupa su sitio con el
+      // fondo de color y la imagen entra cuando llega. Con un tope más corto se
+      // perderían portadas reales solo porque el proveedor iba lento.
+      redirect: "manual",
+      signal: AbortSignal.timeout(4_000),
+      headers: { "user-agent": "Wanderbibliothek/1.0 (portadas de libros)" },
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) return null;
+      try {
+        destino = new URL(location, destino);
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    if (!response.ok) return null;
+    return leerImagen(response);
+  }
+  return null;
 }
 
 /**
@@ -392,23 +472,19 @@ async function firstCover(tareas: (() => Promise<Cover | null>)[]): Promise<Cove
 }
 
 /**
- * Devuelve la portada o null. Nunca lanza por un fallo de los proveedores: la
- * ficha del libro muestra su portadilla generada cuando no hay imagen.
+ * Descargas en curso, por ISBN.
  *
- * Se prueban varias fuentes en orden (la primera que tenga la imagen gana) y el
- * resultado se guarda en caché, así que solo se paga la primera visita.
+ * La caché se escribe al terminar, así que dos peticiones simultáneas del mismo
+ * ISBN descargaban y convertían lo mismo dos veces (y con tres proveedores en
+ * paralelo, hasta seis descargas). La segunda espera la promesa de la primera.
  */
-export async function getCover(
+const enVuelo = new Map<string, Promise<Cover | null>>();
+
+/** Pide la portada a los proveedores y deja el resultado en la caché. */
+async function buscarPortada(
   isbn: string,
-  extra: { title?: string | null; author?: string | null } = {},
+  extra: { title?: string | null; author?: string | null },
 ): Promise<Cover | null> {
-  if (!isValidCacheKey(isbn)) return null;
-
-  const cached = readCache(isbn);
-  if (cached) return cached;
-  // Ya se comprobó hace poco que no hay portada: no se vuelve a molestar.
-  if (recentMiss(isbn)) return null;
-
   const proveedores: (() => Promise<Cover | null>)[] = [
     () => fromOpenLibraryIsbn(isbn),
     () => fromGoogleBooks(isbn),
@@ -430,6 +506,32 @@ export async function getCover(
 
   markMiss(isbn);
   return null;
+}
+
+/**
+ * Devuelve la portada o null. Nunca lanza por un fallo de los proveedores: la
+ * ficha del libro muestra su portadilla generada cuando no hay imagen.
+ *
+ * Se prueban varias fuentes en orden (la primera que tenga la imagen gana) y el
+ * resultado se guarda en caché, así que solo se paga la primera visita.
+ */
+export async function getCover(
+  isbn: string,
+  extra: { title?: string | null; author?: string | null } = {},
+): Promise<Cover | null> {
+  if (!isValidCacheKey(isbn)) return null;
+
+  const cached = readCache(isbn);
+  if (cached) return cached;
+  // Ya se comprobó hace poco que no hay portada: no se vuelve a molestar.
+  if (recentMiss(isbn)) return null;
+
+  const pendiente = enVuelo.get(isbn);
+  if (pendiente) return pendiente;
+
+  const tarea = buscarPortada(isbn, extra).finally(() => enVuelo.delete(isbn));
+  enVuelo.set(isbn, tarea);
+  return tarea;
 }
 
 /* --------------------------- portadas subidas ---------------------------- */

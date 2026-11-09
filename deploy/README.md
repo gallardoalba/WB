@@ -104,7 +104,7 @@ consecuencias están comentadas en el propio fichero; el resumen:
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` (https) | Sitemap y canonical apuntan a localhost; con `http://` el navegador descarta la cookie `__Host-` y el login entra en bucle |
 | `BREVO_API_KEY` + `MAIL_FROM` (o `MAIL_WEBHOOK_URL`) | Nadie puede confirmar el correo (obligatorio para publicar en producción) ni recuperar la contraseña |
-| `APP_ENCRYPTION_KEY` | No se pueden guardar el secreto TOTP ni los datos de envío; sin 2FA la administración responde 403 |
+| `APP_ENCRYPTION_KEY` | No se puede guardar el secreto TOTP; sin 2FA la administración responde 403 en producción |
 | `APP_ENCRYPTION_OLD_KEYS` | Solo se usa al **rotar** la clave: la nueva en `APP_ENCRYPTION_KEY`, la anterior aquí para seguir leyendo |
 | `MAINTENANCE_TOKEN` | El cron responde 404: sin purgas, sin reintentos de correo, sin recordatorios de club |
 | `TRUST_PROXY=1` | Todas las peticiones comparten la cuota global: un cliente puede agotar el login del sitio |
@@ -135,8 +135,10 @@ segunda URL pública que proteger. Solo se envían dos correos de texto plano
 (300 al día) sobra.
 
 1. **Cuenta**: brevo.com. La empresa es Sendinblue SAS (París) y los datos se
-   tratan en la UE, así que no hay transferencia internacional que declarar en
-   `/privacidad`.
+   tratan en la UE. Aun así, antes de dar por hecho que no hay nada que declarar
+   en `/privacidad`, revisa el contrato de encargo del tratamiento, sus
+   subencargados y los accesos desde fuera del EEE: la sede europea no lo decide
+   todo.
 2. **Autenticar el dominio**: *Senders, Domains & Dedicated IPs → Domains* →
    añade `wanderbibliothek.org`. Brevo muestra los registros exactos: dos o tres
    **CNAME de DKIM**, un **TXT de DMARC** y el `include:` del **SPF**. En netcup
@@ -726,7 +728,9 @@ Salvaguardas que ya trae la aplicación: las cuotas guardan un **pseudónimo
 diario** de la IP (HMAC con una sal derivada de `APP_ENCRYPTION_KEY`, no la
 dirección), las **portadas se descargan en el servidor** y se cachean en
 `WANDERBIBLIOTHEK_COVER_CACHE` (el navegador no contacta con Open Library), el
-catálogo y los perfiles **exigen sesión** y `robots.txt` impide indexarlos, y
+catálogo se ve sin sesión pero **lo que se indexa son las fichas de obra**
+(`/werk/<id>`, sin el nombre de quien ofrece), `/descubrir`, `/libro`, `/u` y el
+resto de vistas con datos personales están en el `disallow` de `robots.txt`, y
 el registro exige **declarar 16 años o más**.
 
 Quedan tres decisiones que son tuyas:
@@ -788,16 +792,21 @@ lista no se puede olvidar en silencio.
 - [ ] Proveedor de alojamiento identificado y con contrato de encargo.
 - [ ] Autoridad de control competente por el domicilio del responsable
       (Baden-Württemberg: LfDI).
-- [ ] Ensayada una restauración real desde copia y confirmado el plazo de 14
-      días que declara la política.
+- [x] Ensayada una restauración real desde copia y confirmado el plazo de 14
+      días que declara la política. **Hecho el 9-nov-2026** con la copia de las
+      18:03: descifrada a un fichero temporal, `PRAGMA integrity_check` → `ok`,
+      `user_version = 48`, `books_fts` responde a `MATCH 'democ*'` y el secreto
+      TOTP de una cuenta se descifra con `APP_ENCRYPTION_KEY` (32 caracteres).
+      Repetirlo cada vez que cambie el formato de copia o la clave.
 - [ ] Texto revisado por quien asuma la responsabilidad legal: lo que hay es un
       borrador técnico exacto, no un dictamen jurídico.
 
 ## Rotar la clave de cifrado
 
-`APP_ENCRYPTION_KEY` protege el secreto TOTP de cada cuenta y los datos de envío
-(Packstation o dirección). Los valores guardan dentro el id de la clave con la que
-se cifraron, así que se puede cambiar sin perder nada:
+`APP_ENCRYPTION_KEY` protege el secreto TOTP de cada cuenta (los campos de envío
+que quedan en la base son históricos: el flujo se retiró el 7-nov). Los valores
+guardan dentro el id de la clave con la que se cifraron, así que se puede cambiar
+sin perder nada:
 
 ```bash
 # 1. La nueva clave como activa; la anterior, solo para leer.

@@ -116,3 +116,56 @@ test("reiniciar la conexión de prueba conserva lo escrito en el fichero", () =>
     .get() as { name: string } | undefined;
   assert.equal(fila?.name, "Persistente");
 });
+
+test("las métricas dicen cuánto ocupan el fichero y el WAL", () => {
+  const db = dbModule.getDb();
+  db.prepare(
+    `INSERT INTO users (id, name, email, city, password_hash, created_at)
+     VALUES ('usr_metrica', 'Métrica', 'metrica@example.test', 'Leipzig', 'scrypt$00$00', '2026-01-01T00:00:00.000Z')`,
+  ).run();
+
+  const metricas = dbModule.dbMetrics();
+  assert.ok(metricas.bytes + metricas.walBytes > 0, "los datos están en el fichero o en el WAL");
+  assert.ok(metricas.pageCount > 0, "la base tiene páginas");
+  assert.equal(metricas.journalMode, "wal", "el despliegue usa WAL");
+  assert.ok(metricas.freePages >= 0, "las páginas libres se informan aunque sean 0");
+  assert.ok(metricas.shmBytes >= 0);
+});
+
+test("una consulta lenta deja un aviso con la SQL recortada", () => {
+  const db = dbModule.getDb();
+  const avisos: unknown[][] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => void avisos.push(args);
+
+  try {
+    // Dos millones de filas: pasa de 50 ms en cualquier máquina real (haría
+    // falta un SQLite a 40 millones de vueltas por segundo para no llegar).
+    db.prepare(
+      `WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 2000000)
+       SELECT count(*) AS n FROM c`,
+    ).get();
+  } finally {
+    console.warn = original;
+  }
+
+  const aviso = avisos.find((args) => args[0] === "[db] consulta lenta");
+  assert.ok(aviso, "la consulta lenta se anuncia");
+  const detalle = aviso![1] as { ms: number; sql: string };
+  assert.ok(detalle.ms >= dbModule.SLOW_QUERY_MS, `se midió el tiempo (${detalle.ms} ms)`);
+  assert.match(detalle.sql, /^WITH RECURSIVE/, "la SQL va recortada y en una línea");
+  assert.equal(detalle.sql.includes("\n"), false);
+});
+
+test("una consulta normal no deja avisos de lentitud", () => {
+  const db = dbModule.getDb();
+  const avisos: unknown[][] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => void avisos.push(args);
+  try {
+    db.prepare("SELECT 1 AS uno").get();
+  } finally {
+    console.warn = original;
+  }
+  assert.equal(avisos.length, 0);
+});

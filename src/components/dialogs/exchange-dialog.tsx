@@ -655,11 +655,6 @@ export function ExchangeDialog({
             "Los mensajes van cifrados de extremo a extremo: la clave privada se queda en este navegador y el servidor solo guarda sobres que no puede abrir. En otro dispositivo no se leen los mensajes anteriores; si cambias, pide a la otra persona que vuelva a escribirte.",
           )}
         </p>
-        <p>
-          {t(
-            "Los datos de envío son otra cosa: se guardan cifrados con la clave de la plataforma y solo se descifran para las dos personas del intercambio, dentro de la aplicación. El servidor de esta instancia sí puede leerlos; los mensajes no.",
-          )}
-        </p>
 
         {/* Huella corta para comparar en persona: sin esto, `keyChanged` avisa
             pero no hay forma sencilla de comprobar que la clave es la buena. */}

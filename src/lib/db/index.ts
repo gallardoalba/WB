@@ -7,7 +7,7 @@
  * `seed.ts`.
  */
 import Database from "better-sqlite3";
-import { chmodSync, mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { migrate } from "./migrations";
 import { ensureInitialAdmin, seed, shouldSeedDemo } from "./seed";
@@ -37,6 +37,52 @@ function registerUnaccent(db: Db): void {
 type PreparedStatement = ReturnType<Db["prepare"]>;
 
 /**
+ * A partir de aquí una consulta se anuncia como lenta.
+ *
+ * `better-sqlite3` es síncrono: mientras una consulta corre, el proceso entero
+ * —incluidas las respuestas de las demás personas— está parado. 50 ms es el
+ * umbral a partir del cual un barrido de tabla empieza a notarse.
+ */
+export const SLOW_QUERY_MS = 50;
+/** Lo que se recorta la SQL en el aviso (con los valores fuera, es casi fija). */
+const MAX_SQL_LOG = 140;
+
+/**
+ * Envuelve una sentencia para medir cuánto tarda cada ejecución.
+ *
+ * Se envuelven `run`, `get`, `all` e `iterate`, que son las cuatro formas de
+ * ejecutar algo; el resto de métodos (`.pluck()`, `.expand()`…) se reenvían a la
+ * sentencia original, así que encadenar sigue funcionando igual.
+ */
+function cronometrada(statement: PreparedStatement, sql: string): PreparedStatement {
+  const metodos = ["run", "get", "all", "iterate"] as const;
+  const envoltorios: Record<string, (...args: unknown[]) => unknown> = {};
+  for (const metodo of metodos) {
+    envoltorios[metodo] = (...args: unknown[]) => {
+      const inicio = performance.now();
+      try {
+        return (statement[metodo] as (...paso: unknown[]) => unknown).apply(statement, args);
+      } finally {
+        const ms = performance.now() - inicio;
+        if (ms >= SLOW_QUERY_MS) {
+          console.warn("[db] consulta lenta", {
+            ms: Math.round(ms * 10) / 10,
+            sql: sql.replace(/\s+/g, " ").trim().slice(0, MAX_SQL_LOG),
+          });
+        }
+      }
+    };
+  }
+  return new Proxy(statement, {
+    get(target, prop) {
+      if (typeof prop === "string" && prop in envoltorios) return envoltorios[prop];
+      const valor = Reflect.get(target, prop, target) as unknown;
+      return typeof valor === "function" ? valor.bind(target) : valor;
+    },
+  }) as PreparedStatement;
+}
+
+/**
  * Cuántas sentencias distintas se recuerdan. El código prepara unas 350 y las
  * listas `IN (…)` generan variantes por número de elementos, así que 400 cubre
  * el uso normal sin crecer sin freno.
@@ -63,7 +109,7 @@ function cacheStatements(db: Db): Db {
     value: (sql: string): PreparedStatement => {
       const cached = compiled.get(sql);
       if (cached) return cached;
-      const statement = prepare(sql);
+      const statement = cronometrada(prepare(sql), sql);
       if (compiled.size >= STATEMENT_CACHE_LIMIT) {
         // Fuera la primera que se guardó: el acceso es suficientemente estable
         // como para que un FIFO simple evite el crecimiento sin coste real.
@@ -119,4 +165,44 @@ function restrictPermissions(target: string, mode: number) {
 export function resetDbForTests() {
   globalForDb.__wanderbibliothekDb?.close();
   globalForDb.__wanderbibliothekDb = undefined;
+}
+
+export type DbMetrics = {
+  /** Tamaño del fichero principal; 0 si la base vive en memoria. */
+  bytes: number;
+  walBytes: number;
+  shmBytes: number;
+  pageCount: number;
+  /** Páginas libres: si crece sin parar, toca un `VACUUM` medido, no a ciegas. */
+  freePages: number;
+  journalMode: string;
+};
+
+/**
+ * Tamaño de la base y de sus acompañantes.
+ *
+ * SQLite no devuelve el espacio de las filas borradas al sistema: el fichero y
+ * el WAL crecen aunque la aplicación vea menos datos. Estas cifras van en el
+ * informe del cron para poder verlo venir (el watchdog avisa del disco, pero no
+ * distingue «la base ocupa más» de «hay menos sitio»).
+ */
+export function dbMetrics(): DbMetrics {
+  const db = getDb();
+  const file = databaseFile();
+  const tamano = (ruta: string) => {
+    try {
+      return statSync(ruta).size;
+    } catch {
+      return 0;
+    }
+  };
+  const enMemoria = file === ":memory:";
+  return {
+    bytes: enMemoria ? 0 : tamano(file),
+    walBytes: enMemoria ? 0 : tamano(`${file}-wal`),
+    shmBytes: enMemoria ? 0 : tamano(`${file}-shm`),
+    pageCount: Number(db.pragma("page_count", { simple: true })),
+    freePages: Number(db.pragma("freelist_count", { simple: true })),
+    journalMode: String(db.pragma("journal_mode", { simple: true })),
+  };
 }

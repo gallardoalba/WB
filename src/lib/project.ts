@@ -97,7 +97,7 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Mensajería cifrada de extremo a extremo",
-              text: "la clave privada vive en el navegador y el servidor solo transporta sobres opacos. Los datos de envío se guardan cifrados con la clave de la instancia.",
+              text: "la clave privada vive en el navegador y el servidor solo transporta sobres opacos.",
             },
             {
               label: "Catalogación cuidada",
@@ -218,7 +218,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Ende-zu-Ende-verschlüsselte Nachrichten",
-              text: "der private Schlüssel bleibt im Browser, der Server befördert nur undurchsichtige Umschläge. Versanddaten werden mit dem Schlüssel der Instanz verschlüsselt gespeichert.",
+              text: "der private Schlüssel bleibt im Browser, der Server befördert nur undurchsichtige Umschläge.",
             },
             {
               label: "Sorgfältige Titelaufnahme",
@@ -339,7 +339,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "End-to-end encrypted messaging",
-              text: "the private key stays in the browser and the server carries only opaque envelopes. Shipping details are stored encrypted with the instance key.",
+              text: "the private key stays in the browser and the server carries only opaque envelopes.",
             },
             {
               label: "Careful cataloguing",

@@ -1,4 +1,4 @@
-import { getDb } from "../db";
+import { dbMetrics, getDb, type DbMetrics } from "../db";
 import { pruneCoverCache } from "../covers";
 import { notifyUpcomingMeetings } from "./clubs";
 import { listingTitle, notify } from "./notifications";
@@ -68,6 +68,8 @@ export type MaintenanceReport = {
   audit: number;
   clubReminders: number;
   covers: number;
+  /** Tamaño de la base y del WAL, ya después del checkpoint. */
+  db: DbMetrics;
 };
 
 /**
@@ -144,6 +146,8 @@ export function runMaintenance(): MaintenanceReport {
     audit,
     clubReminders,
     covers,
+    // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.
+    db: dbMetrics(),
   };
 }
 

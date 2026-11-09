@@ -121,6 +121,25 @@ Messages within an exchange and direct messages are encrypted in the browser (EC
 - Account tokens are single-use, hashed and expire; changing the password ends every session.
 - `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received, direct messages with their envelopes, club posts and memberships, reviews, lists, follows, blocks, reports and notifications), and deleting the account removes its own content without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
+## Permissions per resource
+
+Signing in is not enough: every operation also checks that the resource belongs to the person asking for it, and does so **inside the query** (`owner_id = ?` or “either of the two parties”), not in an `if` in the component. That is why a foreign id answers `404` — “it does not exist” — rather than `403`: a 403 would confirm that something with that id exists.
+
+| Operation | Signed out | Another account | Party or owner | Administration |
+|---|---|---|---|---|
+| Browse the catalogue and a work page | Yes | Yes | Yes | Yes |
+| Publish a copy | No | Yes, with a confirmed email | Yes | Yes |
+| Edit, pause or withdraw a copy | No | No | Only its owner | Withdraws, does not edit |
+| See an exchange request | No | No | Only its two parties | No |
+| Accept, cancel or confirm an exchange | No | No | Its two parties, according to role and transition | No |
+| Read or write in a direct thread | No | No | Its participants, with mutual following and a published key | No |
+| Rate the other person | No | No | Once, after the exchange is completed | No |
+| Comment, write in a club or in a list | No | Yes, with a confirmed email | Yes | Yes |
+| Moderate: reports, suspensions, removals | No | No | No | Yes, with 2FA in production |
+| Export or delete the account | No | No | Only its owner | No |
+
+`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy and exchange tests cover the remaining roles.
+
 ## Environment variables
 
 Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating one fails with a configuration error. In production `src/instrumentation.ts` checks the configuration at start-up and writes the reason to the log.
@@ -129,7 +148,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | --- | --- | --- |
 | `WANDERBIBLIOTHEK_DB` | `.data/wanderbibliothek.db` | SQLite database path (`:memory:` in tests). |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Base for `sitemap.xml`, `robots.txt` and canonical URLs. Required in production. |
-| `APP_ENCRYPTION_KEY` | unset | 32 bytes in hex or base64 for TOTP and shipping data. Required. |
+| `APP_ENCRYPTION_KEY` | unset | 32 bytes in hex or base64 to encrypt the TOTP secret. Mandatory. |
 | `APP_ENCRYPTION_KEY_ID` | derived | Readable name of the active key; when missing, a prefix of its SHA-256 is used. |
 | `APP_ENCRYPTION_OLD_KEYS` | empty | Previous keys, read-only, while a rotation is in progress. |
 | `WANDERBIBLIOTHEK_ALLOW_PLAINTEXT` | empty | Development only: stores secrets in plain text when no key is present. |
@@ -155,7 +174,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 663 unit and integration tests in 82 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 697 unit and integration tests in 86 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 
@@ -172,6 +191,7 @@ npx playwright install chromium && npm run test:e2e
 - `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
 - Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
+- A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.
 - Measured ceiling with `npm run bench:sqlite`: about 99 000 single writes/s, 250 000/s in a batch, 350 000 reads/s by primary key and 2 000/s for a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.
 
@@ -193,7 +213,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 
 - The full guide (system user, systemd, nginx, TLS, timers and restore) is in [`deploy/README.md`](deploy/README.md).
 - `deploy/wanderbibliothek.service`, `deploy/nginx.conf` and `deploy/env.example`: the application listens on `127.0.0.1:3000`, nginx terminates TLS, and `/api/requests/` runs without buffering so the SSE channel is not cut.
-- `deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (daily).
+- `deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (every 6 hours).
 - Alternatively `Dockerfile` and `docker-compose.yml`, multi-stage and with production dependencies only; the image build is checked in CI. `better-sqlite3` compiles with node-gyp, so the final stage reuses the `node_modules` already built in the dependencies stage and prunes devDependencies instead of installing again.
 - When something important is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, rather than looking healthy.
 - `tsx` is a production dependency: `admin:create`, `db:backup`, `user:verify` and `smoke` need it, also inside the image with `npm ci --omit=dev`.

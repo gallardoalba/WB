@@ -309,6 +309,123 @@ test("una respuesta demasiado grande se descarta antes de leerla entera", async 
   );
 });
 
+test("sin Content-Length la descarga se corta al pasar de 4 MB", async () => {
+  cacheNueva();
+  let bloques = 0;
+  // Un cuerpo sin final: si se leyera con `arrayBuffer()` no terminaría nunca.
+  const enorme = new ReadableStream<Uint8Array>({
+    pull(control) {
+      bloques += 1;
+      control.enqueue(new Uint8Array(512 * 1024).fill(0x20));
+    },
+  });
+  await conFetch(
+    async (url) =>
+      url.includes("covers.openlibrary.org")
+        ? new Response(enorme)
+        : new Response("{}", { status: 404 }),
+    async () => {
+      assert.equal(await getCover("9788420412146"), null);
+      // 4 MB son ocho bloques de 512 KB: se corta como mucho en el noveno.
+      assert.ok(bloques <= 10, `se sirvieron ${bloques} bloques de 512 KB`);
+    },
+  );
+});
+
+test("una URL de fuera de la lista no se pide", async () => {
+  cacheNueva();
+  await conFetch(
+    async (url) => {
+      if (!url.includes("googleapis.com")) return new Response("no", { status: 404 });
+      // La miniatura viene del JSON del proveedor: aquí apunta a la red interna.
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              volumeInfo: {
+                industryIdentifiers: [{ type: "ISBN_13", identifier: "9788420412146" }],
+                imageLinks: { thumbnail: "https://169.254.169.254/latest/meta-data" },
+              },
+            },
+          ],
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    },
+    async (calls) => {
+      assert.equal(await getCover("9788420412146"), null);
+      assert.equal(
+        calls.some((c) => c.includes("169.254.169.254")),
+        false,
+        "no se pide nada a la dirección interna",
+      );
+    },
+  );
+});
+
+test("una redirección a un host de fuera de la lista se corta", async () => {
+  cacheNueva();
+  await conFetch(
+    async (url) =>
+      url.includes("covers.openlibrary.org")
+        ? new Response(null, {
+            status: 302,
+            headers: { location: "http://127.0.0.1:8080/portada.png" },
+          })
+        : new Response("{}", { status: 404 }),
+    async (calls) => {
+      assert.equal(await getCover("9788420412146"), null);
+      assert.equal(calls.some((c) => c.includes("127.0.0.1")), false);
+    },
+  );
+});
+
+test("la redirección de Open Library a archive.org sí se sigue", async () => {
+  cacheNueva();
+  await conFetch(
+    async (url) => {
+      if (url.includes("covers.openlibrary.org")) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://ia801504.us.archive.org/portada.png" },
+        });
+      }
+      if (url.includes("archive.org")) {
+        return new Response(new Uint8Array(pngDe(2_000)));
+      }
+      return new Response("{}", { status: 404 });
+    },
+    async (calls) => {
+      const cover = await getCover("9788420412146");
+      assert.equal(cover?.contentType, "image/png", "la portada llega tras el salto");
+      assert.ok(calls.some((c) => c.includes("archive.org")), "se pidió el destino del 302");
+    },
+  );
+});
+
+test("dos peticiones simultáneas del mismo ISBN descargan una sola vez", async () => {
+  cacheNueva();
+  let descargas = 0;
+  await conFetch(
+    async (url) => {
+      if (!url.includes("covers.openlibrary.org")) return new Response("{}", { status: 404 });
+      descargas += 1;
+      // El retraso hace que las dos peticiones coincidan en vuelo.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return new Response(new Uint8Array(pngDe(2_000)));
+    },
+    async () => {
+      const [una, otra] = await Promise.all([
+        getCover("9788420412146"),
+        getCover("9788420412146"),
+      ]);
+      assert.equal(una?.contentType, "image/png");
+      assert.equal(otra?.contentType, "image/png");
+      assert.equal(descargas, 1, "la segunda petición espera la descarga de la primera");
+    },
+  );
+});
+
 test("una caché vieja se poda y la reciente se queda", () => {
   const dir = cacheNueva();
   writeFileSync(path.join(dir, "9788420412146.img"), pngDe(1_500));
@@ -461,5 +578,34 @@ test("lo que sale hacia el webhook va redactado: ni correos, ni tokens, ni clave
     globalThis.fetch = original;
     console.error = consola;
     delete process.env.ERROR_WEBHOOK_URL;
+  }
+});
+
+test("el journal recibe el error redactado, no el objeto original", async () => {
+  const { reportError } = await import("../src/lib/observability.ts");
+  delete process.env.ERROR_WEBHOOK_URL;
+
+  const lineas: unknown[][] = [];
+  const consola = console.error;
+  console.error = (...args: unknown[]) => void lineas.push(args);
+
+  try {
+    const original = new Error("falló el envío a lectora@example.org");
+    // Propiedad enumerable a propósito: si el objeto se volcara tal cual,
+    // aparecería en la línea del journal.
+    Object.defineProperty(original, "token", { value: "Bearer abc.def", enumerable: true });
+    reportError(original, { email: "lectora@example.org", requestId: "req_7" });
+
+    assert.equal(lineas.length, 1);
+    const volcado = JSON.stringify(lineas[0]);
+    assert.equal(volcado.includes("lectora@example.org"), false, "el correo no llega al journal");
+    assert.equal(volcado.includes("Bearer abc.def"), false, "el token no llega al journal");
+    assert.match(volcado, /l\*\*\*@example\.org/);
+
+    const extra = lineas[0]![1] as { context: unknown; stack?: string };
+    assert.deepEqual(extra.context, { email: "[oculto]", requestId: "req_7" });
+    assert.equal(typeof extra.stack, "string", "la traza sigue ahí, pero redactada");
+  } finally {
+    console.error = consola;
   }
 });

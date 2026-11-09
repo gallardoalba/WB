@@ -75,7 +75,14 @@ export function reportError(error: unknown, context: Record<string, unknown> = {
     context: contexto,
   };
 
-  console.error(`[error] ${payload.message}`, contexto, error);
+  // El objeto `error` **no** se pasa tal cual: su mensaje y su traza son los
+  // mismos datos que se acaban de redactar, y `console.error` los volcaría
+  // crudos al journal (que se rota, se copia y lo lee más gente que este
+  // proceso). Se registra exactamente el mismo `payload` que va al webhook.
+  console.error(`[error] ${payload.message}`, {
+    context: contexto,
+    stack: payload.stack,
+  });
 
   const url = process.env.ERROR_WEBHOOK_URL;
   if (!url) return;

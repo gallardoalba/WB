@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 663 unit and integration tests (82 files)",
+            "tests/                 697 unit and integration tests (86 files)",
             "e2e/                   browser tests with Playwright (6 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -205,6 +205,36 @@ export const EN: TechnicalDocument = {
       ],
     },
     {
+      id: "permisos",
+      heading: "Permissions per resource",
+      blocks: [
+        {
+          kind: "p",
+          text: "Signing in is not enough: every operation also checks that the resource belongs to the person asking for it, and does so **inside the query** (`owner_id = ?` or “either of the two parties”), not in an `if` in the component. That is why a foreign id answers `404` — “it does not exist” — rather than `403`: a 403 would confirm that something with that id exists.",
+        },
+        {
+          kind: "table",
+          head: ["Operation", "Signed out", "Another account", "Party or owner", "Administration"],
+          rows: [
+            ["Browse the catalogue and a work page", "Yes", "Yes", "Yes", "Yes"],
+            ["Publish a copy", "No", "Yes, with a confirmed email", "Yes", "Yes"],
+            ["Edit, pause or withdraw a copy", "No", "No", "Only its owner", "Withdraws, does not edit"],
+            ["See an exchange request", "No", "No", "Only its two parties", "No"],
+            ["Accept, cancel or confirm an exchange", "No", "No", "Its two parties, according to role and transition", "No"],
+            ["Read or write in a direct thread", "No", "No", "Its participants, with mutual following and a published key", "No"],
+            ["Rate the other person", "No", "No", "Once, after the exchange is completed", "No"],
+            ["Comment, write in a club or in a list", "No", "Yes, with a confirmed email", "Yes", "Yes"],
+            ["Moderate: reports, suspensions, removals", "No", "No", "No", "Yes, with 2FA in production"],
+            ["Export or delete the account", "No", "No", "Only its owner", "No"],
+          ],
+        },
+        {
+          kind: "p",
+          text: "`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy and exchange tests cover the remaining roles.",
+        },
+      ],
+    },
+    {
       id: "entorno",
       heading: "Environment variables",
       blocks: [
@@ -218,7 +248,7 @@ export const EN: TechnicalDocument = {
           rows: [
             ["`WANDERBIBLIOTHEK_DB`", "`.data/wanderbibliothek.db`", "Path of the SQLite database (`:memory:` in the tests)."],
             ["`NEXT_PUBLIC_SITE_URL`", "`http://localhost:3000`", "Base for `sitemap.xml`, `robots.txt` and the canonical URLs. Mandatory in production."],
-            ["`APP_ENCRYPTION_KEY`", "unset", "32 bytes in hex or base64 to encrypt TOTP and shipping data. Mandatory."],
+            ["`APP_ENCRYPTION_KEY`", "unset", "32 bytes in hex or base64 to encrypt the TOTP secret. Mandatory."],
             ["`APP_ENCRYPTION_KEY_ID`", "derived", "Readable name of the active key; when it is missing, a prefix of its SHA-256 is used."],
             ["`APP_ENCRYPTION_OLD_KEYS`", "empty", "Previous keys, read-only, while a rotation is being completed."],
             ["`WANDERBIBLIOTHEK_ALLOW_PLAINTEXT`", "empty", "Development only: stores secrets in plain text if there is no key."],
@@ -266,7 +296,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 663 unit and integration tests in 82 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 697 unit and integration tests in 86 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",
@@ -294,6 +324,7 @@ export const EN: TechnicalDocument = {
             "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
             "Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.",
             "Ceiling measured with `npm run bench:sqlite`: about 99 000 single writes/s, 250 000/s in a batch, 350 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",
           ],
@@ -327,7 +358,7 @@ export const EN: TechnicalDocument = {
           items: [
             "The full guide (system user, systemd, nginx, TLS, timers and restore) is in `deploy/README.md`.",
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` and `deploy/env.example`: the application listens on `127.0.0.1:3000` and nginx terminates TLS, with `/api/requests/` unbuffered so that the SSE channel is not cut.",
-            "`deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (daily).",
+            "`deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (every 6 hours).",
             "There is also a multi-stage `Dockerfile` and `docker-compose.yml` with production dependencies only; the image build is validated in continuous integration.",
             "If something important is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, instead of appearing to work.",
             "`tsx` is a production dependency: `admin:create`, `db:backup`, `user:verify` and `smoke` use it, also inside the image with `npm ci --omit=dev`.",
