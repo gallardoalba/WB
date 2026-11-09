@@ -36,3 +36,37 @@ test("en desarrollo no se avisa a ningún buscador", async () => {
 test("sin URLs no se hace ninguna llamada", async () => {
   assert.equal(await notifyIndexNow("https://wanderbibliothek.org", []), false);
 });
+
+test("en local no se llama a IndexNow, ni con puerto ni con IP privada", async () => {
+  // `new URL("http://localhost:3000").host` es «localhost:3000»: la guardia
+  // antigua comparaba contra «localhost» y acababa avisando de verdad.
+  const original = globalThis.fetch;
+  const llamadas: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    llamadas.push(String(input));
+    return new Response("ok", { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    for (const base of [
+      "http://localhost:3000",
+      "http://localhost",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1",
+      "http://[::1]:3000",
+      "http://192.168.0.11:3100",
+      "http://10.0.0.5",
+    ]) {
+      assert.equal(await notifyIndexNow(base, [`${base}/werk/x`]), false, base);
+    }
+    assert.equal(llamadas.length, 0, "no se avisa al buscador desde local");
+
+    // Un dominio público sí avisa, y sin el puerto en el campo `host`.
+    const ok = await notifyIndexNow("https://wanderbibliothek.org", [
+      "https://wanderbibliothek.org/werk/x",
+    ]);
+    assert.equal(ok, true);
+    assert.equal(llamadas.length, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

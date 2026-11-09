@@ -23,23 +23,24 @@ export function indexNowKeyLocation(base: string): string {
  */
 export async function notifyIndexNow(base: string, urls: string[]): Promise<boolean> {
   if (urls.length === 0) return false;
-  const host = (() => {
+  // Se compara el **nombre** del host, no `host`: `new URL("http://localhost:3000").host`
+  // es `localhost:3000`, así que la guardia antigua no casaba y en desarrollo se
+  // avisaba de verdad al buscador (y la prueba dependía de que la red fallara).
+  const hostname = (() => {
     try {
-      return new URL(base).host;
+      return new URL(base).hostname;
     } catch {
       return null;
     }
   })();
-  // En desarrollo el host es localhost: avisar sería dar de alta una URL que no
-  // existe para nadie.
-  if (!host || host === "localhost" || host.startsWith("127.0.0.1")) return false;
+  if (!hostname || esHostLocal(hostname)) return false;
 
   try {
     const response = await fetch("https://api.indexnow.org/indexnow", {
       method: "POST",
       headers: { "content-type": "application/json; charset=utf-8" },
       body: JSON.stringify({
-        host,
+        host: hostname,
         key: INDEXNOW_KEY,
         keyLocation: indexNowKeyLocation(base),
         urlList: urls.slice(0, 10_000),
@@ -50,4 +51,12 @@ export async function notifyIndexNow(base: string, urls: string[]): Promise<bool
   } catch {
     return false;
   }
+}
+
+/** Localhost, bucles y redes privadas: avisar de ellos no tiene sentido. */
+function esHostLocal(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "::1" || host === "0.0.0.0") return true;
+  return /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
 }

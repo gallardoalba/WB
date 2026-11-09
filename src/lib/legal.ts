@@ -57,18 +57,22 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
 const UPDATED = "2026-11-04";
 
 /**
- * Dirección de contacto tal y como se publica: `nombre[at]dominio`.
+ * Dirección de contacto tal y como se publica: `nombre[at]dominio[dot]tld`.
  *
  * El aviso legal obliga a dar un medio de contacto, pero una dirección escrita
- * con su `@` es lo primero que recogen los rastreadores de correo. Con `[at]`
- * se lee igual y el robot que copia el HTML se queda con una cadena que no es
- * una dirección.
+ * con su `@` es lo primero que recogen los rastreadores de correo. Con `[at]` y
+ * `[dot]` se lee igual y el robot que copia el HTML se queda con una cadena que
+ * no es una dirección. Los puntos del usuario (`nombre.apellido`) se dejan: la
+ * parte que hay que esconder es el dominio completo, que es lo que reconstruye
+ * una dirección a partir de un `@` suelto.
  */
 export function maskContact(contact: string): string {
   const limpio = contact.trim();
   const arroba = limpio.lastIndexOf("@");
   if (arroba < 1 || arroba === limpio.length - 1) return limpio;
-  return `${limpio.slice(0, arroba)}[at]${limpio.slice(arroba + 1)}`;
+  const usuario = limpio.slice(0, arroba);
+  const dominio = limpio.slice(arroba + 1).replace(/\./g, "[dot]");
+  return `${usuario}[at]${dominio}`;
 }
 
 const CONTROLLER_PLACEHOLDER_ES =
