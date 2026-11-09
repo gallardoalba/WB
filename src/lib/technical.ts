@@ -118,7 +118,7 @@ const ES: TechnicalDocument = {
           head: ["Ruta", "Contenido"],
           rows: [
             ["`/`", "Portada pública: hero, cuatro cifras y una fila de libros."],
-            ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Sin sesión se ve solo la primera página y cada ejemplar muestra el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
+            ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
             ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`: la URL que se indexa."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
             ["`/buscar`", "Buscador global: obras, clubes, lectores y listas."],

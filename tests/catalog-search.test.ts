@@ -69,14 +69,13 @@ test("el catálogo va de quince en quince y el scroll pide una fila", async () =
     publicar(user.id, `Paginador ${String(index).padStart(2, "0")}`, "Autora", null);
   }
 
-  // Con sesión: sin ella el catálogo se queda en la primera página a propósito.
-  const primera = repo.catalogPage(user.id, catalogParams({ q: "paginador" }));
+  const primera = repo.catalogPage(null, catalogParams({ q: "paginador" }));
   assert.equal(primera.total, 22);
   assert.equal(primera.items.length, 15);
   assert.equal(primera.pageSize, 15);
   assert.equal(primera.hasMore, true);
 
-  const segunda = repo.catalogPage(user.id, catalogParams({ q: "paginador", page: 2 }));
+  const segunda = repo.catalogPage(null, catalogParams({ q: "paginador", page: 2 }));
   assert.equal(segunda.items.length, 7);
   assert.equal(segunda.hasMore, false);
   // Ninguna tarjeta se repite entre páginas.
@@ -86,7 +85,7 @@ test("el catálogo va de quince en quince y el scroll pide una fila", async () =
   // El scroll pide una fila: cinco en pantalla ancha, tres en portátil. Va por
   // desplazamiento porque cada tirada tiene un tamaño distinto según el ancho,
   // y `page` no vale: la página 2 con `pageSize` 5 devolvería lo ya pintado.
-  const fila = repo.catalogPage(user.id, catalogParams({ q: "paginador", pageSize: 5, offset: 15 }));
+  const fila = repo.catalogPage(null, catalogParams({ q: "paginador", pageSize: 5, offset: 15 }));
   assert.equal(fila.items.length, 5);
   assert.equal(fila.pageSize, 5);
   assert.equal(fila.hasMore, true);
@@ -98,12 +97,12 @@ test("el catálogo va de quince en quince y el scroll pide una fila", async () =
   );
 
   // La última tirada es más corta que la fila y ya no queda nada detrás.
-  const cola = repo.catalogPage(user.id, catalogParams({ q: "paginador", pageSize: 5, offset: 20 }));
+  const cola = repo.catalogPage(null, catalogParams({ q: "paginador", pageSize: 5, offset: 20 }));
   assert.equal(cola.items.length, 2);
   assert.equal(cola.hasMore, false);
 
   // Un enlace viejo con una página que ya no existe cae a la última real.
-  const fuera = repo.catalogPage(user.id, catalogParams({ q: "paginador", page: 99 }));
+  const fuera = repo.catalogPage(null, catalogParams({ q: "paginador", page: 99 }));
   assert.equal(fuera.page, 2);
   assert.equal(fuera.items.length, 7);
 });

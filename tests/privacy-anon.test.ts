@@ -43,20 +43,17 @@ test("sin sesión el catálogo no revela quién publica", () => {
   }
 });
 
-test("sin sesión el catálogo se queda en la primera página", () => {
-  const primera = repo.catalogPage(null, params());
-  assert.equal(primera.hasMore, false);
-  const segunda = repo.catalogPage(null, params({ page: 2 }));
-  assert.equal(segunda.page, 1);
-  assert.deepEqual(
-    segunda.items.map((item) => item.id),
-    primera.items.map((item) => item.id),
-  );
-  const porDesplazamiento = repo.catalogPage(null, params({ offset: 15 }));
-  assert.deepEqual(
-    porDesplazamiento.items.map((item) => item.id),
-    primera.items.map((item) => item.id),
-  );
+test("pedir otra página sin sesión no salta el enmascarado", () => {
+  // La paginación es pública (el catálogo se recorre sin cuenta), así que el
+  // enmascarado tiene que valer también en la página 2 y siguientes.
+  for (const page of [1, 2, 3]) {
+    for (const item of repo.catalogPage(null, params({ page })).items) {
+      assert.equal(item.owner.masked, true, `«${item.title}» viaja sin enmascarar`);
+      assert.equal(item.owner.id, "");
+      assert.equal(item.owner.name, "");
+      assert.equal(item.notes, "");
+    }
+  }
 });
 
 test("con sesión el catálogo sigue mostrando nombres y perfiles", () => {

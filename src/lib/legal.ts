@@ -146,7 +146,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           heading: "6. Sichtbarkeit der Daten",
           body: [
             "Das Profil (Name, Stadt, Biografie, Bücher) ist für angemeldete Personen sichtbar; daraus lebt die Gemeinschaft.",
-            "Startseite und Katalog lassen sich ohne Konto ansehen, aber ohne Anmeldung erscheint nur eine erste Seite mit den Buchangaben und der Stadt des jeweiligen Exemplars: nie, wer es anbietet, die Notiz oder das genaue Datum.",
+            "Startseite und Katalog lassen sich auch ohne Konto ansehen und durchblättern, aber ohne Anmeldung zeigt jedes Exemplar nur Buchangaben und Stadt: nie, wer es anbietet, die Notiz oder das genaue Datum.",
             "Suchmaschinen dürfen den Katalog und die Profile nicht indexieren (robots.txt).",
           ],
         },
@@ -250,7 +250,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         heading: "6. Visibilidad de los datos",
         body: [
           "El perfil (nombre, ciudad, biografía, libros) es visible para personas con sesión iniciada: de ahí vive la comunidad.",
-          "La portada y el catálogo se pueden ver sin cuenta, pero sin sesión solo se muestra una primera página con los datos del libro y la ciudad de cada ejemplar: nunca quién lo publica, su nota ni la fecha exacta.",
+          "La portada y el catálogo se pueden ver y recorrer sin cuenta, pero sin sesión cada ejemplar muestra el libro y la ciudad: nunca quién lo publica, su nota ni la fecha exacta.",
           "Los buscadores no pueden indexar el catálogo ni los perfiles (robots.txt).",
         ],
       },
