@@ -184,6 +184,9 @@ export default function WanderbibliothekApp({
     if (openAuth) setAuthOpen(true);
   }
   const [previewListing, setPreviewListing] = useState<ListingView | null>(null);
+  // La vista previa se cierra con su propio estado: el ejemplar se queda hasta
+  // que termina el fundido de salida del diálogo.
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [notificationsOpen, setNotificationsOpen] = useState(openNotifications);
   const [exchangeId, setExchangeId] = useState<string | null>(null);
@@ -1307,6 +1310,7 @@ export default function WanderbibliothekApp({
                         // apilados (dos `role="dialog"` con `aria-modal`).
                         setAuthOpen(false);
                         setPreviewListing(listing);
+                        setPreviewOpen(true);
                       }}
                       actions={
                         <button
@@ -1605,7 +1609,8 @@ export default function WanderbibliothekApp({
 
       <ListingPreview
         listing={previewListing}
-        onClose={() => setPreviewListing(null)}
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
         onLogin={() => {
           if (!previewListing) return;
           setAuthNext(`/libro/${previewListing.id}`);

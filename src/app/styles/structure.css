@@ -1086,7 +1086,12 @@
   position: relative;
   aspect-ratio: 2 / 3;
   overflow: hidden;
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
+  /* Sin sombra la portada quedaba pegada al fondo del diálogo y no se leía
+     como un objeto. */
+  box-shadow: var(--shadow-sm);
+  background: var(--paper-sunk);
 }
 
 .preview-copy {
@@ -1170,6 +1175,20 @@
 
 /* Cómo funciona el intercambio: sin sesión la duda no es solo qué libro es,
    sino qué pasa si se pide. */
+/* La llamada a entrar: texto tranquilo con el candado al lado, no una caja
+   gris que se confundía con un campo de formulario deshabilitado. */
+.preview-dialog .preview-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .preview-how {
   margin: 0 0 4px;
   padding: 12px 14px;

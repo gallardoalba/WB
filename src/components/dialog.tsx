@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useI18n } from "./i18n-provider";
@@ -26,6 +26,9 @@ function releaseBackground() {
   for (const node of inerted) node.inert = false;
   inerted.clear();
 }
+
+/** Lo que tarda en desaparecer al cerrarse; con menos movimiento, nada. */
+const EXIT_MS = 170;
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -67,6 +70,15 @@ export function Dialog({
     () => true,
     () => false,
   );
+  // Al cerrarse, el panel se quedaba montado solo hasta el siguiente render y
+  // desaparecía de golpe: el fundido de entrada se quedaba sin pareja. Ahora
+  // sigue montado lo que dura el de salida (`is-closing`, en el CSS) y luego se
+  // retira; con `prefers-reduced-motion` se retira en el acto.
+  //
+  // `closing` no es estado: se deduce de «abierto + todavía visible». Así no hay
+  // dos fuentes de verdad que se puedan desincronizar.
+  const [visible, setVisible] = useState(open);
+  const closing = !open && visible;
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const titleId = useId();
@@ -145,14 +157,31 @@ export function Dialog({
     };
   }, [open]);
 
-  if (!open || !mounted) return null;
+  useEffect(() => {
+    if (open) {
+      // En un fotograma, no en el cuerpo del efecto: React desaconseja (y el
+      // lint marca) cambiar estado de forma síncrona aquí.
+      const frame = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(frame);
+    }
+    if (!visible) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = setTimeout(() => setVisible(false), reduce ? 0 : EXIT_MS);
+    return () => clearTimeout(timer);
+  }, [open, visible]);
+
+  // Se pinta en cuanto `open` es verdadero (sin esperar al efecto, o el primer
+  // render no tendría panel donde poner el foco) y se queda mientras dura el
+  // cierre.
+  if (!mounted) return null;
+  if (!open && !visible) return null;
 
   return createPortal(
     <div
-      className="modal-backdrop"
+      className={closing ? "modal-backdrop is-closing" : "modal-backdrop"}
       data-dialog-root
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (!closing && event.target === event.currentTarget) onClose();
       }}
     >
       <div
@@ -166,7 +195,13 @@ export function Dialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
       >
-        <button type="button" className="dialog-close" aria-label={t("Cerrar")} onClick={onClose}>
+        <button
+          type="button"
+          className="dialog-close"
+          aria-label={t("Cerrar")}
+          onClick={onClose}
+          disabled={closing}
+        >
           <X size={19} />
         </button>
         {icon && <span className="dialog-icon">{icon}</span>}

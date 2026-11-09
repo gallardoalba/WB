@@ -21,10 +21,14 @@ import { initialsOf, toneForId } from "@/lib/text";
  */
 export function ListingPreview({
   listing,
+  open,
   onClose,
   onLogin,
 }: {
+  /** El ejemplar; se conserva mientras el diálogo se cierra. */
   listing: ListingView | null;
+  /** Se cierra con `open`: el padre no borra el ejemplar hasta el final. */
+  open: boolean;
   onClose: () => void;
   onLogin: () => void;
 }) {
@@ -40,11 +44,10 @@ export function ListingPreview({
 
   return (
     <Dialog
-      open={Boolean(listing)}
+      open={open}
       onClose={onClose}
       title={listing.title}
       description={listing.author}
-      icon={<Lock size={20} />}
       className="preview-dialog"
     >
       <div className="listing-preview">
@@ -110,7 +113,8 @@ export function ListingPreview({
         </ol>
       </section>
 
-      <p className="form-note">
+      <p className="form-note preview-hint">
+        <Lock size={13} aria-hidden />
         {t("Entra para ver la ficha completa, guardarlo o pedirlo.")}
       </p>
       <div className="dialog-actions">

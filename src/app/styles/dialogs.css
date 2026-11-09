@@ -10,12 +10,25 @@
   padding: 16px;
   background: rgba(23, 33, 25, 0.48);
   backdrop-filter: blur(3px);
-  animation: fade-in 0.16s ease-out;
+  animation: backdrop-in 160ms ease-out;
 }
 
-@keyframes fade-in {
+/* Cierre: el diálogo sigue montado ~170 ms (`is-closing`) mientras el velo y el
+   panel se van. Sin `pointer-events` el velo se comería el clic que la persona
+   está dando justo detrás. */
+.modal-backdrop.is-closing {
+  animation: backdrop-out 140ms ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes backdrop-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .dialog {
@@ -27,6 +40,34 @@
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: 0 18px 65px rgba(20, 30, 22, 0.25);
+  /* Entra desde un poco más abajo y un pelín más pequeño: acompaña al velo en
+     vez de aparecer de golpe. */
+  animation: dialog-in 190ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+
+.modal-backdrop.is-closing .dialog {
+  animation: dialog-out 130ms ease-in forwards;
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes dialog-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px) scale(0.99); }
+}
+
+/* Quien pide menos movimiento ve el diálogo aparecer y desaparecer sin
+   desplazamientos ni fundidos largos. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .dialog,
+  .modal-backdrop.is-closing,
+  .modal-backdrop.is-closing .dialog {
+    animation: none !important;
+  }
 }
 
 .dialog.add-dialog {
