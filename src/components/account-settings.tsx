@@ -46,6 +46,14 @@ export function AccountSettings({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
+  const [privacy, setPrivacy] = useState({
+    profileVisibility: user.profileVisibility,
+    cityPrecision: user.cityPrecision,
+    signAs: user.signAs,
+    dmPolicy: user.dmPolicy,
+  });
+  const [privacyBusy, setPrivacyBusy] = useState(false);
+  const [privacyMsg, setPrivacyMsg] = useState("");
   const [accountMsg, setAccountMsg] = useState("");
   const [accountError, setAccountError] = useState("");
   const [busyAccount, setBusyAccount] = useState(false);
@@ -151,6 +159,21 @@ export function AccountSettings({
       router.refresh();
     } finally {
       setPending(false);
+    }
+  }
+
+  async function savePrivacy(event: FormEvent) {
+    event.preventDefault();
+    setPrivacyBusy(true);
+    setPrivacyMsg("");
+    try {
+      await api("/api/account/privacy", { method: "POST", body: privacy });
+      setPrivacyMsg(t("Privacidad guardada."));
+      router.refresh();
+    } catch (caught) {
+      setPrivacyMsg(caught instanceof Error ? caught.message : t("No se pudo guardar."));
+    } finally {
+      setPrivacyBusy(false);
     }
   }
 
@@ -410,18 +433,21 @@ export function AccountSettings({
         <details open>
           <summary>{t("Editar perfil")}</summary>
           <form onSubmit={saveProfile}>
-            <label htmlFor="profile-name">{t("Nombre visible")}</label>
+            <label htmlFor="profile-name">{t("Nombre público")}</label>
             <input
               id="profile-name"
               aria-describedby={accountError ? "account-error" : undefined}
               name="name"
               key={user.name}
               defaultValue={user.name}
-              autoComplete="name"
+              autoComplete="nickname"
               minLength={2}
               maxLength={60}
               required
             />
+            <p className="form-note">
+              {t("Así te ven las demás personas. Puedes usar un seudónimo.")}
+            </p>
             <label htmlFor="profile-city">{t("Ciudad")}</label>
             <CityField
               id="profile-city"
@@ -766,6 +792,77 @@ export function AccountSettings({
             />
             <button className="secondary-button small danger" type="submit" disabled={busyAccount}>
               {t("Eliminar mi cuenta")}
+            </button>
+          </form>
+        </details>
+      </div>
+
+      <div className="account-box">
+        <details>
+          <summary>{t("Privacidad")}</summary>
+          <form onSubmit={savePrivacy}>
+            <p className="form-note">
+              {t("Decides qué ve la comunidad. El correo nunca se enseña.")}
+            </p>
+            <label htmlFor="privacy-profile">{t("Quién puede ver mi perfil")}</label>
+            <select
+              id="privacy-profile"
+              value={privacy.profileVisibility}
+              onChange={(event) =>
+                setPrivacy({ ...privacy, profileVisibility: event.target.value as typeof privacy.profileVisibility })
+              }
+            >
+              <option value="members">{t("Toda la comunidad")}</option>
+              <option value="followers">{t("Solo a quienes sigo")}</option>
+              <option value="private">{t("Solo yo")}</option>
+            </select>
+
+            <label htmlFor="privacy-city">{t("Mi ciudad")}</label>
+            <select
+              id="privacy-city"
+              value={privacy.cityPrecision}
+              onChange={(event) =>
+                setPrivacy({ ...privacy, cityPrecision: event.target.value as typeof privacy.cityPrecision })
+              }
+            >
+              <option value="exact">{t("Mostrar mi ciudad")}</option>
+              <option value="hidden">{t("No mostrar mi ciudad")}</option>
+            </select>
+            <p className="form-note">
+              {t("En un intercambio aceptado la otra persona sí ve la ciudad: sin ella no se puede quedar.")}
+            </p>
+
+            <label htmlFor="privacy-sign">{t("Firmar reseñas y comentarios")}</label>
+            <select
+              id="privacy-sign"
+              value={privacy.signAs}
+              onChange={(event) =>
+                setPrivacy({ ...privacy, signAs: event.target.value as typeof privacy.signAs })
+              }
+            >
+              <option value="name">{t("Con mi nombre")}</option>
+              <option value="community">{t("Como una persona de la comunidad")}</option>
+            </select>
+
+            <label htmlFor="privacy-dm">{t("Quién puede escribirme")}</label>
+            <select
+              id="privacy-dm"
+              value={privacy.dmPolicy}
+              onChange={(event) =>
+                setPrivacy({ ...privacy, dmPolicy: event.target.value as typeof privacy.dmPolicy })
+              }
+            >
+              <option value="mutual">{t("Quien me sigue y sigo")}</option>
+              <option value="exchanged">{t("Solo tras un intercambio")}</option>
+            </select>
+
+            {privacyMsg && (
+              <p className="action-feedback" role="status">
+                {privacyMsg}
+              </p>
+            )}
+            <button className="secondary-button small" type="submit" disabled={privacyBusy}>
+              {privacyBusy ? t("Guardando…") : t("Guardar privacidad")}
             </button>
           </form>
         </details>

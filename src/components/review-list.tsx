@@ -59,7 +59,9 @@ export function ReviewList({ reviews, targetName, canReport, viewerId }: Props) 
               <Star size={14} aria-hidden="true" /> {review.rating}/5
             </span>
             <div>
-              <strong>{review.authorName}</strong>
+              <strong>
+                {review.authorAnonymous ? t("Una persona de la comunidad") : review.authorName}
+              </strong>
               <span className="review-when">{formatWhen(review.createdAt, locale)}</span>
               {review.comment && <p>{review.comment}</p>}
               {canReport &&

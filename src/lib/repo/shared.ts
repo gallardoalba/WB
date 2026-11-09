@@ -63,6 +63,8 @@ export type ListingRow = {
   notes: string;
   owner_id: string;
   owner_name: string;
+  /** `exact` o `hidden`: lo que eligió la persona para su ciudad. */
+  owner_city_precision: string;
   tags: string | null;
   is_mine: number;
   is_favorite: number;
@@ -78,7 +80,7 @@ export const listingSelect = (distanceExpression = "l.distance_km") => `
          l.city, ${distanceExpression} AS distance_km, l.status, l.created_at,
          l.notes, b.cover_url,
          (SELECT group_concat(lt.tag, '|') FROM listing_tags lt WHERE lt.listing_id = l.id) AS tags,
-         u.id AS owner_id, u.name AS owner_name,
+         u.id AS owner_id, u.name AS owner_name, u.city_precision AS owner_city_precision,
          CASE WHEN l.owner_id = @userId THEN 1 ELSE 0 END AS is_mine,
          CASE WHEN f.user_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
          (SELECT r.status FROM requests r
@@ -175,7 +177,9 @@ export function toListingView(row: ListingRow, viewerId?: string | null): Listin
     category: row.category,
     language: row.language,
     condition: row.book_condition,
-    city: row.city,
+    // La ciudad es la del anuncio, pero quien publica puede preferir no
+    // enseñarla: entonces solo la ve en sus propios ejemplares.
+    city: row.owner_city_precision === "hidden" && !row.is_mine ? "" : row.city,
     distanceKm: row.distance_km,
     // Cualquier URL antigua de Open Library se sirve desde la app: la CSP solo
     // permite imágenes del propio origen.

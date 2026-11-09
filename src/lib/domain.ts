@@ -163,7 +163,24 @@ export type SessionUser = {
   emailNotifications: boolean;
   /** Idioma preferido para la interfaz y los correos. */
   locale: Locale;
+  /** Quién ve el perfil: toda la comunidad, solo a quienes sigo, o nadie. */
+  profileVisibility: ProfileVisibility;
+  /** Si la ciudad se enseña en el catálogo, la ficha y el perfil. */
+  cityPrecision: CityPrecision;
+  /** Con qué firma se publican reseñas y comentarios. */
+  signAs: SignAs;
+  /** Quién puede abrir un mensaje directo. */
+  dmPolicy: DmPolicy;
 };
+
+/** Visibilidad del perfil (v48). */
+export type ProfileVisibility = "members" | "followers" | "private";
+/** Si la ciudad se enseña o se queda en «una ciudad» (v48). */
+export type CityPrecision = "exact" | "hidden";
+/** Firma de reseñas y comentarios (v48). */
+export type SignAs = "name" | "community";
+/** Quién puede escribir por mensaje directo (v48). */
+export type DmPolicy = "mutual" | "exchanged";
 
 /** Datos que pueden exponerse en una página pública (sin correo ni rol). */
 export type PublicUser = Pick<SessionUser, "id" | "name" | "city" | "bio"> & {
@@ -331,6 +348,8 @@ export type ReviewView = {
   createdAt: string;
   authorId: string;
   authorName: string;
+  /** `true` cuando la reseña va firmada como «una de la comunidad». */
+  authorAnonymous?: boolean;
 };
 
 export type AdminReportView = {
@@ -361,6 +380,8 @@ export type BookCommentView = {
   isMine: boolean;
   canDelete: boolean;
   createdAt: string;
+  /** `true` cuando la persona firma como «una de la comunidad». */
+  authorAnonymous?: boolean;
   author: { id: string; name: string; city: string };
   replies: BookCommentView[];
 };
@@ -508,6 +529,8 @@ export type PublicProfile = {
   isFollowing: boolean;
   isBlocked: boolean;
   isMe: boolean;
+  /** El perfil está reservado: solo se muestra el nombre y poco más. */
+  restricted: boolean;
   /** Fecha de registro, para mostrar la antigüedad de la cuenta. */
   memberSince: string;
 };

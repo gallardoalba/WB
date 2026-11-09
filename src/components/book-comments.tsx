@@ -293,16 +293,21 @@ export function BookComments({
 
   const renderComment = (comment: BookCommentView, parentId: string | null) => (
     <article className="comment" id={`c-${comment.id}`} key={comment.id}>
-      <span className={`avatar comment-avatar tone-${toneForId(comment.author.id)}`}>
-        {initialsOf(comment.author.name)}
+      <span className={`avatar comment-avatar tone-${toneForId(comment.author.id || comment.id)}`}>
+        {initialsOf(comment.author.name || "?")}
       </span>
       <div className="comment-copy">
         <div className="comment-head">
-          <Link href={`/u/${comment.author.id}`} className="comment-author">
-            {comment.author.name}
-          </Link>
+          {comment.authorAnonymous ? (
+            <span className="comment-author">{t("Una persona de la comunidad")}</span>
+          ) : (
+            <Link href={`/u/${comment.author.id}`} className="comment-author">
+              {comment.author.name}
+            </Link>
+          )}
           <span>
-            {comment.author.city} · {formatWhen(comment.createdAt, locale)}
+            {comment.author.city && <>{comment.author.city} · </>}
+            {formatWhen(comment.createdAt, locale)}
           </span>
         </div>
         <CommentBody comment={comment} />
@@ -377,16 +382,21 @@ export function BookComments({
           <div className="comment-replies">
             {comment.replies.map((reply) => (
               <article className="comment comment-reply-item" key={reply.id} id={`c-${reply.id}`}>
-                <span className={`avatar comment-avatar tone-${toneForId(reply.author.id)}`}>
-                  {initialsOf(reply.author.name)}
+                <span className={`avatar comment-avatar tone-${toneForId(reply.author.id || reply.id)}`}>
+                  {initialsOf(reply.author.name || "?")}
                 </span>
                 <div className="comment-copy">
                   <div className="comment-head">
-                    <Link href={`/u/${reply.author.id}`} className="comment-author">
-                      {reply.author.name}
-                    </Link>
+                    {reply.authorAnonymous ? (
+                      <span className="comment-author">{t("Una persona de la comunidad")}</span>
+                    ) : (
+                      <Link href={`/u/${reply.author.id}`} className="comment-author">
+                        {reply.author.name}
+                      </Link>
+                    )}
                     <span>
-                      {reply.author.city} · {formatWhen(reply.createdAt, locale)}
+                      {reply.author.city && <>{reply.author.city} · </>}
+                      {formatWhen(reply.createdAt, locale)}
                     </span>
                   </div>
                   <CommentBody comment={reply} />

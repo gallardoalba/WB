@@ -87,6 +87,10 @@ type SessionRow = {
   email_verified_at: string | null;
   email_notifications: number;
   locale: string;
+  profile_visibility: string;
+  city_precision: string;
+  sign_as: string;
+  dm_policy: string;
   session_id: string;
   expires_at: string;
   absolute_expired: number;
@@ -101,6 +105,7 @@ export function userForToken(token: string | undefined): SessionUser | null {
     .prepare(
       `SELECT u.id, u.name, u.email, u.city, u.bio, u.is_admin, u.is_suspended,
               u.email_verified_at, u.email_notifications, u.locale,
+              u.profile_visibility, u.city_precision, u.sign_as, u.dm_policy,
               s.id AS session_id, s.expires_at,
               CASE WHEN s.created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
                    THEN 1 ELSE 0 END AS absolute_expired,
@@ -147,7 +152,16 @@ export function userForToken(token: string | undefined): SessionUser | null {
     emailNotifications: row.email_notifications !== 0,
     // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
     locale: normalizeLocale(row.locale),
+    profileVisibility: setting(row.profile_visibility, ["members", "followers", "private"], "members"),
+    cityPrecision: setting(row.city_precision, ["exact", "hidden"], "exact"),
+    signAs: setting(row.sign_as, ["name", "community"], "name"),
+    dmPolicy: setting(row.dm_policy, ["mutual", "exchanged"], "mutual"),
   };
+}
+
+/** Preferencia guardada, con caída al valor por defecto si no se reconoce. */
+function setting<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
+  return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

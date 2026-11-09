@@ -1510,6 +1510,27 @@ function migrateToV47(db: Db) {
 }
 
 /**
+ * Visibilidad elegida: quién ve el perfil, si la ciudad se enseña, cómo se
+ * firman reseñas y comentarios y quién puede escribir por mensaje directo.
+ *
+ * Los valores por defecto reproducen el comportamiento anterior (comunidad,
+ * ciudad visible, firma con el nombre, mensajes entre seguidores mutuos).
+ */
+function migrateToV48(db: Db) {
+  const columns = (db.pragma("table_info(users)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  const add = (name: string, definition: string) => {
+    if (!columns.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
+  };
+  add("profile_visibility", "TEXT NOT NULL DEFAULT 'members'");
+  add("city_precision", "TEXT NOT NULL DEFAULT 'exact'");
+  add("sign_as", "TEXT NOT NULL DEFAULT 'name'");
+  add("dm_policy", "TEXT NOT NULL DEFAULT 'mutual'");
+  db.pragma("user_version = 48");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1641,6 +1662,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 45) migrateToV45(db);
   if (userVersion(db) < 46) migrateToV46(db);
   if (userVersion(db) < 47) migrateToV47(db);
+  if (userVersion(db) < 48) migrateToV48(db);
 
   backfillSearchKeys(db);
 }

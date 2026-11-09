@@ -176,7 +176,7 @@ export function listReaders(options: {
 
   const rows = db
     .prepare(
-      `SELECT u.id, u.name, u.city, u.bio,
+      `SELECT u.id, u.name, u.city, u.bio, u.city_precision,
               (SELECT COUNT(*) FROM listings l
                 WHERE l.owner_id = u.id AND l.status = 'available') AS published,
               (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,
@@ -217,6 +217,7 @@ export function listReaders(options: {
     id: string;
     name: string;
     city: string;
+    city_precision: string;
     bio: string;
     published: number;
     followers: number;
@@ -229,7 +230,13 @@ export function listReaders(options: {
 
   return {
     readers: rows.map((row) => ({
-      user: { id: row.id, name: row.name, city: row.city, bio: row.bio },
+      user: {
+        id: row.id,
+        name: row.name,
+        // Quien prefiere no enseñar su ciudad tampoco aparece con ella aquí.
+        city: row.city_precision === "hidden" ? "" : row.city,
+        bio: row.bio,
+      },
       published: row.published,
       followers: row.followers,
       isFollowing: Boolean(row.is_following),

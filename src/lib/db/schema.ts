@@ -6,7 +6,7 @@
  * que lleva a las instalaciones antiguas hasta ese mismo estado.
  */
 
-export const SCHEMA_VERSION = 47;
+export const SCHEMA_VERSION = 48;
 
 /** Hash fijo de "demo1234": evita ejecutar scrypt al sembrar la base. */
 export const DEMO_PASSWORD_HASH =
@@ -22,7 +22,12 @@ CREATE TABLE IF NOT EXISTS users (
   city TEXT NOT NULL DEFAULT 'Stuttgart',
   bio TEXT NOT NULL DEFAULT '',
   notifications_seen_at TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- Visibilidad elegida por cada persona (v48).
+  profile_visibility TEXT NOT NULL DEFAULT 'members',
+  city_precision TEXT NOT NULL DEFAULT 'exact',
+  sign_as TEXT NOT NULL DEFAULT 'name',
+  dm_policy TEXT NOT NULL DEFAULT 'mutual'
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

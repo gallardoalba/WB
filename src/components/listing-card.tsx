@@ -94,10 +94,12 @@ export function ListingCard({
               </Link>
             </>
           )}
-          <span className="distance">
-            <MapPin size={12} />
-            {listing.city}
-          </span>
+          {listing.city && (
+            <span className="distance">
+              <MapPin size={12} />
+              {listing.city}
+            </span>
+          )}
         </div>
         <Link href={`/libro/${listing.id}`} className="request-button" onClick={preview}>
           {onPreview ? t("Ver detalles") : t("Ver ficha y pedir")}

@@ -611,6 +611,22 @@ export const localeSchema = z.object({
   locale: z.enum(["es", "de", "en"], { error: "Ese idioma no existe." }),
 });
 
+/** Preferencias de visibilidad de la cuenta. */
+export const privacySchema = z.object({
+  profileVisibility: z.enum(["members", "followers", "private"], {
+    error: "Esa visibilidad de perfil no existe.",
+  }),
+  cityPrecision: z.enum(["exact", "hidden"], {
+    error: "Esa opción de ciudad no existe.",
+  }),
+  signAs: z.enum(["name", "community"], {
+    error: "Esa forma de firmar no existe.",
+  }),
+  dmPolicy: z.enum(["mutual", "exchanged"], {
+    error: "Esa opción de mensajes no existe.",
+  }),
+});
+
 export const moderationSchema = z.object({
   action: z.enum(
     [

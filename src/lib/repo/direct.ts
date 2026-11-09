@@ -3,7 +3,7 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import type { DirectMessageView, DirectThreadView, MessageEnvelopeView } from "../domain";
 import { notify } from "./notifications";
-import { listPublicKeyRecords, toPublicKeyEntries } from "./users";
+import { getUserById, listPublicKeyRecords, toPublicKeyEntries } from "./users";
 import { isBlocked, messageEnvelopesFor, nowIso } from "./shared";
 
 /**
@@ -38,6 +38,36 @@ export function mutualFollow(a: string, b: string): boolean {
     )
     .get(a, b, b, a) as { forward: number; back: number };
   return row.forward > 0 && row.back > 0;
+}
+
+/** Alguna solicitud aceptada o completada entre las dos personas. */
+function hasExchangeBetween(a: string, b: string): boolean {
+  return Boolean(
+    getDb()
+      .prepare(
+        `SELECT 1 FROM requests
+          WHERE ((requester_id = ? AND owner_id = ?) OR (requester_id = ? AND owner_id = ?))
+            AND status IN ('accepted', 'completed')
+          LIMIT 1`,
+      )
+      .get(a, b, b, a),
+  );
+}
+
+/**
+ * ¿Puede `viewer` abrir un hilo con `peer`?
+ *
+ * Manda la preferencia de **quien recibe**: con «seguidores mutuos» hace falta
+ * el seguimiento de las dos partes; con «solo tras un intercambio», una
+ * solicitud aceptada o completada entre ambas. Y nunca si hay un bloqueo.
+ */
+export function canDirectMessage(viewer: string, peer: string): boolean {
+  if (isBlocked(viewer, peer) || isBlocked(peer, viewer)) return false;
+  const target = getUserById(peer);
+  if (!target) return false;
+  return target.dmPolicy === "exchanged"
+    ? hasExchangeBetween(viewer, peer)
+    : mutualFollow(viewer, peer);
 }
 
 function threadRow(userId: string, peerId: string): ThreadRow | null {
@@ -83,11 +113,13 @@ export function directThread(viewerId: string, peerId: string): DirectThreadView
   const myWeb = myKeys.find((key) => key.platform === "web") ?? myKeys[0] ?? null;
   const peerWeb = peerKeys.find((key) => key.platform === "web") ?? peerKeys[0] ?? null;
   const blocked = isBlocked(viewerId, peerId) || isBlocked(peerId, viewerId);
-  const mutual = mutualFollow(viewerId, peerId);
+  // La preferencia de quien recibe decide; con «solo tras un intercambio» el
+  // motivo de rechazo sigue siendo el mismo que se lee en la interfaz.
+  const allowed = canDirectMessage(viewerId, peerId);
 
   const reason: DirectThreadView["reason"] = blocked
     ? "blocked"
-    : !mutual
+    : !allowed
       ? "mutual"
       : myKeys.length === 0 || peerKeys.length === 0
         ? "no-key"
@@ -185,8 +217,8 @@ export function sendDirectMessage(
     envelopes?: MessageEnvelopeView[];
   },
 ): DirectMessageView {
-  if (!mutualFollow(viewerId, peerId)) {
-    throw new ApiError(403, "Solo puedes escribir a quien también te sigue.");
+  if (!canDirectMessage(viewerId, peerId)) {
+    throw new ApiError(403, "Solo puedes escribir a quien también te sigue o con quien has intercambiado un libro.");
   }
   if (isBlocked(viewerId, peerId) || isBlocked(peerId, viewerId)) {
     throw new ApiError(403, "No puedes escribir a esta persona.");

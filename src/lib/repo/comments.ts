@@ -25,6 +25,8 @@ export type CommentRow = {
   author_id: string;
   author_name: string;
   author_city: string;
+  author_sign_as: string;
+  author_city_precision: string;
   likes: number;
   liked: number;
   reply_count: number;
@@ -52,6 +54,7 @@ export const COMMENT_SELECT = `
   SELECT c.id, c.book_id, bk.title AS book_title, c.body, c.spoiler, c.status,
          c.created_at, c.parent_id, c.author_id,
          u.name AS author_name, u.city AS author_city,
+         u.sign_as AS author_sign_as, u.city_precision AS author_city_precision,
          (SELECT COUNT(*) FROM book_comment_likes kl WHERE kl.comment_id = c.id) AS likes,
          CASE WHEN EXISTS (
            SELECT 1 FROM book_comment_likes kl
@@ -66,6 +69,10 @@ export const COMMENT_SELECT = `
 
 function toCommentView(row: CommentRow, viewerId: string, isAdmin: boolean): BookCommentView {
   const deleted = row.status === "deleted";
+  const isMine = row.author_id === viewerId;
+  // Firma elegida: quien firma como comunidad aparece así ante los demás, pero
+  // se reconoce en sus propios comentarios.
+  const anonymousAuthor = row.author_sign_as === "community" && !isMine;
   return {
     id: row.id,
     // Un comentario eliminado conserva el hueco del hilo, no el texto. Un
@@ -76,10 +83,16 @@ function toCommentView(row: CommentRow, viewerId: string, isAdmin: boolean): Boo
     deleted,
     likes: row.likes,
     likedByMe: Boolean(row.liked) && Boolean(viewerId),
-    isMine: row.author_id === viewerId,
+    isMine,
     canDelete: !deleted && (row.author_id === viewerId || isAdmin),
     createdAt: row.created_at,
-    author: { id: row.author_id, name: row.author_name, city: row.author_city },
+    authorAnonymous: anonymousAuthor,
+    author: {
+      id: anonymousAuthor ? "" : row.author_id,
+      name: anonymousAuthor ? "" : row.author_name,
+      city:
+        row.author_city_precision === "hidden" && !isMine ? "" : row.author_city,
+    },
     replies: [],
   };
 }
@@ -393,7 +406,11 @@ export function toConversationView(row: CommentRow): ConversationView {
     replies: row.reply_count,
     likes: row.likes,
     createdAt: row.created_at,
-    author: { id: row.author_id, name: row.author_name, city: row.author_city },
+    author: {
+      id: row.author_sign_as === "community" ? "" : row.author_id,
+      name: row.author_sign_as === "community" ? "" : row.author_name,
+      city: row.author_city_precision === "hidden" ? "" : row.author_city,
+    },
   };
 }
 

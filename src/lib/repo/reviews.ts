@@ -66,7 +66,8 @@ export function listReviews(
   const blocked = viewerId ? `AND ${blockPair("@viewerId", "r.author_id")}` : "";
   const rows = getDb()
     .prepare(
-      `SELECT r.id, r.rating, r.comment, r.created_at, r.author_id, u.name AS author_name
+      `SELECT r.id, r.rating, r.comment, r.created_at, r.author_id, u.name AS author_name,
+              u.sign_as AS author_sign_as
        FROM reviews r JOIN users u ON u.id = r.author_id
        WHERE r.target_id = @userId AND u.is_suspended = 0 ${blocked}
        ORDER BY r.created_at DESC LIMIT @limit`,
@@ -78,16 +79,23 @@ export function listReviews(
     created_at: string;
     author_id: string;
     author_name: string;
+    author_sign_as: string;
   }[];
 
-  return rows.map((row) => ({
-    id: row.id,
-    rating: row.rating,
-    comment: row.comment,
-    createdAt: row.created_at,
-    authorId: row.author_id,
-    authorName: row.author_name,
-  }));
+  return rows.map((row) => {
+    // Quien firma como comunidad no aparece con su nombre en la ficha de la
+    // otra persona, pero sí se reconoce su propia reseña.
+    const anonymous = row.author_sign_as === "community" && row.author_id !== viewerId;
+    return {
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      createdAt: row.created_at,
+      authorId: anonymous ? "" : row.author_id,
+      authorName: anonymous ? "" : row.author_name,
+      authorAnonymous: anonymous,
+    };
+  });
 }
 
 export function hasReviewed(requestId: string, authorId: string): boolean {

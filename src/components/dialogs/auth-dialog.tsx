@@ -200,10 +200,10 @@ export function AuthDialog({
         {mode === "register" && (
           <>
             <label>
-              {t("Nombre")}
+              {t("Nombre público")}
               <input
                 name="name"
-                autoComplete="name"
+                autoComplete="nickname"
                 required
                 maxLength={60}
                 placeholder={t("Cómo te llamas")}
@@ -211,6 +211,9 @@ export function AuthDialog({
                 aria-describedby={error ? "auth-error" : undefined}
               />
             </label>
+            <p className="form-note">
+              {t("Es el nombre que verán las demás personas. Puedes usar un seudónimo.")}
+            </p>
             <div className="hp-field" aria-hidden="true">
               <label>
                 {t("No rellenar")}

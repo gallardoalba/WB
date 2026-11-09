@@ -96,32 +96,42 @@ export function getPublicProfile(
     }
   ).value;
 
+  // Visibilidad elegida: «solo a quienes sigo» se abre con el seguimiento y
+  // «solo yo» no se enseña a nadie más. El nombre siempre se muestra: es lo que
+  // permite pedir seguimiento o reconocer a quién se está valorando.
+  const visibility = user.profileVisibility;
+  const restricted =
+    viewerId !== userId &&
+    (visibility === "private" || (visibility === "followers" && !follow.isFollowing));
+
   // Solo datos públicos: nunca correo ni rol.
   const publicUser: PublicUser = {
     id: user.id,
     name: user.name,
-    city: user.city,
-    bio: user.bio,
+    city: restricted || (user.cityPrecision === "hidden" && viewerId !== userId) ? "" : user.city,
+    bio: restricted ? "" : user.bio,
     isTeam: user.isAdmin,
   };
 
   return {
     user: publicUser,
-    listings: rows.map((row) => toListingView(row, viewerId)),
-    listingsTotal,
+    listings: restricted ? [] : rows.map((row) => toListingView(row, viewerId)),
+    listingsTotal: restricted ? 0 : listingsTotal,
     page,
     pageSize,
-    hasMoreListings: page * pageSize < listingsTotal,
-    published,
-    completed,
-    comments,
-    ratingAverage: rating.average === null ? null : Math.round(rating.average * 10) / 10,
-    ratingCount: rating.count,
-    followers: follow.followers,
-    following: follow.following,
+    hasMoreListings: restricted ? false : page * pageSize < listingsTotal,
+    published: restricted ? 0 : published,
+    completed: restricted ? 0 : completed,
+    comments: restricted ? 0 : comments,
+    ratingAverage:
+      restricted || rating.average === null ? null : Math.round(rating.average * 10) / 10,
+    ratingCount: restricted ? 0 : rating.count,
+    followers: restricted ? 0 : follow.followers,
+    following: restricted ? 0 : follow.following,
     isFollowing: follow.isFollowing,
     isBlocked: viewerId ? isBlocked(viewerId, userId) : false,
     isMe: viewerId === userId,
+    restricted,
     memberSince,
   };
 }

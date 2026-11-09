@@ -21,6 +21,7 @@ import { localeTag, pick } from "@/lib/locale";
 import { socialMetadata } from "@/lib/social";
 import { ReaderCard } from "@/components/reader-card";
 import {
+  canDirectMessage,
   getPublicProfile,
   getReaderJourney,
   listAuthorComments,
@@ -28,7 +29,6 @@ import {
   listReadingLists,
   listReviews,
   listUserActivity,
-  mutualFollow,
 } from "@/lib/repo";
 import { formatNumber, formatWhen, initialsOf, toneForId } from "@/lib/text";
 
@@ -109,15 +109,52 @@ export default async function Page({ params, searchParams }: PageProps) {
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
   const profile = getPublicProfile(id, viewer?.id ?? null, { page });
   if (!profile) notFound();
-  // Mensajería directa solo entre seguidores mutuos (y sin bloqueos).
+  // Mensajería directa según la preferencia de quien la recibe (y sin bloqueos).
   const canMessage =
-    Boolean(viewer) && !profile.isMe && mutualFollow(viewer!.id, profile.user.id);
+    Boolean(viewer) && !profile.isMe && !profile.restricted && canDirectMessage(viewer!.id, profile.user.id);
   const openMessages = firstValue(raw.dm) === "1";
 
   const memberSince = new Intl.DateTimeFormat(localeTag(locale), {
     month: "long",
     year: "numeric",
   }).format(new Date(profile.memberSince));
+
+  // Perfil reservado: se enseña el nombre (para poder seguir a la persona) y
+  // nada más. Ni estantería, ni comentarios, ni ciudad.
+  if (profile.restricted) {
+    return (
+      <SiteShell user={viewer} section="perfil" title={profile.user.name}>
+        <section className="profile-hero">
+          <span className={`avatar profile-avatar tone-${toneForId(profile.user.id)}`}>
+            {initialsOf(profile.user.name)}
+          </span>
+          <div className="profile-hero-copy">
+            <h1>{profile.user.name}</h1>
+            <p>
+              {t(
+                "Este perfil es reservado: su estantería, sus comentarios y su ciudad solo los ve quien esa persona ha elegido.",
+              )}
+            </p>
+            <span className="profile-place">
+              {t("En Wanderbibliothek desde {date}", { date: memberSince })}
+            </span>
+          </div>
+        </section>
+
+        <ProfileActions
+          userId={profile.user.id}
+          userName={profile.user.name}
+          isBlocked={profile.isBlocked}
+          isFollowing={profile.isFollowing}
+          followers={0}
+          isAuthenticated={Boolean(viewer) && !profile.isMe}
+          canFollow={Boolean(viewer) && !profile.isMe && !profile.isBlocked}
+          canMessage={false}
+          openMessages={false}
+        />
+      </SiteShell>
+    );
+  }
 
   const REVIEW_PAGE = 10;
   const reviews = listReviews(
@@ -153,7 +190,8 @@ export default async function Page({ params, searchParams }: PageProps) {
           </h1>
           <p>{profile.user.bio || t("Sin biografía todavía.")}</p>
           <span className="profile-place">
-            {profile.user.city} · {t("En Wanderbibliothek desde {date}", { date: memberSince })}
+            {profile.user.city && <>{profile.user.city} · </>}
+            {t("En Wanderbibliothek desde {date}", { date: memberSince })}
           </span>
         </div>
         <dl className="profile-metrics">

@@ -36,6 +36,10 @@ type UserRow = {
   email_verified_at: string | null;
   email_notifications: number;
   locale: string;
+  profile_visibility: string;
+  city_precision: string;
+  sign_as: string;
+  dm_policy: string;
 };
 
 function toSessionUser(row: UserRow): SessionUser {
@@ -51,13 +55,22 @@ function toSessionUser(row: UserRow): SessionUser {
     emailNotifications: row.email_notifications !== 0,
     // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
     locale: normalizeLocale(row.locale),
+    profileVisibility: oneOf(row.profile_visibility, ["members", "followers", "private"], "members"),
+    cityPrecision: oneOf(row.city_precision, ["exact", "hidden"], "exact"),
+    signAs: oneOf(row.sign_as, ["name", "community"], "name"),
+    dmPolicy: oneOf(row.dm_policy, ["mutual", "exchanged"], "mutual"),
   };
+}
+
+/** Valor de una columna de preferencias, con caída al valor por defecto. */
+function oneOf<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
+  return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 }
 
 export function getUserById(id: string): SessionUser | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_suspended, email_verified_at, email_notifications, locale FROM users WHERE id = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_suspended, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy FROM users WHERE id = ?",
     )
     .get(id) as UserRow | undefined;
   return row ? toSessionUser(row) : null;
@@ -68,7 +81,7 @@ export function getUserWithPassword(
 ): (SessionUser & { passwordHash: string }) | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_suspended, email_verified_at, email_notifications, locale, password_hash AS passwordHash FROM users WHERE email = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_suspended, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, password_hash AS passwordHash FROM users WHERE email = ?",
     )
     .get(email) as (UserRow & { passwordHash: string }) | undefined;
   if (!row) return null;
@@ -440,6 +453,25 @@ export function listPublicKeyHistory(
 /** True cuando la cuenta ya puede recibir mensajes cifrados. */
 export function hasPublicKey(userId: string): boolean {
   return listPublicKeyRecords(userId).length > 0;
+}
+
+/** Guarda las preferencias de visibilidad (los enums los valida la ruta). */
+export function setUserPrivacy(
+  userId: string,
+  input: {
+    profileVisibility: string;
+    cityPrecision: string;
+    signAs: string;
+    dmPolicy: string;
+  },
+): void {
+  getDb()
+    .prepare(
+      `UPDATE users
+          SET profile_visibility = ?, city_precision = ?, sign_as = ?, dm_policy = ?
+        WHERE id = ?`,
+    )
+    .run(input.profileVisibility, input.cityPrecision, input.signAs, input.dmPolicy, userId);
 }
 
 /* -------------------------------- sesiones -------------------------------- */
