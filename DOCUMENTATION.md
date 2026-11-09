@@ -29,7 +29,7 @@ src/
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
 tests/                 716 unit and integration tests (89 files)
-e2e/                   36 browser tests with Playwright
+e2e/                   49 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -90,7 +90,7 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
-Migrations are versioned with `PRAGMA user_version` (currently v46) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table.
+Migrations are versioned with `PRAGMA user_version` (currently v48) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table.
 
 The hand-over and shipping columns (`handover_code`, `handover_method`, `ship_kind`, `ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the exchange conversation and each side confirms in the platform once it has the book, with no code and no addresses.
 
@@ -175,7 +175,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 716 unit and integration tests in 89 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 716 unit and integration tests in 89 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 49 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

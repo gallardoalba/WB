@@ -177,7 +177,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v46) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a todas las ciudades, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo. Las tres siguientes (v41–v43) crean la bandeja de salida social (`social_outbox`) y le añaden la imagen del anuncio y el tope diario por cuenta; la v44 cierra el círculo del intercambio: el ejemplar entregado queda `given` y quien lo recibe estrena su propia copia; la v45 estrena `social_likes`, la memoria de los «me gusta» del bot, y la v46 crea el índice `books_fts`, que busca obras sin recorrer la tabla entera.",
+          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v48) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a todas las ciudades, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo. Las tres siguientes (v41–v43) crean la bandeja de salida social (`social_outbox`) y le añaden la imagen del anuncio y el tope diario por cuenta; la v44 cierra el círculo del intercambio: el ejemplar entregado queda `given` y quien lo recibe estrena su propia copia; la v45 estrena `social_likes`, la memoria de los «me gusta» del bot, y la v46 crea el índice `books_fts`, que busca obras sin recorrer la tabla entera.",
         },
         {
           kind: "p",
@@ -322,7 +322,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 716 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 716 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 49 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -407,7 +407,7 @@ const ES: TechnicalDocument = {
             "Los colores salen de tokens (`src/app/styles/tokens.css`): fuera de ese fichero no hay literales, así que el modo claro y el oscuro comparten el mismo marcado.",
             "Cuatro breakpoints (480, 768, 1120 y 1400/1800 px), escala de espacio de 4 a 48 px y controles de 40 px, 44 en móvil.",
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
-            "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado.",
+            "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado: las animaciones (en `styles/motion.css`) solo mueven `opacity` y `transform`, y se apagan enteras con esa preferencia.",
             "La interfaz es trilingüe y cada idioma tiene su propia URL: el alemán es el de por defecto y va sin prefijo (`/werk/x`), mientras que el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios para que los buscadores los indexen por separado. Dentro de una URL con prefijo manda el prefijo; si no lo hay manda el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo; sin preferencia se usa el idioma del navegador (`Accept-Language`) y, si no hay ninguno de los tres, el alemán.",
           ],
         },
@@ -603,7 +603,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v46) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für alle Städte, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post. Die folgenden drei (v41–v43) legen die Social-Ausgangsablage (`social_outbox`) an und ergänzen das Bild der Meldung und die Tagesgrenze je Konto; die v44 schließt den Kreis des Tauschs: das übergebene Exemplar bleibt `given` und wer es bekommt, bekommt ein eigenes; die v45 legt `social_likes` an, das Gedächtnis der «Gefällt mir» des Bots, und die v46 schafft den Index `books_fts`, der Werke findet, ohne die ganze Tabelle zu durchlaufen.",
+          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v48) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für alle Städte, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post. Die folgenden drei (v41–v43) legen die Social-Ausgangsablage (`social_outbox`) an und ergänzen das Bild der Meldung und die Tagesgrenze je Konto; die v44 schließt den Kreis des Tauschs: das übergebene Exemplar bleibt `given` und wer es bekommt, bekommt ein eigenes; die v45 legt `social_likes` an, das Gedächtnis der «Gefällt mir» des Bots, und die v46 schafft den Index `books_fts`, der Werke findet, ohne die ganze Tabelle zu durchlaufen.",
         },
         {
           kind: "p",
@@ -748,7 +748,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 716 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 716 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 49 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
@@ -833,7 +833,7 @@ const DE: TechnicalDocument = {
             "Farben kommen aus Tokens (`src/app/styles/tokens.css`): außerhalb dieser Datei gibt es keine Literale, deshalb teilen helles und dunkles Thema dasselbe Markup.",
             "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
-            "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert.",
+            "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert: die Animationen (in `styles/motion.css`) bewegen nur `opacity` und `transform` und entfallen mit dieser Einstellung ganz.",
             "Die Oberfläche ist dreisprachig und jede Sprache hat ihre eigene URL: Deutsch ist die Vorgabe und bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/…`, jeweils mit eigenem `hreflang` und Canonical, damit Suchmaschinen sie getrennt indexieren. Innerhalb einer URL mit Präfix gilt das Präfix; sonst gilt der Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert; ohne Vorliebe entscheidet die Sprache des Browsers (`Accept-Language`) und, wenn keine der drei passt, Deutsch.",
           ],
         },

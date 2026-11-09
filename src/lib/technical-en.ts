@@ -153,7 +153,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v46) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table.",
+          text: "Migrations are versioned with `PRAGMA user_version` (current: v48) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table.",
         },
         {
           kind: "p",
@@ -298,7 +298,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 716 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 716 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 49 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",
@@ -383,7 +383,7 @@ export const EN: TechnicalDocument = {
             "Colours come from tokens (`src/app/styles/tokens.css`): outside that file there are no literals, so the light and the dark mode share the same markup.",
             "Four breakpoints (480, 768, 1120 and 1400/1800 px), a spacing scale from 4 to 48 px and controls at 40 px, 44 on mobile.",
             "Dialogs with trapped focus, closing on `Escape` and focus restoration; a “Skip to content” link, `aria-current` in the navigation, filters with `aria-pressed` and errors with `role=\"alert\"`.",
-            "Minimum AA contrast, type from 12 px, 44 px touch targets on mobile and `prefers-reduced-motion` respected.",
+            "Minimum AA contrast, type from 12 px, 44 px touch targets on mobile and `prefers-reduced-motion` respected: the animations (in `styles/motion.css`) only move `opacity` and `transform`, and switch off entirely with that setting.",
             "The interface is trilingual: the switcher wins, storing the `wanderbibliothek-locale` cookie and, if there is a session, the account preference for notifications and mail; without a preference the browser language (`Accept-Language`) decides, and German if none of the three matches.",
           ],
         },

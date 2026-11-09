@@ -1,0 +1,125 @@
+/* ============================================================
+   Movimiento
+   ============================================================
+   Todo lo que se mueve en la interfaz vive aquí, con las mismas
+   reglas para todo: solo se animan `opacity` y `transform` (el
+   compositor las resuelve sin recalcular la maquetación, nunca
+   `width`, `height`, `top` o `left`) y todo se apaga si la persona
+   pidió menos movimiento.
+
+   Por qué no hay View Transitions: se probaron con el `<ViewTransition>`
+   de React 19.3 y no llegan a arrancar en esta aplicación. La ficha se
+   pide a la base de datos y llega en streaming, así que el contenido
+   nuevo no está en el mismo commit que la navegación; React no encuentra
+   pareja para la portada y no abre la transición (medido: cero llamadas a
+   `document.startViewTransition` al pulsar una tarjeta, también en rutas
+   sin suspense). Si algún día las fichas se prerenderizan, el morph se
+   puede recuperar nombrando el marco de la portada en las dos páginas.
+   ============================================================ */
+
+/* Entrada de las tarjetas: la rejilla aparece de arriba abajo en vez de
+   aparecer de golpe al cambiar de filtro o al llegar la siguiente hornada del
+   scroll infinito.
+   `backwards` y no `both` a propósito: con `both` el fotograma final se queda
+   aplicado y anularía el `transform` del hover. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.book-card {
+  animation: card-in 280ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+/* Escalonado con tope: de la primera a la octava, 45 ms entre ellas (315 ms en
+   total). A partir de ahí todas entran a la vez: en una lista larga, escalonar
+   cuarenta tarjetas dejaría a la última esperando casi dos segundos. */
+.book-card:nth-child(2) { animation-delay: 45ms; }
+.book-card:nth-child(3) { animation-delay: 90ms; }
+.book-card:nth-child(4) { animation-delay: 135ms; }
+.book-card:nth-child(5) { animation-delay: 180ms; }
+.book-card:nth-child(6) { animation-delay: 225ms; }
+.book-card:nth-child(7) { animation-delay: 270ms; }
+.book-card:nth-child(8) { animation-delay: 315ms; }
+
+/* La ficha entra con el mismo gesto, más corto: se ha cambiado de página y el
+   contenido merece llegar con algo de continuidad en lugar de aparecer seco. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.book-detail,
+.work-hero {
+  animation: page-in 240ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+/* Cambio de tema con un fundido cruzado.
+   Lo dispara el botón con `document.startViewTransition` (ver
+   `components/theme-toggle.tsx`); si el navegador no la tiene, o la persona
+   pidió menos movimiento, el tema cambia igual pero de golpe. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* La portada se inclina como un libro que se saca de la estantería. Solo con
+   ratón: en una pantalla táctil el `:hover` se queda pegado después del toque y
+   la tarjeta se quedaría torcida. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .book-card:hover .cover-frame > img,
+  .book-card:hover .cover-link img {
+    transform: perspective(700px) rotateY(-7deg) translateZ(6px) scale(1.02);
+    filter: drop-shadow(8px 10px 10px rgba(0, 0, 0, 0.22));
+  }
+}
+
+/* Respuesta al pulsar: un píxel. Sirve para saber que el gesto llegó aunque la
+   petición tarde; sin esto, con una conexión lenta el botón parece muerto. */
+.book-card:active {
+  transform: translateY(-1px);
+  transition-duration: 90ms;
+}
+
+.secondary-button:active:not(:disabled),
+.hero-button:active:not(:disabled),
+.icon-button:active:not(:disabled) {
+  transform: translateY(1px);
+  transition-duration: 90ms;
+}
+
+/* Quien pidió menos movimiento ve el resultado sin el viaje. */
+@media (prefers-reduced-motion: reduce) {
+  .book-card,
+  .book-detail,
+  .work-hero {
+    animation: none;
+  }
+
+  .book-card:active,
+  .secondary-button:active:not(:disabled),
+  .hero-button:active:not(:disabled),
+  .icon-button:active:not(:disabled) {
+    transform: none;
+  }
+}
