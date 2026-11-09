@@ -243,17 +243,28 @@ test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", asy
   await page.locator(".book-card:visible .request-button").first().evaluate((element) =>
     (element as HTMLElement).click(),
   );
-  const preview = page.getByRole("dialog");
+  // Por clase y no por título: la primera tarjeta del catálogo depende del
+  // orden de la muestra, y el diálogo de acceso también es `role="dialog"`.
+  const preview = page.locator(".preview-dialog");
   await expect(preview).toBeVisible();
-  await preview.getByRole("button", { name: "Entrar para pedirlo" }).click();
+  // Clic por DOM: la portada carga después de abrirse el diálogo y un clic por
+  // coordenadas puede caer en el otro botón si el alto cambia a mitad.
+  await preview
+    .getByRole("button", { name: "Entrar para pedirlo" })
+    .evaluate((element) => (element as HTMLElement).click());
 
-  const dialog = page.getByRole("dialog");
+  // Un solo diálogo a la vez: la vista previa se cierra y deja el acceso.
+  const dialog = page.getByRole("dialog", { name: "Entra en Wanderbibliothek" });
+  await expect(preview).toHaveCount(0);
   await expect(dialog).toBeVisible();
   await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
 
-  await expect(page).toHaveURL(/\/libro\/lst_/, { timeout: 15_000 });
+  // La ficha se calienta al principio, pero en `next dev` el primer acceso a
+  // la ruta exacta de este ejemplar todavía puede compilar: 20 s da margen sin
+  // acercarse al límite de 30 s de la prueba.
+  await expect(page).toHaveURL(/\/libro\/lst_/, { timeout: 20_000 });
 });
 
 test("las páginas internas piden sesión y no enseñan el panel lateral", async ({ page }) => {

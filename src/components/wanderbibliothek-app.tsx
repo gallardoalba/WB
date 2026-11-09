@@ -1270,7 +1270,14 @@ export default function WanderbibliothekApp({
                     <ListingCard
                       key={listing.id}
                       listing={listing}
-                      onPreview={user ? undefined : () => setPreviewListing(listing)}
+                      onPreview={user ? undefined : () => {
+                        // Un solo diálogo a la vez: si el acceso estaba abierto
+                        // (por un 401 a mitad de navegación, por ejemplo), la
+                        // vista previa lo sustituye en vez de quedar los dos
+                        // apilados (dos `role="dialog"` con `aria-modal`).
+                        setAuthOpen(false);
+                        setPreviewListing(listing);
+                      }}
                       actions={
                         <button
                           type="button"
