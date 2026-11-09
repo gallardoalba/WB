@@ -4,7 +4,7 @@ import { ApiError } from "../errors";
 import type { DirectMessageView, DirectThreadView, MessageEnvelopeView } from "../domain";
 import { notify } from "./notifications";
 import { getUserById, listPublicKeyRecords, toPublicKeyEntries } from "./users";
-import { isBlocked, messageEnvelopesFor, nowIso } from "./shared";
+import { FALTAN_SOBRES, isBlocked, messageEnvelopesFor, nowIso } from "./shared";
 
 /**
  * Mensajes directos cifrados entre dos personas.
@@ -247,6 +247,11 @@ export function sendDirectMessage(
         throw new ApiError(400, "Hay dos sobres para la misma clave.");
       }
       seen.add(envelope.keyId);
+    }
+    // Igual que en los intercambios: sin sobre para cada clave activa, algún
+    // dispositivo del destinatario se quedaría fuera del mensaje.
+    if (peerKeys.some((key) => !seen.has(key.keyId))) {
+      throw new ApiError(409, FALTAN_SOBRES);
     }
   } else if (!input.ciphertext || !input.iv) {
     throw new ApiError(400, "Falta el sobre cifrado.");

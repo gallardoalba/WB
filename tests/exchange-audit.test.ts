@@ -727,3 +727,76 @@ test("bloquear a la otra parte corta la conversación sin cerrar el intercambio"
   assert.equal(estado(request.id, "usr_diego"), "accepted");
   repo.unblockUser("usr_diego", "usr_clara");
 });
+
+/* ---------------------- sobres para todos los aparatos ------------------- */
+
+test("un mensaje con un sobre de menos se rechaza", async () => {
+  const { request } = intercambioAceptado("usr_ana", "usr_diego");
+  const deAna = await nuevoDispositivo();
+  const claveAna = repo.setPublicKey("usr_ana", deAna.jwk);
+
+  const navegador = await nuevoDispositivo();
+  const movil = await nuevoDispositivo();
+  const claveNavegador = repo.setPublicKey("usr_diego", navegador.jwk, "initial", "web");
+  const claveMovil = repo.setPublicKey("usr_diego", movil.jwk, "initial", "android");
+
+  // Diego tiene dos aparatos; con un solo sobre, el móvil se quedaría sin leer
+  // el mensaje y nadie se enteraría hasta días después.
+  const error = errorDe(() =>
+    repo.addEncryptedMessage(request.id, "usr_ana", {
+      keyId: claveAna.keyId,
+      envelopes: [{ keyId: claveNavegador.keyId, ciphertext: "uno", iv: "iv1" }],
+    }),
+  );
+  assert.equal(error.status, 409);
+  assert.match(error.message, /Faltan sobres/);
+
+  const mensaje = repo.addEncryptedMessage(request.id, "usr_ana", {
+    keyId: claveAna.keyId,
+    envelopes: [
+      { keyId: claveNavegador.keyId, ciphertext: "uno", iv: "iv1" },
+      { keyId: claveMovil.keyId, ciphertext: "dos", iv: "iv2" },
+    ],
+  });
+  assert.deepEqual(
+    mensaje.envelopes.map((sobre) => sobre.keyId).sort(),
+    [claveNavegador.keyId, claveMovil.keyId].sort(),
+    "con los dos sobres, el mensaje entra",
+  );
+});
+
+test("la exportación lleva los sobres de las conversaciones propias", async () => {
+  const { request } = intercambioAceptado("usr_lucia", "usr_marcos");
+  const deLucia = await nuevoDispositivo();
+  const deMarcos = await nuevoDispositivo();
+  const claveLucia = repo.setPublicKey("usr_lucia", deLucia.jwk);
+  const claveMarcos = repo.setPublicKey("usr_marcos", deMarcos.jwk);
+
+  const mensaje = repo.addEncryptedMessage(request.id, "usr_lucia", {
+    keyId: claveLucia.keyId,
+    envelopes: [{ keyId: claveMarcos.keyId, ciphertext: "sobre-1", iv: "iv-1" }],
+  });
+
+  const datos = repo.exportAccountData("usr_marcos") as {
+    messageEnvelopes: { message_id: string; key_id: string; ciphertext: string }[];
+    messagesReceived: { id: string; key_id: string | null }[];
+  };
+  const sobre = datos.messageEnvelopes.find((fila) => fila.message_id === mensaje.id);
+  assert.ok(sobre, "el destinatario recibe el sobre de su conversación");
+  assert.equal(sobre!.key_id, claveMarcos.keyId);
+  assert.equal(sobre!.ciphertext, "sobre-1", "el sobre va entero: sin él no se puede descifrar");
+  assert.equal(
+    datos.messagesReceived.find((fila) => fila.id === mensaje.id)?.key_id,
+    claveLucia.keyId,
+    "y el mensaje dice con qué clave firmó el remitente",
+  );
+
+  // Nadie exporta sobres de una conversación que no es suya.
+  const ajeno = repo.exportAccountData("usr_ana") as {
+    messageEnvelopes: { message_id: string }[];
+  };
+  assert.equal(
+    ajeno.messageEnvelopes.some((fila) => fila.message_id === mensaje.id),
+    false,
+  );
+});

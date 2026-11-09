@@ -13,7 +13,7 @@ import type {
 import { publishRequestMessage } from "../live";
 import { canTransition, listingStatusFor } from "../request-flow";
 import { normalizeText } from "../text";
-import { areBlocked, messageEnvelopesFor, nowIso } from "./shared";
+import { areBlocked, FALTAN_SOBRES, messageEnvelopesFor, nowIso } from "./shared";
 import {
   assertVerified,
   getUserById,
@@ -798,6 +798,11 @@ export function addEncryptedMessage(
         throw new ApiError(400, "Hay dos sobres para la misma clave.");
       }
       seen.add(envelope.keyId);
+    }
+    // Un sobre por clave activa: con uno de menos, ese aparato se queda sin
+    // poder abrir el mensaje y nadie se entera hasta que lo intenta leer.
+    if (peerKeys.some((key) => !seen.has(key.keyId))) {
+      throw new ApiError(409, FALTAN_SOBRES);
     }
   } else if (!input.ciphertext || !input.iv) {
     throw new ApiError(400, "Falta el sobre cifrado.");

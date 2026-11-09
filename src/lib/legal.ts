@@ -268,7 +268,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         body: [
           "Acceso y portabilidad: «Descargar datos» en la cuenta genera un JSON con todo lo guardado.",
           "Rectificación: nombre, ciudad y biografía se cambian cuando quieras.",
-          "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, clubes propios, bloqueos, favoritos y notas personales. Los mensajes y valoraciones se conservan con el autor ya anonimizado porque forman parte del historial de otras personas.",
+          "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, clubes propios, bloqueos, favoritos, notas personales y las claves de dispositivo publicadas. Los mensajes de intercambio y las valoraciones se conservan con el autor ya anonimizado porque forman parte del historial de otras personas; las conversaciones directas se borran enteras, también para la otra persona.",
           "Oposición a los correos de aviso: en cualquier momento desde la cuenta.",
           "Reclamación: ante la autoridad de protección de datos de tu estado federado.",
           "Limitación del tratamiento: mientras se resuelve una oposición o un borrado, puedes pedir que se limite el tratamiento escribiendo a la dirección de contacto de arriba.",

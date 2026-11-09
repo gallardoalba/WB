@@ -13,6 +13,16 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Aviso común cuando el cliente no preparó un sobre para cada dispositivo.
+ *
+ * Un mensaje con un sobre de menos se guarda sin queja y el aparato que se
+ * quedó fuera no puede leerlo: el fallo aparecería días después y sin relación
+ * aparente con el envío, así que se rechaza en el momento.
+ */
+export const FALTAN_SOBRES =
+  "Faltan sobres: hay un dispositivo de la otra persona que no podría leer el mensaje. Recarga la conversación y vuelve a enviarlo.";
+
 /** Errores de unicidad/restricción de SQLite (carreras entre dos peticiones). */
 export function isConstraintError(error: unknown): boolean {
   if (!(error instanceof Error) || !("code" in error)) return false;

@@ -718,8 +718,11 @@ publiques diga la verdad (art. 5.1.e y 13 del RGPD/DSGVO):
 | Mensajes | `messages` | Solo el sobre cifrado y los metadatos; el texto lo descifran los navegadores |
 
 Borrado de cuenta: se anonimiza la fila del usuario, se borran sesiones,
-avisos, listas, clubes propios, bloqueos, tokens, marcas de lectura y notas
-personales de sus ejemplares; los mensajes y valoraciones se conservan con el
+avisos, listas, clubes propios, bloqueos, tokens, marcas de lectura, notas
+personales de sus ejemplares y **las claves de dispositivo** (`user_keys` y
+`public_key_history`, que el `ON DELETE CASCADE` no alcanza porque la fila de
+`users` no se borra); las **conversaciones directas se eliminan enteras**, para
+las dos partes, y los mensajes de intercambio y valoraciones se conservan con el
 autor ya anonimizado porque son parte del historial de otras personas. La base
 usa `secure_delete`, así que el contenido borrado no queda en las páginas
 libres del fichero.

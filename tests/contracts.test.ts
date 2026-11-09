@@ -3,6 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
+import { SCHEMA_VERSION } from "../src/lib/db/schema.ts";
+
 const API_DIR = path.join(process.cwd(), "src", "app", "api");
 const MUTATION = /export async function (POST|PATCH|PUT|DELETE)\b/;
 
@@ -133,4 +135,17 @@ test("los dos pies de página enlazan a la cuenta de Mastodon", () => {
     const source = readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8");
     assert.match(source, /<MastodonLink\s*\/>/, `${file} debe incluir <MastodonLink />`);
   }
+});
+
+test("la documentación declara el rango de migraciones que hay de verdad", () => {
+  // El número se quedó en v46 cuando el código ya iba por la v48: en vez de
+  // confiar en acordarse, la cadena que se publica se comprueba contra
+  // `SCHEMA_VERSION`.
+  const esperado = `v3–v${SCHEMA_VERSION}`;
+  const desfasados = ["DOCUMENTATION.md", "src/lib/technical.ts", "src/lib/technical-en.ts"]
+    .filter(
+      (file) =>
+        !readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8").includes(esperado),
+    );
+  assert.deepEqual(desfasados, [], `la documentación debería decir «${esperado}»`);
 });

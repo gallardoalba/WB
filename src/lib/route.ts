@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { handleApiError, readJson } from "./api";
 import type { SessionUser } from "./domain";
 import { recordRequest, requestIdFrom, REQUEST_ID_HEADER } from "./observability";
-import { clientKey, guard, hasClientIp, hit } from "./throttle";
+import { assertSameOrigin, clientKey, hasClientIp, hit } from "./throttle";
 
 /**
  * Envoltorio de rutas de API.
@@ -27,6 +27,9 @@ import { clientKey, guard, hasClientIp, hit } from "./throttle";
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/** Métodos que no cambian nada: no necesitan guardia de origen. */
+const LECTURAS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 export const DIA = DAY;
 
 type Cuota = {
@@ -36,8 +39,9 @@ type Cuota = {
   /** Cuenta por usuario (por defecto) o por IP. */
   by?: "user" | "ip";
   /**
-   * `guard` (por defecto en mutaciones) exige mismo origen; `hit` solo cuenta.
-   * Usa `"hit"` para lecturas.
+   * `guard` (por defecto) exige mismo origen en las mutaciones, **haya o no**
+   * cuota; `hit` solo cuenta (lecturas y pruebas). Una ruta que no declara
+   * `limit` sigue protegida contra CSRF.
    */
   mode?: "guard" | "hit";
 };
@@ -91,14 +95,23 @@ export function route<
       if ((options.auth ?? "user") === "none") {
         user = null as UsuarioDe<A>;
       } else {
-        // `admin` se comprueba en el manejador con `requireAdmin()` cuando la
-        // ruta necesita el segundo factor; aquí solo se exige sesión.
-        // La carga es perezosa porque `auth.ts` está marcado `server-only` y el
-        // envoltorio también se usa en pruebas fuera del servidor de Next.
-        const { getSessionUser, requireUser } = await import("./auth");
-        user = (
-          options.auth === "optional" ? await getSessionUser() : await requireUser()
-        ) as UsuarioDe<A>;
+        // `admin` resuelve aquí la comprobación completa (`requireAdmin`): si una
+        // ruta lo declara, no puede quedarse en «solo sesión» por olvidarse de
+        // llamar a `requireAdmin()` dentro del manejador. La carga es perezosa
+        // porque `auth.ts` está marcado `server-only` y el envoltorio también se
+        // usa en pruebas fuera del servidor de Next.
+        const { getSessionUser, requireAdmin, requireUser } = await import("./auth");
+        if (options.auth === "optional") user = (await getSessionUser()) as UsuarioDe<A>;
+        else if (options.auth === "admin") user = (await requireAdmin()) as UsuarioDe<A>;
+        else user = (await requireUser()) as UsuarioDe<A>;
+      }
+
+      // La guardia de mismo origen es cosa aparte de la cuota: una mutación no
+      // puede quedarse sin ella solo porque no declare `limit`. Es lo que decía
+      // el comentario de cabecera y no era verdad.
+      const modo = options.limit?.mode ?? "guard";
+      if (modo === "guard" && !LECTURAS.has(request.method.toUpperCase())) {
+        assertSameOrigin(request);
       }
 
       if (options.limit) {
@@ -116,8 +129,9 @@ export function route<
           limit: options.limit.limit,
           windowMs: options.limit.windowMs,
         };
-        if ((options.limit.mode ?? "guard") === "hit") hit(cuota);
-        else guard(request, cuota);
+        // El origen ya se comprobó arriba cuando era una mutación; aquí solo
+        // se cuenta (también en las lecturas, que no miran el origen).
+        hit(cuota);
       }
 
       const body = (

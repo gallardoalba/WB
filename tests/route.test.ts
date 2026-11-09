@@ -232,10 +232,49 @@ test("las rutas que escriben no aceptan peticiones de otro origen", () => {
   const offenders = ROUTES.filter((file) => {
     const source = readFileSync(file, "utf8");
     if (!/export (async function|const) (POST|PATCH|PUT|DELETE)\b/.test(source)) return false;
-    // `route(...)` aplica `guard` con su cuota; el cron se autentica con token.
-    return !/guard\(|assertSameOrigin|route[<(]|Bearer/.test(source);
+    // Con el envoltorio la guardia la pone `route()`, pero **solo si la ruta
+    // declara cuota o el origen se comprueba aparte**: aceptar `route(` a
+    // secas daba por buena una mutación sin ninguna protección.
+    if (/=\s*route[<(]/.test(source)) {
+      return !/limit:/.test(source) && !/assertSameOrigin|guard\(/.test(source);
+    }
+    // Fuera del envoltorio: el cron se autentica con token o hay guardia propia.
+    return !/guard\(|assertSameOrigin|Bearer/.test(source);
   });
   assert.deepEqual(offenders, [], `mutaciones sin control de origen: ${offenders.join(", ")}`);
+});
+
+test("una mutación con origen ajeno se rechaza aunque no declare cuota", async () => {
+  let llamado = false;
+  const handler = route({ auth: "none" }, () => {
+    llamado = true;
+    return Response.json({ ok: true });
+  });
+
+  const ajena = await handler(
+    new Request("http://localhost:3100/api/prueba", {
+      method: "POST",
+      headers: { origin: "https://mal.example", "sec-fetch-site": "cross-site" },
+    }),
+  );
+  assert.equal(ajena.status, 403, "el origen se comprueba sin depender de la cuota");
+  assert.equal(llamado, false, "el manejador no llega a ejecutarse");
+
+  // La misma petición desde el propio origen entra: la guardia no rompe nada.
+  const propia = await handler(
+    new Request("http://localhost:3100/api/prueba", {
+      method: "POST",
+      headers: { origin: "http://localhost:3100" },
+    }),
+  );
+  assert.equal(propia.status, 200);
+  assert.equal(llamado, true);
+});
+
+test("una lectura no necesita origen y una mutación sí", async () => {
+  const handler = route({ auth: "none" }, ({ request }) => Response.json({ method: request.method }));
+  const lectura = await handler(new Request("http://localhost:3100/api/prueba"));
+  assert.equal(lectura.status, 200, "GET sin cabeceras de origen sigue entrando");
 });
 
 test("una respuesta con cabeceras inmutables no rompe el envoltorio", async () => {

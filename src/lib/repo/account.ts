@@ -70,6 +70,12 @@ export function deleteAccount(userId: string): void {
     db.prepare("DELETE FROM reading_lists WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM club_members WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM follows WHERE follower_id = ? OR followed_id = ?").run(userId, userId);
+    // Claves de dispositivo e historial: la fila de `users` se anonimiza, así
+    // que el `ON DELETE CASCADE` de `user_keys` **no** se dispara y las claves
+    // sobreviven a la baja. Son públicas, pero enlazan los dispositivos de la
+    // cuenta y su recorrido criptográfico: se van con ella.
+    db.prepare("DELETE FROM user_keys WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM public_key_history WHERE user_id = ?").run(userId);
   })();
 }
 
@@ -101,7 +107,7 @@ export function exportAccountData(userId: string) {
 
   const messages = db
     .prepare(
-      `SELECT m.id, m.body, m.ciphertext, m.iv, m.encrypted, m.created_at, m.request_id
+      `SELECT m.id, m.body, m.ciphertext, m.iv, m.key_id, m.encrypted, m.created_at, m.request_id
        FROM messages m WHERE m.sender_id = ? ORDER BY m.created_at DESC`,
     )
     .all(userId);
@@ -109,7 +115,7 @@ export function exportAccountData(userId: string) {
   // Todo lo que la persona ha recibido en sus conversaciones (portabilidad).
   const messagesReceived = db
     .prepare(
-      `SELECT m.id, m.body, m.ciphertext, m.iv, m.encrypted, m.created_at, m.request_id,
+      `SELECT m.id, m.body, m.ciphertext, m.iv, m.key_id, m.encrypted, m.created_at, m.request_id,
               u.name AS sender
          FROM messages m
          JOIN requests r ON r.id = m.request_id
@@ -118,6 +124,21 @@ export function exportAccountData(userId: string) {
         ORDER BY m.created_at DESC`,
     )
     .all(userId, userId, userId);
+
+  // Los sobres de los mensajes de intercambio: sin ellos la exportación no
+  // sirve de nada en los mensajes cifrados, porque `messages.ciphertext` se
+  // queda a NULL en cuanto el mensaje viaja con sobres (uno por dispositivo).
+  // Solo salen los de las conversaciones de las que la cuenta es parte.
+  const messageEnvelopes = db
+    .prepare(
+      `SELECT e.message_id, e.key_id, e.ciphertext, e.iv
+         FROM message_envelopes e
+         JOIN messages m ON m.id = e.message_id
+         JOIN requests r ON r.id = m.request_id
+        WHERE r.requester_id = ? OR r.owner_id = ?
+        ORDER BY e.message_id`,
+    )
+    .all(userId, userId);
 
   const favorites = db
     .prepare(
@@ -314,12 +335,15 @@ export function exportAccountData(userId: string) {
     // Los mensajes cifrados van como sobre (`ciphertext` + `iv`): solo se
     // pueden leer en el dispositivo que conserva la clave privada.
     encryptionNote:
-      "Los mensajes con encrypted = 1 están cifrados de extremo a extremo; el servidor no puede descifrarlos.",
+      "Los mensajes con encrypted = 1 están cifrados de extremo a extremo; el servidor no puede descifrarlos. Los sobres (`messageEnvelopes` y `directEnvelopes`) traen uno por dispositivo y solo se abren con la clave privada de ese dispositivo.",
     user,
     listings,
     requests,
     messages,
     messagesReceived,
+    // Un sobre por dispositivo y mensaje: es lo que hace falta para descifrar
+    // en el aparato que conserva la clave privada.
+    messageEnvelopes,
     favorites,
     bookWants,
     readingStates,

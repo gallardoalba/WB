@@ -22,7 +22,7 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v46), seed
+    db/                connection, base schema (v2), migrations (v3–v48), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -119,7 +119,7 @@ Messages within an exchange and direct messages are encrypted in the browser (EC
 - Directory `0700` and database `0600`; `npm run db:backup` uses SQLite's `.backup()` API and encrypts with AES-256-GCM when `WANDERBIBLIOTHEK_BACKUP_KEY` is set.
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
 - Account tokens are single-use, hashed and expire; changing the password ends every session.
-- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received, direct messages with their envelopes, club posts and memberships, reviews, lists, follows, blocks, reports and notifications), and deleting the account removes its own content without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
+- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
 ## Permissions per resource
 
@@ -174,7 +174,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 697 unit and integration tests in 86 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 702 unit and integration tests in 86 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

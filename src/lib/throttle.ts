@@ -195,6 +195,14 @@ export function assertSameOrigin(request: Request): void {
   const allowed = new Set<string>();
   const host = request.headers.get("host");
   if (host) allowed.add(host);
+  // Al construir una `Request` a mano (pruebas, llamadas internas) no hay
+  // cabecera `Host`: el host al que se dirige la petición es el de su URL, y es
+  // el mismo que compararía el navegador.
+  try {
+    allowed.add(new URL(request.url).host);
+  } catch {
+    // Una URL ilegible no aporta host; se sigue con lo que haya.
+  }
   if (hasClientIp()) {
     const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
     if (forwardedHost) allowed.add(forwardedHost);

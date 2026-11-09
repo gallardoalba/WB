@@ -229,6 +229,18 @@ test("borrar la cuenta limpia clave, TOTP, alertas y correo pendiente", () => {
   assert.equal(row.public_key, null);
   assert.equal(row.public_key_id, null);
   assert.equal(row.totp_secret, null);
+  // La cuenta se anonimiza, no se borra: el `ON DELETE CASCADE` de `user_keys`
+  // no se dispara solo, así que la baja tiene que limpiar las claves a mano.
+  for (const tabla of ["user_keys", "public_key_history"]) {
+    assert.equal(
+      (dbModule
+        .getDb()
+        .prepare(`SELECT COUNT(*) AS count FROM ${tabla} WHERE user_id = ?`)
+        .get(user.id) as { count: number }).count,
+      0,
+      `${tabla} no sobrevive a la baja`,
+    );
+  }
   assert.equal(
     (dbModule
       .getDb()
