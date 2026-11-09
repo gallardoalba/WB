@@ -296,9 +296,12 @@ else
   # `sharp` codifica cada talla una vez y la guarda. El build la deja como root y
   # la unidad la declara en `ReadWritePaths`, así que solo falta cederla al
   # usuario del servicio; sin esto cada visita recompone la imagen en CPU.
+  # De paso se tira la caché de compilación (`turbopack`, ~80 MB por release),
+  # que en producción no se usa.
   if id -u wanderbibliothek >/dev/null 2>&1; then
+    rm -rf "$RELEASE_DIR/.next/cache/turbopack"
     install -d -o wanderbibliothek -g wanderbibliothek -m 700 "$RELEASE_DIR/.next/cache"
-    ok "caché de Next cedida al usuario del servicio"
+    ok "caché de Next podada y cedida al usuario del servicio"
   fi
 fi
 
