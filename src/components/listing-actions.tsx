@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useOptimistic, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -89,7 +89,15 @@ export function ListingActions({
     ...tags.filter((tag) => !categoryTags.includes(tag as never)),
   ];
   const router = useRouter();
-  const [favorite, setFavorite] = useState(isFavorite);
+  // El corazón responde al primer clic y se deshace solo si el servidor falla:
+  // antes se pintaba a mano y se revertía con un `setFavorite(!next)` en el
+  // catch, que es exactamente lo que hace `useOptimistic` sin olvidos.
+  const [favoritoServidor, setFavoritoServidor] = useState(isFavorite);
+  const [favorite, aplicarFavorito] = useOptimistic(
+    favoritoServidor,
+    (_actual: boolean, siguiente: boolean) => siguiente,
+  );
+  const [, iniciarTransicion] = useTransition();
   const [requesting, setRequesting] = useState(false);
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -111,24 +119,25 @@ export function ListingActions({
     }
   }
 
-  async function toggleFavorite() {
+  function toggleFavorite() {
     const next = !favorite;
-    setFavorite(next);
-    setPending(true);
     setError("");
-    try {
-      await api(`/api/listings/${listingId}/favorite`, {
-        method: "POST",
-        body: { favorite: next },
-      });
-      setFeedback(next ? t("Guardado en tu estantería.") : t("Quitado de tu estantería."));
-      router.refresh();
-    } catch (caught) {
-      setFavorite(!next);
-      setError(caught instanceof Error ? caught.message : t("No se pudo actualizar tu estantería."));
-    } finally {
-      setPending(false);
-    }
+    iniciarTransicion(async () => {
+      aplicarFavorito(next);
+      try {
+        await api(`/api/listings/${listingId}/favorite`, {
+          method: "POST",
+          body: { favorite: next },
+        });
+        // La base del estado optimista pasa a ser el valor confirmado: al
+        // cerrar la transición no hay salto atrás mientras llega el refresco.
+        setFavoritoServidor(next);
+        setFeedback(next ? t("Guardado en tu estantería.") : t("Quitado de tu estantería."));
+        router.refresh();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : t("No se pudo actualizar tu estantería."));
+      }
+    });
   }
 
   async function removeListing() {
