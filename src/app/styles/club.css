@@ -628,6 +628,10 @@
 }
 
 .footer-links a {
+  display: inline-flex;
+  align-items: center;
+  /* 24 px de alto: el mínimo táctil de WCAG 2.2 sin cambiar el ritmo del pie. */
+  min-height: 24px;
   color: var(--muted);
   font-size: 13px;
   text-decoration: none;

@@ -42,6 +42,35 @@
   align-items: start;
 }
 
+/* Ficha pública (`/werk`): el HTML va en orden de lectura móvil —título y
+   acción, portada, datos— y las áreas de la rejilla colocan la portada en la
+   columna izquierda solo cuando hay sitio para dos columnas. */
+.book-detail.public-work {
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-areas:
+    "cover head"
+    "cover body";
+}
+
+/* La portada es el ancla visual de la ficha: un poco más grande que en las
+   páginas internas, sin quitarle sitio a la acción. */
+.book-detail.public-work .book-detail-cover {
+  height: 450px;
+}
+
+.book-detail.public-work > .book-detail-cover {
+  grid-area: cover;
+}
+
+.public-work-head {
+  grid-area: head;
+}
+
+.public-work-body {
+  grid-area: body;
+  min-width: 0;
+}
+
 .book-detail-cover {
   position: relative;
   height: 380px;
@@ -105,7 +134,10 @@
   margin: 0;
   color: var(--ink-soft);
   font-size: var(--text-base);
-  font-weight: 600;
+  /* El valor no va en negrita: el énfasis lo da el tamaño y el color frente a
+     la etiqueta. En la ficha se leía «Genre» ligero y «Humanities» en negrita,
+     que hacía que el dato pareciera un error de formato. */
+  font-weight: 400;
 }
 
 .owner-badge {

@@ -7,9 +7,10 @@ import { SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { localePath, type Locale } from "@/lib/locale";
 import { alternatesFor } from "@/lib/seo";
 import { socialMetadata } from "@/lib/social";
-import { getPublicWork } from "@/lib/repo";
+import { getPublicWork, type PublicWork } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
 import { toneForId } from "@/lib/text";
 
@@ -23,6 +24,40 @@ const LANGUAGE_ISO: Record<string, string> = {
   Alemán: "de",
   Inglés: "en",
 };
+
+/**
+ * Resumen de la obra para la descripción y los datos estructurados.
+ *
+ * En castellano y en alemán el singular no se forma cambiando la terminación
+ * («1 ejemplares»), así que el único ejemplar tiene su propia frase. Lo usan
+ * tanto el `metadata` como el JSON-LD: el buscador debe leer lo mismo que la
+ * vista previa.
+ */
+function workSummary(
+  work: Pick<PublicWork, "title" | "author" | "copies" | "cities">,
+  locale: Locale,
+): string {
+  const cities = work.cities.map((city) => city.city).join(", ");
+  if (work.copies === 0) {
+    return translate(locale, "«{title}» de {author}: ahora mismo no hay ejemplares disponibles.", {
+      title: work.title,
+      author: work.author,
+    });
+  }
+  if (work.copies === 1) {
+    return translate(locale, "«{title}» de {author}: 1 ejemplar para intercambiar en {cities}.", {
+      title: work.title,
+      author: work.author,
+      cities,
+    });
+  }
+  return translate(locale, "«{title}» de {author}: {n} ejemplares para intercambiar en {cities}.", {
+    title: work.title,
+    author: work.author,
+    n: work.copies,
+    cities,
+  });
+}
 
 /**
  * Ficha pública de una obra.
@@ -41,18 +76,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       robots: { index: false, follow: false },
     };
   }
-  const cities = work.cities.map((city) => city.city).join(", ");
-  const description =
-    work.copies > 0
-      ? translate(
-          locale,
-          "«{title}» de {author}: {n} ejemplares para intercambiar en {cities}.",
-          { title: work.title, author: work.author, n: work.copies, cities },
-        )
-      : translate(locale, "«{title}» de {author}: ahora mismo no hay ejemplares disponibles.", {
-          title: work.title,
-          author: work.author,
-        });
+  const description = workSummary(work, locale);
   return {
     title: `${work.title} — ${work.author}`,
     description,
@@ -77,38 +101,104 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function Page({ params }: PageProps) {
   const { id } = await params;
+  // El idioma va primero: la redirección de ediciones tiene que conservar el
+  // prefijo (`/en/werk/…`), o quien lee en inglés acaba en la versión alemana.
+  const locale = await getLocale();
   const work = getPublicWork(id);
   if (!work) notFound();
   // Cada obra tiene una sola URL pública: las demás ediciones redirigen.
-  if (work.id !== id) permanentRedirect(`/werk/${work.id}`);
+  if (work.id !== id) permanentRedirect(localePath(locale, `/werk/${work.id}`));
 
   const viewer = await getSessionUser();
-  const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
   const base = siteUrl();
   const language = LANGUAGE_ISO[work.language];
+  // La ficha pública enlaza a la ficha completa (`/obra`), que es donde están
+  // los ejemplares y el botón de pedir. Sin sesión, `/obra` redirige al acceso
+  // y vuelve a esa misma página.
+  const workPath = localePath(locale, `/werk/${work.id}`);
+  const requestPath = localePath(locale, `/obra/${work.id}`);
+  const summary = workSummary(work, locale);
 
   return (
-    <SiteShell user={viewer} section="obra" title={work.title}>
+    <SiteShell user={viewer} section="obra" title={work.title} rail={Boolean(viewer)}>
       <nav className="public-breadcrumb" aria-label={t("Ruta de navegación")}>
-        <Link href="/descubrir">{t("Descubrir todos los libros")}</Link>
+        <Link href={localePath(locale, "/descubrir")}>{t("Descubrir todos los libros")}</Link>
+        <span className="public-breadcrumb-sep" aria-hidden="true">
+          /
+        </span>
+        <span aria-current="page">{work.title}</span>
       </nav>
 
-      <article className="book-detail">
+      <article className="book-detail public-work">
+        {/* El orden del HTML es el de lectura en móvil: título, disponibilidad y
+            acción primero; la portada después. En escritorio, las áreas de la
+            rejilla devuelven la portada a la columna izquierda. */}
+        <div className="book-detail-info public-work-head">
+          <h1>{work.title}</h1>
+          <p className="book-detail-author">{work.author}</p>
+
+          {work.copies > 0 ? (
+            <p className="public-work-availability">
+              <MapPin size={14} aria-hidden="true" />
+              <strong>
+                {work.copies === 1 ? t("1 ejemplar") : t("{n} ejemplares", { n: work.copies })}
+              </strong>
+              <span aria-hidden="true">·</span>
+              <span>{work.cities.map((city) => city.city).join(" · ")}</span>
+            </p>
+          ) : (
+            <p className="public-work-availability is-empty">
+              {t(
+                "Este libro todavía no tiene ejemplares disponibles. Si tienes uno, puedes ofrecerlo.",
+              )}
+            </p>
+          )}
+
+          <div className="public-work-actions">
+            {work.copies > 0 ? (
+              viewer ? (
+                <Link href={requestPath} className="share-button public-work-primary">
+                  <BookOpen size={16} aria-hidden="true" /> {t("Pedir este libro")}
+                </Link>
+              ) : (
+                <Link
+                  href={`/?auth=1&next=${encodeURIComponent(requestPath)}`}
+                  className="share-button public-work-primary"
+                >
+                  <BookOpen size={16} aria-hidden="true" /> {t("Entrar para pedirlo")}
+                </Link>
+              )
+            ) : (
+              <Link
+                href={localePath(locale, "/ofrecer")}
+                className="share-button public-work-primary"
+              >
+                <BookOpen size={16} aria-hidden="true" /> {t("Ofrecer un libro")}
+              </Link>
+            )}
+
+            <Link
+              href={localePath(locale, "/descubrir")}
+              className="secondary-button public-work-secondary"
+            >
+              {t("Ver en el catálogo")}
+            </Link>
+          </div>
+        </div>
+
         <div className={`book-detail-cover tone-${toneForId(work.id)}`}>
           <BookCover
             id={work.id}
             title={work.title}
             author={work.author}
             coverUrl={work.coverUrl}
-            sizes="(max-width: 700px) 70vw, 280px"
+            sizes="(max-width: 768px) 80vw, 260px"
+            priority
           />
         </div>
 
-        <div className="book-detail-info">
-          <h1>{work.title}</h1>
-          <p className="book-detail-author">{work.author}</p>
-
+        <div className="public-work-body">
           <dl className="detail-facts">
             <div>
               <dt>{t("Género")}</dt>
@@ -142,51 +232,7 @@ export default async function Page({ params }: PageProps) {
                 <dd>{work.series}</dd>
               </div>
             )}
-            <div>
-              <dt>{t("Ejemplares")}</dt>
-              <dd>
-                {work.copies === 1
-                  ? t("1 ejemplar disponible")
-                  : t("{n} ejemplares disponibles", { n: work.copies })}
-              </dd>
-            </div>
           </dl>
-
-          {work.cities.length > 0 ? (
-            <section className="public-work-cities">
-              <h2>{t("Ciudades con ejemplares")}</h2>
-              <ul>
-                {work.cities.map((city) => (
-                  <li key={city.city}>
-                    <MapPin size={13} /> {city.city}
-                    {city.copies > 1 && <span> · {city.copies}</span>}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : (
-            <p className="empty-note">
-              {t("Este libro todavía no tiene ejemplares disponibles. Si tienes uno, puedes ofrecerlo.")}
-            </p>
-          )}
-
-          <div className="dialog-actions public-work-actions">
-            {viewer ? (
-              <Link href="/descubrir" className="share-button">
-                <BookOpen size={15} /> {t("Ver en el catálogo")}
-              </Link>
-            ) : (
-              <Link href="/" className="share-button">
-                <BookOpen size={15} /> {t("Entrar para pedirlo")}
-              </Link>
-            )}
-          </div>
-
-          <p className="detail-footer">
-            {t(
-              "Wanderbibliothek no aloja archivos: los intercambios son de ejemplares físicos entre lectores.",
-            )}
-          </p>
         </div>
       </article>
 
@@ -198,7 +244,8 @@ export default async function Page({ params }: PageProps) {
             "@type": "Book",
             name: work.title,
             author: { "@type": "Person", name: work.author },
-            url: `${base}/werk/${work.id}`,
+            description: summary,
+            url: `${base}${workPath}`,
             ...(work.isbn ? { isbn: work.isbn } : {}),
             ...(language ? { inLanguage: language } : {}),
             ...(work.publisher
@@ -207,12 +254,17 @@ export default async function Page({ params }: PageProps) {
             ...(work.year && /^\d{4}$/.test(work.year) ? { datePublished: work.year } : {}),
             offers: {
               "@type": "Offer",
-              price: 0,
+              url: `${base}${workPath}`,
+              // Los ejemplares son de segunda mano: Google no debe anunciarlo
+              // como un libro nuevo, y el vendedor es la propia comunidad.
+              price: "0",
               priceCurrency: "EUR",
+              itemCondition: "https://schema.org/UsedCondition",
               availability:
                 work.copies > 0
                   ? "https://schema.org/InStock"
                   : "https://schema.org/OutOfStock",
+              seller: { "@type": "Organization", name: "Wanderbibliothek", url: base },
               areaServed: work.cities.map((city) => ({ "@type": "City", name: city.city })),
             },
           }).replace(/</g, "\\u003c"),

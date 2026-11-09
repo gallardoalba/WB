@@ -53,6 +53,14 @@
     gap: 26px;
   }
 
+  .book-detail.public-work {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .book-detail.public-work .book-detail-cover {
+    height: 390px;
+  }
+
   .profile-hero {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -319,6 +327,25 @@
   .book-detail {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  /* En móvil manda el orden del HTML: cabecera y acción, luego portada y por
+     último la ficha. La portada baja a 220 px para no comerse la pantalla. */
+  .book-detail.public-work {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "cover"
+      "body";
+  }
+
+  .book-detail.public-work .book-detail-cover {
+    /* En móvil la portada va después de la acción: con la proporción del libro
+       y un ancho fijo, la imagen llena el marco sin dejar verde de sobra. */
+    height: auto;
+    width: min(240px, 100%);
+    margin: 0 auto;
+    aspect-ratio: 2 / 3;
   }
 
   .book-detail-cover {

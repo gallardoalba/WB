@@ -12,6 +12,8 @@ type BookCoverProps = {
   author?: string;
   coverUrl: string | null;
   sizes?: string;
+  /** La portada es el LCP de la página (ficha): se pide sin diferir. */
+  priority?: boolean;
 };
 
 /**
@@ -36,6 +38,7 @@ export function BookCover({
   author,
   coverUrl,
   sizes = "(max-width: 700px) 44vw, 220px",
+  priority = false,
 }: BookCoverProps) {
   const { t } = useI18n();
   const [failed, setFailed] = useState(false);
@@ -71,6 +74,7 @@ export function BookCover({
       fill
       sizes={sizes}
       unoptimized
+      priority={priority}
       // La portada la sirve la propia aplicación (`/api/cover/<isbn>`), que la
       // descarga y la cachea en el servidor: el navegador no habla con ningún
       // tercero y no revela el ISBN de lo que está mirando.

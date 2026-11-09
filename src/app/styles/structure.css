@@ -700,6 +700,12 @@
   font-weight: 750;
 }
 
+/* Sin barra lateral (ficha pública sin sesión) la marca tiene que seguir
+   estando: en escritorio el logotipo vivía solo en el panel lateral. */
+.no-rail .topbar .mobile-brand {
+  display: inline-flex;
+}
+
 .icon-button,
 .top-avatar {
   border: 0;
@@ -923,6 +929,17 @@
 
 .topbar .locale-switcher {
   margin-right: 2px;
+  /* La etiqueta es el objetivo táctil del selector (el `select` mide 18 px de
+     alto): a 44 px cumple el mínimo de la barra superior. */
+  min-height: 44px;
+  padding: 0 10px;
+}
+
+/* «Entrar» de la cabecera: mismo alto que el resto de controles (tema, idioma,
+   GitHub), que ya miden 44 px. */
+.topbar .secondary-button.small,
+.topbar .share-button.small {
+  min-height: 44px;
 }
 
 /* Secciones privadas sin sesión: candado y aspecto apagado. */

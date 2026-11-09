@@ -27,11 +27,14 @@ export async function SiteShell({
   section,
   title,
   children,
+  rail = true,
 }: {
   user: SessionUser | null;
   section: RailSection;
   title: string;
   children: ReactNode;
+  /** Sin barra lateral en las páginas públicas de aterrizaje (ficha de obra). */
+  rail?: boolean;
 }) {
   // Armazón renderizado en el servidor: al navegador solo bajan las islas
   // interactivas (menú de cuenta, tema, idioma), no la cabecera entera.
@@ -49,18 +52,20 @@ export async function SiteShell({
   const activeRequests = user ? countActiveRequests(user.id) : 0;
   const unreadNotifications = user ? countUnreadNotifications(user.id) : 0;
   return (
-    <main className="app-shell">
+    <main className={rail ? "app-shell" : "app-shell no-rail"}>
       <a className="skip-link" href="#main-content">
         {t("Saltar al contenido")}
       </a>
-      <SiteRail
-        user={user}
-        section={section}
-        locale={locale}
-        unreadMessages={unreadMessages}
-        activeRequests={activeRequests}
-        unreadNotifications={unreadNotifications}
-      />
+      {rail && (
+        <SiteRail
+          user={user}
+          section={section}
+          locale={locale}
+          unreadMessages={unreadMessages}
+          activeRequests={activeRequests}
+          unreadNotifications={unreadNotifications}
+        />
+      )}
 
       <section className="main-panel">
         <header className="topbar">
@@ -91,7 +96,9 @@ export async function SiteShell({
           </div>
         </header>
 
-        <div className="content-wrap" id="main-content">
+        {/* `tabIndex={-1}` para que el enlace de salto pueda mover el foco aquí:
+            un `div` sin foco deja al teclado al principio de la página. */}
+        <div className="content-wrap" id="main-content" tabIndex={-1}>
           {user && !user.emailVerified && <VerifyEmailBanner email={user.email} />}
           {children}
 

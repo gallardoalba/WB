@@ -580,32 +580,77 @@
 /* ---------- Ficha pública de obra (/werk/<id>) ---------- */
 
 .public-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
   margin: 0 0 16px;
   font-size: 13px;
 }
 
+/* El enlace de miga lleva padding vertical: sin él medía 14 px de alto y no
+   llegaba al mínimo táctil (WCAG 2.2, 2.5.8). */
 .public-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 0;
   color: var(--green-strong);
 }
 
-.public-work-cities h2 {
-  margin: 18px 0 8px;
-  font-size: 15px;
+.public-breadcrumb-sep {
+  color: var(--faint);
 }
 
-.public-work-cities ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.public-breadcrumb [aria-current="page"] {
+  color: var(--muted-2);
+}
+
+/* Ejemplares y ciudades, en una línea: antes eran dos bloques («Ejemplares» y
+   «Ciudades con ejemplares») que empujaban la acción una pantalla hacia abajo. */
+.public-work-availability {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  align-items: center;
+  gap: 4px 7px;
+  margin: 0 0 16px;
   color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.public-work-availability strong {
+  color: var(--ink);
+}
+
+.public-work-availability.is-empty {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--paper-sunk);
+  color: var(--muted);
   font-size: 14px;
 }
 
 .public-work-actions {
-  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+  margin: 0 0 22px;
+}
+
+/* La acción principal es lo que se viene a hacer: ancha y alta, también en
+   escritorio (antes se alineaba a la derecha como un botón de diálogo). */
+.public-work-actions .public-work-primary {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+  font-size: 15px;
+}
+
+/* «Ver en el catálogo»: acción secundaria del mismo ancho que la principal. */
+.public-work-secondary {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
 }
 
 /* En la tarjeta pública el género puede ocupar dos líneas: recortado se leía
