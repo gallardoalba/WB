@@ -111,6 +111,7 @@ Messages within an exchange and direct messages are encrypted in the browser (EC
 
 - Passwords with asynchronous `scrypt` and a unique salt; sign-in always verifies a hash (against a decoy when the account does not exist), so response time does not reveal which addresses are registered.
 - Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (`web` and `android`); the sender stores one envelope per recipient key, so the browser and the app can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification.
+- What that encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.
 - 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted, and the database only stores its SHA-256.
 - Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation in production; secrets are stored encrypted.
 - Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.
@@ -174,7 +175,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 705 unit and integration tests in 87 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 709 unit and integration tests in 88 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

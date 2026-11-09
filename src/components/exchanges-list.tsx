@@ -69,10 +69,13 @@ function nextAction(request: RequestView, t: (text: string) => string): string |
 /** Lista de intercambios de la vista «Intercambios». */
 export function ExchangesList({
   requests,
+  total,
   onOpen,
   onExplore,
 }: {
   requests: RequestView[];
+  /** Intercambios totales de la cuenta: si son más que `requests`, hay recorte. */
+  total: number;
   onOpen: (requestId: string) => void;
   onExplore: () => void;
 }) {
@@ -138,6 +141,16 @@ export function ExchangesList({
         </article>
         );
       })}
+      {/* La vista trae un máximo de 500: si hay más, se dice. Callarlo dejaba a
+          quien más intercambia con un historial que se cortaba sin avisar. */}
+      {total > requests.length && (
+        <p className="form-hint exchange-truncated" role="status">
+          {t("Se muestran los {shown} intercambios más recientes de {total}.", {
+            shown: requests.length,
+            total,
+          })}
+        </p>
+      )}
     </div>
   );
 }

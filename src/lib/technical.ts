@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 705 pruebas unitarias y de integración (87 ficheros)",
+            "tests/                 709 pruebas unitarias y de integración (88 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -225,6 +225,7 @@ const ES: TechnicalDocument = {
             "Tokens de cuenta de un solo uso, hasheados y con caducidad; cambiar la contraseña revoca todas las sesiones.",
             "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje (sin ellos no se podría descifrar nada fuera de la aplicación), y borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo y sus conversaciones directas, y conserva el historial de intercambio sin romper los hilos ajenos.",
             "Un mensaje cifrado se rechaza si falta el sobre de algún dispositivo activo del destinatario: el que se quedara fuera no podría leerlo y el fallo aparecería días después.",
+            "Lo que este cifrado **no** cubre, dicho sin adornos: cada mensaje se cifra con la clave de identidad de su ranura, **sin secreto hacia delante** (no hay ratchet), y no hay recuperación. Quien obtenga a la vez la base y la clave privada de un dispositivo puede leer lo que ese dispositivo recibió; perder el dispositivo o los datos del navegador es perder ese historial. Cambiarlo exige versionar el protocolo y los dos clientes, no un parche.",
           ],
         },
       ],
@@ -321,7 +322,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 705 pruebas unitarias y de integración en 87 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 709 pruebas unitarias y de integración en 88 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 36 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -503,7 +504,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 705 Unit- und Integrationstests (87 Dateien)",
+            "tests/                 709 Unit- und Integrationstests (88 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -646,6 +647,7 @@ const DE: TechnicalDocument = {
             "Konto-Tokens sind einmalig, gehasht und befristet; ein Passwortwechsel beendet alle Sitzungen.",
             "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht (ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln); das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel und die Direktgespräche und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
             "Eine verschlüsselte Nachricht wird abgelehnt, wenn der Umschlag für ein aktives Gerät der anderen Person fehlt: Das übergangene Gerät könnte sie nicht lesen, und der Fehler würde erst Tage später auffallen.",
+            "Was diese Verschlüsselung **nicht** abdeckt, ohne Beschönigung: Jede Nachricht wird mit dem Identitätsschlüssel ihrer Slot verschlüsselt, **ohne Forward Secrecy** (kein Ratchet), und es gibt keine Wiederherstellung. Wer gleichzeitig die Datenbank und den privaten Schlüssel eines Geräts erlangt, kann lesen, was dieses Gerät empfangen hat; ein verlorenes Gerät oder gelöschte Browserdaten bedeuten verlorene Historie. Das zu ändern verlangt eine versionierte Änderung des Protokolls und beider Clients, keinen Patch.",
           ],
         },
       ],
@@ -742,7 +744,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 705 Unit- und Integrationstests in 87 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 709 Unit- und Integrationstests in 88 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 36 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

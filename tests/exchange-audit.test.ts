@@ -800,3 +800,34 @@ test("la exportación lleva los sobres de las conversaciones propias", async () 
     false,
   );
 });
+
+/* --------------------------- historial paginado --------------------------- */
+
+test("el historial se pagina por cursor sin repetir ni saltarse filas", () => {
+  // Cinco intercambios seguidos: pueden compartir marca de tiempo, que es justo
+  // el caso en el que un `OFFSET` se salta filas o las repite.
+  for (let index = 0; index < 5; index += 1) {
+    const listing = nuevoEjemplar("usr_clara");
+    const request = repo.createRequest("usr_diego", listing.id);
+    repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  }
+
+  const vistos: string[] = [];
+  let cursor: { updatedAt: string; id: string } | undefined;
+  for (let pagina = 0; pagina < 20; pagina += 1) {
+    const page = repo.listRequestsPage("usr_clara", { limit: 2, before: cursor });
+    assert.ok(page.items.length <= 2, "la página respeta el límite");
+    vistos.push(...page.items.map((request) => request.id));
+    if (!page.hasMore) {
+      assert.equal(page.next, null, "sin más páginas no hay cursor");
+      break;
+    }
+    assert.ok(page.next, "con más páginas hay cursor");
+    cursor = page.next!;
+  }
+
+  assert.equal(new Set(vistos).size, vistos.length, "ninguna fila repetida");
+  const todos = repo.listRequests("usr_clara").map((request) => request.id);
+  assert.deepEqual([...vistos].sort(), [...todos].sort(), "no falta ninguna");
+  assert.equal(repo.countRequests("usr_clara"), todos.length, "el total coincide");
+});

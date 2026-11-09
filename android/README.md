@@ -244,3 +244,23 @@ app/src/main/java/org/wanderbibliothek/app/
 - No hay notificaciones push; los avisos se ven al abrir la pantalla de avisos.
 - Las etiquetas temáticas se muestran traducidas, pero el contenido que escriben
   las personas no se traduce.
+
+## Pruebas: qué hay y qué falta
+
+- **Lo que corre en cada cambio** (y en la integración continua): las pruebas
+  JVM de `app/src/test` (cifrado, serialización de modelos, reglas del
+  repositorio) más `lint` y la compilación del APK de depuración.
+- **Lo que falta**: pruebas **instrumentadas** (`app/src/androidTest`) y de
+  interfaz con Compose. Hacen falta porque lo que más se rompe en una app es lo
+  que solo existe en el teléfono: DataStore, Keystore, el ciclo de vida al
+  volver del segundo plano y el WebView de Turnstile. Hoy eso se comprueba a
+  mano.
+- **Cómo se haría**: crear `app/src/androidTest/java/...` con
+  `androidx.compose.ui:ui-test-junit4` (y `ui-test-manifest`) y ejecutar
+  `./gradlew connectedDebugAndroidTest` con un emulador o un teléfono
+  conectado. Para la integración continua hay dos caminos: un trabajo aparte con
+  `reactivecircus/android-emulator-runner` (unos 8–12 minutos y algo inestable)
+  o Robolectric en las pruebas JVM (más rápido, pero simula Android en vez de
+  ejecutarlo). Mientras no haya ninguna de las dos cosas, el `CI` no debe
+  aparentar que cubre el cliente.
+

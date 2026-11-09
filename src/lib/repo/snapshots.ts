@@ -7,7 +7,7 @@ import { listClubs } from "./clubs";
 import { listRecentComments } from "./comments";
 import { listPublicReadingLists } from "./lists";
 import { countUnreadNotifications, listNotifications } from "./notifications";
-import { countActiveRequests, countUnreadMessages, listRequests } from "./requests";
+import { countActiveRequests, countRequests, countUnreadMessages, listRequests } from "./requests";
 import { listFollowingActivity, listFollowingComments, listReaders } from "./social";
 import { getStats, listActivity } from "./stats";
 
@@ -97,6 +97,8 @@ export function getSnapshot(
     // La lista completa solo la usa la vista de intercambios; el contador del
     // menú se resuelve con un COUNT.
     requests: isExchanges && user ? listRequests(user.id) : [],
+    // Cuántos hay de verdad: la lista se corta en 500 y la vista lo avisa.
+    requestsTotal: isExchanges && user ? countRequests(user.id) : 0,
     activeRequests: user ? countActiveRequests(user.id) : 0,
     activity,
     conversations,

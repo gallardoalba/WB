@@ -139,7 +139,7 @@ export default function WanderbibliothekApp({
   openNotifications?: boolean;
   nextPath?: string | null;
 }) {
-  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
+  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
   const { t, locale } = useI18n();
   const REGION = regionName(locale);
   // Los enlaces conservan el prefijo del idioma de la página (`/es/…`): en una
@@ -1072,6 +1072,7 @@ export default function WanderbibliothekApp({
             ) : (
               <ExchangesList
                 requests={requests}
+                total={requestsTotal}
                 onOpen={setExchangeId}
                 onExplore={() => navigate({ view: "discover" })}
               />

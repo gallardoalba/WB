@@ -140,13 +140,63 @@ export function countUnreadMessages(userId: string): number {
 }
 
 export function listRequests(userId: string): RequestView[] {
-  const rows = getDb()
+  return listRequestsPage(userId, { limit: REQUEST_PAGE_MAX }).items;
+}
+
+/** Tope de una página del historial (lo que devuelve la vista completa). */
+export const REQUEST_PAGE_MAX = 500;
+
+/** Total de intercambios de una cuenta, para saber si la lista viene recortada. */
+export function countRequests(userId: string): number {
+  const row = getDb()
     .prepare(
-      `${REQUEST_SELECT} WHERE r.requester_id = @userId OR r.owner_id = @userId
-        ORDER BY r.updated_at DESC LIMIT 500`,
+      "SELECT COUNT(*) AS count FROM requests WHERE requester_id = ? OR owner_id = ?",
     )
-    .all({ userId, viewerId: userId }) as RequestRow[];
-  return rows.map((row) => toRequestView(row, userId));
+    .get(userId, userId) as { count: number };
+  return row.count;
+}
+
+/**
+ * Una página del historial, ordenada por actividad reciente.
+ *
+ * El cursor es `(updated_at, id)` y no un `offset`: la lista se ordena por la
+ * última actividad, así que un mensaje nuevo mueve las filas y un `OFFSET`
+ * repetiría o saltaría intercambios entre dos páginas. Con el par completo,
+ * `id` desempata los que comparten marca de tiempo.
+ */
+export function listRequestsPage(
+  userId: string,
+  options: { limit?: number; before?: { updatedAt: string; id: string } } = {},
+): { items: RequestView[]; hasMore: boolean; next: { updatedAt: string; id: string } | null } {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), REQUEST_PAGE_MAX);
+  const before = options.before;
+  const filas = getDb()
+    .prepare(
+      `${REQUEST_SELECT}
+        WHERE (r.requester_id = @userId OR r.owner_id = @userId)
+          AND (@antes IS NULL
+               OR r.updated_at < @antes
+               OR (r.updated_at = @antes AND r.id < @antesId))
+        ORDER BY r.updated_at DESC, r.id DESC
+        LIMIT @limite`,
+    )
+    .all({
+      userId,
+      viewerId: userId,
+      antes: before?.updatedAt ?? null,
+      antesId: before?.id ?? null,
+      // Una fila de más para saber si queda algo sin hacer otro COUNT.
+      limite: limit + 1,
+    }) as RequestRow[];
+
+  const hayMas = filas.length > limit;
+  const items = (hayMas ? filas.slice(0, limit) : filas).map((row) => toRequestView(row, userId));
+  const ultima = items.at(-1);
+  return {
+    items,
+    hasMore: hayMas,
+    next: hayMas && ultima ? { updatedAt: ultima.updatedAt, id: ultima.id } : null,
+  };
 }
 
 /**

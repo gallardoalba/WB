@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 705 unit and integration tests (87 files)",
+            "tests/                 709 unit and integration tests (88 files)",
             "e2e/                   browser tests with Playwright (6 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -201,6 +201,7 @@ export const EN: TechnicalDocument = {
             "Single-use account tokens, hashed and with an expiry; changing the password revokes every session.",
             "`GET /api/account/export` delivers all data as JSON, **envelopes included** (without them nothing could be decrypted outside the app); deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without breaking other people's threads.",
             "An encrypted message is rejected when the envelope for one of the recipient's active devices is missing: that device could not read it and the failure would only show up days later.",
+            "What this encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.",
           ],
         },
       ],
@@ -297,7 +298,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 705 unit and integration tests in 87 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 709 unit and integration tests in 88 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 36 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

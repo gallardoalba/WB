@@ -423,6 +423,8 @@ export type AppSnapshot = {
   pageSize: number;
   hasMore: boolean;
   requests: RequestView[];
+  /** Intercambios totales de la cuenta (puede ser mayor que `requests`). */
+  requestsTotal: number;
   /** Intercambios abiertos de la cuenta (para el contador del menú). */
   activeRequests: number;
   activity: ActivityView[];
