@@ -1021,6 +1021,74 @@ test("el cron tampoco publica de noche, aunque haya avisos vencidos", async () =
   }
 });
 
+test("--ahora suelta un aviso concreto sin turno ni horario de silencio", async () => {
+  clearQueue();
+  const original = globalThis.fetch;
+  const llamadas: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    llamadas.push(String(input));
+    return jsonResponse({ id: "1" });
+  }) as unknown as typeof fetch;
+  const anterior = process.env.MASTODON_QUIET_HOURS;
+  delete process.env.MASTODON_QUIET_HOURS;
+  process.env.MASTODON_TOKEN = "tok";
+  try {
+    // Turno muy futuro y de madrugada: con el cron no saldría ni hoy ni ahora.
+    dbModule
+      .getDb()
+      .prepare(
+        `INSERT INTO social_outbox (id, network, subject, body, status, attempts, next_attempt_at, created_at)
+         VALUES ('soc_tarde', 'mastodon', 'bok_tarde', 'texto', 'pending', 0,
+                 '2099-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z')`,
+      )
+      .run();
+    const noche = new Date("2026-11-09T23:00:00Z");
+    const cron = await mastodon.processSocialOutbox({ now: noche });
+    assert.deepEqual(cron, { sent: 0, failed: 0, skipped: true }, "el cron calla");
+    assert.equal(llamadas.length, 0, "ni una petición a Mastodon");
+
+    const manual = await mastodon.processSocialOutbox({
+      only: "soc_tarde",
+      force: true,
+      now: noche,
+    });
+    assert.equal(manual.sent, 1);
+    assert.equal(llamadas.length > 0, true, "la vía manual sí publica");
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.MASTODON_TOKEN;
+    if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
+    else process.env.MASTODON_QUIET_HOURS = anterior;
+  }
+});
+
+test("`force` sin `only` no adelanta la cola entera", async () => {
+  clearQueue();
+  process.env.MASTODON_TOKEN = "tok";
+  const anterior = process.env.MASTODON_QUIET_HOURS;
+  delete process.env.MASTODON_QUIET_HOURS;
+  try {
+    dbModule
+      .getDb()
+      .prepare(
+        `INSERT INTO social_outbox (id, network, subject, body, status, attempts, next_attempt_at, created_at)
+         VALUES ('soc_futuro', 'mastodon', 'bok_futuro', 'texto', 'pending', 0,
+                 '2099-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z')`,
+      )
+      .run();
+    // Sin `only`, `force` no vale: el cron no puede saltarse la separación.
+    const result = await mastodon.processSocialOutbox({
+      force: true,
+      now: new Date("2026-11-09T10:00:00Z"),
+    });
+    assert.equal(result.sent, 0);
+  } finally {
+    delete process.env.MASTODON_TOKEN;
+    if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
+    else process.env.MASTODON_QUIET_HOURS = anterior;
+  }
+});
+
 test("una obra sin ejemplares vivos no se anuncia cuando le llega el turno", async () => {
   clearQueue();
   const db = dbModule.getDb();

@@ -836,6 +836,12 @@ function claimPosts(
   ahora: Date,
   limit: number,
   only: string | null,
+  /**
+   * Suelta la fila aunque su turno no haya vencido. Solo para la vía manual
+   * (`--ahora`): el cron tiene que seguir respetando la separación entre avisos
+   * para que la cuenta no parezca un robot.
+   */
+  force: boolean,
 ): {
   id: string;
   subject: string;
@@ -855,12 +861,19 @@ function claimPosts(
         `SELECT id, subject, body, attempts, media_id
            FROM social_outbox
           WHERE network = ? AND status = 'pending'
-            AND next_attempt_at <= ?
+            AND (? = 1 OR next_attempt_at <= ?)
             AND (? IS NULL OR id = ?)
           ORDER BY created_at ASC
           LIMIT ?`,
       )
-      .all(SOCIAL_NETWORK, ahoraIso, only, only, limit) as {
+      .all(
+        SOCIAL_NETWORK,
+        force ? 1 : 0,
+        ahoraIso,
+        only,
+        only,
+        limit,
+      ) as {
       id: string;
       subject: string;
       body: string;
@@ -904,6 +917,23 @@ function sinEjemplaresVivos(subject: string): boolean {
  * `only` limita el intento a una fila concreta (la que acaba de encolar quien
  * publica), de modo que un atraso en la cola no retrasa el aviso de hoy.
  */
+/**
+ * ¿Esta obra tiene un aviso esperando turno? Devuelve el id de la fila, o
+ * `null` si no hay nada que adelantar. Lo usa el script manual (`--ahora`):
+ * adelantar un turno es tocar la cola, no volver a encolar.
+ */
+export function pendingPostFor(bookId: string): string | null {
+  const row = getDb()
+    .prepare(
+      `SELECT id FROM social_outbox
+        WHERE network = ? AND subject = ? AND status IN ('pending', 'sending')
+        ORDER BY created_at DESC
+        LIMIT 1`,
+    )
+    .get(SOCIAL_NETWORK, bookId) as { id: string } | undefined;
+  return row?.id ?? null;
+}
+
 export async function processSocialOutbox(
   options: {
     limit?: number;
@@ -912,23 +942,32 @@ export async function processSocialOutbox(
     fetchImpl?: typeof fetch;
     /** Instante de referencia (las pruebas lo fijan; el servicio usa el reloj). */
     now?: Date;
+    /**
+     * Publica esa fila ya: ni turno ni horario de silencio. Es la vía manual de
+     * la administración (`npm run mastodon:test -- --ahora <obra>`) para sacar
+     * un aviso concreto sin esperar a que le toque; exige `only`, para que el
+     * cron no pueda saltarse la separación entre avisos por descuido.
+     */
+    force?: boolean;
   } = {},
 ): Promise<{ sent: number; failed: number; skipped: boolean }> {
   const config = options.config === undefined ? mastodonConfig() : options.config;
   const fetchImpl = options.fetchImpl ?? fetch;
   const limit = options.limit ?? 3;
+  const force = Boolean(options.force && options.only);
   if (!config) return { sent: 0, failed: 0, skipped: true };
   // El mismo instante para decidir qué está vencido y para anotar el envío:
   // si se mezclara con el reloj de SQLite, una prueba con fecha simulada no
   // recogería lo que ella misma acaba de encolar.
   const ahora = options.now ?? new Date();
   // De noche no se publica nada: lo que vence se queda en cola y sale al
-  // abrirse la ventana (el cron pasará a las 09:00 y lo verá vencido).
-  if (enHorarioSilencioso(ahora)) {
+  // abrirse la ventana (el cron pasará a las 09:00 y lo verá vencido). La vía
+  // manual sí puede: quien la usa lo pide a propósito.
+  if (!force && enHorarioSilencioso(ahora)) {
     return { sent: 0, failed: 0, skipped: true };
   }
   const db = getDb();
-  const rows = claimPosts(db, ahora, limit, options.only ?? null);
+  const rows = claimPosts(db, ahora, limit, options.only ?? null, force);
 
   let sent = 0;
   let failed = 0;

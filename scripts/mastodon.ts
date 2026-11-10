@@ -4,6 +4,7 @@
  *   sudo npm --prefix /srv/wanderbibliothek/current run mastodon:test
  *   sudo npm ... run mastodon:test -- --libro bok_123      # enseña el aviso
  *   sudo npm ... run mastodon:test -- --enviar bok_123     # lo publica
+ *   sudo npm ... run mastodon:test -- --ahora bok_123      # adelanta su turno
  *   sudo npm ... run mastodon:test -- --cola               # reintenta pendientes
  *   sudo npm ... run mastodon:test -- --gustar             # enseña qué le gustaría
  *   sudo npm ... run mastodon:test -- --gustar-enviar      # da el «me gusta»
@@ -26,6 +27,7 @@ import {
   localeForLanguage,
   mastodonConfig,
   mediaForPost,
+  pendingPostFor,
   processSocialOutbox,
   purgeSocialOutbox,
   STATUS_LIMIT,
@@ -43,12 +45,13 @@ import { getBook } from "../src/lib/repo";
 import { siteUrl } from "../src/lib/site";
 
 const USAGE =
-  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--cola] [--gustar] [--gustar-enviar] [--gustos] [--env /ruta]";
+  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--ahora <obra>] [--cola] [--gustar] [--gustar-enviar] [--gustos] [--env /ruta]";
 
 type Options = {
   libro: string | null;
   media: string | null;
   enviar: string | null;
+  ahora: string | null;
   cola: boolean;
   gustar: boolean;
   gustarEnviar: boolean;
@@ -61,6 +64,7 @@ function parseArgs(argv: string[]): Options {
     libro: null,
     media: null,
     enviar: null,
+    ahora: null,
     cola: false,
     gustar: false,
     gustarEnviar: false,
@@ -85,12 +89,13 @@ function parseArgs(argv: string[]): Options {
       options.gustos = true;
       continue;
     }
-    if (arg === "--libro" || arg === "--media" || arg === "--enviar" || arg === "--env") {
+    if (arg === "--libro" || arg === "--media" || arg === "--enviar" || arg === "--ahora" || arg === "--env") {
       const value = argv[index + 1];
       if (!value) throw new Error(`${arg} necesita un valor.`);
       if (arg === "--libro") options.libro = value;
       else if (arg === "--media") options.media = value;
       else if (arg === "--enviar") options.enviar = value;
+      else if (arg === "--ahora") options.ahora = value;
       else options.entorno = value;
       index += 1;
       continue;
@@ -163,7 +168,7 @@ async function main() {
   console.log(`Instancia: ${config!.instance} · visibilidad: ${config!.visibility}`);
   if (!(await verifyCredentials())) process.exit(1);
 
-  const objetivo = options.enviar ?? options.libro ?? options.media;
+  const objetivo = options.enviar ?? options.ahora ?? options.libro ?? options.media;
   if (!objetivo) {
     showText(composeStatus(SAMPLE));
     console.log(
@@ -212,7 +217,26 @@ async function main() {
       );
     }
 
-    if (options.enviar) {
+    if (options.ahora) {
+      // Adelantar el turno: no se vuelve a encolar (la clave única lo impide),
+      // se suelta la fila que ya espera, sin hacer caso a la separación entre
+      // avisos ni al horario de silencio.
+      const fila = pendingPostFor(book.id);
+      if (!fila) {
+        console.log(
+          "Esa obra no tiene aviso en cola: no hay turno que adelantar. Con --enviar <obra> se encola y sale en su turno.",
+        );
+      } else {
+        const result = await processSocialOutbox({ limit: 1, only: fila, force: true, config });
+        console.log(
+          result.sent > 0
+            ? "Publicado ahora, sin esperar al turno ni al horario de silencio."
+            : result.failed > 0
+              ? "No salió: el motivo está en la fila de la cola. Lo reintenta el cron (o `--cola`)."
+              : "No había nada que publicar en esa fila.",
+        );
+      }
+    } else if (options.enviar) {
       // Se publica con `announceBook` y no con un POST suelto: así queda la fila
       // en la cola, con su clave de idempotencia, y la obra no se anuncia dos
       // veces si alguien vuelve a poner el mismo libro.
@@ -231,7 +255,7 @@ async function main() {
           ? `Publicado y anotado en la cola (${result.media ? "con portada" : "sin portada"}).`
           : result.queued
             ? "Encolado, pero el envío no salió: se reintenta en el cron (o con --cola)."
-            : "No se encoló: esa obra ya tiene un aviso.",
+            : "No se encoló: esa obra ya tiene un aviso. Para adelantarlo, --ahora <obra>."
       );
     } else if (!options.media) {
       console.log("Nada enviado. Con --enviar <obra> se publica este mismo texto.");
