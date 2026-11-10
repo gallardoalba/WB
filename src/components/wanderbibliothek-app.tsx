@@ -121,13 +121,12 @@ const VIEW_LABELS = {
 } satisfies Record<View, MessageKey>;
 
 const VIEW_TITLES = {
-  home: "La estantería comunitaria",
-  discover: "Encuentra tu próxima historia",
+  discover: "La estantería comunitaria",
   shelf: "Tu estantería guardada",
   community: "La lectura se comparte",
   exchanges: "Tus intercambios",
   offer: "Cuéntanos qué libro ofreces",
-} satisfies Record<View, MessageKey>;
+} satisfies Record<Exclude<View, "home">, MessageKey>;
 
 const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
   conversations: "Conversaciones",
@@ -835,15 +834,16 @@ export default function WanderbibliothekApp({
             </section>
           )}
 
-          <div className="section-heading">
-            <div>
-              {view === "home" ? (
-                <h2>{t(VIEW_TITLES[view])}</h2>
-              ) : (
+          {/* La portada no lleva titular: el héroe ya presenta la página y el
+              h2 solo empujaba el estante hacia abajo. El nombre de la
+              estantería vive ahora en «Descubrir». */}
+          {view !== "home" && (
+            <div className="section-heading">
+              <div>
                 <h1 tabIndex={-1}>{t(VIEW_TITLES[view])}</h1>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {view === "community" ? (
             <div className="community-hub">
@@ -1344,6 +1344,12 @@ export default function WanderbibliothekApp({
                 enter="auto"
                 default="none"
               >
+              {/* Sin titular visible, pero el estante sigue siendo una sección
+                  con nombre: si no, los títulos de las tarjetas (h3) colgarían
+                  de la marca y se saltarían un nivel. */}
+              {view === "home" && (
+                <h2 className="sr-only">{t("La estantería comunitaria")}</h2>
+              )}
               <div className={view === "home" ? "home-shelf" : undefined}>
                 {view === "home" && (
                   <button
@@ -1359,7 +1365,9 @@ export default function WanderbibliothekApp({
               <div
                 ref={shelfRef}
                 className={
-                  view === "home" ? "book-grid home-grid is-carousel" : "book-grid"
+                  view === "home"
+                    ? "book-grid home-grid is-carousel"
+                    : `book-grid view-${view}`
                 }
                 id="book-grid"
                 tabIndex={-1}
@@ -1393,7 +1401,10 @@ export default function WanderbibliothekApp({
                         setPreviewListing(listing);
                         setPreviewOpen(true);
                       }}
+                      // El corazón solo vive en «Descubrir»: en la portada
+                      // tapaba la portada en móvil y el estante es para ojear.
                       actions={
+                        view === "discover" ? (
                         <button
                           type="button"
                           className={favorite ? "favorite-button is-favorite" : "favorite-button"}
@@ -1413,6 +1424,7 @@ export default function WanderbibliothekApp({
                         >
                           <Heart size={17} fill={favorite ? "currentColor" : "none"} />
                         </button>
+                        ) : undefined
                       }
                     />
                   );
@@ -1478,30 +1490,38 @@ export default function WanderbibliothekApp({
                         1
                       </span>
                       <h3>{t("Comparte")}</h3>
-                      <p>{t("Publica un libro que ya hayas leído y deja que otros lo encuentren.")}</p>
+                      <p>
+                        {t(
+                          "Publica el libro que ya has leído con su estado y tu ciudad. El ISBN es opcional y no hay precio: aquí los ejemplares se dan o se intercambian.",
+                        )}
+                      </p>
                     </li>
                     <li>
                       <span className="how-step" aria-hidden="true">
                         2
                       </span>
                       <h3>{t("Encuentra")}</h3>
-                      <p>{t("Pide el ejemplar que buscas: quien lo tiene decide si te lo pasa.")}</p>
+                      <p>
+                        {t(
+                          "Busca por título, autoría o tema y filtra por distancia e idioma. Quien tiene el ejemplar decide si te lo pasa.",
+                        )}
+                      </p>
                     </li>
                     <li>
                       <span className="how-step" aria-hidden="true">
                         3
                       </span>
-                      <h3>{t("Sigue viajando")}</h3>
+                      <h3>{t("Quedad y confirmad")}</h3>
                       <p>
                         {t(
-                          "Quedáis para la entrega, la confirmáis las dos partes y el libro sigue su camino.",
+                          "Acordáis la entrega en la conversación y la confirmáis las dos partes. El ejemplar pasa a la estantería de quien lo recibe y puede volver a circular.",
                         )}
                       </p>
                     </li>
                   </ol>
                   <p className="how-note">
                     {t(
-                      "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona de la comunidad.",
+                      "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona. La plataforma solo mantiene el índice; el ejemplar está en casa de quien lo ofrece.",
                     )}
                   </p>
                 </section>

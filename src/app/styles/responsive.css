@@ -16,6 +16,20 @@
   }
 }
 
+/* Pantallas anchas: el catálogo vuelve a cinco columnas, como estaba pensado
+   para 15 tarjetas (tres filas de cinco). */
+@media (min-width: 1120px) {
+  .book-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1360px) {
+  .book-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1120px) {
   .hero-banner {
     grid-template-columns: 1fr;

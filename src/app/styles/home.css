@@ -18,6 +18,25 @@
    que se puede seguir mirando sin cambiar de página. */
 .home-shelf {
   position: relative;
+  /* La portada ya no lleva titular encima del estante: estos 24 px son todo el
+     aire entre el héroe y la primera fila. */
+  margin-top: 24px;
+  /* Alto del marco de la portada en cada ancho (`.cover-frame`). La flecha se
+     centra en la imagen, no en la tarjeta entera, que sigue con el título, la
+     autoría y el botón. */
+  --cover-h: 210px;
+}
+
+@media (max-width: 768px) {
+  .home-shelf {
+    --cover-h: 165px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-shelf {
+    --cover-h: 200px;
+  }
 }
 
 .home-shelf .book-grid.is-carousel {
@@ -70,10 +89,16 @@
 }
 
 /* Flechas del estante: 44 px, círculo con la superficie de la tarjeta y la
-   sombra de la casa. Se retiran cuando no queda nada a ese lado. */
+   sombra de la casa. Se retiran cuando no queda nada a ese lado.
+   `top` centra el botón en la **portada** (la tarjeta mide 210 px de imagen:
+   2 de relleno + 105 de centro − 22 de media flecha), no en la tarjeta entera,
+   que incluye título, autoría y etiquetas. */
 .shelf-arrow {
   position: absolute;
-  top: 38%;
+  /* Centrada en el hueco de la portada: 44 px de botón sobre la mitad del
+     marco. Con un valor fijo (85 px) quedaba baja en tableta y alta en móvil,
+     donde el marco mide 165 y 200 px respectivamente. */
+  top: calc(var(--cover-h) / 2 - 22px);
   z-index: 2;
   display: grid;
   place-items: center;
@@ -113,6 +138,34 @@
 
   .shelf-arrow {
     transition: none;
+  }
+}
+
+/* La portada mide 165 px entre 481 y 768 px de ancho, y 200 px por debajo de
+   480: la flecha se recoloca para seguir centrada en la imagen. */
+@media (max-width: 768px) {
+  .shelf-arrow {
+    top: 62px;
+  }
+}
+
+@media (max-width: 480px) {
+  .shelf-arrow {
+    top: 80px;
+  }
+}
+
+/* «Descubrir» enseña cinco libros por fila en pantallas grandes: con tres, una
+   tirada de quince ocupaba cinco filas. Entre 961 y 1199 px caben cuatro. */
+@media (min-width: 1200px) {
+  .book-grid.view-discover {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 961px) and (max-width: 1199px) {
+  .book-grid.view-discover {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
