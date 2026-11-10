@@ -61,12 +61,12 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
   // catálogo (ver `shuffleOrder`). `shuffle` viaja aparte de la URL para que el
   // scroll infinito del catálogo siga trayendo páginas coherentes.
   //
-  // La portada pide **seis** tarjetas y no quince: `.home-grid` deja ver entre
-  // tres y seis según el ancho, así que el resto se pintaba en el servidor y se
-  // ocultaba con `:nth-child` — unos 440 nodos del DOM que nadie llegaba a ver.
+  // La portada pide **doce** tarjetas: el estante enseña entre tres y cinco a
+  // la vez y las flechas avanzan una pantalla, así que hacen falta varias
+  // "páginas" de libros. Antes se pedían quince y once se ocultaban.
   const snapshot = getSnapshot(
     user,
-    { ...params, shuffle: view === "home", pageSize: view === "home" ? 6 : params.pageSize },
+    { ...params, shuffle: view === "home", pageSize: view === "home" ? 12 : params.pageSize },
     { stats, activity },
   );
 

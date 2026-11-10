@@ -1852,7 +1852,7 @@ export const EN = {
   "Sigue viajando": "Keep travelling",
   "Quedáis para la entrega, la confirmáis las dos partes y el libro sigue su camino.": "You arrange the handover, both sides confirm it, and the book moves on.",
   "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona de la comunidad.": "You do not have to swap books with each other: what you give today, someone else in the community receives tomorrow.",
-    "Explorar libros": "Browse books",
+    "Explorar libros": "Discover all books",
   "libro disponible": "book available",
   "intercambio hecho": "exchange completed",
   "lector registrado": "registered reader",

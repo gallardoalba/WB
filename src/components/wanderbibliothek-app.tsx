@@ -382,6 +382,51 @@ export default function WanderbibliothekApp({
     [router],
   );
 
+  /**
+   * Estante de la portada: una sola fila que se desliza. Las flechas mueven una
+   * pantalla y se apagan en los extremos; en el móvil el arrastre funciona sin
+   * más JS porque el contenedor lleva `scroll-snap`.
+   */
+  const shelfRef = useRef<HTMLDivElement | null>(null);
+  const [shelfEdges, setShelfEdges] = useState({ start: true, end: false });
+
+  const moverEstante = useCallback((direction: 1 | -1) => {
+    const el = shelfRef.current;
+    if (!el) return;
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Un poco menos que el ancho visible: así siempre asoma el canto de la
+    // tarjeta siguiente, que es lo que invita a seguir mirando.
+    el.scrollBy({
+      left: direction * (el.clientWidth - 48),
+      behavior: suave ? "smooth" : "auto",
+    });
+  }, []);
+
+  // Las flechas solo se ofrecen cuando hay algo a ese lado. Se mide al montar,
+  // al cambiar de vista, al redimensionar y al desplazar el estante.
+  useEffect(() => {
+    const el = shelfRef.current;
+    if (view !== "home" || !el) return;
+    const medir = () => {
+      setShelfEdges((prev) => {
+        const start = el.scrollLeft <= 2;
+        const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+        return prev.start === start && prev.end === end ? prev : { start, end };
+      });
+    };
+    // En `requestAnimationFrame`: escribir estado en el cuerpo del efecto choca
+    // con la regla `react-hooks/set-state-in-effect`.
+    const raf = requestAnimationFrame(medir);
+    el.addEventListener("scroll", medir, { passive: true });
+    const observer = new ResizeObserver(medir);
+    observer.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", medir);
+      observer.disconnect();
+    };
+  }, [view, listings.length]);
+
   // Al cambiar de vista el foco sigue donde estaba y el lector de pantalla no
   // anuncia nada nuevo. Se mueve al título de la vista (que recibirá
   // `tabIndex={-1}`); en la primera pintura no se toca.
@@ -1299,8 +1344,23 @@ export default function WanderbibliothekApp({
                 enter="auto"
                 default="none"
               >
+              <div className={view === "home" ? "home-shelf" : undefined}>
+                {view === "home" && (
+                  <button
+                    type="button"
+                    className="shelf-arrow prev"
+                    aria-label={t("Ir a la página anterior")}
+                    disabled={shelfEdges.start}
+                    onClick={() => moverEstante(-1)}
+                  >
+                    <ChevronLeft size={20} aria-hidden="true" />
+                  </button>
+                )}
               <div
-                className={view === "home" ? "book-grid home-grid" : "book-grid"}
+                ref={shelfRef}
+                className={
+                  view === "home" ? "book-grid home-grid is-carousel" : "book-grid"
+                }
                 id="book-grid"
                 tabIndex={-1}
                 aria-busy={isPending || loadState === "loading" || undefined}
@@ -1390,22 +1450,19 @@ export default function WanderbibliothekApp({
                 )}
                 </div>
               </div>
-              </ViewTransition>
-
-              {view === "home" && (
-                <div className="home-discover">
+                {view === "home" && (
                   <button
                     type="button"
-                    className="secondary-button"
-                    // El salto al principio lo hace el efecto que vigila el
-                    // cambio de vista; aquí no se anima nada para no pelearse
-                    // con él.
-                    onClick={() => navigate({ view: "discover", page: 1 })}
+                    className="shelf-arrow next"
+                    aria-label={t("Ir a la página siguiente")}
+                    disabled={shelfEdges.end}
+                    onClick={() => moverEstante(1)}
                   >
-                    <Compass size={16} /> {t("Descubrir todos los libros")}
+                    <ChevronRight size={20} aria-hidden="true" />
                   </button>
-                </div>
-              )}
+                )}
+              </div>
+              </ViewTransition>
 
               {/* «Cómo funciona» va **después** del catálogo: en un móvil de
                   390 px, entre el héroe y este bloque se iban 421 px y el

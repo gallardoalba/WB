@@ -9,70 +9,113 @@
   padding-left: clamp(18px, 5vw, 64px);
 }
 
-@media (min-width: 1400px) {
-  .home-content .book-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+/* ---------------------------------------------------------------
+   Estante de la portada
+   ---------------------------------------------------------------
+   La portada enseña una sola fila. Antes el resto de tarjetas se ocultaba con
+   `:nth-child` y había que abrir el catálogo con un botón para ver más. Ahora
+   la fila se desliza: las flechas avanzan una pantalla y el dedo arrastra, así
+   que se puede seguir mirando sin cambiar de página. */
+.home-shelf {
+  position: relative;
 }
 
-@media (min-width: 1800px) {
-  .home-content .book-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
+.home-shelf .book-grid.is-carousel {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 32px) / 3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  /* Aire abajo para la sombra del hover; la barra nativa se oculta porque las
+     flechas ya avisan de que hay más y en el móvil se arrastra. */
+  padding: 2px 2px 8px;
+  scrollbar-width: none;
 }
 
-/* La portada enseña exactamente una fila: el número de tarjetas visible
-   sigue al de columnas de cada breakpoint. */
-/* La portada enseña una fila: el número de tarjetas visible sigue al de
-   columnas de cada breakpoint. En dos columnas (móvil y tableta) una fila
-   dejaba solo dos libros, así que ahí se muestran tres filas. */
-.home-grid .book-card:nth-child(n + 4),
-.home-grid > .skeleton-card:nth-child(n + 4) {
+.home-shelf .book-grid.is-carousel::-webkit-scrollbar {
   display: none;
 }
 
+.home-shelf .book-grid.is-carousel > .book-card {
+  display: flex;
+  scroll-snap-align: start;
+}
+
+/* Mismo número de columnas que tenía la rejilla en cada ancho. */
+@media (max-width: 960px) {
+  .home-shelf .book-grid.is-carousel {
+    grid-auto-columns: calc((100% - 16px) / 2);
+  }
+}
+
+@media (max-width: 480px) {
+  .home-shelf .book-grid.is-carousel {
+    /* Una tarjeta y el canto de la siguiente: se ve que hay más. */
+    grid-auto-columns: 78%;
+  }
+}
+
 @media (min-width: 1400px) {
-  .home-grid .book-card:nth-child(4) {
-    display: flex;
-  }
-
-  .home-grid > .skeleton-card:nth-child(4) {
-    display: block;
-  }
-
-  .home-grid .book-card:nth-child(n + 5),
-  .home-grid > .skeleton-card:nth-child(n + 5) {
-    display: none;
+  .home-shelf .book-grid.is-carousel {
+    grid-auto-columns: calc((100% - 48px) / 4);
   }
 }
 
 @media (min-width: 1800px) {
-  .home-grid .book-card:nth-child(5) {
-    display: flex;
-  }
-
-  .home-grid > .skeleton-card:nth-child(5) {
-    display: block;
-  }
-
-  .home-grid .book-card:nth-child(n + 6),
-  .home-grid > .skeleton-card:nth-child(n + 6) {
-    display: none;
+  .home-shelf .book-grid.is-carousel {
+    grid-auto-columns: calc((100% - 64px) / 5);
   }
 }
 
-.home-discover {
-  display: flex;
-  justify-content: center;
-  /* 30 px abajo se sumaban a los 26 de `how-it-works` y dejaban medio centenar
-     de píxeles muertos entre el botón y «Cómo funciona». */
-  margin: 8px 0 12px;
+/* Flechas del estante: 44 px, círculo con la superficie de la tarjeta y la
+   sombra de la casa. Se retiran cuando no queda nada a ese lado. */
+.shelf-arrow {
+  position: absolute;
+  top: 38%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  cursor: pointer;
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
 }
 
-.home-discover .secondary-button {
-  min-height: 44px;
-  padding: 0 18px;
+.shelf-arrow:hover:not(:disabled) {
+  transform: scale(1.06);
 }
+
+.shelf-arrow:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shelf-arrow.prev {
+  left: -14px;
+}
+
+.shelf-arrow.next {
+  right: -14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-shelf .book-grid.is-carousel {
+    scroll-behavior: auto;
+  }
+
+  .shelf-arrow {
+    transition: none;
+  }
+}
+
 
 /* ============================================================
    Portada (hero)
@@ -259,8 +302,8 @@
    iconos: no hacen falta y competirían con la foto del hero. El pie aclara lo
    que más se malinterpreta del proyecto: no hay intercambio directo. */
 .how-it-works {
-  /* Va inmediatamente después del botón «Descubrir todos los libros»: los 26 px
-     de arriba ya no separan de la rejilla sino del botón. */
+  /* Va inmediatamente después del estante de la portada: 12 px bastan para
+     separarlo de la fila de tarjetas. */
   margin: 12px 0 6px;
   padding: 20px 22px;
   border: 1px solid var(--line);

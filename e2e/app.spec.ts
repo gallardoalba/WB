@@ -324,10 +324,12 @@ test("«Descubrir todos los libros» abre el catálogo por arriba", async ({ pag
   // Con la portada desplazada al final, el catálogo se abría a media altura:
   // el desplazamiento a cero se hacía antes de que la vista nueva tuviera su
   // altura definitiva. Ahora lo hace el router al terminar la navegación.
+  // El enlace vive en el pie (el botón suelto bajo el estante se retiró: ahora
+  // se pasa de página con las flechas de la propia fila).
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
 
-  await page.getByRole("button", { name: "Descubrir todos los libros" }).click();
+  await page.getByRole("link", { name: "Descubrir todos los libros" }).click();
   await expect(page).toHaveURL(/\/descubrir/);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(40);
 });
