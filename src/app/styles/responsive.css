@@ -183,6 +183,9 @@
      tres líneas y la frase acababa en «…» justo donde empieza a explicar el
      proyecto. Solo se ajusta el tamaño, no la longitud. */
   .hero-banner p {
+    /* Toda la tarjeta: con el 74 % de escritorio quedaban nueve líneas y la
+       última era una sola palabra («Eigentum.»). */
+    max-width: none;
     font-size: 15px;
     line-height: 1.5;
   }

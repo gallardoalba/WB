@@ -142,15 +142,21 @@
 }
 
 /* Medida de lectura: el párrafo se corta en 84 caracteres (~855 px a 16 px) y,
-   en tarjetas estrechas, al 70 % de su ancho. El tope en tanto por ciento es lo
+   en tarjetas estrechas, al 74 % de su ancho. El tope en tanto por ciento es lo
    que mantiene el texto dentro de la zona donde el velo de la foto aún tapa lo
    suficiente: con un tope fijo en `ch`, a 900–1024 px de ventana el párrafo
    llegaba al 84–95 % de la tarjeta y el contraste caía a 2,9:1. Medido sobre la
-   foto: 7,0:1 a 900 px, 7,1–7,6:1 a 1280–1440 px (claro) y 9,9:1 (oscuro).
+   foto al 70 %: 7,0:1 a 900 px, 7,1–7,6:1 a 1280–1440 px (claro) y 9,9:1
+   (oscuro); al 74 % el borde del texto sigue donde el velo va al 78 % de
+   superficie, que deja margen sobre 4,5:1.
+   `text-wrap: balance` reparte los renglones: con el ajuste normal, a partir de
+   1200 px la frase se quedaba en tres líneas y la última era «kollektives
+   Eigentum.» (y en alemán, a algunos anchos, solo «Eigentum.»).
    Para ganar ancho sin perder legibilidad el texto usa `--ink-soft` en vez de
    `--muted`; con `--muted` la misma medida bajaba a 4,4:1. */
 .hero-banner p {
-  max-width: min(84ch, 70%);
+  max-width: min(84ch, 74%);
+  text-wrap: balance;
   margin: 0;
   color: var(--ink-soft);
   font-size: var(--text-base);
