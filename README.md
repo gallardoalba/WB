@@ -2,35 +2,35 @@
 
 **Books travel, ideas connect people.**
 
-Wanderbibliothek brings together people who don't want the books they have read to gather dust on a shelf. Publish a book and it becomes findable for readers nearby; look for one and you ask for it, and the two of you agree on the hand-over.
+Wanderbibliothek is a community platform for sharing printed books. You put the books you have read back into circulation, and readers nearby can find them and ask for them; the two of you then agree on the hand-over.
 
-The platform is deliberately built as a counter-model to commercial marketplaces: it sells nothing, runs no ads, tracks nobody and rewards nobody for being active. It assumes that people share when it is made easy for them and they are not distrusted, and that a community can negotiate its own rules.
+It is deliberately built as the opposite of a commercial marketplace: nothing is sold and nobody is rewarded for being active.
 
 ## What the platform does
 
-- **Publishing books.** Put the books you have finished on the shelf in a couple of steps, with the condition they are in and where they are. Readers nearby find them and can ask for them.
-- **Swapping.** Request, acceptance, hand-over agreed in the conversation, a confirmation from both sides, then a review. Each side confirms separately, so nobody can close an exchange on their own. When it closes, the copy that travelled stays as a record and the person who received it gets a copy of their own, paused on their shelf until they offer it.
-- **No addresses on the platform.** The platform never asks how the book travels: they agree that in the conversation and each side confirms when the copy arrives.
-- **Talking without being overheard.** Each exchange opens a conversation that is encrypted end to end, and readers who follow each other can write privately; the server stores sealed envelopes it cannot open.
-- **Reading circles.** Organised by city, with a current read, meetings, an attendance list, a vote on the next book and a forum only members can read.
-- **Lists, directory, activity.** Reading lists as public curation, a directory of readers sorted by distance, and a stream of what is happening around you.
-- **Self-hosted.** One instance runs on a small server with SQLite, with no third-party service needed to work: mail (Brevo or any webhook) and the Mastodon bot are optional. The server itself does query Open Library, Google Books and the DNB for covers and records (and Nominatim for cities), and caches the results on disk; the browser never talks to them.
+- **Publishing books.** Add a copy with its condition and city. The ISBN is optional: when you give one, the bibliographic record fills itself in.
+- **Swapping.** Request, acceptance, a hand-over agreed between the two of you and a confirmation from both sides, so nobody can close an exchange alone; afterwards each person can review the other. When it closes, the copy that travelled stays as a record and the person who received it gets a copy of their own, paused until they offer it.
+- **No addresses.** The platform never asks for an address, a postcode or a delivery method.
+- **Direct messages.** Each exchange opens a conversation encrypted end to end, and readers who follow each other can write privately. The server stores sealed envelopes it cannot open.
+- **Reading circles.** A current read, meetings in person or online, an attendance list, a vote on the next book and a forum only members can read.
+- **Lists, directory, activity.** Public reading lists, a directory of readers you can sort by distance, and a stream of what is happening nearby.
+- **Self-hosted.** One small server with SQLite is enough. Mail and the Mastodon bot are optional; catalogue lookups (Open Library, Google Books, the DNB, Nominatim for cities) run on the server and are cached on disk, so the browser never talks to them.
 
 ## Principles
 
-**Reciprocity.** Whoever gives a book away makes room for another one. This is not a one-to-one swap: anyone can ask for any copy and whoever owns it decides, so what one person gives today another person receives tomorrow. There is no currency, no balance and no points pushing anyone to trade more, only the expectation that you give too.
+**Reciprocity.** Whoever gives a book away makes room for another one. It is not a one-to-one swap: anyone can ask for any copy and whoever owns it decides, so what one person gives today another person receives tomorrow. There is no currency, no balance and no points.
 
-**Free of charge.** No fees, no premium tier, no advertising, no handing data to third parties. What the platform does not cost it does not need to earn, and what it does not earn it cannot sell.
+**Free of charge.** No fees, no premium tier, no advertising and no data sold.
 
-**Books as commons.** A book that has been read is not dead stock; it is something that wants to be passed on. So the platform manages hand-overs rather than property: giving a copy away does not lose it, it puts it into circulation.
+**Books as commons.** A book that has been read is not dead stock; it wants to be passed on. The platform manages hand-overs rather than property: giving a copy away does not lose it, it puts it into circulation.
 
-**Self-organisation.** What a reading circle reads, when it meets and who joins is decided by the reading circle, not by a head office. Moderation is reversible and traceable too: what has been taken down can be restored, and every decision leaves a trail.
+**Self-organisation.** What a reading circle reads, when it meets and who joins is decided by the reading circle, not by a head office.
 
-**Transparency.** The source is open and the rules sit where they apply. If you want to know what happens to your data, you can read it up instead of taking it on trust.
+**Transparency.** The source is open and the documentation is public, so what happens to your data can be checked rather than taken on trust.
 
-**Privacy.** No advertising or analytics services, no profiles for third parties. Messages between two people are end-to-end encrypted, shipping data is encrypted, and all your own data can be exported as JSON and deleted completely.
+**Privacy.** No analytics and no tracking. Your data can be exported as JSON and deleted completely.
 
-**Autonomy.** No dependency on a platform, a corporate account or a payment provider: one server, one database file, one system service. Anyone who wants to can run their own instance.
+**Autonomy.** No dependency on a platform, a corporate account or a payment provider. Anyone who wants to can run their own instance.
 
 ## Run it yourself
 
@@ -44,7 +44,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-The SQLite database creates itself on first start, with demo data in development. For a real deployment you need at least `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` and a mail provider (`BREVO_API_KEY` + `MAIL_FROM`, or `MAIL_WEBHOOK_URL` for anything else); without an encryption key no secret is ever stored. The full guide with systemd, nginx, TLS, backups and timers is in [`deploy/README.md`](deploy/README.md).
+The SQLite database creates itself on first start, with demo data in development. For a real deployment you need at least `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` and a mail provider (`BREVO_API_KEY` + `MAIL_FROM`, or `MAIL_WEBHOOK_URL` for anything else); without an encryption key no secret is ever stored. The full guide is in [`deploy/README.md`](deploy/README.md).
 
 An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run admin:create`.
 
@@ -57,18 +57,17 @@ cd android
 ./gradlew :app:assembleDebug
 ```
 
-## Technical documentation
+## Documentation and contributing
 
-Architecture, routes, data model, security, environment variables and operations have moved out of this README:
+The same documentation is in the application, at `/documentacion`, and in the repository:
 
-- **Inside the application** at `/documentacion`.
-- **In the repository**: [`DOCUMENTATION.md`](DOCUMENTATION.md) (the same content in English), [`CONTRIBUTING.md`](CONTRIBUTING.md) (environment, quality commands, commit conventions, migration rules), [`deploy/README.md`](deploy/README.md) (operations) and [`SECURITY.md`](SECURITY.md) (how to report a vulnerability).
+- [`DOCUMENTATION.md`](DOCUMENTATION.md): architecture, routes, data model, security and operations.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): local environment, the checks a change has to pass, commit, migration and translation conventions.
+- [`deploy/README.md`](deploy/README.md): production setup with systemd, nginx, TLS, backups and timers.
+
+Bug reports, suggestions and pull requests are welcome.
 
 Lint, type checking, more than 700 automated tests, browser tests, a production build and an image build run on every push in CI; `npm audit --omit=dev` currently reports no open issues.
-
-## Contributing
-
-Bug reports, suggestions and pull requests are welcome. A look at [`CONTRIBUTING.md`](CONTRIBUTING.md) first is worthwhile: it lists the commands a change has to pass and the rule that new strings always arrive in all three languages.
 
 ## Security
 
