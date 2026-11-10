@@ -20,9 +20,9 @@ export const SITE_TITLE: Record<Locale, string> = {
 };
 
 export const SITE_DESCRIPTION: Record<Locale, string> = {
-  de: "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Keine Werbung, kein Datenhandel.",
-  es: "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos.",
-  en: "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared. No ads, no data trading.",
+  de: "Eine dezentrale Bibliothek, getragen von der Gemeinschaft, die glaubt, dass Wissen wächst, wenn Bücher, Ideen und Erfahrungen geteilt werden. Keine Werbung, kein Datenhandel, für kollektives Eigentum.",
+  es: "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos, por la propiedad colectiva.",
+  en: "A decentralised, community-driven library built on the belief that knowledge grows when books, ideas and experiences are shared. No ads, no data trading, for collective ownership.",
 };
 
 /**
