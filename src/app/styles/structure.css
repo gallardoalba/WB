@@ -1076,10 +1076,35 @@
   margin: 16px 0 0;
   padding: 14px 0;
   border-top: 1px solid var(--line);
-  /* La sombra avisa de que debajo sigue habiendo ficha: sin ella, el último
-     dato cortado por la barra parece un fallo de maquetación. */
-  box-shadow: 0 -10px 14px -12px rgba(20, 30, 22, 0.3);
   background: var(--surface);
+  /* Sin sombra: sobre el fondo del diálogo se leía como una mancha encima de
+     los botones. La línea superior ya marca dónde acaba el contenido. */
+  box-shadow: none;
+  /* Las dos salidas llenan el ancho. Alineadas a la derecha dejaban un hueco a
+     la izquierda que parecía sitio sin usar. */
+  justify-content: stretch;
+  gap: 10px;
+}
+
+.preview-dialog .dialog-actions > button {
+  /* `auto` y no `0`: con mitades exactas la etiqueta más larga («Entrar para
+     pedirlo») se partía en dos líneas y la barra crecía de alto. */
+  flex: 1 1 auto;
+  min-width: 0;
+  /* Algo menos de relleno lateral que un botón suelto: los dos tienen que caber
+     en la misma línea, también en alemán («Anmelden und anfragen»). */
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+/* En pantallas estrechas, uno encima del otro: «Seguir explorando» y «Entrar
+   para pedirlo» no caben lado a lado sin apretarse (y en alemán la etiqueta es
+   aún más larga). */
+@media (max-width: 520px) {
+  .preview-dialog .dialog-actions > button {
+    flex: 1 1 100%;
+    white-space: normal;
+  }
 }
 
 .preview-cover {

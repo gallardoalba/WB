@@ -92,15 +92,21 @@
   font-size: 17px;
 }
 
+/* Ojo con `display: grid` aquí: los hijos de un contenedor de rejilla se
+   blocan y el `li` pierde su viñeta, así que las listas salían como líneas
+   sueltas sin punto. La separación se hace con márgenes. */
 .tech-doc ul {
   margin: 0 0 var(--space-3);
-  padding-left: 20px;
-  display: grid;
-  gap: 6px;
+  padding-left: 22px;
+  list-style: disc outside;
+}
+
+.tech-doc ul li + li {
+  margin-top: 6px;
 }
 
 .tech-doc ul li::marker {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .doc-updated {
