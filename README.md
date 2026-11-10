@@ -4,11 +4,11 @@
 
 Wanderbibliothek is a community platform for sharing printed books. You put the books you have read back into circulation, and readers nearby can find them and ask for them; the two of you then agree on the hand-over.
 
-It is deliberately built as the opposite of a commercial marketplace: nothing is sold and nobody is rewarded for being active.
+It is deliberately built as a counter-model to commercial marketplaces: nothing is sold and nobody is rewarded for being active.
 
 ## What the platform does
 
-- **Publishing books.** Add a copy with its condition and city. The ISBN is optional: when you give one, the bibliographic record fills itself in.
+- **Publishing books.** Put the books you have finished on the shelf in a couple of steps, with the condition they are in and where they are. The ISBN is optional: when you give one, the bibliographic record fills itself in.
 - **Swapping.** Request, acceptance, a hand-over agreed between the two of you and a confirmation from both sides, so nobody can close an exchange alone; afterwards each person can review the other. When it closes, the copy that travelled stays as a record and the person who received it gets a copy of their own, paused until they offer it.
 - **No addresses.** The platform never asks for an address, a postcode or a delivery method.
 - **Direct messages.** Each exchange opens a conversation encrypted end to end, and readers who follow each other can write privately. The server stores sealed envelopes it cannot open.
