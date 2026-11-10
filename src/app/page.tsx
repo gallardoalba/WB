@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page({ searchParams }: AppViewPageProps) {
   return (
-    <Suspense fallback={<AppSkeleton rows={4} hero />}>
+    <Suspense fallback={<AppSkeleton rows={6} hero />}>
       <HomeView params={searchParams} />
     </Suspense>
   );

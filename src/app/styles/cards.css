@@ -262,10 +262,10 @@
 
 /* En la tarjeta el género pesa menos que la autoría: es el tercer nivel. Antes
    estaba a 10 px, por debajo de lo que se lee sin esfuerzo en un móvil; a
-   11,5 px sigue siendo una etiqueta y no compite con el título. */
+   11,5 px seguía siendo una etiqueta, pero el mínimo cómodo es 12 px. */
 .book-details .book-category {
   margin-bottom: 2px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }

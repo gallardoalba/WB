@@ -121,7 +121,7 @@ const VIEW_LABELS = {
 } satisfies Record<View, MessageKey>;
 
 const VIEW_TITLES = {
-  home: "La estantería común",
+  home: "La estantería comunitaria",
   discover: "Encuentra tu próxima historia",
   shelf: "Tu estantería guardada",
   community: "La lectura se comparte",
@@ -790,44 +790,6 @@ export default function WanderbibliothekApp({
             </section>
           )}
 
-          {view === "home" && (
-            <section className="how-it-works" aria-labelledby="how-it-works-title">
-              <h2 id="how-it-works-title">{t("Cómo funciona")}</h2>
-              <ol>
-                <li>
-                  <span className="how-step" aria-hidden="true">
-                    1
-                  </span>
-                  <h3>{t("Comparte")}</h3>
-                  <p>{t("Publica un libro que ya hayas leído y deja que otros lo encuentren.")}</p>
-                </li>
-                <li>
-                  <span className="how-step" aria-hidden="true">
-                    2
-                  </span>
-                  <h3>{t("Encuentra")}</h3>
-                  <p>{t("Pide el ejemplar que buscas: quien lo tiene decide si te lo pasa.")}</p>
-                </li>
-                <li>
-                  <span className="how-step" aria-hidden="true">
-                    3
-                  </span>
-                  <h3>{t("Sigue viajando")}</h3>
-                  <p>
-                    {t(
-                      "Quedáis para la entrega, la confirmáis las dos partes y el libro sigue su camino.",
-                    )}
-                  </p>
-                </li>
-              </ol>
-              <p className="how-note">
-                {t(
-                  "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona de la comunidad.",
-                )}
-              </p>
-            </section>
-          )}
-
           <div className="section-heading">
             <div>
               {view === "home" ? (
@@ -1443,6 +1405,49 @@ export default function WanderbibliothekApp({
                     <Compass size={16} /> {t("Descubrir todos los libros")}
                   </button>
                 </div>
+              )}
+
+              {/* «Cómo funciona» va **después** del catálogo: en un móvil de
+                  390 px, entre el héroe y este bloque se iban 421 px y el
+                  primer libro quedaba a 1,3 pantallas de distancia. Explica
+                  el mecanismo, así que se lee mejor después de haber visto
+                  que hay libros de verdad. */}
+              {view === "home" && (
+                <section className="how-it-works" aria-labelledby="how-it-works-title">
+                  <h2 id="how-it-works-title">{t("Cómo funciona")}</h2>
+                  <ol>
+                    <li>
+                      <span className="how-step" aria-hidden="true">
+                        1
+                      </span>
+                      <h3>{t("Comparte")}</h3>
+                      <p>{t("Publica un libro que ya hayas leído y deja que otros lo encuentren.")}</p>
+                    </li>
+                    <li>
+                      <span className="how-step" aria-hidden="true">
+                        2
+                      </span>
+                      <h3>{t("Encuentra")}</h3>
+                      <p>{t("Pide el ejemplar que buscas: quien lo tiene decide si te lo pasa.")}</p>
+                    </li>
+                    <li>
+                      <span className="how-step" aria-hidden="true">
+                        3
+                      </span>
+                      <h3>{t("Sigue viajando")}</h3>
+                      <p>
+                        {t(
+                          "Quedáis para la entrega, la confirmáis las dos partes y el libro sigue su camino.",
+                        )}
+                      </p>
+                    </li>
+                  </ol>
+                  <p className="how-note">
+                    {t(
+                      "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona de la comunidad.",
+                    )}
+                  </p>
+                </section>
               )}
 
               {view === "discover" &&

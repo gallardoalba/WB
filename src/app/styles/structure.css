@@ -573,7 +573,9 @@
 .site-search input {
   flex: 1;
   min-width: 0;
-  padding: 8px 0;
+  /* 10 px arriba y abajo dejan el campo en 44 px de alto, que es el mínimo
+     cómodo para el pulgar (con 8 medía 40). */
+  padding: 10px 0;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -931,6 +933,13 @@
   font-size: var(--text-sm);
   font-weight: 700;
   cursor: pointer;
+  /* El control medía 43×18: por debajo del mínimo de 24 px de alto de WCAG 2.5.8
+     y muy lejos de los 44 recomendados para el pulgar. El texto no cambia de
+     tamaño; el relleno añade el área que se puede tocar. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 4px;
 }
 
 .locale-option {

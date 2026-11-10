@@ -60,7 +60,15 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
   // La portada no ordena por cercanía ni por fecha: enseña una muestra del
   // catálogo (ver `shuffleOrder`). `shuffle` viaja aparte de la URL para que el
   // scroll infinito del catálogo siga trayendo páginas coherentes.
-  const snapshot = getSnapshot(user, { ...params, shuffle: view === "home" }, { stats, activity });
+  //
+  // La portada pide **seis** tarjetas y no quince: `.home-grid` deja ver entre
+  // tres y seis según el ancho, así que el resto se pintaba en el servidor y se
+  // ocultaba con `:nth-child` — unos 440 nodos del DOM que nadie llegaba a ver.
+  const snapshot = getSnapshot(
+    user,
+    { ...params, shuffle: view === "home", pageSize: view === "home" ? 6 : params.pageSize },
+    { stats, activity },
+  );
 
   // La portada del primer ejemplar es el LCP de la portada y del catálogo (lo
   // señala el propio Next al medir). Declararla aquí hace que el navegador la

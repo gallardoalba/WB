@@ -164,8 +164,11 @@
   .hero-banner {
     --hero-pad-x: 16px;
     --hero-pad-bottom: 14px;
-    padding: 18px var(--hero-pad-x) var(--hero-pad-bottom);
-    gap: 12px;
+    /* 14 px arriba en vez de 18 y 10 de separación en vez de 12: el héroe
+       medía 474 px en un móvil de 390 y cada píxel que baja es contenido que
+       entra en la primera pantalla. El texto no se toca. */
+    padding: 14px var(--hero-pad-x) var(--hero-pad-bottom);
+    gap: 10px;
   }
 
   .eyebrow {
@@ -203,9 +206,9 @@
   .hero-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 0;
-    row-gap: 14px;
-    margin-top: 14px;
-    padding-top: 12px;
+    row-gap: 10px;
+    margin-top: 8px;
+    padding-top: 10px;
   }
 
   .hero-stat {
