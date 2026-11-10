@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useOptimistic,
   useRef,
   useState,
   useTransition,
@@ -48,6 +49,7 @@ import { MastodonLink } from "./mastodon-link";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { AuthDialog } from "./dialogs/auth-dialog";
 import { SiteSearch } from "./site-search";
+import { LinkHint } from "./link-hint";
 
 // Los diálogos pesados (cripto E2E y QR, TOTP, escáner ISBN) solo se descargan
 // cuando se abren: el catálogo no paga su bundle.
@@ -81,6 +83,7 @@ import {
   type AppSnapshot,
   type CommunityTab,
   type ListingView,
+  type SessionUser,
   type SortMode,
   type View,
 } from "@/lib/domain";
@@ -160,7 +163,17 @@ export default function WanderbibliothekApp({
   openNotifications?: boolean;
   nextPath?: string | null;
 }) {
-  const { user, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
+  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
+  /**
+   * Entrada optimista: al iniciar sesión la cabecera pasa a «dentro» con la
+   * respuesta del propio `POST /api/auth/login`, sin esperar a que termine el
+   * `router.refresh()`. Cuando el refresco llega, el valor del servidor vuelve
+   * a mandar (y si falla, la sesión optimista se descarta sola).
+   */
+  const [user, addOptimisticUser] = useOptimistic<SessionUser | null, SessionUser>(
+    sessionUser,
+    (_actual, next) => next,
+  );
   const { t, locale } = useI18n();
   const REGION = regionName(locale);
   // Los enlaces conservan el prefijo del idioma de la página (`/es/…`): en una
@@ -355,6 +368,20 @@ export default function WanderbibliothekApp({
     [filters.category, filters.feed, filters.language, filters.q, filters.radius, filters.shelf, filters.sort, filters.tag, filters.tab, filters.scope, page, pathname, router, view],
   );
 
+  /**
+   * Adelanta una vista cuando el puntero o el foco llegan al botón. La
+   * navegación va por `router.replace` dentro de una transición, así que Next
+   * no precarga nada por su cuenta (no hay `<Link>`): sin esto, el primer
+   * cambio de vista siempre esperaba al servidor aunque el gesto se viera
+   * venir. Con `partialPrefetching` la respuesta adelantada ya trae el armazón.
+   */
+  const prefetchView = useCallback(
+    (target: View) => {
+      router.prefetch(VIEW_PATHS[target]);
+    },
+    [router],
+  );
+
   // Al cambiar de vista el foco sigue donde estaba y el lector de pantalla no
   // anuncia nada nuevo. Se mueve al título de la vista (que recibirá
   // `tabIndex={-1}`); en la primera pintura no se toca.
@@ -545,9 +572,17 @@ export default function WanderbibliothekApp({
     return () => clearTimeout(timer);
   }, [search, filters.q]);
 
-  const refresh = useCallback(() => {
-    startTransition(() => router.refresh());
-  }, [router]);
+  // Entra la cuenta `nextUser` en la transición para que la cabecera cambie en
+  // el mismo fotograma en que se pide la instantánea nueva al servidor.
+  const refresh = useCallback(
+    (nextUser?: SessionUser) => {
+      startTransition(() => {
+        if (nextUser) addOptimisticUser(nextUser);
+        router.refresh();
+      });
+    },
+    [addOptimisticUser, router],
+  );
 
   const requireAuth = useCallback(() => {
     if (user) return true;
@@ -623,6 +658,7 @@ export default function WanderbibliothekApp({
           notify(t("Has cerrado sesión."));
         }}
         onOffer={openOffer}
+        onPrefetch={prefetchView}
       />
       )}
 
@@ -713,6 +749,8 @@ export default function WanderbibliothekApp({
                 <button
                   type="button"
                   className="hero-button"
+                  onPointerEnter={() => prefetchView("discover")}
+                  onFocus={() => prefetchView("discover")}
                   onClick={() => {
                     // El catálogo es público: se puede ojear sin cuenta. Pedir
                     // un libro concreto sí abrirá el acceso más adelante.
@@ -1002,11 +1040,12 @@ export default function WanderbibliothekApp({
                         ))}
                       </div>
                     )}
-                    <Link href={href("/clubes")} className="community-more">
+                    <Link href={href("/clubes")} className="community-more link-pending">
                       {clubsTotal > clubs.length
                         ? t("Ver los {n} clubes", { n: clubsTotal })
                         : t("Ir al directorio de clubes")}{" "}
                       <ArrowRight size={15} />
+                      <LinkHint />
                     </Link>
                   </div>
                 )}
@@ -1029,9 +1068,10 @@ export default function WanderbibliothekApp({
                         ))}
                       </div>
                     )}
-                    <Link href={href("/lectores")} className="community-more">
+                    <Link href={href("/lectores")} className="community-more link-pending">
                       {t("Ver {n} lectores", { n: readersTotal })}{" "}
                       <ArrowRight size={15} />
+                      <LinkHint />
                     </Link>
                   </div>
                 )}
@@ -1489,9 +1529,18 @@ export default function WanderbibliothekApp({
             <span>{t("Hecho para que las historias sigan viajando.")}</span>
             {user && (
               <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
-                <Link href={href("/clubes")}>{t("Clubes")}</Link>
-                <Link href={href("/lectores")}>{t("Lectores")}</Link>
-                <Link href={href("/listas")}>{t("Listas")}</Link>
+                <Link href={href("/clubes")} className="link-pending">
+                  {t("Clubes")}
+                  <LinkHint />
+                </Link>
+                <Link href={href("/lectores")} className="link-pending">
+                  {t("Lectores")}
+                  <LinkHint />
+                </Link>
+                <Link href={href("/listas")} className="link-pending">
+                  {t("Listas")}
+                  <LinkHint />
+                </Link>
               </nav>
             )}
             {/* Sin sesión también: la política de privacidad hay que poder
@@ -1501,7 +1550,10 @@ export default function WanderbibliothekApp({
               className="footer-links legal-links"
               aria-label={t("Información y documentación")}
             >
-              <Link href={href("/descubrir")}>{t("Descubrir todos los libros")}</Link>
+              <Link href={href("/descubrir")} className="link-pending">
+                {t("Descubrir todos los libros")}
+                <LinkHint />
+              </Link>
               <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
               <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
               <Link href={href("/projekt")}>{t("El proyecto")}</Link>
@@ -1524,6 +1576,7 @@ export default function WanderbibliothekApp({
             view === "home" || view === "discover" ? "mobile-active" : ""
           }
           aria-current={view === "home" || view === "discover" ? "page" : undefined}
+          onPointerEnter={() => prefetchView("discover")}
           onClick={() => navigate({ view: "discover", page: 1 })}
         >
           <Compass size={19} />
@@ -1534,6 +1587,7 @@ export default function WanderbibliothekApp({
           className={view === "shelf" ? "mobile-active" : ""}
           aria-current={view === "shelf" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para ver tu estantería")}
+          onPointerEnter={() => prefetchView("shelf")}
           onClick={() => (requireAuth() ? navigate({ view: "shelf", page: 1 }) : undefined)}
         >
           <Heart size={19} />
@@ -1556,6 +1610,7 @@ export default function WanderbibliothekApp({
           className={view === "exchanges" ? "mobile-active" : ""}
           aria-current={view === "exchanges" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para ver tus intercambios")}
+          onPointerEnter={() => prefetchView("exchanges")}
           onClick={() => (requireAuth() ? navigate({ view: "exchanges", page: 1 }) : undefined)}
         >
           <ArrowDownUp size={19} />
@@ -1569,6 +1624,7 @@ export default function WanderbibliothekApp({
           className={view === "community" ? "mobile-active" : ""}
           aria-current={view === "community" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para participar en la comunidad")}
+          onPointerEnter={() => prefetchView("community")}
           onClick={() => (requireAuth() ? navigate({ view: "community", page: 1 }) : undefined)}
         >
           <Users size={19} />
@@ -1599,11 +1655,11 @@ export default function WanderbibliothekApp({
           setAuthNext(null);
           clearQueryParams("auth", "offer");
         }}
-        onSuccess={() => {
+        onSuccess={(nextUser) => {
           const target = authNext ?? nextPath;
           const pending = pendingFavorite.current;
           pendingFavorite.current = null;
-          refresh();
+          refresh(nextUser);
           notify(t("Sesión iniciada. ¡Buena lectura!"));
           if (pending) {
             void api(`/api/listings/${pending.id}/favorite`, {

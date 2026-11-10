@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   /**
+   * Compilador de React: memoiza solo los componentes y hooks que lo
+   * necesitan (Next lo aplica archivo a archivo con una pasada de SWC), así que
+   * la hidratación del catálogo hace menos trabajo por render. Requiere
+   * `babel-plugin-react-compiler` en devDependencies.
+   */
+  reactCompiler: true,
+  /**
    * El catálogo público vive ahora en «Descubrir», dentro de la aplicación.
    * `/buecher` se anunció unos días en el sitemap, así que se redirige para
    * siempre en vez de desaparecer.

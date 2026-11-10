@@ -88,6 +88,32 @@ export function getUserWithPassword(
   return { ...toSessionUser(row), passwordHash: row.passwordHash };
 }
 
+/**
+ * La cuenta tal y como se le devuelve al cliente: sin el hash de la contraseña.
+ *
+ * Se escribe campo a campo (y no con `delete` ni con un rest) para que el
+ * compilador avise si `SessionUser` gana una propiedad: entonces hay que
+ * decidir a mano si esa propiedad puede salir del servidor.
+ */
+export function publicSessionUser(account: SessionUser & { passwordHash: string }): SessionUser {
+  return {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+    city: account.city,
+    bio: account.bio,
+    isAdmin: account.isAdmin,
+    isSuspended: account.isSuspended,
+    emailVerified: account.emailVerified,
+    emailNotifications: account.emailNotifications,
+    locale: account.locale,
+    profileVisibility: account.profileVisibility,
+    cityPrecision: account.cityPrecision,
+    signAs: account.signAs,
+    dmPolicy: account.dmPolicy,
+  };
+}
+
 /** Guarda el idioma elegido para que los correos salgan en el idioma correcto. */
 export function setUserLocale(userId: string, locale: Locale): void {
   getDb().prepare("UPDATE users SET locale = ? WHERE id = ?").run(locale, userId);

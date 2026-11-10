@@ -9,6 +9,7 @@ import {
   getTotpState,
   getUserWithPassword,
   isAuthBlocked,
+  publicSessionUser,
   recordAuthFailure,
   verifyUserTotp,
 } from "@/lib/repo";
@@ -86,18 +87,11 @@ export async function POST(request: Request) {
     clearAuthFailures(attemptKey);
     const token = createSession(account.id, request.headers.get("user-agent") ?? "");
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
-    const user = {
-      id: account.id,
-      name: account.name,
-      email: account.email,
-      city: account.city,
-      bio: account.bio,
-      isAdmin: account.isAdmin,
-      isSuspended: account.isSuspended,
-      emailVerified: account.emailVerified,
-      emailNotifications: account.emailNotifications,
-    };
-    return json({ user });
+    // Se devuelve la cuenta entera (sin el hash) y no un subconjunto: la
+    // interfaz pinta la sesión ya iniciada con la respuesta, sin esperar al
+    // `router.refresh()`. La forma tiene que coincidir con la de
+    // `/api/auth/register`, que ya devuelve un `SessionUser`.
+    return json({ user: publicSessionUser(account) });
   } catch (error) {
     return handleApiError(error);
   }

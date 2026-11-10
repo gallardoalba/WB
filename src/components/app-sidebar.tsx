@@ -28,6 +28,7 @@ export function AppSidebar({
   onOpenNotifications,
   onLoggedOut,
   onOffer,
+  onPrefetch,
 }: {
   user: SessionUser | null;
   view: View;
@@ -40,10 +41,25 @@ export function AppSidebar({
   onLoggedOut: () => void;
   /** Abrir «Ofrecer un libro» (pide sesión si no la hay). */
   onOffer: () => void;
+  /** Adelantar la descarga de una vista al pasar por encima. */
+  onPrefetch?: (view: View) => void;
 }) {
   const { t } = useI18n();
   const privateClass = (active: boolean, locked: boolean) =>
     ["nav-item", active ? "active" : "", locked ? "locked" : ""].filter(Boolean).join(" ");
+  /**
+   * Intención de navegar (ratón encima o foco): se pide la ruta antes del clic.
+   * Con `<Link>` lo haría Next solo, pero aquí se navega con `router.replace`
+   * dentro de una transición y hasta ahora nadie adelantaba nada. Las vistas
+   * con candado no se piden: el clic abre el acceso, no la ruta.
+   */
+  const prefiere = (target: View) =>
+    user
+      ? {
+          onPointerEnter: () => onPrefetch?.(target),
+          onFocus: () => onPrefetch?.(target),
+        }
+      : {};
   return (
     <aside className="sidebar">
       <Link className="brand" href="/">
@@ -68,6 +84,7 @@ export function AppSidebar({
           aria-current={view === "home" || view === "discover" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para ver el catálogo")}
           onClick={() => (user ? onNavigate("discover") : onOpenAuth())}
+          {...prefiere("discover")}
         >
           {user ? <Compass size={18} /> : <Lock size={18} />}
           <span>{t("Descubrir")}</span>
@@ -79,6 +96,7 @@ export function AppSidebar({
           aria-current={view === "offer" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para ofrecer un libro")}
           onClick={onOffer}
+          {...prefiere("offer")}
         >
           {user ? <Plus size={18} /> : <Lock size={18} />}
           <span>{t("Ofrecer un libro")}</span>
@@ -88,6 +106,7 @@ export function AppSidebar({
           aria-current={view === "shelf" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para ver tu estantería")}
           onClick={() => (user ? onNavigate("shelf") : onOpenAuth())}
+          {...prefiere("shelf")}
         >
           {user ? <Heart size={18} /> : <Lock size={18} />}
           <span>{t("Mi estantería")}</span>
@@ -97,6 +116,7 @@ export function AppSidebar({
           aria-current={view === "exchanges" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para ver tus intercambios")}
           onClick={() => (user ? onNavigate("exchanges") : onOpenAuth())}
+          {...prefiere("exchanges")}
         >
           {user ? <ArrowDownUp size={18} /> : <Lock size={18} />}
           <span>{t("Intercambios")}</span>
@@ -120,6 +140,7 @@ export function AppSidebar({
           aria-current={view === "community" ? "page" : undefined}
           aria-label={user ? undefined : t("Entra para participar en la comunidad")}
           onClick={() => (user ? onNavigate("community") : onOpenAuth())}
+          {...prefiere("community")}
         >
           {user ? <Users size={18} /> : <Lock size={18} />}
           <span>{t("Comunidad")}</span>

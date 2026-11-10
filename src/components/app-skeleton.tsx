@@ -11,7 +11,17 @@ import { PageSkeleton } from "./page-skeleton";
  * con `cacheComponents` la estructura podría responderse antes, pero mientras
  * la vista es cliente no hay nada que enseñar.
  */
-export async function AppSkeleton({ rows = 4 }: { rows?: number }) {
+export async function AppSkeleton({
+  rows = 4,
+  hero = false,
+}: {
+  rows?: number;
+  /**
+   * La portada abre con su banner: se reserva ese hueco para que la entrada
+   * tenga la forma definitiva desde el primer fotograma.
+   */
+  hero?: boolean;
+}) {
   const locale = await getLocale();
   const t = (text: string) => translate(locale, text);
 
@@ -28,7 +38,7 @@ export async function AppSkeleton({ rows = 4 }: { rows?: number }) {
         <div className="skeleton-block rail-skeleton-user" />
       </div>
       <section className="main-panel">
-        <PageSkeleton rows={rows} label={t("Cargando…")} />
+        <PageSkeleton rows={rows} hero={hero} label={t("Cargando…")} />
       </section>
     </main>
   );

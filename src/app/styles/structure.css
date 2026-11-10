@@ -334,6 +334,23 @@
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
+  /* El panel se monta al abrirlo (`{open && …}`) y no tiene animación de JS:
+     `@starting-style` deja que el navegador interpole desde el primer
+     fotograma, sin `requestAnimationFrame` ni esperar a la hidratación. */
+  transition: opacity 140ms ease-out, transform 140ms ease-out;
+}
+
+@starting-style {
+  .account-menu-panel {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-menu-panel {
+    transition: none;
+  }
 }
 
 .account-menu-item {
@@ -1389,6 +1406,19 @@
 .skeleton-title {
   width: min(320px, 60%);
   height: 28px;
+}
+
+/* La portada abre con el banner y sus cifras: el hueco se reserva con su forma
+   para que el texto real llegue sin empujar la rejilla hacia abajo. */
+.skeleton-hero {
+  height: 190px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 960px) {
+  .skeleton-hero {
+    height: 230px;
+  }
 }
 
 .skeleton-subtitle {

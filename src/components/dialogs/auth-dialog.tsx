@@ -7,6 +7,7 @@ import { Dialog } from "../dialog";
 import { api, ClientApiError } from "@/lib/client-api";
 import { CityField } from "../city-field";
 import { useI18n } from "../i18n-provider";
+import type { SessionUser } from "@/lib/domain";
 import type { BaseDialogProps } from "./shared";
 
 export function AuthDialog({
@@ -15,7 +16,8 @@ export function AuthDialog({
   onSuccess,
   initialMode = "login",
 }: BaseDialogProps & {
-  onSuccess: () => void;
+  /** Recibe la cuenta ya autenticada: el armazón la pinta sin esperar al refresco. */
+  onSuccess: (user: SessionUser) => void;
   initialMode?: "login" | "register";
 }) {
   const { t } = useI18n();
@@ -80,7 +82,7 @@ export function AuthDialog({
         return;
       }
       try {
-        await api("/api/auth/login", {
+        const data = await api<{ user: SessionUser }>("/api/auth/login", {
           method: "POST",
           body: {
             email: pendingLogin.email,
@@ -89,7 +91,7 @@ export function AuthDialog({
           },
         });
         setPendingLogin(null);
-        onSuccess();
+        onSuccess(data.user);
         close();
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : t("No se pudo completar el acceso."));
@@ -103,26 +105,29 @@ export function AuthDialog({
     const password = String(form.get("password") ?? "");
 
     try {
-      await api(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
-        method: "POST",
-        body: {
-          email,
-          password,
-          ...(mode === "register"
-            ? {
-                name: form.get("name"),
-                city: form.get("city"),
-                // El consentimiento viaja como booleano, no como el "on" del
-                // formulario: el servidor exige que sea explícito.
-                ageConfirmed: form.get("ageConfirmed") === "on",
-                website: form.get("website") ?? "",
-                startedAt: startedAt.current,
-                turnstileToken: form.get("cf-turnstile-response") ?? undefined,
-              }
-            : {}),
+      const data = await api<{ user: SessionUser }>(
+        mode === "login" ? "/api/auth/login" : "/api/auth/register",
+        {
+          method: "POST",
+          body: {
+            email,
+            password,
+            ...(mode === "register"
+              ? {
+                  name: form.get("name"),
+                  city: form.get("city"),
+                  // El consentimiento viaja como booleano, no como el "on" del
+                  // formulario: el servidor exige que sea explícito.
+                  ageConfirmed: form.get("ageConfirmed") === "on",
+                  website: form.get("website") ?? "",
+                  startedAt: startedAt.current,
+                  turnstileToken: form.get("cf-turnstile-response") ?? undefined,
+                }
+              : {}),
+          },
         },
-      });
-      onSuccess();
+      );
+      onSuccess(data.user);
       close();
     } catch (caught) {
       // La cuenta tiene 2FA: se pide el código sin perder las credenciales.
