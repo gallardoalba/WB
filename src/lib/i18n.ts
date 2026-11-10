@@ -1287,7 +1287,7 @@ export const DE = {
   "La foto desaparece para todas las copias de este libro. Si su ISBN tiene portada de catálogo, se volverá a mostrar esa.": "Das Foto verschwindet für alle Exemplare dieses Buchs. Hat die ISBN ein Katalogcover, erscheint wieder dieses.",
   // El proyecto
   "El proyecto": "Über das Projekt",
-  "Qué es Wanderbibliothek, por qué existe y qué hay detrás: un proyecto comunitario sin ánimo de lucro, con el código abierto y la privacidad como decisiones de diseño.": "Was Wanderbibliothek ist, warum es das Projekt gibt und was dahintersteckt: ein Gemeinschaftsprojekt ohne kommerziellen Zweck, mit offenem Code und Datenschutz als Entwurfsentscheidung.",
+  "Qué es Wanderbibliothek, por qué existe y qué hay detrás: una biblioteca comunitaria y sin ánimo de lucro, con el código abierto, la privacidad y la descentralización como decisiones de diseño.": "Was Wanderbibliothek ist, warum es das Projekt gibt und was dahintersteckt: eine Bibliothek der Gemeinschaft ohne kommerziellen Zweck, mit offenem Code, Datenschutz und Dezentralität als Entwurfsentscheidung.",
   "Una persona de la comunidad": "Eine Person aus der Gemeinschaft",
   "Mostrar mi nombre en la lista pública": "Meinen Namen in der öffentlichen Liste zeigen",
   // Sesiones abiertas
@@ -2587,7 +2587,7 @@ export const EN = {
   "La foto desaparece para todas las copias de este libro. Si su ISBN tiene portada de catálogo, se volverá a mostrar esa.": "The photo disappears for all copies of this book. If its ISBN has a catalogue cover, that one will be shown again.",
   // The project
   "El proyecto": "The project",
-  "Qué es Wanderbibliothek, por qué existe y qué hay detrás: un proyecto comunitario sin ánimo de lucro, con el código abierto y la privacidad como decisiones de diseño.": "What Wanderbibliothek is, why it exists and what's behind it: a non-profit community project with open source and privacy as design decisions.",
+  "Qué es Wanderbibliothek, por qué existe y qué hay detrás: una biblioteca comunitaria y sin ánimo de lucro, con el código abierto, la privacidad y la descentralización como decisiones de diseño.": "What Wanderbibliothek is, why it exists and what's behind it: a community library with no commercial purpose, with open source, privacy and decentralisation as design decisions.",
   "Una persona de la comunidad": "A community member",
   "Mostrar mi nombre en la lista pública": "Show my name in the public list",
   " de {name}": " by {name}",

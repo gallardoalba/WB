@@ -21,6 +21,7 @@ import {
   type LegalConfig,
   type LegalDocument,
 } from "../src/lib/legal.ts";
+import { projectDocument } from "../src/lib/project.ts";
 
 const completo: LegalConfig = {
   controller: "Ada Lovelace",
@@ -186,4 +187,42 @@ test("la política de privacidad cubre las mismas secciones en los tres idiomas"
   for (const locale of ["de", "es", "en"] as const) {
     assert.match(texto(privacyDocument(locale, incompleto)), /LEGAL_CONTROLLER/);
   }
+});
+
+/** Todo el texto de un documento largo, para buscar en él sin recorrer la estructura. */
+function textoLargo(documento: ReturnType<typeof projectDocument>): string {
+  return [
+    documento.title,
+    ...documento.intro,
+    ...documento.sections.flatMap((seccion) => [
+      seccion.heading,
+      ...seccion.blocks.flatMap((bloque) => {
+        if (bloque.kind === "p") return [bloque.text];
+        if (bloque.kind === "list") return bloque.items;
+        if (bloque.kind === "terms") return bloque.items.map((item) => `${item.label} ${item.text}`);
+        if (bloque.kind === "code") return bloque.lines;
+        if (bloque.kind === "table") return [...bloque.head, ...bloque.rows.flat()];
+        return bloque.items.map((item) => `${item.label} ${item.href} ${item.note}`);
+      }),
+    ]),
+  ].join("\n");
+}
+
+test("la página del proyecto tampoco publica el correo sin enmascarar", () => {
+  // El contacto de `/projekt` sale de la misma configuración que el Impressum y
+  // pasa por el mismo enmascarado: `nombre[at]dominio[dot]tld`, nunca con `@`.
+  for (const locale of ["de", "es", "en"] as const) {
+    const cuerpo = textoLargo(projectDocument(locale, completo.contact));
+    assert.ok(
+      cuerpo.includes(maskContact(completo.contact)),
+      `${locale}: el contacto va enmascarado`,
+    );
+    assert.equal(
+      cuerpo.includes(completo.contact),
+      false,
+      `${locale}: la dirección con @ no puede aparecer en el HTML`,
+    );
+  }
+  // Sin contacto configurado se remite al repositorio en vez de dejar el hueco.
+  assert.match(textoLargo(projectDocument("es", "")), /abre una incidencia en el repositorio/);
 });

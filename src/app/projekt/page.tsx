@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: translate(locale, "El proyecto"),
     description: translate(
       locale,
-      "Qué es Wanderbibliothek, por qué existe y qué hay detrás: un proyecto comunitario sin ánimo de lucro, con el código abierto y la privacidad como decisiones de diseño.",
+      "Qué es Wanderbibliothek, por qué existe y qué hay detrás: una biblioteca comunitaria y sin ánimo de lucro, con el código abierto, la privacidad y la descentralización como decisiones de diseño.",
     ),
     alternates: alternatesFor(locale, "/projekt"),
   };
