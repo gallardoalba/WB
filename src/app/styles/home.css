@@ -164,14 +164,6 @@
   line-height: 1.6;
 }
 
-/* El cierre del lema («Sin publicidad, sin venta de datos, por la propiedad
-   colectiva.») va en el verde de la marca y en negrita: es la parte que resume
-   el compromiso y el usuario la quiere destacada como el propio nombre. */
-.hero-banner .hero-motto {
-  color: var(--green);
-  font-weight: 700;
-}
-
 /* Lema de la marca bajo el titular, como en la app: el h1 es solo el nombre, así
    que el lema lleva el mensaje. En serif para que se lea como lema y no como
    texto corrido. */
