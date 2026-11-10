@@ -707,8 +707,11 @@ export default function WanderbibliothekApp({
                 </p>
                 <p>
                   {t(
-                    "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias. Sin publicidad, sin venta de datos, por la propiedad colectiva.",
-                  )}
+                    "Una biblioteca descentralizada impulsada por la comunidad que cree que el conocimiento crece cuando se comparten libros, ideas y experiencias.",
+                  )}{" "}
+                  <strong className="hero-motto">
+                    {t("Sin publicidad, sin venta de datos, por la propiedad colectiva.")}
+                  </strong>
                 </p>
                 <button
                   type="button"
