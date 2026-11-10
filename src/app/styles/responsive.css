@@ -233,7 +233,9 @@
   /* Los tres pasos, en vertical: en horizontal cada columna se queda con seis
      palabras por renglón. */
   .how-it-works {
-    margin-top: 18px;
+    /* El bloque ya no va detrás de la rejilla sino detrás del botón «Descubrir
+       todos los libros»: 10 px bastan para separarlo. */
+    margin-top: 10px;
     padding: 16px 18px;
   }
 

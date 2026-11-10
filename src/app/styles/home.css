@@ -64,7 +64,9 @@
 .home-discover {
   display: flex;
   justify-content: center;
-  margin: 8px 0 30px;
+  /* 30 px abajo se sumaban a los 26 de `how-it-works` y dejaban medio centenar
+     de píxeles muertos entre el botón y «Cómo funciona». */
+  margin: 8px 0 12px;
 }
 
 .home-discover .secondary-button {
@@ -257,7 +259,9 @@
    iconos: no hacen falta y competirían con la foto del hero. El pie aclara lo
    que más se malinterpreta del proyecto: no hay intercambio directo. */
 .how-it-works {
-  margin: 26px 0 6px;
+  /* Va inmediatamente después del botón «Descubrir todos los libros»: los 26 px
+     de arriba ya no separan de la rejilla sino del botón. */
+  margin: 12px 0 6px;
   padding: 20px 22px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -340,7 +344,9 @@
   align-items: end;
   justify-content: space-between;
   gap: 16px;
-  margin: 32px 0 18px;
+  /* El titular y su rejilla son un mismo bloque: con 18 px aquí y otros 18
+     de relleno en `.book-grid` quedaban 36 px entre el h2 y la primera fila. */
+  margin: 32px 0 12px;
 }
 
 .section-heading .overline {
