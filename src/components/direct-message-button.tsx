@@ -35,16 +35,16 @@ export function DirectMessageButton({
           </span>
         )}
       </button>
-      {open && (
-        <SectionBoundary>
-          <DirectMessageDialog
-            open
-            onClose={() => setOpen(false)}
-            peerId={peerId}
-            peerName={peerName}
-          />
-        </SectionBoundary>
-      )}
+      {/* Siempre montado: el diálogo se cierra con su propio fundido de salida
+          y el hilo se pide solo cuando `open` es verdadero. */}
+      <SectionBoundary>
+        <DirectMessageDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          peerId={peerId}
+          peerName={peerName}
+        />
+      </SectionBoundary>
     </>
   );
 }

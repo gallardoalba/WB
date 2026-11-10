@@ -9,7 +9,7 @@ import {
   useTransition,
   ViewTransition,
 } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -136,6 +136,19 @@ const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
 
 const COMMUNITY_TABS_ORDER = Object.keys(COMMUNITY_TAB_LABELS) as CommunityTab[];
 
+/**
+ * Monta el diálogo la primera vez que se abre y lo deja montado a partir de
+ * ahí. Así su código no se carga al arrancar (era lo que retrasaba la
+ * hidratación) y el cierre sigue teniendo su fundido.
+ */
+function LazyDialog({ open, children }: { open: boolean; children: ReactNode }) {
+  // Ajuste de estado durante el render (patrón documentado por React): converge
+  // en una pasada y evita un efecto que solo sirve para marcar «ya se abrió».
+  const [visto, setVisto] = useState(open);
+  if (open && !visto) setVisto(true);
+  return visto ? <>{children}</> : null;
+}
+
 export default function WanderbibliothekApp({
   snapshot,
   openAuth = false,
@@ -190,6 +203,9 @@ export default function WanderbibliothekApp({
 
   const [notificationsOpen, setNotificationsOpen] = useState(openNotifications);
   const [exchangeId, setExchangeId] = useState<string | null>(null);
+  // Como en la vista previa: el diálogo se cierra con su propio estado para que
+  // el ejemplar siga disponible mientras dura el fundido de salida.
+  const [exchangeOpen, setExchangeOpen] = useState(false);
   const [favoriteOverrides, setFavoriteOverrides] = useState<Record<string, boolean>>({});
   const [busyFavorite, setBusyFavorite] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
@@ -1095,7 +1111,10 @@ export default function WanderbibliothekApp({
               <ExchangesList
                 requests={requests}
                 total={requestsTotal}
-                onOpen={setExchangeId}
+                onOpen={(id) => {
+                setExchangeId(id);
+                setExchangeOpen(true);
+              }}
                 onExplore={() => navigate({ view: "discover" })}
               />
             )
@@ -1571,8 +1590,8 @@ export default function WanderbibliothekApp({
         </div>
       )}
 
-      {authOpen && (
-        <AuthDialog
+      <LazyDialog open={authOpen}>
+      <AuthDialog
         open={authOpen}
         onClose={() => {
           pendingFavorite.current = null;
@@ -1604,8 +1623,8 @@ export default function WanderbibliothekApp({
           }
           if (target) router.push(target);
         }}
-        />
-      )}
+      />
+      </LazyDialog>
 
       <ListingPreview
         listing={previewListing}
@@ -1619,8 +1638,8 @@ export default function WanderbibliothekApp({
         }}
       />
 
-      {notificationsOpen && (
-        <NotificationsDialog
+      <LazyDialog open={notificationsOpen}>
+      <NotificationsDialog
           open={notificationsOpen}
         onClose={() => {
           setNotificationsOpen(false);
@@ -1630,13 +1649,13 @@ export default function WanderbibliothekApp({
         unread={unreadNotifications}
         onMarkRead={markNotificationsRead}
         onRefresh={refresh}
-        />
-      )}
+      />
+      </LazyDialog>
 
       {exchangeRequest && (
         <ExchangeDialog
-          open
-          onClose={() => setExchangeId(null)}
+          open={exchangeOpen}
+          onClose={() => setExchangeOpen(false)}
           request={exchangeRequest}
           onChanged={refresh}
         />
