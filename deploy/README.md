@@ -692,6 +692,16 @@ la marca que lleva el enlace de cada aviso (ver `ANNOUNCE_REF` en
 `Referer`: sin ella, una visita de Mastodon es indistinguible de una que llega
 sin origen. Es un recuento de aperturas, no de personas.
 
+El bloque `── MASTODON ──` cierra el informe con lo que no está en los logs: las
+visitas que sí llegan con `Referer` de una instancia o de una app del fediverso
+(sirve para los avisos anteriores a la marca), el reparto por origen y el estado
+de la cuenta del bot (seguidores y respuesta a los últimos veinte avisos, leída
+de la API con el token de `/etc/wanderbibliothek/env`; el token solo tiene
+`read:accounts`, así que los estados se consultan sin él). Si no hay red o
+token, esas líneas salen con «-» y el informe sigue siendo válido. Las IPs de la
+lista de exclusión (las que entran por SSH, o sea, quien lanza el informe) no
+cuentan como visitas; para dejar fuera tu móvil, añádelo con `WB_EXCLUIR`.
+
 ## 10. Límites conocidos
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no
