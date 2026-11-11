@@ -80,29 +80,33 @@ export default async function Page({ searchParams }: PageProps) {
         }
       />
 
-      <form className="reader-filters" action="/listas" method="get">
-        <label className="sr-only" htmlFor="list-q">
-          {t("Buscar lista")}
-        </label>
-        <input
-          id="list-q"
-          name="q"
-          type="search"
-          defaultValue={query}
-          placeholder={t("Buscar por título o descripción")}
-          maxLength={60}
-        />
-        <button type="submit" className="secondary-button small">
-          {t("Filtrar")}
-        </button>
-      </form>
+      {/* Sin listas y sin búsqueda, el campo y «Filtrar» no filtran nada: el
+          estado vacío ya explica cómo crear la primera. */}
+      {(total > 0 || query) && (
+        <form className="reader-filters" action="/listas" method="get">
+          <label className="sr-only" htmlFor="list-q">
+            {t("Buscar lista")}
+          </label>
+          <input
+            id="list-q"
+            name="q"
+            type="search"
+            defaultValue={query}
+            placeholder={t("Buscar por título o descripción")}
+            maxLength={60}
+          />
+          <button type="submit" className="secondary-button small">
+            {t("Filtrar")}
+          </button>
+        </form>
+      )}
 
       {lists.length === 0 ? (
         <div className="empty-state">
           <span className="empty-icon">
             <Library size={22} />
           </span>
-          <h3>{query ? t("Ninguna lista con esa búsqueda") : t("Todavía no hay listas públicas")}</h3>
+          <h2>{query ? t("Ninguna lista con esa búsqueda") : t("Todavía no hay listas públicas")}</h2>
           <p>
             {t(
               "Las listas se crean desde la ficha de una obra o desde tu perfil y quedan visibles para toda la comunidad.",

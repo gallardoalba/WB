@@ -745,7 +745,9 @@ export function ExchangeDialog({
           <p className="empty-note">
             {request.status === "accepted"
               ? t("Todavía no hay mensajes. Escribe el primero para coordinar la entrega.")
-              : t("Aquí aparecerán los mensajes cuando se acepte el intercambio.")}
+              : request.status === "pending"
+                ? t("Aquí aparecerán los mensajes cuando se acepte el intercambio.")
+                : t("No llegó a haber mensajes en este intercambio.")}
           </p>
         )}
         {messages.map((message) => (

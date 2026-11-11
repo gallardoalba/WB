@@ -13,13 +13,22 @@ import type { Locale } from "@/lib/locale";
 export function SiteSearch({
   locale,
   defaultValue = "",
+  guest = false,
 }: {
   locale: Locale;
   defaultValue?: string;
+  /** Sin sesión, la búsqueda global no puede leer clubes ni lectores: el
+   * formulario apunta al catálogo público, que sí filtra sin cuenta. */
+  guest?: boolean;
 }) {
   const t = (text: string) => translate(locale, text);
   return (
-    <form className="site-search" action="/buscar" method="get" role="search">
+    <form
+      className="site-search"
+      action={guest ? "/descubrir" : "/buscar"}
+      method="get"
+      role="search"
+    >
       <Search size={15} aria-hidden className="site-search-icon" />
       <label className="sr-only" htmlFor="site-search-q">
         {t("Buscar en la comunidad")}

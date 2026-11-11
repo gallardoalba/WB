@@ -683,6 +683,15 @@
   display: none;
 }
 
+/* A la derecha se cortaba «Sociedad y política» sin ninguna señal de que la
+   fila se desplaza: el degradado lo dice sin añadir controles. */
+@media (max-width: 1120px) {
+  .category-tabs {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+}
+
 .category-tab {
   flex: 0 0 auto;
   min-height: 40px;
@@ -980,6 +989,16 @@
   display: grid;
   gap: 8px;
   justify-items: start;
+}
+
+/* El selector nativo va oculto y solo lo dispara el botón de al lado: no debe
+   heredar el `width: 100%` de `.listing-form input`, que lo dejaba en 1440 px
+   de ancho (recortado por `clip`, pero ensuciando el ancho de la página). */
+.listing-form input[type="file"].sr-only {
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
 }
 
 .cover-picker-preview {

@@ -69,6 +69,9 @@
 }
 
 .book-card {
+  /* El enlace del título se estira sobre toda la tarjeta (ver `.card-link`),
+     así que hace falta un ancestro posicionado. */
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -83,6 +86,33 @@
 .book-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow);
+}
+
+/* Pulsar en cualquier parte de la tarjeta abre la ficha. Antes solo respondían
+   la portada, el título (20 px de alto) y «Ver ficha y pedir»; el resto era una
+   zona muerta de 366×434 que en móvil ocupa casi una pantalla. Los controles
+   propios (corazón, etiquetas, persona, botón) siguen siendo suyos. */
+.book-details .card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.book-card .cover-frame {
+  z-index: 1;
+}
+
+/* Solo los controles de la zona de datos necesitan subir por encima del enlace
+   estirado: la portada, la etiqueta de estado y el corazón ya viven dentro de
+   `.cover-frame`, que tiene `z-index: 1`. Ojo: no añadir `position: relative`
+   a la etiqueta de estado: dejaba de ser absoluta y se plantaba en el centro
+   de la portada. */
+.book-card .tag-chip,
+.book-card .owner-name,
+.book-card .request-button {
+  position: relative;
+  z-index: 2;
 }
 
 .cover-frame {
@@ -279,7 +309,7 @@
    `overflow: hidden` el recorte cae en el borde del `padding`, y sin esos 3 px
    el descendente de la «g» de «technology» se cortaba a la altura del renglón
    (la caja de línea mide 1.2em y hay fuentes cuyo descendente no cabe). */
-.book-details h3 {
+.book-details :is(h2, h3) {
   display: -webkit-box;
   margin: 0 0 2px;
   padding-bottom: 3px;
@@ -538,7 +568,7 @@
 }
 
 .public-breadcrumb-sep {
-  color: var(--faint);
+  color: var(--muted-2);
 }
 
 .public-breadcrumb [aria-current="page"] {
@@ -600,6 +630,23 @@
   text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* Quien llega desde un enlace compartido o de un buscador no sabe qué es este
+   sitio: una frase y la salida a «Cómo funciona» evitan que la página muera en
+   la tabla de datos. */
+.public-work-context {
+  max-width: 62ch;
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.public-work-context p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* Casilla del formulario de listas: el input no ocupa el ancho del campo. */

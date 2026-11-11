@@ -13,6 +13,27 @@ import { useI18n } from "./i18n-provider";
 let openDialogs = 0;
 const inerted = new Set<HTMLElement>();
 
+/**
+ * Último elemento que recibió el foco fuera de un diálogo: es el disparador.
+ *
+ * Se memoriza aquí, al recibir el foco, y no se lee `document.activeElement`
+ * dentro del efecto: al abrirse un diálogo el fondo pasa a `inert`, el foco se
+ * cae a `<body>` y el botón que abrió el diálogo ya no se puede recuperar (le
+ * pasaba al de intercambios, que dejaba el foco en `<body>` al cerrarse).
+ */
+let lastFocusOutside: HTMLElement | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "focusin",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || target.closest("[data-dialog-root]")) return;
+      lastFocusOutside = target;
+    },
+    true,
+  );
+}
+
 function inertBackground() {
   for (const node of Array.from(document.body.children)) {
     if (!(node instanceof HTMLElement)) continue;
@@ -91,7 +112,7 @@ export function Dialog({
   useEffect(() => {
     if (!open) return;
 
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previouslyFocused = lastFocusOutside ?? (document.activeElement as HTMLElement | null);
     const panel = panelRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -100,10 +121,16 @@ export function Dialog({
     // Si el diálogo tiene campos, el foco entra en el primero: quien navega con
     // teclado o lector de pantalla no tiene que tabular desde el panel ni pasar
     // por la cruz de cerrar. Sin campos, el panel (que anuncia el título).
+    //
+    // ⚠ No basta con `querySelector`: el primer campo puede estar dentro de un
+    // `<details>` cerrado (el explicador del cifrado del intercambio) y `focus()`
+    // sobre algo que no se pinta no hace nada, dejando el foco en `<body>`. Por
+    // eso, al final se comprueba dónde ha caído y, si no entró, se enfoca el panel.
     const firstField = panel?.querySelector<HTMLElement>(
       "input:not([type='hidden']):not([disabled]):not([tabindex='-1']), textarea:not([disabled]), select:not([disabled])",
     );
     (firstField ?? panel)?.focus();
+    if (panel && !panel.contains(document.activeElement)) panel.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {

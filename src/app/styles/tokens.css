@@ -137,6 +137,8 @@
     --coral-soft: #38251f;
     --focus: #f0a080;
     --on-fill: #ffffff;
+    --badge-coral-bg: #38251f;
+    --badge-coral-ink: #dd8a75;
     --tone-self-bg: #3a2b23;
     --tone-self-ink: #e7c6bd;
     --status-pending-bg: #3a3020;
@@ -197,6 +199,8 @@
   --coral-soft: #38251f;
   --focus: #f0a080;
   --on-fill: #ffffff;
+  --badge-coral-bg: #38251f;
+  --badge-coral-ink: #dd8a75;
   --tone-self-bg: #3a2b23;
   --tone-self-ink: #e7c6bd;
   --status-pending-bg: #3a3020;

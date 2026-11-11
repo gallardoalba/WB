@@ -539,8 +539,20 @@
     height: 200px;
   }
 
-  .book-details h3 {
+  .book-details :is(h2, h3) {
     font-size: 18px;
+  }
+
+  /* La fila lleva portada, chip de estado y botón: con `nowrap` el título se
+     quedaba en «Gott un…» a 390 px. Dos líneas y sigue leyéndose la fila. */
+  .exchange-info strong {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
+    line-height: 1.25;
   }
 
   .distance {

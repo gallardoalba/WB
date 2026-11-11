@@ -722,14 +722,18 @@ export default function WanderbibliothekApp({
             </Link>
             {view !== "home" && (
               <>
-                <span className="crumb-slash">/</span>
+                <span className="crumb-slash" aria-hidden="true">/</span>
                 <strong>{t(VIEW_LABELS[view])}</strong>
               </>
             )}
           </div>
           {/* Mismo buscador global que el resto de páginas: obras, clubes,
-              lectores y listas desde cualquier vista. */}
-          <SiteSearch locale={locale} />
+              lectores y listas desde cualquier vista. En el catálogo y en la
+              estantería no se pinta: ahí manda el filtro de la barra de
+              herramientas, y dos campos con la misma lupa confundían. */}
+          {view !== "discover" && view !== "shelf" && (
+            <SiteSearch locale={locale} guest={!user} />
+          )}
           <div className="topbar-actions">
             <RepositoryLink label={t("Código en GitHub")} />
             <LocaleSwitcher locale={locale} />
@@ -1400,6 +1404,7 @@ export default function WanderbibliothekApp({
                     <ListingCard
                       key={listing.id}
                       listing={listing}
+                      headingLevel={view === "home" ? 3 : 2}
                       onPreview={user ? undefined : () => {
                         // Un solo diálogo a la vez: si el acceso estaba abierto
                         // (por un 401 a mitad de navegación, por ejemplo), la

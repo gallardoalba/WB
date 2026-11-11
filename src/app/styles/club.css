@@ -346,19 +346,19 @@
   line-height: 1.45;
 }
 
-.club-head h3 {
+.club-head :is(h2, h3) {
   margin: 0;
   font-family: var(--serif);
   font-size: 19px;
   font-weight: 500;
 }
 
-.club-head h3 a {
+.club-head :is(h2, h3) a {
   color: inherit;
   text-decoration: none;
 }
 
-.club-head h3 a:hover {
+.club-head :is(h2, h3) a:hover {
   color: var(--green);
 }
 

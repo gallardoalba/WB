@@ -618,6 +618,10 @@
 
 .profile-facts {
   display: grid;
+  /* Una sola columna que puede encogerse: con el tamaño automático, una
+     dirección de correo larga fijaba la columna en 349,8 px dentro de 328 y
+     la página entera sacaba scroll horizontal (se veía en alemán a 360 px). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 9px;
   margin: 18px 0 0;
 }

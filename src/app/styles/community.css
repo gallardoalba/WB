@@ -270,6 +270,10 @@
    completo, que en pantallas grandes cansa la vista. */
 .account-settings {
   display: grid;
+  /* Una columna que pueda encogerse: con la implícita (`auto`), una dirección
+     de correo larga estiraba la rejilla a 349,8 px dentro de 336 y la página
+     entera sacaba scroll horizontal (se veía en alemán a 360 px). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   max-width: 720px;
 }
@@ -286,6 +290,9 @@
 
 .account-settings form {
   display: grid;
+  /* Igual que la rejilla de fuera: la columna implícita (`auto`) se estiraba
+     con el texto más largo y sacaba scroll horizontal. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-top: 12px;
 }
@@ -316,7 +323,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  /* Con un título largo (alemán) más el distintivo, la fila no cabía en 320 px
+     y empujaba el distintivo fuera de la pantalla. */
+  flex-wrap: wrap;
+  gap: 6px 12px;
 }
 
 .crypto-badge {
@@ -339,6 +349,9 @@
 .crypto-status {
   display: flex;
   align-items: flex-start;
+  /* En alemán el distintivo es largo: sin poder bajar a otra línea, empujaba
+     la fila 30 px fuera de la pantalla. */
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 14px;
 }

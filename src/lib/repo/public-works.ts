@@ -1,4 +1,5 @@
 import { getDb } from "../db";
+import { normalizeCoverUrl } from "../text";
 
 /**
  * Catálogo público: lo único del catálogo que puede indexar un buscador.
@@ -96,7 +97,7 @@ function toPublicWork(book: BookRow, cities: Map<string, number>): PublicWork {
     category: book.category,
     language: book.language,
     isbn: book.isbn,
-    coverUrl: book.cover_url,
+    coverUrl: normalizeCoverUrl(book.cover_url),
     publisher: book.publisher ?? null,
     year: book.year ?? null,
     series: book.series ?? null,

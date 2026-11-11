@@ -530,7 +530,7 @@
 }
 
 .crumb-slash {
-  color: var(--faint);
+  color: var(--muted-2);
 }
 
 .topbar-actions {
@@ -563,6 +563,10 @@
 
 .site-search:focus-within {
   border-color: color-mix(in srgb, var(--green) 55%, var(--line));
+  /* El campo quita su propio `outline` para que el anillo rodee el buscador
+     entero; sin esto, con teclado solo cambiaba 1 px de color de borde. */
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .site-search-icon {
@@ -783,7 +787,8 @@
   padding: 0 4px;
   border: 2px solid var(--paper);
   border-radius: 999px;
-  color: var(--on-fill);
+  background: var(--badge-coral-bg);
+  color: var(--badge-coral-ink);
   font-size: 10px;
   font-style: normal;
   font-weight: 800;
@@ -1519,7 +1524,7 @@
   color: var(--green);
 }
 
-.empty-state h3 {
+.empty-state :is(h2, h3) {
   margin: var(--space-4) 0 var(--space-1);
   font-family: var(--serif);
   font-size: 22px;

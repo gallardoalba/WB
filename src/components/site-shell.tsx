@@ -85,12 +85,12 @@ export async function SiteShell({
             <Link href={href("/")} className="crumb-home">
               {t("Inicio")}
             </Link>
-            <span className="crumb-slash">/</span>
+            <span className="crumb-slash" aria-hidden="true">/</span>
             <strong>{title}</strong>
           </div>
           {/* Buscador global: la entrada a libros, clubes, lectores y listas
               desde cualquier página. */}
-          <SiteSearch locale={locale} />
+          <SiteSearch locale={locale} guest={!user} />
           <div className="topbar-actions">
             <RepositoryLink label={t("Código en GitHub")} />
             <LocaleSwitcher locale={locale} />
@@ -143,12 +143,17 @@ export async function SiteShell({
           <Heart size={19} />
           <span>{t("Estantería")}</span>
         </Link>
-        <Link href={href("/?offer=1")} className="mobile-add" aria-label={t("Ofrecer un libro")}>
-          <Plus size={21} />
+        <Link href={href("/?offer=1")} className="mobile-add">
+          <span className="mobile-add-icon" aria-hidden="true">
+            <Plus size={18} />
+          </span>
+          <span>{t("Ofrecer")}</span>
         </Link>
         <Link href={href("/intercambios")}>
           <ArrowDownUp size={19} />
-          <span>{t("Intercambios")}</span>
+          {/* Misma etiqueta corta que la barra de la aplicación: «Intercambios»
+              no cabe en el hueco de ~76 px y se pegaba a «Comunidad». */}
+          <span>{t("Cambios")}</span>
         </Link>
         <Link
           href={href("/comunidad")}

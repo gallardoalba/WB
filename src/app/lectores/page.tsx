@@ -130,7 +130,7 @@ export default async function Page({ searchParams }: PageProps) {
           <span className="empty-icon">
             <Users size={22} />
           </span>
-          <h3>{t("Nadie con esos filtros")}</h3>
+          <h2>{t("Nadie con esos filtros")}</h2>
           <p>{t("Prueba con otra ciudad o sin búsqueda.")}</p>
         </div>
       ) : (

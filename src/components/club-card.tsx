@@ -14,9 +14,9 @@ export function ClubCard({ club, compact = false }: { club: ClubView; compact?: 
   return (
     <article className={compact ? "club-card compact" : "club-card"}>
       <div className="club-head">
-        <h3>
+        <h2>
           <Link href={`/clubes/${club.id}`}>{club.name}</Link>
-        </h3>
+        </h2>
         <span className="club-city">{club.city}</span>
       </div>
 

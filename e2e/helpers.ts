@@ -4,6 +4,15 @@ import { localDatabase } from "./db";
 /** Espera a que el layout cliente haya hidratado y aplicado el tema. */
 export async function waitForHydration(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("data-theme", /light|dark/);
+  // `data-theme` lo pone el script en línea **antes** de hidratar, así que por sí
+  // solo no garantiza nada: tras un `?lang=` o un redirect se daba por bueno con
+  // el árbol todavía sin eventos y las pulsaciones se perdían. La fibra de React
+  // solo existe cuando el cliente ya ha montado los componentes.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll("body *")].some((element) =>
+      Object.keys(element).some((key) => key.startsWith("__reactFiber$")),
+    ),
+  );
 }
 
 /**

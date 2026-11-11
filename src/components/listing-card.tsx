@@ -13,12 +13,20 @@ export function ListingCard({
   listing,
   actions,
   onPreview,
+  headingLevel = 3,
 }: {
   listing: ListingView;
   actions?: ReactNode;
   onPreview?: () => void;
+  /**
+   * Nivel del título dentro de la jerarquía de la página. En el catálogo el
+   * `h1` es el título de la vista, así que las tarjetas van en `h2`; en la
+   * portada cuelgan de un `h2` oculto («La estantería») y siguen en `h3`.
+   */
+  headingLevel?: 2 | 3;
 }) {
   const { t } = useI18n();
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const preview = (event: React.MouseEvent) => {
     if (!onPreview) return;
     event.preventDefault();
@@ -52,11 +60,11 @@ export function ListingCard({
         )}
       </div>
       <div className="book-details">
-        <h3>
+        <Heading>
           <Link href={`/libro/${listing.id}`} className="card-link" onClick={preview}>
             {listing.title}
           </Link>
-        </h3>
+        </Heading>
         <p className="book-author">{listing.author}</p>
         <span className="book-category">{t(listing.category)}</span>
         {/* El hueco de etiquetas se reserva siempre: así la persona y el botón

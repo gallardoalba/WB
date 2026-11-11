@@ -86,8 +86,8 @@ export function OfferForm({
   const { t } = useI18n();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
-  const [language, setLanguage] = useState<string>(BOOK_LANGUAGES[0]);
+  const [category, setCategory] = useState<string>("");
+  const [language, setLanguage] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [scan, setScan] = useState("");
   const [knownBook, setKnownBook] = useState<KnownBook | null>(null);
@@ -136,8 +136,8 @@ export function OfferForm({
     setNoIsbn(false);
     setCover(null);
     setSelectedTags([]);
-    setCategory(CATEGORIES[0]);
-    setLanguage(BOOK_LANGUAGES[0]);
+    setCategory("");
+    setLanguage("");
     setCreatedListingId(null);
     setError("");
   }
@@ -181,8 +181,8 @@ export function OfferForm({
   function resetFields() {
     if (titleRef.current) titleRef.current.value = "";
     if (authorRef.current) authorRef.current.value = "";
-    setCategory(CATEGORIES[0]);
-    setLanguage(BOOK_LANGUAGES[0]);
+    setCategory("");
+    setLanguage("");
     setSelectedTags([]);
   }
 
@@ -444,10 +444,14 @@ export function OfferForm({
               id="offer-category"
               name="category"
               value={category}
+              required
               className={autoCategory ? "auto-field" : undefined}
               disabled={autoCategory}
               onChange={(event) => changeCategory(event.target.value)}
             >
+              {/* Sin opción vacía el primer valor real («Humanidades») se
+                  enviaba sin que nadie lo eligiera. */}
+              {!autoCategory && <option value="">{t("Elige…")}</option>}
               {CATEGORIES.map((option) => (
                 <option key={option} value={option}>
                   {t(option)}
@@ -461,10 +465,12 @@ export function OfferForm({
               id="offer-language"
               name="language"
               value={language}
+              required
               className={autoLanguage ? "auto-field" : undefined}
               disabled={autoLanguage}
               onChange={(event) => setLanguage(event.target.value)}
             >
+              {!autoLanguage && <option value="">{t("Elige…")}</option>}
               {BOOK_LANGUAGES.map((option) => (
                 <option key={option} value={option}>
                   {t(option)}
@@ -481,7 +487,8 @@ export function OfferForm({
         <div className="form-row">
           <div className="field">
             <label htmlFor="offer-condition">{t("Estado")}</label>
-            <select id="offer-condition" name="condition" defaultValue={CONDITIONS[0]}>
+            <select id="offer-condition" name="condition" defaultValue="" required>
+              <option value="">{t("Elige…")}</option>
               {CONDITIONS.map((condition) => (
                 <option key={condition} value={condition}>
                   {t(condition)}

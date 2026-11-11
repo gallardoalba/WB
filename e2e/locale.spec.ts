@@ -77,8 +77,13 @@ test.describe("idioma por defecto: navegador en inglés y enlaces del correo", (
     await expect(page).not.toHaveURL(/lang=/);
     await waitForHydration(page);
 
-    await page.locator(".locale-select").selectOption("de");
-    await expect(page.locator("html")).toHaveAttribute("lang", "de");
+    // La cabecera puede hidratar un instante después del primer render (la
+    // página viene de un redirect con `?lang=`): si la primera selección se
+    // pierde, se repite.
+    await expect(async () => {
+      await page.locator(".locale-select").selectOption("de");
+      await expect(page.locator("html")).toHaveAttribute("lang", "de", { timeout: 1_500 });
+    }).toPass({ timeout: 10_000 });
     await expect(page.locator(".hero-tagline")).toHaveText(
       "Bücher reisen, Ideen verbinden Menschen.",
     );

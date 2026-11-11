@@ -24,7 +24,7 @@ export function EmptyState({
       <span className="empty-icon" aria-hidden="true">
         {icon}
       </span>
-      <h3>{title}</h3>
+      <h2>{title}</h2>
       {hint && <p>{hint}</p>}
       {action}
     </div>

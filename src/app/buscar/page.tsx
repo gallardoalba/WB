@@ -111,7 +111,7 @@ export default async function Page({ searchParams }: PageProps) {
           <span className="empty-icon">
             <Search size={22} />
           </span>
-          <h3>{t("Escribe algo para empezar")}</h3>
+          <h2>{t("Escribe algo para empezar")}</h2>
           <p>
             {t(
               "Prueba con un título, un autor, el nombre de un club o de una persona. El buscador está siempre en la cabecera.",
@@ -123,7 +123,7 @@ export default async function Page({ searchParams }: PageProps) {
           <span className="empty-icon">
             <Search size={22} />
           </span>
-          <h3>{t("Nada con «{q}»", { q })}</h3>
+          <h2>{t("Nada con «{q}»", { q })}</h2>
           <p>
             {t("Revisa la ortografía o prueba con menos palabras: busca por título, autoría o ciudad.")}
           </p>

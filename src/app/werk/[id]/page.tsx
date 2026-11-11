@@ -235,6 +235,19 @@ export default async function Page({ params }: PageProps) {
         </div>
       </article>
 
+      {work.copies > 0 && (
+        <section className="public-work-context">
+          <p>
+            {t(
+              "Los ejemplares están en manos de quienes los ofrecen: se quedan ahí hasta que alguien los pide, y la entrega se acuerda entre las dos personas. La plataforma solo mantiene el índice.",
+            )}
+          </p>
+          <Link href={`${localePath(locale, "/")}#how-it-works-title`} className="text-link">
+            {t("Cómo funciona")}
+          </Link>
+        </section>
+      )}
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

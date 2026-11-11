@@ -161,7 +161,7 @@ export default async function Page({ searchParams }: PageProps) {
           <span className="empty-icon">
             <Users size={22} />
           </span>
-            <h3>{q || mine ? t("Ningún club con esos filtros") : t("Todavía no hay clubs")}</h3>
+            <h2>{q || mine ? t("Ningún club con esos filtros") : t("Todavía no hay clubs")}</h2>
           <p>
             {q || mine
               ? t("Prueba con otra ciudad, otro nombre o quita el filtro de tus clubes.")
