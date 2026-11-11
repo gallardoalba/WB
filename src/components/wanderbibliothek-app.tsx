@@ -198,6 +198,10 @@ export default function WanderbibliothekApp({
   );
   const [authOpen, setAuthOpen] = useState(openAuth);
   const [authNext, setAuthNext] = useState<string | null>(null);
+  // Marca que el diálogo se cierra porque el acceso salió bien: en ese caso la
+  // navegación al destino se lleva los parámetros de la URL y limpiarlos aquí
+  // competía con ella.
+  const justLoggedIn = useRef(false);
   // Si la página llega con `?auth=1` en una navegación de cliente (el servidor
   // redirigiendo una vista privada), el estado inicial ya no se recalcula. Se
   // ajusta durante el render —el patrón que recomienda React para «estado que
@@ -255,6 +259,18 @@ export default function WanderbibliothekApp({
       window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     }
   }, []);
+
+  // Con sesión, `/?auth=1&next=X` no tiene nada que preguntar: se va al destino.
+  // Pasa cuando el servidor redirige una vista privada justo después de entrar
+  // (la sesión todavía no era visible para el servidor) o al abrir un enlace
+  // viejo. Sin esto, la persona se quedaba en la portada con un `?next=` que
+  // ya no llevaba a ninguna parte.
+  useEffect(() => {
+    if (!user || !authOpen) return;
+    const destino = authNext ?? nextPath;
+    if (destino) router.replace(destino);
+    else clearQueryParams("auth", "offer");
+  }, [user, authOpen, authNext, nextPath, router, clearQueryParams]);
 
   // Al iniciar sesión se crea (o recupera) el par de claves del navegador y se
   // publica solo la mitad pública. La privada no sale de IndexedDB.
@@ -1741,21 +1757,39 @@ export default function WanderbibliothekApp({
         </div>
       )}
 
-      <LazyDialog open={authOpen}>
+      <LazyDialog open={authOpen && !user}>
       <AuthDialog
-        open={authOpen}
+        open={authOpen && !user}
         onClose={() => {
           pendingFavorite.current = null;
           setAuthOpen(false);
           setAuthNext(null);
-          clearQueryParams("auth", "offer");
+          // Tras un acceso correcto, la navegación al destino se lleva los
+          // parámetros: un `replaceState` aquí competía con el `router.push`
+          // y, con el servidor en frío, lo cancelaba (la persona acababa en
+          // `/?next=…` sin llegar al libro).
+          if (justLoggedIn.current) justLoggedIn.current = false;
+          else clearQueryParams("auth", "offer");
         }}
         onSuccess={(nextUser) => {
           const target = authNext ?? nextPath;
           const pending = pendingFavorite.current;
           pendingFavorite.current = null;
-          refresh(nextUser);
+          justLoggedIn.current = true;
           notify(t("Sesión iniciada. ¡Buena lectura!"));
+          // Una sola navegación. Encadenar `router.refresh()` y
+          // `router.push()` dejaba dos peticiones compitiendo por el router y
+          // la de la ficha llegaba antes de que el servidor viera la sesión,
+          // así que la redirigía a `/?auth=1&next=…`. El `push` ya pide la
+          // instantánea nueva al servidor, así que el refresco sobra.
+          if (target) {
+            startTransition(() => {
+              addOptimisticUser(nextUser);
+              router.push(target);
+            });
+          } else {
+            refresh(nextUser);
+          }
           if (pending) {
             void api(`/api/listings/${pending.id}/favorite`, {
               method: "POST",
@@ -1772,7 +1806,6 @@ export default function WanderbibliothekApp({
               })
               .catch(() => notify(t("No se pudo actualizar tu estantería."), "error"));
           }
-          if (target) router.push(target);
         }}
       />
       </LazyDialog>

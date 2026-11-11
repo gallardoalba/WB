@@ -235,7 +235,8 @@ test("el panel de comunidad carga cada pestaña por separado", async ({ page }) 
   await expect(page.locator(".reader-card:visible")).toHaveCount(0);
 });
 
-test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", async ({ page }) => {  // Calienta la ruta de ficha antes de medir el retorno del login: en un
+test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", async ({ page }) => {
+  // Calienta la ruta de ficha antes de medir el retorno del login: en un
   // servidor recién construido la primera compilación puede superar 15 s.
   await page.goto("/libro/lst_1");
   await page.goto("/");
@@ -265,6 +266,16 @@ test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", asy
   // la ruta exacta de este ejemplar todavía puede compilar: 20 s da margen sin
   // acercarse al límite de 30 s de la prueba.
   await expect(page).toHaveURL(/\/libro\/lst_/, { timeout: 20_000 });
+});
+
+test("un enlace de acceso pendiente lleva al destino con la sesión ya abierta", async ({ page }) => {
+  // Es el estado en el que se quedaba la barra cuando el servidor redirigía la
+  // ficha justo después de entrar: sin la auto-reparación, la persona veía la
+  // portada y el `?next=` no llevaba a ninguna parte.
+  await loginAsDemo(page);
+  await page.goto("/?auth=1&next=%2Flibro%2Flst_1");
+  await expect(page).toHaveURL(/\/libro\/lst_1/, { timeout: 20_000 });
+  await expect(page.locator(".preview-dialog")).toHaveCount(0);
 });
 
 test("las páginas internas piden sesión y no enseñan el panel lateral", async ({ page }) => {

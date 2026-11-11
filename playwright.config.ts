@@ -14,7 +14,10 @@ export default defineConfig({
   // con las cuentas de demostración y dos ejecuciones seguidas agotaban el
   // límite (20 por cuenta cada 15 min) y fallaban con un 429 ajeno a la prueba.
   globalSetup: "./e2e/global-setup.ts",
-  timeout: 30_000,
+  // En CI el servidor es `next dev` sobre una máquina recién creada: la primera
+  // visita a una ruta la compila, y con 30 s una ficha en frío se comía el
+  // margen de la prueba (fallaba por lentitud, no por el código).
+  timeout: process.env.CI ? 45_000 : 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   // Una sola instancia en CI: cada contexto de navegador tiene su propia clave
