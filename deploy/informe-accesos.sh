@@ -193,6 +193,15 @@ S444=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk '$9 == 444' | wc -l)
 S429=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk '$9 == 429' | wc -l)
 S403=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk '$9 == 403' | wc -l)
 
+# Visitas que trajo el bot de Mastodon. El enlace de cada aviso lleva
+# `?ref=mastodon` (ver `ANNOUNCE_REF` en `src/lib/mastodon.ts`): así se cuentan
+# aunque la app de turno no mande `Referer`. Solo las páginas que abrieron bien
+# (2xx) y una vez por IP, que aquí medimos visitas, no aperturas de pestañas.
+REF_MAST=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null \
+  | awk '$9 ~ /^2/ && $7 ~ /[?&]ref=mastodon/ {print $1}' | wc -l)
+REF_MAST_IPS=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null \
+  | awk '$9 ~ /^2/ && $7 ~ /[?&]ref=mastodon/ {print $1}' | sort -u | wc -l)
+
 read -r P_WP P_PHP P_SEC P_MCP P_ADM P_OTRO <<< "$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null \
   | awk '$9 ~ /^[4-5][0-9][0-9]$/ {
       p = $7
@@ -269,6 +278,7 @@ if [ "$FORMATO" = "json" ]; then
   printf '"s444":%s,"s403":%s,"s429":%s,"cloudflare_444":%s,' "$S444" "$S403" "$S429" "$CF_444"
   printf '"sondas":{"wordpress":%s,"php":%s,"secretos":%s,"mcp":%s,"admin":%s,"otros":%s},' \
     "$P_WP" "$P_PHP" "$P_SEC" "$P_MCP" "$P_ADM" "$P_OTRO"
+  printf '"ref_mastodon":{"paginas":%s,"ips":%s},' "$REF_MAST" "$REF_MAST_IPS"
   printf '"login_fallidos":%s,"registros":%s},' "$LOGIN_FALLIDOS" "$REGISTROS"
   printf '"app":{"health":"%s","errores":%s,"reinicios":%s,"cuentas_nuevas":%s,"copias":"%s"},' \
     "$SALUD" "$APP_ERR" "$REINICIOS" "$CUENTAS" "$EDAD_COPIA"
@@ -294,6 +304,7 @@ Baneados ahora           : sshd ${AHORA_SSHD} · scan ${AHORA_SCAN} · limit ${A
 
 ── WEB ──────────────────────────────────────────────────────────────────
 Peticiones               : ${WEB_N} (vhost ${VHOST_N} · IP desnuda ${IPN_N})
+Del bot de Mastodon      : ${REF_MAST} página(s) abiertas con ?ref=mastodon desde ${REF_MAST_IPS} IP(s)
 Códigos                  : ${CODIGOS}
 Conexiones cerradas 444  : ${S444} de las cuales ${CF_444} por rangos de Cloudflare
 Sondas bloqueadas        : WordPress ${P_WP} · .php ${P_PHP} · secretos (.env/.git/.bak) ${P_SEC} · /mcp ${P_MCP} · admin/exploits ${P_ADM} · otras ${P_OTRO}

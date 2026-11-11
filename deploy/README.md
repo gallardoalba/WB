@@ -686,6 +686,12 @@ Sale con código 1 cuando hay algo que mirar (5xx, `Accepted password` en SSH,
 `/api/health` distinto de 200 o fail2ban sin baneos habiendo fallos), así que
 sirve tal cual en un cron con `ERROR_WEBHOOK_URL`.
 
+La línea «Del bot de Mastodon» cuenta las páginas abiertas con `?ref=mastodon`,
+la marca que lleva el enlace de cada aviso (ver `ANNOUNCE_REF` en
+`src/lib/mastodon.ts`). Existe porque las apps del fediverso no siempre mandan
+`Referer`: sin ella, una visita de Mastodon es indistinguible de una que llega
+sin origen. Es un recuento de aperturas, no de personas.
+
 ## 10. Límites conocidos
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no

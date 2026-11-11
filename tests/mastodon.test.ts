@@ -209,9 +209,12 @@ test("el enlace lleva el prefijo de idioma y el bot escribe en el del ejemplar",
   assert.equal(mastodon.localeForLanguage("No especificado"), "de");
   assert.equal(mastodon.localeForLanguage(null), "de");
 
-  assert.equal(mastodon.workUrl("https://x.org/", "bok_1", "de"), "https://x.org/werk/bok_1");
-  assert.equal(mastodon.workUrl("https://x.org", "bok_1", "es"), "https://x.org/es/werk/bok_1");
-  assert.equal(mastodon.workUrl("https://x.org", "bok_1", "en"), "https://x.org/en/werk/bok_1");
+  assert.equal(mastodon.workUrl("https://x.org/", "bok_1", "de"), "https://x.org/werk/bok_1?ref=mastodon");
+  assert.equal(mastodon.workUrl("https://x.org", "bok_1", "es"), "https://x.org/es/werk/bok_1?ref=mastodon");
+  assert.equal(mastodon.workUrl("https://x.org", "bok_1", "en"), "https://x.org/en/werk/bok_1?ref=mastodon");
+  // La marca no puede cambiar la página: la ruta sigue siendo la de la obra y
+  // la canónica de esa página no lleva parámetros.
+  assert.ok(mastodon.workUrl("https://x.org", "bok_1", "de").includes("?ref=" + mastodon.ANNOUNCE_REF));
 });
 
 test("la portada lleva texto alternativo en el idioma del aviso", () => {

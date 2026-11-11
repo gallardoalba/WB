@@ -459,9 +459,20 @@ export function localeForLanguage(language: string | null | undefined): Locale {
   }
 }
 
-/** Enlace público de la obra en el idioma del aviso. */
+/**
+ * Etiqueta del enlace de los avisos.
+ *
+ * Las apps del fediverso no siempre mandan `Referer` (y el navegador solo manda
+ * el origen), así que sin marca es imposible saber cuántas visitas trae el bot.
+ * El parámetro no cambia la página ni su canónica (`/werk/<id>`): solo deja un
+ * rastro contable en el access log. Se cuenta en `deploy/informe-accesos.sh`.
+ */
+export const ANNOUNCE_REF = "mastodon";
+
+/** Enlace público de la obra en el idioma del aviso, con la marca del bot. */
 export function workUrl(base: string, bookId: string, locale: Locale): string {
-  return `${base.replace(/\/+$/, "")}${localePath(locale, `/werk/${bookId}`)}`;
+  const url = `${base.replace(/\/+$/, "")}${localePath(locale, `/werk/${bookId}`)}`;
+  return `${url}?ref=${ANNOUNCE_REF}`;
 }
 
 /**
