@@ -604,6 +604,40 @@ sudo systemctl start wanderbibliothek-watchdog.service   # probarlo a mano
 sudo journalctl -u wanderbibliothek-watchdog -n 20
 ```
 
+Cada pasada deja además una línea en
+`/var/lib/wanderbibliothek/watchdog.csv` con la hora, el código HTTP, el tiempo
+hasta el primer byte, el disco, la memoria, las horas desde la última copia, los
+días de certificado y el estado. El journal dice qué pasó en el último cuarto de
+hora; el CSV permite mirar la semana (`awk -F, '$8 != "ok"' …`) cuando alguien
+cuenta que «ayer iba lento».
+
+Con `WATCHDOG_PING_URL` (por ejemplo un *check* de healthchecks.io) cada pasada
+hace un `GET` a esa URL y, cuando algo falla, a `<URL>/fail`: el aviso llega por
+correo o Telegram sin abrir ningún puerto más en el servidor.
+
+### Disponibilidad desde fuera (`uptime-check.sh`)
+
+El vigilante vive **en** el servidor: si el servidor entero se cae, el vigilante
+se cae con él y nadie avisa. `deploy/uptime-check.sh` cierra ese hueco desde
+otra máquina (el portátil, un equipo de casa, un contenedor en otro proveedor):
+
+```bash
+./deploy/uptime-check.sh --webhook https://…   # una pasada
+```
+
+Comprueba `/api/health` y la portada con tiempo límite, guarda el estado en
+`~/.local/state/wanderbibliothek/` y solo avisa en los **cambios** (CAÍDO una vez
+al empezar el fallo, RECUPERADO al volver) para no llenar el buzón. Los
+`deploy/wanderbibliothek-uptime.{service,timer}` lo ejecutan cada cinco minutos
+en esa máquina:
+
+```bash
+mkdir -p ~/.local/bin ~/.local/state/wanderbibliothek
+install -m 755 deploy/uptime-check.sh ~/.local/bin/wanderbibliothek-uptime-check
+install -m 644 deploy/wanderbibliothek-uptime.service deploy/wanderbibliothek-uptime.timer ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now wanderbibliothek-uptime.timer
+```
+
 ## 9. Diagnóstico rápido
 
 | Síntoma | Causa habitual |
@@ -664,6 +698,16 @@ sirve tal cual en un cron con `ERROR_WEBHOOK_URL`.
 - **Los registros van a journald** (`journalctl -u wanderbibliothek`) en host, y a
   `docker compose logs` en contenedor. Con `ERROR_WEBHOOK_URL` se reenvían además
   los errores a un servicio externo.
+- **La copia fuera del servidor es un `rsync`/`scp` a una máquina tuya**
+  (`deploy/backup-pull.sh`). Una copia en un cubo (S3, Backblaze B2, R2) exige
+  una cuenta y sus claves; cuando las haya, el sitio donde encaja es
+  `WANDERBIBLIOTHEK_BACKUP_HOOK` (recibe la ruta en `$BACKUP_FILE`, así que vale
+  `rclone copy "$BACKUP_FILE" remoto:`) o un Litestream aparte que replique el
+  WAL. Ninguna de las dos está activada por defecto: sin credenciales no se
+  puede probar, y una copia que nunca se ha restaurado no es una copia.
+- **`ERROR_WEBHOOK_URL` y `WATCHDOG_PING_URL` están vacías**: el código las usa si
+  existen, pero el destino lo elige quien opera (Slack, healthchecks.io, un
+  correo). No hay valor por defecto a propósito.
 
 ## 11. Docker
 

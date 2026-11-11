@@ -32,6 +32,11 @@ export default function globalSetup(): void {
       // antiguas dejaba una clave publicada de la pasada anterior.
       "DELETE FROM user_keys",
       "UPDATE users SET public_key = NULL, public_key_id = NULL",
+      // El foro del club de demostración se llena de mensajes de cada pasada
+      // («Prueba de punta a punta …») hasta que el mensaje sembrado deja de
+      // estar en la primera página y la prueba falla por algo que no es un
+      // fallo: se borran los de las pasadas anteriores.
+      "DELETE FROM club_posts WHERE body LIKE 'Prueba de punta a punta %'",
     ]) {
       db.prepare(sql).run();
     }
