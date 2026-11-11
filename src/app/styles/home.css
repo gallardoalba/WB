@@ -365,7 +365,7 @@
 }
 
 .how-it-works h2 {
-  margin: 0 0 14px;
+  margin: 0 0 18px;
   font-family: var(--serif);
   font-size: var(--text-lg);
   font-weight: 600;
@@ -375,7 +375,9 @@
 .how-it-works ol {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  /* 28 px entre pasos: con 18 los tres párrafos se leían como un único bloque
+     corrido. */
+  gap: 28px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -388,7 +390,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   column-gap: 9px;
-  row-gap: 5px;
+  row-gap: 8px;
   align-content: start;
   min-width: 0;
 }

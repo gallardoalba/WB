@@ -234,7 +234,8 @@
 
   .how-it-works ol {
     grid-template-columns: 1fr;
-    gap: 14px;
+    /* En columna, la separación entre pasos es lo único que los distingue. */
+    gap: 22px;
   }
 
   .section-heading {
