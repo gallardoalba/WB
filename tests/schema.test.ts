@@ -54,6 +54,7 @@ const EXPECTED_TABLES = [
   "notifications",
   "product_events",
   "public_key_history",
+  "push_subscriptions",
   "reading_list_items",
   "reading_lists",
   "reading_states",

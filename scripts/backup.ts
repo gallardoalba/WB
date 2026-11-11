@@ -96,6 +96,47 @@ async function main() {
   }
   if (restos.length > 0) console.log(`Sidecars huérfanos retirados: ${restos.length}`);
 
+  // Las portadas no viajan en la base: sin esto, perder el disco deja el
+  // catálogo sin caras. Van en su propio archivo (cifrado con la misma clave) y
+  // con rotación propia, porque cambian poco: una semana basta.
+  const coversDir = path.join(path.dirname(source), "covers");
+  try {
+    const ficheros = readdirSync(coversDir);
+    if (ficheros.length > 0) {
+      const tarball = path.join(targetDir, `covers-${stamp}.tar.gz`);
+      execFileSync("tar", ["-czf", tarball, "-C", path.dirname(coversDir), "covers"], {
+        stdio: "pipe",
+      });
+      try {
+        chmodSync(tarball, 0o600);
+      } catch {
+        // Sistemas sin permisos POSIX.
+      }
+      let portadas = tarball;
+      if (process.env.WANDERBIBLIOTHEK_BACKUP_KEY) {
+        portadas = `${tarball}.enc`;
+        encryptBackup(tarball, portadas);
+        unlinkSync(tarball);
+      }
+      const keepCovers = Math.max(1, Number(process.env.WANDERBIBLIOTHEK_COVERS_KEEP ?? 7) || 7);
+      const antiguos = readdirSync(targetDir)
+        .filter((name) => /^covers-.*\.tar\.gz(\.enc)?$/.test(name))
+        .sort()
+        .reverse();
+      for (const old of antiguos.slice(keepCovers)) {
+        try {
+          unlinkSync(path.join(targetDir, old));
+        } catch {
+          // Si no se puede borrar, se reintenta en la siguiente pasada.
+        }
+      }
+      console.log(`Portadas en ${portadas} (${ficheros.length} ficheros, se conservan ${keepCovers})`);
+    }
+  } catch (error) {
+    // Una copia de la base sin portadas sigue sirviendo: se avisa y se continúa.
+    console.warn("No se pudieron copiar las portadas", error);
+  }
+
   // Gancho opcional para copia externa (rsync, rclone, S3…).
   const hook = process.env.WANDERBIBLIOTHEK_BACKUP_HOOK;
   if (hook) {

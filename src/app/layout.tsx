@@ -159,6 +159,16 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             y sin más valores de `rel` para que la comprobación no dependa de cómo
             los lea cada servidor. */}
         <link rel="me" href={MASTODON} />
+        {/* El catálogo, en un lector de feeds: la única forma de seguir las
+            novedades sin dar el correo ni abrir una cuenta. Va aquí y no en
+            `metadata.alternates` porque las páginas que declaran su propio
+            `canonical` sustituyen el objeto entero y perderían el enlace. */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={BRAND}
+          href="/feed.xml"
+        />
       </head>
       <body>
         {/* Datos estructurados de la marca. Google los lee aunque abajo

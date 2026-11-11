@@ -651,3 +651,35 @@ export const moderationSchema = z.object({
   }),
   targetId: z.string().min(1, "Falta el objetivo.").max(64, "Ese identificador no es válido."),
 });
+
+/**
+ * Suscripción a los avisos del navegador (Web Push).
+ *
+ * El `endpoint` lo asigna el servicio de push del navegador y siempre es https;
+ * las dos claves son base64url largos. Se limita el tamaño para que una cuenta
+ * no pueda llenar la tabla con cadenas enormes.
+ */
+export const pushSubscriptionSchema = z.object({
+  endpoint: z
+    .string()
+    .min(10, "El endpoint del navegador no es válido.")
+    .max(2000, "El endpoint del navegador no es válido.")
+    .startsWith("https://", "El endpoint del navegador no es válido."),
+  keys: z.object({
+    p256dh: z
+      .string()
+      .min(20, "Falta la clave del navegador.")
+      .max(200, "Falta la clave del navegador."),
+    auth: z
+      .string()
+      .min(8, "Falta la clave del navegador.")
+      .max(200, "Falta la clave del navegador."),
+  }),
+});
+
+export const pushUnsubscribeSchema = z.object({
+  endpoint: z
+    .string()
+    .min(10, "El endpoint del navegador no es válido.")
+    .max(2000, "El endpoint del navegador no es válido."),
+});

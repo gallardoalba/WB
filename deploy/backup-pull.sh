@@ -48,6 +48,14 @@ ls -1t "$DEST"/wanderbibliothek-*.db.enc 2>/dev/null \
       echo "Copia local antigua eliminada: $(basename "$vieja")"
     done
 
+# Las portadas viajan en su propio archivo: misma rotación, mismo tope.
+ls -1t "$DEST"/covers-*.tar.gz.enc 2>/dev/null \
+  | tail -n +$((KEEP + 1)) \
+  | while read -r viejo; do
+      rm -f "$viejo"
+      echo "Archivo de portadas eliminado: $(basename "$viejo")"
+    done
+
 ULTIMA=$(ls -1t "$DEST"/wanderbibliothek-*.db.enc 2>/dev/null | head -1 || true)
 if [ -z "$ULTIMA" ]; then
   echo "No hay ninguna copia cifrada en $DEST: revisa WANDERBIBLIOTHEK_BACKUP_KEY en el servidor." >&2
@@ -78,6 +86,23 @@ if [ "$VERIFY" = "1" ]; then
     fi
   fi
   echo "Verificada: $(basename "$ULTIMA") se descifra y abre como SQLite."
+
+  # Las portadas también se descifran y se comprueba que el tar se puede leer:
+  # un archivo que no abre no es una copia.
+  PORTADAS=$(ls -1t "$DEST"/covers-*.tar.gz.enc 2>/dev/null | head -1 || true)
+  if [ -n "$PORTADAS" ]; then
+    (
+      cd "$AQUI"
+      WANDERBIBLIOTHEK_BACKUP_KEY=$(cat "$KEY_FILE") \
+        node --import tsx "$AQUI/scripts/decrypt-backup.ts" "$PORTADAS" "$TMP/portadas.tar.gz"
+    ) >/dev/null
+    FICHEROS=$(tar -tzf "$TMP/portadas.tar.gz" 2>/dev/null | grep -c '/upload-' || true)
+    if [ "${FICHEROS:-0}" -eq 0 ]; then
+      echo "El archivo de portadas no contiene imágenes: $PORTADAS" >&2
+      exit 1
+    fi
+    echo "Verificadas: $(basename "$PORTADAS") con $FICHEROS portadas."
+  fi
 fi
 
 echo "Copias en $DEST: $(ls -1 "$DEST"/wanderbibliothek-*.db.enc 2>/dev/null | wc -l) (máximo $KEEP)."

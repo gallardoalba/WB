@@ -1,7 +1,13 @@
+import { statSync } from "node:fs";
 import { handleApiError, json } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { toJpeg } from "@/lib/cover-convert";
-import { readUploadedCover, removeUploadedCover, saveUploadedCover } from "@/lib/covers";
+import {
+  readUploadedCover,
+  removeUploadedCover,
+  saveUploadedCover,
+  uploadedCoverPath,
+} from "@/lib/covers";
 import { ApiError } from "@/lib/errors";
 import {
   assertVerified,
@@ -24,7 +30,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
  * aquí y todas las copias de esa obra enseñan la misma.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ bookId: string }> },
 ) {
   try {
@@ -36,14 +42,44 @@ export async function GET(
         headers: { "cache-control": "public, max-age=60" },
       });
     }
-    return new Response(new Uint8Array(cover.data), {
-      headers: {
-        "content-type": cover.contentType,
-        // La imagen cambia si quien publica la sustituye: se revalida a menudo.
-        "cache-control": "public, max-age=300, stale-while-revalidate=3600",
-        "x-content-type-options": "nosniff",
-      },
-    });
+
+    // La imagen cambia solo si quien publica la sustituye, pero hasta ahora el
+    // navegador la volvía a descargar entera pasados 5 minutos. Con `ETag`
+    // (mtime + tamaño del fichero, que es gratis de leer) cada visita posterior
+    // es un 304 de unos cientos de bytes, y el cambio se ve al instante.
+    const file = uploadedCoverPath(bookId);
+    let etag = "";
+    let lastModified = "";
+    if (file) {
+      try {
+        const stat = statSync(file);
+        const mtime = Math.floor(stat.mtimeMs / 1000);
+        etag = `"${mtime.toString(36)}-${stat.size.toString(36)}"`;
+        lastModified = new Date(mtime * 1000).toUTCString();
+      } catch {
+        // Si no se puede leer el mtime, se sirve sin validador.
+      }
+    }
+
+    const headers: Record<string, string> = {
+      "content-type": cover.contentType,
+      "cache-control": "public, max-age=86400, must-revalidate",
+      "x-content-type-options": "nosniff",
+    };
+    if (etag) headers.etag = etag;
+    if (lastModified) headers["last-modified"] = lastModified;
+
+    if (etag && request.headers.get("if-none-match") === etag) {
+      return new Response(null, { status: 304, headers });
+    }
+    if (!etag && lastModified) {
+      const since = request.headers.get("if-modified-since");
+      if (since && new Date(since).getTime() >= new Date(lastModified).getTime()) {
+        return new Response(null, { status: 304, headers });
+      }
+    }
+
+    return new Response(new Uint8Array(cover.data), { headers });
   } catch (error) {
     return handleApiError(error);
   }

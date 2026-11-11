@@ -47,18 +47,18 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               71 handlers grouped by domain",
+            "    api/               72 handlers grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v48), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v49), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 700 unit and integration tests (89 files)",
+            "tests/                 708 unit and integration tests (90 files)",
             "e2e/                   browser tests with Playwright (6 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -118,7 +118,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 71 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
+          text: "The API has 72 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
         },
         {
           kind: "list",
@@ -153,7 +153,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v48) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table.",
+          text: "Migrations are versioned with `PRAGMA user_version` (current: v48) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table. v49 adds `push_subscriptions`, the browsers that accepted notifications.",
         },
         {
           kind: "p",
@@ -298,7 +298,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 700 unit and integration tests in 89 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 52 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 708 unit and integration tests in 90 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 52 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

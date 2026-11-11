@@ -62,6 +62,21 @@ export function notify(input: {
       input.link ?? null,
     );
 
+  // Aviso al dispositivo (Web Push), si la cuenta tiene alguno suscrito. Fuego y
+  // olvido a propósito: un servicio de push caído no puede tumbar la acción que
+  // provocó el aviso. La importación es diferida para que este módulo siga
+  // cargándose en las pruebas sin arrastrar `web-push`.
+  void import("../push")
+    .then(({ sendPushToUser }) =>
+      sendPushToUser(input.userId, {
+        title: localized.title,
+        body: localized.body.slice(0, 180),
+        url: input.link ?? "/",
+        tag: input.type,
+      }),
+    )
+    .catch(() => {});
+
   enqueueNotificationEmail({ ...input, title: localized.title, body: localized.body }, locale);
 }
 

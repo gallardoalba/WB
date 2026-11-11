@@ -71,18 +71,18 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y route handlers (App Router)",
-            "    api/               71 handlers agrupados por dominio",
+            "    api/               72 handlers agrupados por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          armazón de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v48), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v49), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 700 pruebas unitarias y de integración (89 ficheros)",
+            "tests/                 708 pruebas unitarias y de integración (90 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -142,7 +142,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 71 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
+          text: "La API tiene 72 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
         },
         {
           kind: "list",
@@ -177,7 +177,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v48) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a todas las ciudades, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo. Las tres siguientes (v41–v43) crean la bandeja de salida social (`social_outbox`) y le añaden la imagen del anuncio y el tope diario por cuenta; la v44 cierra el círculo del intercambio: el ejemplar entregado queda `given` y quien lo recibe estrena su propia copia; la v45 estrena `social_likes`, la memoria de los «me gusta» del bot, y la v46 crea el índice `books_fts`, que busca obras sin recorrer la tabla entera.",
+          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v49) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a todas las ciudades, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo. Las tres siguientes (v41–v43) crean la bandeja de salida social (`social_outbox`) y le añaden la imagen del anuncio y el tope diario por cuenta; la v44 cierra el círculo del intercambio: el ejemplar entregado queda `given` y quien lo recibe estrena su propia copia; la v45 estrena `social_likes`, la memoria de los «me gusta» del bot, y la v46 crea el índice `books_fts`, que busca obras sin recorrer la tabla entera. La v49 añade `push_subscriptions`, los navegadores que han aceptado los avisos.",
         },
         {
           kind: "p",
@@ -322,7 +322,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 700 pruebas unitarias y de integración en 89 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 52 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 708 pruebas unitarias y de integración en 90 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 52 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -502,13 +502,13 @@ const DE: TechnicalDocument = {
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Gerüst und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v48), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v49), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 700 Unit- und Integrationstests (89 Dateien)",
+            "tests/                 708 Unit- und Integrationstests (90 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -603,7 +603,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v48) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für alle Städte, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post. Die folgenden drei (v41–v43) legen die Social-Ausgangsablage (`social_outbox`) an und ergänzen das Bild der Meldung und die Tagesgrenze je Konto; die v44 schließt den Kreis des Tauschs: das übergebene Exemplar bleibt `given` und wer es bekommt, bekommt ein eigenes; die v45 legt `social_likes` an, das Gedächtnis der «Gefällt mir» des Bots, und die v46 schafft den Index `books_fts`, der Werke findet, ohne die ganze Tabelle zu durchlaufen.",
+          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v48) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für alle Städte, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post. Die folgenden drei (v41–v43) legen die Social-Ausgangsablage (`social_outbox`) an und ergänzen das Bild der Meldung und die Tagesgrenze je Konto; die v44 schließt den Kreis des Tauschs: das übergebene Exemplar bleibt `given` und wer es bekommt, bekommt ein eigenes; die v45 legt `social_likes` an, das Gedächtnis der «Gefällt mir» des Bots, und die v46 schafft den Index `books_fts`, der Werke findet, ohne die ganze Tabelle zu durchlaufen. Die v49 legt `push_subscriptions` an: die Browser, die Benachrichtigungen abonniert haben.",
         },
         {
           kind: "p",
@@ -748,7 +748,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 700 Unit- und Integrationstests in 89 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 52 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 708 Unit- und Integrationstests in 90 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 52 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

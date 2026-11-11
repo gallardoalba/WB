@@ -1,0 +1,11 @@
+[Unit]
+Description=Wanderbibliothek · comprobar cada 5 minutos que el sitio responde
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*:0/5
+AccuracySec=30s
+Unit=wanderbibliothek-uptime.service
+
+[Install]
+WantedBy=timers.target

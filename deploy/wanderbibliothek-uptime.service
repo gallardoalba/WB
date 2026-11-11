@@ -1,0 +1,11 @@
+[Unit]
+Description=Wanderbibliothek · ¿responde el sitio? (comprobación desde fuera)
+Documentation=file:%h/Desktop/wanderbibliothek/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# 1 = el sitio no responde; es un aviso, no un fallo del temporizador.
+SuccessExitStatus=0 1
+ExecStart=%h/Desktop/wanderbibliothek/deploy/uptime-check.sh

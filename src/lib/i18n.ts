@@ -1328,6 +1328,18 @@ export const DE = {
   " de {name}": " von {name}",
   "{n} libros en la lista «{title}»{signature}.": "{n} Bücher in der Liste „{title}“{signature}.",
   "{n} libros recomendados.": "{n} empfohlene Bücher.",
+  "Avisos en este dispositivo": "Benachrichtigungen auf diesem Gerät",
+  "Recibe un aviso cuando te pidan un libro o te escriban, aunque no tengas la web abierta.": "Erhalte eine Nachricht, wenn jemand ein Buch von dir anfragt oder dir schreibt – auch wenn die Website geschlossen ist.",
+  "Este navegador no admite avisos. En iPhone, añade antes la web a la pantalla de inicio.": "Dieser Browser unterstützt keine Benachrichtigungen. Unter iOS füge die Website zuerst zum Home-Bildschirm hinzu.",
+  "Los avisos todavía no están disponibles en esta instancia.": "Benachrichtigungen sind auf dieser Instanz noch nicht verfügbar.",
+  "Has bloqueado los avisos para este sitio: vuelve a permitirlos en los ajustes del navegador.": "Du hast Benachrichtigungen für diese Website blockiert: Erlaube sie wieder in den Browsereinstellungen.",
+  "Activar avisos": "Benachrichtigungen aktivieren",
+  "Desactivar avisos": "Benachrichtigungen deaktivieren",
+  "Avisos activados en este dispositivo.": "Benachrichtigungen auf diesem Gerät aktiviert.",
+  "Avisos desactivados en este dispositivo.": "Benachrichtigungen auf diesem Gerät deaktiviert.",
+  "No se pudieron activar los avisos.": "Benachrichtigungen konnten nicht aktiviert werden.",
+  "El endpoint del navegador no es válido.": "Die Adresse des Browsers ist ungültig.",
+  "Falta la clave del navegador.": "Dem Browser fehlt der Schlüssel.",
 } satisfies Dictionary;
 
 /**
@@ -2630,6 +2642,18 @@ export const EN = {
   "Privacidad guardada.": "Privacy saved.",
   "No se pudo guardar.": "Could not be saved.",
   "Este perfil es reservado: su estantería, sus comentarios y su ciudad solo los ve quien esa persona ha elegido.": "This profile is restricted: its shelf, comments and city are visible only to the people it allows.",
+  "Avisos en este dispositivo": "Notifications on this device",
+  "Recibe un aviso cuando te pidan un libro o te escriban, aunque no tengas la web abierta.": "Get notified when someone asks for a book or writes to you, even with the site closed.",
+  "Este navegador no admite avisos. En iPhone, añade antes la web a la pantalla de inicio.": "This browser does not support notifications. On iPhone, add the site to your home screen first.",
+  "Los avisos todavía no están disponibles en esta instancia.": "Notifications are not available on this instance yet.",
+  "Has bloqueado los avisos para este sitio: vuelve a permitirlos en los ajustes del navegador.": "You blocked notifications for this site: allow them again in your browser settings.",
+  "Activar avisos": "Turn on notifications",
+  "Desactivar avisos": "Turn off notifications",
+  "Avisos activados en este dispositivo.": "Notifications turned on for this device.",
+  "Avisos desactivados en este dispositivo.": "Notifications turned off for this device.",
+  "No se pudieron activar los avisos.": "Could not turn on notifications.",
+  "El endpoint del navegador no es válido.": "That browser endpoint is not valid.",
+  "Falta la clave del navegador.": "The browser key is missing.",
 } satisfies Dictionary;
 
 /** Textos con traducción alemana (las claves del diccionario). */

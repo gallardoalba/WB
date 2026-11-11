@@ -1531,6 +1531,30 @@ function migrateToV48(db: Db) {
 }
 
 /**
+ * v49: avisos del navegador (Web Push).
+ *
+ * Una fila por dispositivo y navegador. El `endpoint` es único porque lo asigna
+ * el servicio de push y es lo que identifica al aparato; las claves (`p256dh`,
+ * `auth`) las genera el navegador al suscribirse. Si el servicio responde
+ * 404/410, la fila se borra sola al intentar el siguiente envío.
+ */
+function migrateToV49(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS push_subscriptions_user ON push_subscriptions(user_id);
+  `);
+  db.pragma("user_version = 49");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1663,6 +1687,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 46) migrateToV46(db);
   if (userVersion(db) < 47) migrateToV47(db);
   if (userVersion(db) < 48) migrateToV48(db);
+  if (userVersion(db) < 49) migrateToV49(db);
 
   backfillSearchKeys(db);
 }

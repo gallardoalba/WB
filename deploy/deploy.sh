@@ -67,7 +67,7 @@ BACKUP_SERVICE="${BACKUP_SERVICE:-wanderbibliothek-backup.service}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 HEALTH_TRIES="${HEALTH_TRIES:-30}"
 ENV_FILE="${ENV_FILE:-/etc/wanderbibliothek/env}"
-KEEP="${KEEP:-5}"
+KEEP="${KEEP:-3}"
 NODE_BIN="${NODE_BIN:-node}"
 NPM_BIN="${NPM_BIN:-npm}"
 
@@ -83,7 +83,7 @@ usage() {
 
 Opciones:
   --ref <ref>        Etiqueta, rama o commit a desplegar (por defecto: BRANCH).
-  --keep <n>         Releases que se conservan (por defecto 5).
+  --keep <n>         Releases que se conservan (por defecto 3).
   --skip-backup      No hace copia de la base antes de cambiar de versión.
   --rollback         Vuelve a la release anterior y sale.
   --dry-run          Enseña los comandos sin ejecutarlos.
