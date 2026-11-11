@@ -1500,7 +1500,7 @@ export default function WanderbibliothekApp({
                       <h3>{t("Comparte")}</h3>
                       <p>
                         {t(
-                          "Publica el libro que ya has leído con su estado y tu ciudad. El ISBN es opcional y no hay precio: aquí los ejemplares se dan o se intercambian.",
+                          "Publica el libro que ya has leído con su estado y tu ciudad. No hay precio: aquí los ejemplares se dan o se intercambian.",
                         )}
                       </p>
                     </li>
