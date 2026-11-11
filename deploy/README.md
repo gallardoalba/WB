@@ -622,6 +622,36 @@ sudo journalctl -u wanderbibliothek-watchdog -n 20
 | No hay copias en `/var/backups/wanderbibliothek` | Mira `journalctl -u wanderbibliothek-backup`; si el log habla de `tsx`, la release se instaló sin dependencias de producción o falta el `WorkingDirectory` |
 | `Failed to start server … EADDRINUSE` | Hay otro `next start` o un `.next` de otra release |
 
+### Informe de accesos y ataques
+
+`deploy/informe-accesos.sh` compone el informe del día desde el portátil: entra
+por SSH, lee el journal de `ssh`, los access logs de nginx (incluidos los
+rotados), `/var/log/fail2ban.log` y la base de datos, y saca el resumen de
+intentos fallidos, usuarios probados, baneos, sondas bloqueadas con `444`,
+respuestas `5xx`, logins fallidos en `/api/auth/login` y estado del servicio. Es
+solo lectura: no escribe nada ni dispara límites de nginx.
+
+```bash
+./deploy/informe-accesos.sh            # hoy (día del servidor)
+./deploy/informe-accesos.sh --ayer     # el día anterior
+./deploy/informe-accesos.sh --dias 7   # hace siete días
+npm run informe:accesos -- --json      # una línea JSON, para cron o webhook
+```
+
+Dos detalles que conviene saber:
+
+- **Los logrotate no caen a medianoche exacta**: el `access.log.1` puede tener
+  la primera hora del día. El script lee los ficheros rotados y filtra por la
+  fecha de la línea, así que el total del día está completo (mirar solo el
+  `access.log` corriente se deja esas peticiones fuera).
+- **Las IPs con acceso SSH correcto se excluyen solas** de la lista de
+  atacantes (incluida la del portátil que lanza el informe). Si hace falta
+  añadir alguna más: `WB_EXCLUIR=1.2.3.4,5.6.7.8 ./deploy/informe-accesos.sh`.
+
+Sale con código 1 cuando hay algo que mirar (5xx, `Accepted password` en SSH,
+`/api/health` distinto de 200 o fail2ban sin baneos habiendo fallos), así que
+sirve tal cual en un cron con `ERROR_WEBHOOK_URL`.
+
 ## 10. Límites conocidos
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no
