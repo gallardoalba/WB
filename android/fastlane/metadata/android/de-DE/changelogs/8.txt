@@ -1,7 +1,0 @@
-· Drei Sprachen: Spanisch, Deutsch und Englisch. Die App folgt der Sprache des
-  Telefons.
-· Neue Startseite: Marke, Leitsatz und Vorstellung, ohne Karten und Verläufe.
-· Städte in ganz Europa: die Stadt wird gegen OpenStreetMap geprüft.
-· Tausch: Fehler beim Öffnen der Liste gegen Server behoben, die den
-  Schrägstrich am Ende umleiten.
-· Ungelesene Nachrichten in der Leiste und Hinweis, wenn die Sitzung abläuft.

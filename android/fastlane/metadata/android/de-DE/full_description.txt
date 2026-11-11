@@ -1,9 +1,0 @@
-Wanderbibliothek ist eine Gemeinschaft von Leserinnen und Lesern: Bücher, die bei dir zu Hause stehen, finden neue Lesende in deiner Stadt, und was andere lesen, findest du bei ihnen um die Ecke.
-
-· Teilen statt horten: stelle deine Bücher ein und sieh, wer sie sucht.
-· Menschen statt Algorithmen: tausch mit Nachbarinnen und Nachbarn, nicht mit einem Lagerhaus.
-· Clubs und Leselisten: triff dich mit anderen, stimmt über das nächste Buch ab und schreibt gemeinsam weiter.
-· Privat bleibt privat: Nachrichten und Übergabedaten sind Ende-zu-Ende-verschlüsselt; die Betreiber können sie nicht lesen.
-· Kostenlos und ohne Werbung.
-
-Wanderbibliothek ist ein offenes Projekt: der Code ist frei einsehbar, die Daten gehören dir, und du kannst dein Konto jederzeit mit allen Daten exportieren oder löschen.

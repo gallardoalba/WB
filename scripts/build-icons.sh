@@ -10,7 +10,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 OUT=public/icons
-FDROID=android/fastlane/metadata/android/en-US/images
+# El icono de la ficha de F-Droid vive ahora en el repositorio de la app, que
+# puede no estar clonado al lado: si no está, se avisa y se sigue.
+FDROID=${FDROID_DIR:-../wanderbibliothek-app/fastlane/metadata/android/en-US/images}
 
 render() {
   local svg=$1 png=$2 size=$3
@@ -34,6 +36,9 @@ cp "$OUT/icon.svg" src/app/icon.svg
 echo "  src/app/icon.svg (copia)"
 
 # F-Droid toma el icono de la ficha (512×512).
-mkdir -p "$FDROID"
-cp "$OUT/icon-512.png" "$FDROID/icon.png"
-echo "  $FDROID/icon.png (copia)"
+if [ -d "$(dirname "$FDROID")" ]; then
+  cp "$OUT/icon-512.png" "$FDROID/icon.png"
+  echo "  $FDROID/icon.png (copia)"
+else
+  echo "  (sin repositorio de la app al lado: no se copia el icono de F-Droid)"
+fi

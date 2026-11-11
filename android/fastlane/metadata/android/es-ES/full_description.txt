@@ -1,9 +1,0 @@
-Wanderbibliothek es una comunidad de lectores: los libros que ya tienes encuentran a quien los busca en tu ciudad, y lo que leen otras personas lo tienes a la vuelta de la esquina.
-
-· Compartir en vez de acumular: publica tus ejemplares y mira quién los busca.
-· Personas en vez de algoritmos: intercambia con gente de tu barrio, no con un almacén.
-· Clubes y listas: queda con otras personas, votad el próximo libro y seguid escribiendo juntas.
-· Lo privado es privado: los mensajes y los datos de entrega van cifrados de extremo a extremo; ni quien administra la plataforma puede leerlos.
-· Gratis y sin anuncios.
-
-Wanderbibliothek es un proyecto abierto: el código se puede leer, tus datos son tuyos y puedes exportar o borrar tu cuenta cuando quieras.

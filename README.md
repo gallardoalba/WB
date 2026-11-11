@@ -50,10 +50,10 @@ An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run
 
 ## Android app
 
-A native client (Kotlin + Jetpack Compose) lives in [`android/`](android/README.md). It talks to the same REST API, uses the same end-to-end encryption for exchange messages and can point at any server from its settings.
+A native client (Kotlin + Jetpack Compose) lives in its own repository, [`gallardoalba/wanderbibliothek-app`](https://github.com/gallardoalba/wanderbibliothek-app). It talks to the same REST API, uses the same end-to-end encryption for exchange messages and can point at any server from its settings.
 
 ```bash
-cd android
+cd wanderbibliothek-app
 ./gradlew :app:assembleDebug
 ```
 

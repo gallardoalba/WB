@@ -1,7 +1,0 @@
-· Three languages: Spanish, German and English. The app follows the phone's
-  language.
-· New home screen: brand, tagline and intro, without cards or gradients.
-· Cities across Europe: the city is checked against OpenStreetMap.
-· Exchanges: fixed the error when opening the list against servers that
-  redirect the trailing slash.
-· Unread messages in the bar and a notice when the session expires.

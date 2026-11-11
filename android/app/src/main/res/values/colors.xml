@@ -1,5 +1,0 @@
-<resources>
-    <color name="launcher_background">#2F5741</color>
-    <!-- Fondo del tema de ventana: igual que el `background` oscuro de Compose. -->
-    <color name="window_background">#12150F</color>
-</resources>
