@@ -186,12 +186,11 @@ export default function WanderbibliothekApp({
   // cambia (atrás/adelante, un enlace o un chip) el texto se resincroniza sin
   // un efecto que devuelva la consulta vieja al servidor.
   const [searchDraft, setSearchDraft] = useState({ query: filters.q, value: filters.q });
-  // Los filtros secundarios (distancia e idioma) se pliegan en móvil para que
-  // la primera tarjeta no quede a 600 px del borde superior.
+  // Los filtros secundarios (la distancia) se pliegan en móvil para que la
+  // primera tarjeta no quede a 600 px del borde superior. El idioma ya no vive
+  // ahí: va en la barra, a la derecha del orden.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilters =
-    (filters.radius !== 0 ? 1 : 0) +
-    (filters.language && filters.language !== CATALOG_LANGUAGES[0] ? 1 : 0);
+  const activeFilters = filters.radius !== 0 ? 1 : 0;
   const search = searchDraft.query === filters.q ? searchDraft.value : filters.q;
   const setSearch = useCallback(
     (value: string) => setSearchDraft({ query: filters.q, value }),
@@ -1248,7 +1247,31 @@ export default function WanderbibliothekApp({
                     </select>
                     <ChevronDown size={14} aria-hidden="true" />
                   </div>
+                  {/* El idioma va aquí, a la derecha del orden: se usa tanto
+                      como el orden y antes estaba escondido tras «Filtros». */}
+                  <div className="language-filter">
+                    <label className="sr-only" htmlFor="catalog-language">
+                      {t("Idioma del libro")}
+                    </label>
+                    <select
+                      id="catalog-language"
+                      value={filters.language}
+                      onChange={(event) => navigate({ language: event.target.value, page: 1 })}
+                    >
+                      {CATALOG_LANGUAGES.map((language) => (
+                        <option key={language} value={language}>
+                          {language === "Todos" ? t("Todos los idiomas") : t(language)}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </div>
                 </div>
+                {/* El panel plegable solo existe si hay algo dentro (la
+                    distancia pide ciudad): si no, «Filtros» abría un hueco
+                    vacío en el móvil. */}
+                {user?.city && (
+                  <>
                 <button
                   type="button"
                   className="filters-toggle"
@@ -1286,24 +1309,9 @@ export default function WanderbibliothekApp({
                       ))}
                     </div>
                   )}
-                  <div className="language-filter">
-                    <label className="sr-only" htmlFor="catalog-language">
-                      {t("Idioma del libro")}
-                    </label>
-                    <select
-                      id="catalog-language"
-                      value={filters.language}
-                      onChange={(event) => navigate({ language: event.target.value, page: 1 })}
-                    >
-                      {CATALOG_LANGUAGES.map((language) => (
-                        <option key={language} value={language}>
-                          {language === "Todos" ? t("Todos los idiomas") : t(language)}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} aria-hidden="true" />
-                  </div>
                 </div>
+                  </>
+                )}
                 {(filters.q || filters.tag) && (
                   <div className="active-filters">
                     {filters.q && (
@@ -1503,7 +1511,7 @@ export default function WanderbibliothekApp({
                       <h3>{t("Encuentra")}</h3>
                       <p>
                         {t(
-                          "Busca por título, autoría o tema y filtra por distancia e idioma. Quien tiene el ejemplar decide si te lo pasa.",
+                          "Busca por título, autoría o tema y filtra por distancia e idioma.",
                         )}
                       </p>
                     </li>
@@ -1521,7 +1529,7 @@ export default function WanderbibliothekApp({
                   </ol>
                   <p className="how-note">
                     {t(
-                      "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona. La plataforma solo mantiene el índice; el ejemplar está en casa de quien lo ofrece.",
+                      "No hace falta que os cambiéis libros entre vosotros: lo que hoy das, mañana lo recibe otra persona. La plataforma solo mantiene el índice; el ejemplar está en posesión de quien lo ofrece.",
                     )}
                   </p>
                 </section>

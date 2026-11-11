@@ -553,16 +553,22 @@
 
 .filter-toolbar {
   display: grid;
-  /* El buscador cede espacio; el contador y el orden conservan su ancho. Antes
-     era `minmax(0, 520px) auto minmax(0, 1fr)` y a 1280 px el contador se
-     cortaba («5 libro») para dejar sitio al selector. */
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  /* El buscador cede espacio; el contador, el orden y el idioma conservan su
+     ancho. */
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 10px;
 }
 
 .filter-toolbar .sort-select {
   justify-self: end;
+}
+
+/* El idioma vive en la barra, a la derecha del orden (antes estaba dentro del
+   panel de «Filtros», que en el móvil había que abrir para cambiar de idioma). */
+.filter-toolbar .language-filter {
+  justify-self: end;
+  margin-left: 0;
 }
 
 .result-count {

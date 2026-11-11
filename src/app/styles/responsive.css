@@ -265,7 +265,25 @@
   }
 
   .filter-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* Segunda fila: contador, orden e idioma. */
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  /* A 320 px no caben los tres: el idioma baja a su propia línea y ocupa el
+     ancho, en vez de desbordar la barra. */
+  @media (max-width: 400px) {
+    .filter-toolbar {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .filter-toolbar .language-filter {
+      grid-column: 1 / -1;
+      justify-self: stretch;
+    }
+
+    .filter-toolbar .language-filter select {
+      width: 100%;
+    }
   }
 
   .search-field {
