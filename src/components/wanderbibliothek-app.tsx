@@ -468,18 +468,26 @@ export default function WanderbibliothekApp({
   useEffect(() => {
     const anchor = window.location.hash.slice(1);
     if (!anchor) return;
-    let frame = 0;
-    let intentos = 0;
+    // Se espera hasta 2 s: en la primera visita la vista llega después (hay
+    // `loading.tsx` y el estante se pide al servidor), así que un puñado de
+    // fotogramas no bastaba y el salto se quedaba sin destino.
+    const limite = performance.now() + 2000;
+    let vivo = true;
+    let timer = 0;
     const saltar = () => {
+      if (!vivo) return;
       const target = document.getElementById(anchor);
       if (target) {
         target.scrollIntoView({ block: "start" });
         return;
       }
-      if (intentos++ < 10) frame = requestAnimationFrame(saltar);
+      if (performance.now() < limite) timer = window.setTimeout(saltar, 60);
     };
-    frame = requestAnimationFrame(saltar);
-    return () => cancelAnimationFrame(frame);
+    saltar();
+    return () => {
+      vivo = false;
+      window.clearTimeout(timer);
+    };
   }, [pathname]);
 
   // Al pasar de página la lista nueva se pinta por encima y la persona se
