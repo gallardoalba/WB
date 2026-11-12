@@ -97,6 +97,58 @@
   max-height: 340px;
 }
 
+/* «Cómo funciona» de la ficha pública: los pasos con su explicación, sin salir
+   del libro que se estaba mirando. Más ancho que un diálogo corriente porque
+   cada paso lleva título y frase, y se leen mejor a 15 px que apretados. */
+.dialog.how-dialog {
+  width: min(560px, 100%);
+}
+
+.how-dialog-steps {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how-dialog-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-content: start;
+}
+
+.how-dialog-steps h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* La frase ocupa las dos columnas: el círculo del número solo acompaña al
+   título, como en la portada. */
+.how-dialog-steps p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* `.dialog > p` (0,1,1) ya da color y tamaño a cualquier párrafo del panel: el
+   selector lleva el `.dialog` para ganarle y poder separar la nota con su raya. */
+.dialog > p.how-dialog-note {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .dialog-close {
   position: absolute;
   top: 12px;
