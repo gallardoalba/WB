@@ -237,9 +237,14 @@ export default async function Page({ params }: PageProps) {
 
       {work.copies > 0 && (
         <section className="public-work-context">
+          {/* El párrafo decía que la entrega «se acuerda entre las dos personas» y
+              que la plataforma «solo mantiene el índice»: no es lo que hace la
+              app, que lleva la solicitud, la conversación cifrada y la
+              confirmación de la entrega por ambas partes. Lo único que no
+              ocurre aquí es el libro. */}
           <p>
             {t(
-              "Los ejemplares están en manos de quienes los ofrecen: se quedan ahí hasta que alguien los pide, y la entrega se acuerda entre las dos personas. La plataforma solo mantiene el índice.",
+              "Los ejemplares los tiene quien los ofrece. Pides el libro desde aquí, esa persona decide si lo cede y, si acepta, acordáis la entrega en la conversación cifrada y la confirmáis vosotras dos. La plataforma guarda el catálogo y el seguimiento del intercambio; el libro nunca pasa por ella.",
             )}
           </p>
           <Link href={`${localePath(locale, "/")}#how-it-works-title`} className="text-link">
