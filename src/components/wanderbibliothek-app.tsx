@@ -43,7 +43,6 @@ import { ThemeToggle } from "./theme-toggle";
 import { ReaderCard } from "./reader-card";
 import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
-import { ListingPreview } from "./listing-preview";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { MastodonLink } from "./mastodon-link";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
@@ -211,11 +210,6 @@ export default function WanderbibliothekApp({
     setAuthProp(openAuth);
     if (openAuth) setAuthOpen(true);
   }
-  const [previewListing, setPreviewListing] = useState<ListingView | null>(null);
-  // La vista previa se cierra con su propio estado: el ejemplar se queda hasta
-  // que termina el fundido de salida del diálogo.
-  const [previewOpen, setPreviewOpen] = useState(false);
-
   const [notificationsOpen, setNotificationsOpen] = useState(openNotifications);
   const [exchangeId, setExchangeId] = useState<string | null>(null);
   // Como en la vista previa: el diálogo se cierra con su propio estado para que
@@ -1454,15 +1448,11 @@ export default function WanderbibliothekApp({
                       key={listing.id}
                       listing={listing}
                       headingLevel={view === "home" ? 3 : 2}
-                      onPreview={user ? undefined : () => {
-                        // Un solo diálogo a la vez: si el acceso estaba abierto
-                        // (por un 401 a mitad de navegación, por ejemplo), la
-                        // vista previa lo sustituye en vez de quedar los dos
-                        // apilados (dos `role="dialog"` con `aria-modal`).
-                        setAuthOpen(false);
-                        setPreviewListing(listing);
-                        setPreviewOpen(true);
-                      }}
+                      // Sin sesión, la tarjeta lleva a la ficha pública de la
+                      // obra: se puede ojear sin cuenta y trae el botón para
+                      // entrar y pedirla. Antes abría una vista previa en un
+                      // diálogo que se quedaba a medias y no se podía compartir.
+                      href={user ? undefined : href(`/werk/${listing.bookId}`)}
                       // El corazón solo vive en «Descubrir»: en la portada
                       // tapaba la portada en móvil y el estante es para ojear.
                       actions={
@@ -1842,18 +1832,6 @@ export default function WanderbibliothekApp({
         }}
       />
       </LazyDialog>
-
-      <ListingPreview
-        listing={previewListing}
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        onLogin={() => {
-          if (!previewListing) return;
-          setAuthNext(`/libro/${previewListing.id}`);
-          setPreviewListing(null);
-          setAuthOpen(true);
-        }}
-      />
 
       <LazyDialog open={notificationsOpen}>
       <NotificationsDialog

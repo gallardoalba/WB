@@ -44,18 +44,15 @@ test("sin sesión el catálogo se puede ojear, pero pedir pide acceso", async ({
   await expect(page).toHaveURL(/\/descubrir$/);
   await expect(page.locator(".book-card:visible").first()).toBeVisible();
 
-  // La tarjeta abre la vista previa: describe el ejemplar y ofrece entrar, pero
-  // no deja pedirlo sin cuenta.
+  // La tarjeta abre la ficha pública de la obra: se puede ojear sin cuenta y
+  // el botón de pedir es el que pide acceso, con la vuelta guardada.
   await page.locator(".book-card:visible .card-link").first().click();
+  await expect(page).toHaveURL(/\/werk\//, { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Cómo funciona" })).toBeVisible();
+  await page.getByRole("link", { name: "Entrar para pedirlo" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  // La vista previa no es un cartel de «entra»: enseña la ficha del ejemplar y
-  // qué pasa si se pide, que es lo que decide si merece la pena registrarse.
-  await expect(dialog).toContainText("Estado");
-  await expect(dialog).toContainText("Ciudad");
-  await expect(dialog).toContainText("Cómo funciona el intercambio");
-  await expect(dialog.getByRole("button", { name: "Entrar para pedirlo" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Seguir explorando" })).toBeVisible();
+  await expect(page).toHaveURL(/next=/);
 });
 
 test("el tema claro/oscuro se conmuta y persiste", async ({ page }) => {  await page.goto("/");
@@ -235,7 +232,7 @@ test("el panel de comunidad carga cada pestaña por separado", async ({ page }) 
   await expect(page.locator(".reader-card:visible")).toHaveCount(0);
 });
 
-test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", async ({ page }) => {
+test("una tarjeta sin sesión lleva a la ficha pública y el acceso vuelve a ella", async ({ page }) => {
   // Calienta la ruta de ficha antes de medir el retorno del login: en un
   // servidor recién construido la primera compilación puede superar 15 s.
   await page.goto("/libro/lst_1");
@@ -244,28 +241,26 @@ test("un libro se puede previsualizar sin sesión y el acceso vuelve a él", asy
   await page.locator(".book-card:visible .request-button").first().evaluate((element) =>
     (element as HTMLElement).click(),
   );
-  // Por clase y no por título: la primera tarjeta del catálogo depende del
-  // orden de la muestra, y el diálogo de acceso también es `role="dialog"`.
-  const preview = page.locator(".preview-dialog");
-  await expect(preview).toBeVisible();
-  // Clic por DOM: la portada carga después de abrirse el diálogo y un clic por
-  // coordenadas puede caer en el otro botón si el alto cambia a mitad.
-  await preview
-    .getByRole("button", { name: "Entrar para pedirlo" })
-    .evaluate((element) => (element as HTMLElement).click());
 
-  // Un solo diálogo a la vez: la vista previa se cierra y deja el acceso.
+  // La tarjeta abre la ficha pública de la obra; ya no hay diálogo de vista
+  // previa (el catálogo se recorre entero sin sesión).
+  await expect(page).toHaveURL(/\/werk\//, { timeout: 20_000 });
+  await expect(page.locator("[data-dialog-root]")).toHaveCount(0);
+  const ficha = page.url();
+
+  // «Entrar para pedirlo» conserva el destino: la ficha de la obra que pide.
+  await page.getByRole("link", { name: "Entrar para pedirlo" }).evaluate((element) =>
+    (element as HTMLElement).click(),
+  );
   const dialog = page.getByRole("dialog", { name: "Entra en Wanderbibliothek" });
-  await expect(preview).toHaveCount(0);
   await expect(dialog).toBeVisible();
   await dialog.locator('input[name="email"]').fill("ana@wanderbibliothek.test");
   await dialog.locator('input[name="password"]').fill("demo1234");
   await dialog.getByRole("button", { name: "Entrar", exact: true }).click();
 
-  // La ficha se calienta al principio, pero en `next dev` el primer acceso a
-  // la ruta exacta de este ejemplar todavía puede compilar: 20 s da margen sin
-  // acercarse al límite de 30 s de la prueba.
-  await expect(page).toHaveURL(/\/libro\/lst_/, { timeout: 20_000 });
+  // Vuelve a la ficha de la obra (no a la del ejemplar) y por su misma ruta.
+  await expect(page).toHaveURL(/\/obra\//, { timeout: 20_000 });
+  await expect(page.url()).not.toBe(ficha);
 });
 
 test("un enlace de acceso pendiente lleva al destino con la sesión ya abierta", async ({ page }) => {
@@ -275,7 +270,6 @@ test("un enlace de acceso pendiente lleva al destino con la sesión ya abierta",
   await loginAsDemo(page);
   await page.goto("/?auth=1&next=%2Flibro%2Flst_1");
   await expect(page).toHaveURL(/\/libro\/lst_1/, { timeout: 20_000 });
-  await expect(page.locator(".preview-dialog")).toHaveCount(0);
 });
 
 test("las páginas internas piden sesión y no enseñan el panel lateral", async ({ page }) => {

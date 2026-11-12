@@ -12,12 +12,16 @@ import { useI18n } from "./i18n-provider";
 export function ListingCard({
   listing,
   actions,
-  onPreview,
+  href,
   headingLevel = 3,
 }: {
   listing: ListingView;
   actions?: ReactNode;
-  onPreview?: () => void;
+  /**
+   * Destino de la tarjeta. Sin sesión se pasa la ficha pública de la obra
+   * (`/werk/…`), que no exige cuenta; con sesión se queda en la del ejemplar.
+   */
+  href?: string;
   /**
    * Nivel del título dentro de la jerarquía de la página. En el catálogo el
    * `h1` es el título de la vista, así que las tarjetas van en `h2`; en la
@@ -27,11 +31,9 @@ export function ListingCard({
 }) {
   const { t } = useI18n();
   const Heading = headingLevel === 2 ? "h2" : "h3";
-  const preview = (event: React.MouseEvent) => {
-    if (!onPreview) return;
-    event.preventDefault();
-    onPreview();
-  };
+  // Sin `href` explícito, la ficha del ejemplar (privada): es lo que abre con
+  // sesión.
+  const target = href ?? `/libro/${listing.id}`;
   return (
     <article className="book-card">
       <div className={`cover-frame tone-${toneForId(listing.id)}`}>
@@ -39,9 +41,8 @@ export function ListingCard({
             enlace va oculto para lectores de pantalla y fuera del tabulador
             porque el título de al lado ya lleva al mismo sitio. */}
         <Link
-          href={`/libro/${listing.id}`}
+          href={target}
           className="cover-link"
-          onClick={preview}
           aria-hidden="true"
           tabIndex={-1}
         >
@@ -61,7 +62,7 @@ export function ListingCard({
       </div>
       <div className="book-details">
         <Heading>
-          <Link href={`/libro/${listing.id}`} className="card-link" onClick={preview}>
+          <Link href={target} className="card-link">
             {listing.title}
           </Link>
         </Heading>
@@ -108,8 +109,8 @@ export function ListingCard({
             </span>
           )}
         </div>
-        <Link href={`/libro/${listing.id}`} className="request-button" onClick={preview}>
-          {onPreview ? t("Ver detalles") : t("Ver ficha y pedir")}
+        <Link href={target} className="request-button">
+          {t("Ver ficha y pedir")}
           <ArrowRight size={15} />
         </Link>
       </div>
