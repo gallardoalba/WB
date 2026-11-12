@@ -460,25 +460,26 @@ export default function WanderbibliothekApp({
 
   // Un enlace con ancla desde otra página —el «Cómo funciona» de la ficha
   // pública, que apunta a `/#how-it-works-title`— dejaba a la persona en la
-  // portada, arriba del todo: el router sube al principio y el navegador ya no
+  // portada, arriba del todo: el router sube al principio y el navegador no
   // salta al ancla, porque el destino venía en el HTML y no es una navegación
-  // nueva. Aquí se hace el salto a mano, en cuanto la vista está pintada; los
-  // reintentos cubren el caso de que la sección monte un par de fotogramas
-  // después.
+  // nueva. Aquí se hace el salto a mano.
+  //
+  // Se sondea durante dos segundos en vez de leer el ancla una sola vez: al
+  // montar la vista, el router todavía no ha escrito el `#…` (y la sección
+  // tampoco está), así que una lectura única no encontraba nunca el destino.
   useEffect(() => {
-    const anchor = window.location.hash.slice(1);
-    if (!anchor) return;
-    // Se espera hasta 2 s: en la primera visita la vista llega después (hay
-    // `loading.tsx` y el estante se pide al servidor), así que un puñado de
-    // fotogramas no bastaba y el salto se quedaba sin destino.
     const limite = performance.now() + 2000;
     let vivo = true;
     let timer = 0;
     const saltar = () => {
       if (!vivo) return;
-      const target = document.getElementById(anchor);
+      const anchor = window.location.hash.slice(1);
+      const target = anchor ? document.getElementById(anchor) : null;
       if (target) {
-        target.scrollIntoView({ block: "start" });
+        // `instant`: el `scroll-behavior: smooth` del documento hacía que el
+        // salto se quedara a medias (o no llegara a empezar) cuando coincidía
+        // con el desplazamiento a cero de la vista nueva.
+        target.scrollIntoView({ block: "start", behavior: "instant" });
         return;
       }
       if (performance.now() < limite) timer = window.setTimeout(saltar, 60);
