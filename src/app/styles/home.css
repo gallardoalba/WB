@@ -239,7 +239,7 @@
   font-weight: 600;
 }
 
-/* Medida de lectura: el párrafo se corta en 88 caracteres (~794 px a 16 px) y,
+/* Medida de lectura: el párrafo se corta en 100 caracteres (~902 px a 16 px) y,
    en tarjetas estrechas, al 80 % de su ancho. El tope en tanto por ciento es lo
    que mantiene el texto dentro de la zona donde el velo de la foto aún tapa lo
    suficiente: con un tope fijo en `ch`, a 900–1024 px de ventana el párrafo
@@ -248,6 +248,12 @@
    (oscuro). Al 80 % el velo tapa todavía el 64 % con el color de superficie
    (interpolación entre el 78 % del 74 % y el 46 % del 88 %), así que el fondo
    sigue claro y el margen sobre 4,5:1 se mantiene.
+   El tope en `ch` subió de 88 a 100 (12-nov-2026): con 88ch el párrafo se
+   quedaba en 794 px aunque la tarjeta midiera 1300, y en alemán «Eigentum.»
+   caía solo a un cuarto renglón desde 1240 px de ventana. Con 100ch entra en dos
+   renglones y el borde derecho queda al ~72 % de la tarjeta, con el velo todavía
+   al ~81 % de superficie: mejor que el 64 % ya medido, así que no baja el
+   contraste. En ventanas de 900–1240 px sigue mandando el 80 %.
    ⚠ NO usar `text-wrap: balance`: iguala la longitud de los renglones y deja el
    bloque más corto por la derecha; el usuario lo notó como que el texto se
    había estrechado. Se prefiere que las líneas lleguen al ancho máximo y que
@@ -255,7 +261,7 @@
    Para ganar ancho sin perder legibilidad el texto usa `--ink-soft` en vez de
    `--muted`; con `--muted` la misma medida bajaba a 4,4:1. */
 .hero-banner p {
-  max-width: min(88ch, 80%);
+  max-width: min(100ch, 80%);
   margin: 0;
   color: var(--ink-soft);
   font-size: var(--text-base);
