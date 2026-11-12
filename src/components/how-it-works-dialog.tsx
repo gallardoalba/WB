@@ -41,7 +41,7 @@ export function HowItWorksDialog({ className = "text-link" }: { className?: stri
             <h3>{t("Comparte")}</h3>
             <p>
               {t(
-                "Publica el libro que ya has leído con su estado y tu ciudad. No hay precio: aquí los ejemplares se dan o se intercambian.",
+                "Publica el libro que desees poner a disposición de la comunidad, con su estado y tu ciudad.",
               )}
             </p>
           </li>
