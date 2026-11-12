@@ -368,6 +368,9 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+  /* Destino del enlace «Cómo funciona» de la ficha pública: sin este margen,
+     el salto deja el título pegado al borde superior. */
+  scroll-margin-top: 16px;
 }
 
 .how-it-works h2 {

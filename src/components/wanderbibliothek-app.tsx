@@ -458,6 +458,30 @@ export default function WanderbibliothekApp({
     heading?.focus({ preventScroll: true });
   }, [view]);
 
+  // Un enlace con ancla desde otra página —el «Cómo funciona» de la ficha
+  // pública, que apunta a `/#how-it-works-title`— dejaba a la persona en la
+  // portada, arriba del todo: el router sube al principio y el navegador ya no
+  // salta al ancla, porque el destino venía en el HTML y no es una navegación
+  // nueva. Aquí se hace el salto a mano, en cuanto la vista está pintada; los
+  // reintentos cubren el caso de que la sección monte un par de fotogramas
+  // después.
+  useEffect(() => {
+    const anchor = window.location.hash.slice(1);
+    if (!anchor) return;
+    let frame = 0;
+    let intentos = 0;
+    const saltar = () => {
+      const target = document.getElementById(anchor);
+      if (target) {
+        target.scrollIntoView({ block: "start" });
+        return;
+      }
+      if (intentos++ < 10) frame = requestAnimationFrame(saltar);
+    };
+    frame = requestAnimationFrame(saltar);
+    return () => cancelAnimationFrame(frame);
+  }, [pathname]);
+
   // Al pasar de página la lista nueva se pinta por encima y la persona se
   // queda al pie, mirando los mismos botones. Se sube a la primera tarjeta y
   // el foco entra en el listado, para que el teclado siga donde está lo nuevo.
