@@ -77,9 +77,13 @@ test("la DNB manda y Open Library aporta la obra y los temas", async () => {
       }
       if (url.includes("openlibrary.org/isbn/")) {
         return json({
+          number_of_pages: 318,
           languages: [{ key: "/languages/ger" }],
           works: [{ key: "/works/OL42W" }],
         });
+      }
+      if (url.includes("openlibrary.org/works/")) {
+        return json({ description: "<p>Una sinopsis de la <i>obra</i>.</p>" });
       }
       return sinRespuesta();
     },
@@ -98,7 +102,10 @@ test("la DNB manda y Open Library aporta la obra y los temas", async () => {
       assert.equal(ficha.category, "Ficción");
       assert.equal(ficha.workId, "/works/OL42W");
       assert.deepEqual(ficha.tags, ["Ficción", "materias:3"]);
-      assert.equal(calls.length, 3, "una consulta a la DNB y dos a Open Library");
+      // Páginas de la edición y sinopsis de la obra, en texto plano.
+      assert.equal(ficha.pages, 318);
+      assert.equal(ficha.description, "Una sinopsis de la obra.");
+      assert.equal(calls.length, 4, "una consulta a la DNB y tres a Open Library");
       return ficha;
     },
   );

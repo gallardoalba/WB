@@ -6,7 +6,7 @@
  * que lleva a las instalaciones antiguas hasta ese mismo estado.
  */
 
-export const SCHEMA_VERSION = 49;
+export const SCHEMA_VERSION = 50;
 
 /** Hash fijo de "demo1234": evita ejecutar scrypt al sembrar la base. */
 export const DEMO_PASSWORD_HASH =

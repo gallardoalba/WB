@@ -145,7 +145,13 @@ export default async function Page({ params }: PageProps) {
                 {work.copies === 1 ? t("1 ejemplar") : t("{n} ejemplares", { n: work.copies })}
               </strong>
               <span aria-hidden="true">·</span>
-              <span>{work.cities.map((city) => city.city).join(" · ")}</span>
+              {/* Con más de un ejemplar interesa saber cuántos hay en cada
+                  ciudad; con uno solo, el número sería ruido. */}
+              <span>
+                {work.cities
+                  .map((city) => (work.copies > 1 ? `${city.city} (${city.copies})` : city.city))
+                  .join(" · ")}
+              </span>
             </p>
           ) : (
             <p className="public-work-availability is-empty">
@@ -231,7 +237,22 @@ export default async function Page({ params }: PageProps) {
                 <dd>{work.series}</dd>
               </div>
             )}
+            {work.pages && (
+              <div>
+                <dt>{t("Páginas")}</dt>
+                <dd>{work.pages}</dd>
+              </div>
+            )}
           </dl>
+
+          {/* Sinopsis: el párrafo que el catálogo dio al publicar. Es texto
+              libre de terceros, así que se pinta tal cual (React lo escapa). */}
+          {work.description && (
+            <section className="public-work-synopsis">
+              <h2>{t("Sinopsis")}</h2>
+              <p>{work.description}</p>
+            </section>
+          )}
         </div>
       </article>
 

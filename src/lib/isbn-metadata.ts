@@ -34,6 +34,10 @@ export type IsbnMetadata = {
   year: string | null;
   /** Colección de la editorial («Rororo 22530»), si la edición está en una. */
   series: string | null;
+  /** Sinopsis de la obra, en texto plano. */
+  description: string | null;
+  /** Número de páginas de la edición, si el catálogo lo dice. */
+  pages: number | null;
   /** Obra de Open Library: agrupa ediciones que son el mismo libro. */
   workId: string | null;
   /** De dónde salió el dato, para poder explicarlo en la interfaz. */
@@ -340,8 +344,50 @@ type PartialMetadata = {
   publisher?: string | null;
   year?: string | null;
   series?: string | null;
+  description?: string | null;
+  pages?: number | null;
   workId?: string | null;
 };
+
+/**
+ * Texto de catálogo → texto plano.
+ *
+ * Las sinopsis de Open Library llegan con HTML (`<p>`, `<i>`) y las de la DNB
+ * con saltos de línea: en la ficha se pintan como párrafo, así que se quitan
+ * las etiquetas y se juntan los espacios. Se recorta a 2 000 caracteres para
+ * que una sinopsis de novela rusa no infle la base.
+ */
+export function plainText(value: string): string {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    // Quitar una etiqueta deja un espacio delante del signo que venía después
+    // («…la <i>obra</i>.»): se pega a la puntuación.
+    .replace(/\s+([.,;:!?)»”])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 2000);
+}
+
+/** `description` de Open Library: cadena o `{ value: "…" }`. */
+function descriptionOf(value: unknown): string | null {
+  if (typeof value === "string") return plainText(value) || null;
+  if (value && typeof value === "object") {
+    const text = (value as { value?: unknown }).value;
+    if (typeof text === "string") return plainText(text) || null;
+  }
+  return null;
+}
+
+/**
+ * Extensión MARC (300 $a) → páginas. «XII, 318 S.» → 318; «1 Online-Ressource»
+ * no da páginas.
+ */
+export function pagesFromExtent(raw: string | null): number | null {
+  if (!raw) return null;
+  const seiten = /(\d+)\s*S\./.exec(raw)?.[1];
+  const numero = Number(seiten ?? /\d+/.exec(raw)?.[0] ?? NaN);
+  return Number.isFinite(numero) && numero > 0 ? numero : null;
+}
 
 type MarcSubfield = { code: string; value: string };
 type MarcField = { tag: string; subfields: MarcSubfield[] };
@@ -402,6 +448,8 @@ export function parseMarcRecord(xml: string): PartialMetadata | null {
   const rawYear = firstSubfield(fields, "264", "c");
   const seriesName = firstSubfield(fields, "490", "a") ?? firstSubfield(fields, "830", "a");
   const seriesNumber = firstSubfield(fields, "490", "v") ?? firstSubfield(fields, "830", "v");
+  const summary = firstSubfield(fields, "520", "a");
+  const extent = firstSubfield(fields, "300", "a");
 
   // 082/083 traen la DDC («301»), 650/689 las materias: las dos alimentan la
   // misma deducción de categoría y etiquetas que ya existía. La Sachgruppe de
@@ -427,6 +475,9 @@ export function parseMarcRecord(xml: string): PartialMetadata | null {
     publisher,
     year: rawYear ? (rawYear.match(/\d{4}/)?.[0] ?? rawYear) : null,
     series: seriesName ? (seriesNumber ? `${seriesName} ${seriesNumber}` : seriesName) : null,
+    // 520 $a es el resumen; 300 $a, la extensión («318 S.»).
+    description: summary ? plainText(summary) || null : null,
+    pages: pagesFromExtent(extent),
   };
 }
 
@@ -449,6 +500,7 @@ type OpenLibraryBook = {
   subjects?: { name?: unknown }[];
   publishers?: { name?: unknown }[];
   publish_date?: unknown;
+  number_of_pages?: unknown;
 };
 
 async function fromOpenLibrary(isbn: string): Promise<PartialMetadata | null> {
@@ -473,14 +525,20 @@ async function fromOpenLibrary(isbn: string): Promise<PartialMetadata | null> {
   let languages: string[] = [];
   let workId: string | null = null;
   let editionSubtitle: string | null = null;
+  let description: string | null = null;
+  let pages: number | null = null;
   if (edition) {
     try {
       const parsed = JSON.parse(edition) as {
         subtitle?: unknown;
+        description?: unknown;
+        number_of_pages?: unknown;
         languages?: { key?: unknown }[];
         works?: { key?: unknown }[];
       };
       editionSubtitle = typeof parsed.subtitle === "string" ? parsed.subtitle : null;
+      description = descriptionOf(parsed.description);
+      pages = typeof parsed.number_of_pages === "number" ? parsed.number_of_pages : null;
       languages = (parsed.languages ?? [])
         .map((entry) => (typeof entry.key === "string" ? (entry.key.split("/").pop() ?? "") : ""))
         .filter(Boolean);
@@ -488,6 +546,20 @@ async function fromOpenLibrary(isbn: string): Promise<PartialMetadata | null> {
       workId = typeof work === "string" ? work : null;
     } catch {
       // Una edición sin JSON válido no aporta nada.
+    }
+  }
+
+  // La sinopsis casi nunca está en la edición: vive en la obra, así que se pide
+  // una consulta más **solo** cuando hace falta y se conoce la obra. Si tampoco
+  // la hay, la ficha sale sin sinopsis.
+  if (!description && workId) {
+    const work = await fetchText(`https://openlibrary.org${workId}.json`, "application/json");
+    if (work) {
+      try {
+        description = descriptionOf((JSON.parse(work) as { description?: unknown }).description);
+      } catch {
+        description = null;
+      }
     }
   }
 
@@ -508,6 +580,8 @@ async function fromOpenLibrary(isbn: string): Promise<PartialMetadata | null> {
     publisher:
       typeof book?.publishers?.[0]?.name === "string" ? book.publishers[0].name : null,
     year: typeof book?.publish_date === "string" ? book.publish_date : null,
+    description,
+    pages: pages ?? (typeof book?.number_of_pages === "number" ? book.number_of_pages : null),
     workId,
   };
 }
@@ -544,6 +618,10 @@ export function mergeSources(
     year: dnb?.year ?? openLibrary?.year ?? null,
     // La Reihe solo la da un catálogo nacional: Open Library no la modela.
     series: dnb?.series ?? null,
+    // Sinopsis: el resumen de la DNB si existe; si no, el de Open Library, que
+    // es el que suele estar.
+    description: dnb?.description ?? openLibrary?.description ?? null,
+    pages: dnb?.pages ?? openLibrary?.pages ?? null,
     workId: openLibrary?.workId ?? null,
     source: dnb && openLibrary ? "dnb+openlibrary" : dnb ? "dnb" : "openlibrary",
   };

@@ -632,6 +632,27 @@
   overflow-wrap: anywhere;
 }
 
+/* Sinopsis de la obra: el resumen que dio el catálogo al publicar el ISBN.
+   Va bajo la ficha, en la columna del texto. */
+.public-work-synopsis {
+  margin-top: 22px;
+}
+
+.public-work-synopsis h2 {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.public-work-synopsis p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
 /* Quien llega desde un enlace compartido o de un buscador no sabe qué es este
    sitio: la frase del mecanismo evita que la página muera en la tabla de datos.
    Sin tope de medida: ocupa el ancho de la columna, como el resto de la ficha. */

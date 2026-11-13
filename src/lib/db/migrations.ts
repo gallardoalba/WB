@@ -1555,6 +1555,27 @@ function migrateToV49(db: Db) {
 }
 
 /**
+ * v50: sinopsis y número de páginas de la edición.
+ *
+ * Las dos salen del mismo registro bibliográfico que ya se consulta al
+ * publicar (`isbn-metadata.ts`): la sinopsis de la obra en Open Library o del
+ * campo 520 de la MARC, y las páginas del 300 o de `number_of_pages`. Se
+ * guardan para poder enseñarlas en la ficha pública sin volver a salir a la
+ * red. Las filas antiguas se quedan a `NULL` hasta que se rellenen a mano.
+ */
+function migrateToV50(db: Db) {
+  const columns = (db.pragma("table_info(books)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  const add = (name: string, definition: string) => {
+    if (!columns.includes(name)) db.exec(`ALTER TABLE books ADD COLUMN ${name} ${definition}`);
+  };
+  add("description", "TEXT");
+  add("pages", "INTEGER");
+  db.pragma("user_version = 50");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1688,6 +1709,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 47) migrateToV47(db);
   if (userVersion(db) < 48) migrateToV48(db);
   if (userVersion(db) < 49) migrateToV49(db);
+  if (userVersion(db) < 50) migrateToV50(db);
 
   backfillSearchKeys(db);
 }

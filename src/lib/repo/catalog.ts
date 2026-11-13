@@ -290,7 +290,7 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
       const newBookId = `bok_${randomUUID()}`;
       try {
         db.prepare(
-          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, publisher, year, series, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, publisher, year, series, description, pages, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         ).run(
           newBookId,
           input.title,
@@ -305,6 +305,8 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
           cached?.publisher ?? null,
           cached?.year ?? null,
           cached?.series ?? null,
+          cached?.description ?? null,
+          cached?.pages ?? null,
           now,
         );
         bookId = newBookId;
@@ -334,6 +336,14 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
         hashWorkKey,
         bookId,
       );
+    }
+    // La sinopsis y las páginas llegan después que el libro (los publica la
+    // primera persona que consulta ese ISBN): se rellenan si faltan, sin pisar
+    // lo que ya hubiera.
+    if (cached?.description || cached?.pages) {
+      db.prepare(
+        "UPDATE books SET description = COALESCE(description, ?), pages = COALESCE(pages, ?) WHERE id = ?",
+      ).run(cached.description ?? null, cached.pages ?? null, bookId);
     }
     // Si la edición ya existía sin idioma, la primera persona que lo sepa lo
     // completa; no se pisa un idioma ya indicado.
