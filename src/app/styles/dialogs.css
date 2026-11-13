@@ -107,7 +107,9 @@
 .how-dialog-steps {
   display: grid;
   gap: 18px;
-  margin: 0;
+  /* El párrafo de entrada y el primer paso se tocaban: con el margen del
+     diálogo a cero, la lista parecía seguir la misma frase. */
+  margin: 22px 0 0;
   padding: 0;
   list-style: none;
 }

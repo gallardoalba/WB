@@ -57,11 +57,7 @@ export function HowItWorksDialog({ className = "text-link" }: { className?: stri
               3
             </span>
             <h3>{t("Pide")}</h3>
-            <p>
-              {t(
-                "Envía una solicitud desde la ficha del libro. Llega sin texto: nadie lee nada tuyo antes de que la acepten.",
-              )}
-            </p>
+            <p>{t("Envía una solicitud a la persona que actualmente posee el libro.")}</p>
           </li>
           <li>
             <span className="how-step" aria-hidden="true">
