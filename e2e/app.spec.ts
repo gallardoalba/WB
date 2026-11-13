@@ -48,7 +48,9 @@ test("sin sesión el catálogo se puede ojear, pero pedir pide acceso", async ({
   // el botón de pedir es el que pide acceso, con la vuelta guardada.
   await page.locator(".book-card:visible .card-link").first().click();
   await expect(page).toHaveURL(/\/werk\//, { timeout: 20_000 });
-  await expect(page.getByRole("button", { name: "Cómo funciona" })).toBeVisible();
+  await expect(page.locator(".public-work-context p")).toContainText(
+    "Los ejemplares están en manos de quienes los ofrecen",
+  );
   await page.getByRole("link", { name: "Entrar para pedirlo" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();

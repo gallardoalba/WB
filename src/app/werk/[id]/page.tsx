@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { BookOpen, MapPin } from "lucide-react";
 import { BookCover } from "@/components/book-cover";
-import { HowItWorksDialog } from "@/components/how-it-works-dialog";
 import { SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
@@ -243,9 +242,6 @@ export default async function Page({ params }: PageProps) {
               "Los ejemplares están en manos de quienes los ofrecen: se quedan ahí hasta que alguien los pide, y la entrega se acuerda entre las dos personas. La plataforma solo mantiene el índice.",
             )}
           </p>
-          {/* Los pasos se abren aquí mismo: antes el enlace sacaba de la ficha
-              para leerlos en la portada. */}
-          <HowItWorksDialog />
         </section>
       )}
 

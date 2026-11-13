@@ -633,10 +633,9 @@
 }
 
 /* Quien llega desde un enlace compartido o de un buscador no sabe qué es este
-   sitio: una frase y la salida a «Cómo funciona» evitan que la página muera en
-   la tabla de datos. */
+   sitio: la frase del mecanismo evita que la página muera en la tabla de datos.
+   Sin tope de medida: ocupa el ancho de la columna, como el resto de la ficha. */
 .public-work-context {
-  max-width: 62ch;
   margin-top: 28px;
   padding-top: 18px;
   border-top: 1px solid var(--line-soft);
