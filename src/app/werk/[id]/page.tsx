@@ -244,15 +244,11 @@ export default async function Page({ params }: PageProps) {
               </div>
             )}
           </dl>
-
-          {/* Sinopsis: el párrafo que el catálogo dio al publicar. Es texto
-              libre de terceros, así que se pinta tal cual (React lo escapa). */}
-          {work.description && (
-            <section className="public-work-synopsis">
-              <h2>{t("Sinopsis")}</h2>
-              <p>{work.description}</p>
-            </section>
-          )}
+          {/* La sinopsis del catálogo (Open Library y DNB) ya no se publica:
+              llega en el idioma de la edición, así que en una ficha alemana
+              salía un párrafo en inglés bajo un rótulo que no lo describía.
+              El texto sigue en `books.description`; lo que se retiró es su
+              presentación en la ficha pública. */}
         </div>
       </article>
 

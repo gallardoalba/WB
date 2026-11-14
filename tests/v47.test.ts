@@ -65,7 +65,6 @@ test("la ficha pública no lleva ningún dato de quien ofrece el libro", () => {
     "cities",
     "copies",
     "coverUrl",
-    "description",
     "id",
     "isbn",
     "language",
@@ -102,6 +101,18 @@ test("cualquier edición resuelve a la obra y un id desconocido no revienta", ()
     );
   }
   assert.equal(repo.getPublicWork("bok_inexistente"), null);
+});
+
+test("la ficha pública no publica la sinopsis del catálogo", () => {
+  // El resumen de Open Library y de la DNB llega en el idioma de la edición y
+  // se pintaba en las tres versiones del sitio: en una ficha alemana aparecía
+  // un párrafo en inglés bajo el rótulo «Inhalt». La sección se retiró; el dato
+  // sigue en `books.description` por si vuelve a usarse en otro sitio.
+  for (const work of repo.listPublicWorks()) {
+    assert.ok(!("description" in work), `«${work.title}» sigue publicando su sinopsis`);
+  }
+  const page = read("src/app/werk/[id]/page.tsx");
+  assert.doesNotMatch(page, /public-work-synopsis|work\.description/);
 });
 
 test("la portada declara canonical y el layout ya no lo hereda", () => {

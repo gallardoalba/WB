@@ -30,6 +30,19 @@ function clearQueue(): void {
   dbModule.getDb().prepare("DELETE FROM social_outbox").run();
 }
 
+/**
+ * Instante en el que el aviso de esa fila ya puede salir: un minuto después
+ * del minuto sorteado para ese id.
+ *
+ * El cron elige cada día un minuto al azar entre las 09:00 y las 20:00 y no
+ * publica antes. Sin fijar el instante, una prueba que espera un envío fallaba
+ * según la hora a la que se lanzara la suite: pasada la medianoche, el minuto
+ * del día todavía estaba por llegar y el proceso se quedaba quieto.
+ */
+function despuesDelTurno(id: string): Date {
+  return new Date(mastodon.momentoDelAviso(id, new Date()).getTime() + 60_000);
+}
+
 const CONFIG = {
   instance: "https://mastodon.social",
   token: "secreto",
@@ -253,11 +266,16 @@ test("sin configuración el proceso no toca la red", async () => {
 
 test("un aviso pendiente se publica con el token y la clave de idempotencia", async () => {
   clearQueue();
-  mastodon.enqueuePost({ bookId: "bok_envia", text: "texto a publicar" });
+  const aviso = mastodon.enqueuePost({ bookId: "bok_envia", text: "texto a publicar" })!;
   const { impl, calls } = fakeFetch(() =>
     jsonResponse({ id: "110", url: "https://mastodon.social/@wanderbibliothek/110" }),
   );
-  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  const result = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
   assert.equal(result.sent, 1);
   assert.equal(calls.length, 1);
   assert.equal(calls[0]!.url, "https://mastodon.social/api/v1/statuses");
@@ -297,6 +315,9 @@ test("si la obra cambia antes de publicarse, el aviso sale con los datos nuevos"
              'available', 'titulo viejo autora vieja leipzig', '', ?)`,
   ).run(alta);
   mastodon.enqueuePost({ bookId: "bok_actualiza", text: "«Título viejo» von Autora vieja ist im Katalog." });
+  const aviso = db
+    .prepare("SELECT id FROM social_outbox WHERE subject = 'bok_actualiza'")
+    .get() as { id: string };
   db.prepare(
     "UPDATE books SET title = 'Título nuevo', author = 'Autora nueva' WHERE id = 'bok_actualiza'",
   ).run();
@@ -313,7 +334,12 @@ test("si la obra cambia antes de publicarse, el aviso sale con los datos nuevos"
       ? new Response(new Uint8Array(png), { status: 200, headers: { "content-type": "image/png" } })
       : jsonResponse({ id: "121" }),
   );
-  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  const result = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso.id),
+  });
   assert.equal(result.sent, 1);
 
   // La tarjeta se pide **al publicar**, no al encolar: la ruta la pinta con los
@@ -331,9 +357,14 @@ test("si la obra cambia antes de publicarse, el aviso sale con los datos nuevos"
 
 test("si la fila guarda una imagen, el estado la adjunta", async () => {
   clearQueue();
-  mastodon.enqueuePost({ bookId: "bok_con_imagen", text: "texto", mediaId: "22348641" });
+  const aviso = mastodon.enqueuePost({ bookId: "bok_con_imagen", text: "texto", mediaId: "22348641" })!;
   const { impl, calls } = fakeFetch(() => jsonResponse({ id: "111" }));
-  await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
   const form = calls[0]!.init.body as FormData;
   assert.deepEqual(form.getAll("media_ids[]"), ["22348641"]);
 });
@@ -341,8 +372,18 @@ test("si la fila guarda una imagen, el estado la adjunta", async () => {
 test("un 500 deja el aviso pendiente y con espera", async () => {
   clearQueue();
   mastodon.enqueuePost({ bookId: "bok_500", text: "texto" });
+  const aviso = dbModule
+    .getDb()
+    .prepare("SELECT id FROM social_outbox WHERE subject = 'bok_500'")
+    .get() as { id: string };
   const { impl } = fakeFetch(() => jsonResponse({ error: "caído" }, 503));
-  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  const instante = despuesDelTurno(aviso.id);
+  const result = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: instante,
+  });
   assert.equal(result.failed, 1);
   const row = dbModule
     .getDb()
@@ -356,14 +397,22 @@ test("un 500 deja el aviso pendiente y con espera", async () => {
   assert.equal(row.status, "pending");
   assert.equal(row.attempts, 1);
   assert.equal(row.last_error, "caído");
-  assert.ok(row.next_attempt_at > new Date().toISOString().slice(0, 19), "tiene que esperar");
+  assert.ok(
+    row.next_attempt_at > instante.toISOString().slice(0, 19),
+    "tiene que esperar",
+  );
 });
 
 test("un token inválido no se reintenta: no mejora solo", async () => {
   clearQueue();
-  mastodon.enqueuePost({ bookId: "bok_401", text: "texto" });
+  const aviso = mastodon.enqueuePost({ bookId: "bok_401", text: "texto" })!;
   const { impl } = fakeFetch(() => jsonResponse({ error: "The access token is invalid" }, 401));
-  await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
   const row = dbModule
     .getDb()
     .prepare("SELECT status, last_error FROM social_outbox WHERE subject = ?")
@@ -374,11 +423,16 @@ test("un token inválido no se reintenta: no mejora solo", async () => {
 
 test("quedarse sin red deja el aviso para el siguiente intento", async () => {
   clearQueue();
-  mastodon.enqueuePost({ bookId: "bok_sin_red", text: "texto" });
+  const aviso = mastodon.enqueuePost({ bookId: "bok_sin_red", text: "texto" })!;
   const impl = (async () => {
     throw new Error("ECONNREFUSED mastodon.social");
   }) as unknown as typeof fetch;
-  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  const result = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
   assert.equal(result.failed, 1);
   const row = dbModule
     .getDb()
@@ -1317,6 +1371,9 @@ test("una obra sin ejemplares vivos no se anuncia cuando le llega el turno", asy
              'removed', 'libro retirado', '2026-11-01T00:00:00.000Z')`,
   ).run();
   mastodon.enqueuePost({ bookId: "bok_retirada", text: "No debería salir." });
+  const aviso = db
+    .prepare("SELECT id FROM social_outbox WHERE subject = 'bok_retirada'")
+    .get() as { id: string };
 
   let llamadas = 0;
   const original = globalThis.fetch;
@@ -1327,7 +1384,7 @@ test("una obra sin ejemplares vivos no se anuncia cuando le llega el turno", asy
   process.env.MASTODON_TOKEN = "tok";
 
   try {
-    const resultado = await mastodon.processSocialOutbox();
+    const resultado = await mastodon.processSocialOutbox({ now: despuesDelTurno(aviso.id) });
     assert.equal(resultado.sent, 0, "no se publica nada");
     assert.equal(resultado.failed, 1);
     assert.equal(llamadas, 0, "no se llega a hablar con Mastodon");

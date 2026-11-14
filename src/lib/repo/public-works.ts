@@ -27,8 +27,6 @@ export type PublicWork = {
   publisher: string | null;
   year: string | null;
   series: string | null;
-  /** Sinopsis de la obra en texto plano, si el catálogo la dio al publicar. */
-  description: string | null;
   /** Páginas de la edición canónica. */
   pages: number | null;
   /** Ejemplares disponibles sumando todas las ediciones de la obra. */
@@ -49,7 +47,6 @@ type BookRow = {
   publisher: string | null;
   year: string | null;
   series: string | null;
-  description: string | null;
   pages: number | null;
 };
 
@@ -70,7 +67,7 @@ function readBooks(): BookRow[] {
   return getDb()
     .prepare(
       `SELECT id, title, author, category, language, isbn, cover_url, work_key,
-              publisher, year, series, description, pages
+              publisher, year, series, pages
          FROM books
         ORDER BY created_at ASC, id ASC`,
     )
@@ -107,7 +104,6 @@ function toPublicWork(book: BookRow, cities: Map<string, number>): PublicWork {
     publisher: book.publisher ?? null,
     year: book.year ?? null,
     series: book.series ?? null,
-    description: book.description ?? null,
     pages: book.pages ?? null,
     copies,
     cities: sortedCities(cities),
@@ -181,7 +177,7 @@ export function getPublicWork(bookId: string): PublicWork | null {
   const book = getDb()
     .prepare(
       `SELECT id, title, author, category, language, isbn, cover_url, work_key,
-              publisher, year, series, description, pages
+              publisher, year, series, pages
          FROM books WHERE id = ?`,
     )
     .get(bookId) as BookRow | undefined;
