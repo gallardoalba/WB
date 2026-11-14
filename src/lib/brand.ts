@@ -8,7 +8,14 @@ export const BRAND_SECOND = "bibliothek";
  * porque lo enlazan también componentes de cliente, y el módulo de la
  * documentación arrastra párrafos enteros al paquete del navegador.
  */
-export const REPOSITORY = "https://github.com/gallardoalba/wanderbibliothek";
+export const REPOSITORY = "https://github.com/gallardoalba/WB";
+
+/**
+ * Incidencias del proyecto. Es el destino del enlace de contacto de `/projekt`:
+ * quien quiere proponer un cambio o avisar de un fallo no necesita entender el
+ * árbol del repositorio.
+ */
+export const ISSUES = `${REPOSITORY}/issues`;
 
 /**
  * Cuenta del fediverso. Mastodon solo marca el enlace como verificado si la web

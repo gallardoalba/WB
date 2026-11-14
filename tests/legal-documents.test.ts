@@ -226,3 +226,20 @@ test("la página del proyecto tampoco publica el correo sin enmascarar", () => {
   // Sin contacto configurado se remite al repositorio en vez de dejar el hueco.
   assert.match(textoLargo(projectDocument("es", "")), /abre una incidencia en el repositorio/);
 });
+
+test("el contacto del proyecto enlaza las incidencias y no el repositorio", () => {
+  // Quien llega a «Contacto» quiere proponer algo o avisar de un fallo: la
+  // página lo lleva a la lista de incidencias, no a la portada del código.
+  for (const locale of ["de", "es", "en"] as const) {
+    const enlaces = projectDocument(locale, completo.contact).sections.flatMap((seccion) =>
+      seccion.blocks.flatMap((bloque) => (bloque.kind === "links" ? bloque.items : [])),
+    );
+    const incidencias = enlaces.find((enlace) => enlace.label === "Issues");
+    assert.ok(incidencias, `${locale}: falta el enlace a las incidencias`);
+    assert.equal(incidencias.href, "https://github.com/gallardoalba/WB/issues");
+    assert.ok(
+      !enlaces.some((enlace) => enlace.label === "Repository" || enlace.label === "Repositorio"),
+      `${locale}: el rótulo del repositorio no puede volver`,
+    );
+  }
+});
