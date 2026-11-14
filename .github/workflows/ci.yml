@@ -113,12 +113,29 @@ jobs:
       # propio Node). Solo corta el trabajo con vulnerabilidades **críticas y
       # corregidas**: un `HIGH` sin parche publicado no bloquea un despliegue
       # que no puede arreglarse hoy, pero queda en el registro.
+      #
+      # El escáner se instala desde su release con la suma de comprobación
+      # verificada en vez de con `aquasecurity/trivy-action`: esa acción depende
+      # de `aquasecurity/setup-trivy`, que retiró la versión que usaba y rompió
+      # el trabajo sin que nada de este repositorio hubiera cambiado. Así la
+      # versión queda fijada y no se arrastran acciones de terceros.
+      - name: Instalar Trivy
+        run: |
+          base=https://github.com/aquasecurity/trivy/releases/download/v0.76.2
+          curl -fsSL -o trivy_0.76.2_Linux-64bit.tar.gz  "$base/trivy_0.76.2_Linux-64bit.tar.gz"
+          curl -fsSL -o trivy_0.76.2_checksums.txt       "$base/trivy_0.76.2_checksums.txt"
+          grep -F 'trivy_0.76.2_Linux-64bit.tar.gz' trivy_0.76.2_checksums.txt | sha256sum -c -
+          tar -xzf trivy_0.76.2_Linux-64bit.tar.gz trivy
+          ./trivy --version
+
+      - name: Exportar la imagen para el escáner
+        run: docker save wanderbibliothek:ci -o imagen.tar
+
       - name: Vulnerabilidades de la imagen
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
-        with:
-          image-ref: wanderbibliothek:ci
-          format: table
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          scanners: vuln
+        run: |
+          ./trivy image --input imagen.tar \
+            --scanners vuln \
+            --severity CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --no-progress
