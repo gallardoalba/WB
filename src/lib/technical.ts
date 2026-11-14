@@ -71,7 +71,7 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               72 rutas agrupadas por dominio",
+            "    api/               73 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 717 pruebas unitarias y de integración (91 ficheros)",
+            "tests/                 725 pruebas unitarias y de integración (92 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -142,7 +142,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 72 rutas en `src/app/api`. Casi todas se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
+          text: "La API tiene 73 rutas en `src/app/api`. Casi todas se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
         },
         {
           kind: "list",
@@ -156,6 +156,7 @@ const ES: TechnicalDocument = {
             "`/api/account/*`: perfil, idioma, contraseña, claves de cifrado, TOTP, exportación y borrado.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: denuncias, moderación, comentarios y avisos.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: portadas cacheadas y ficha bibliográfica (DNB y Open Library).",
+            "`/api/cities?q=`: sugerencias de municipio para el selector de ciudad (OpenStreetMap por Photon), sin sesión porque la ciudad se elige ya en el registro.",
             "`/api/cron/maintenance`: tareas programadas, con `MAINTENANCE_TOKEN`: reintenta los avisos de Mastodon, purga lo viejo y, con `MASTODON_LIKES=on`, da unos pocos «me gusta» espaciados a publicaciones sobre libros.",
           ],
         },
@@ -172,7 +173,7 @@ const ES: TechnicalDocument = {
             "Estados de ejemplar: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Estados de solicitud: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Búsqueda con FTS5 (`listings_fts`) mantenida por disparadores; `unaccent()` pliega las tildes para que «Lucía» se encuentre escribiendo «lucia».",
-            "`cities` guarda las ciudades conocidas con sus coordenadas (la semilla alemana) y `city_distances` su matriz de distancias. La ciudad que escribe una persona se comprueba contra OpenStreetMap: `resolveCity()` pregunta a Nominatim, limitado a Alemania, y guarda el nombre con el que lo conoce el mapa. La distancia es un dato secundario: una ciudad fuera de la lista no muestra kilómetros.",
+            "`cities` guarda las ciudades conocidas con sus coordenadas (la semilla alemana) y `city_distances` su matriz de distancias. La ciudad se elige de una lista de municipios alemanes que da OpenStreetMap (`searchCities()`, por Photon, que sí admite proponer mientras se escribe; si no responde se ofrecen los del catálogo local) y al guardar se comprueba con `resolveCity()`, que pregunta a Nominatim, limitado a Alemania, y guarda el nombre con el que lo conoce el mapa. La distancia es un dato secundario: una ciudad fuera de la lista no muestra kilómetros.",
           ],
         },
         {
@@ -322,7 +323,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 717 pruebas unitarias y de integración en 91 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 725 pruebas unitarias y de integración en 92 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -497,7 +498,7 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               72 Routen, nach Domäne gruppiert",
+            "    api/               73 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
@@ -508,7 +509,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 717 Unit- und Integrationstests (91 Dateien)",
+            "tests/                 725 Unit- und Integrationstests (92 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -568,7 +569,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 72 Routen unter `src/app/api`. Fast alle werden mit `route()` (`src/lib/route.ts`) deklariert, das an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` anwendet; `tests/route.test.ts` prüft an den Dateien, dass keine Route Fehler unübersetzt durchlässt.",
+          text: "Die API besteht aus 73 Routen unter `src/app/api`. Fast alle werden mit `route()` (`src/lib/route.ts`) deklariert, das an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` anwendet; `tests/route.test.ts` prüft an den Dateien, dass keine Route Fehler unübersetzt durchlässt.",
         },
         {
           kind: "list",
@@ -582,6 +583,7 @@ const DE: TechnicalDocument = {
             "`/api/account/*`: Profil, Sprache, Passwort, Verschlüsselungsschlüssel, TOTP, Export und Löschung.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: Meldungen, Moderation, Kommentare und Hinweise.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: zwischengespeicherte Cover und bibliografische Daten (DNB und Open Library).",
+            "`/api/cities?q=`: Ortsvorschläge für die Stadtauswahl (OpenStreetMap über Photon), ohne Sitzung, weil die Stadt schon bei der Registrierung gewählt wird.",
             "`/api/cron/maintenance`: geplante Aufgaben mit `MAINTENANCE_TOKEN`: wiederholt die Mastodon-Hinweise, räumt Altes auf und gibt, mit `MASTODON_LIKES=on`, ein paar wenige, gut verteilte «Gefällt mir» für Buchbeiträge.",
           ],
         },
@@ -598,7 +600,7 @@ const DE: TechnicalDocument = {
             "Zustände eines Exemplars: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Zustände einer Anfrage: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Suche über FTS5 (`listings_fts`), von Triggern gepflegt; `unaccent()` faltet Akzente, damit „Lucía“ auch als „lucia“ gefunden wird.",
-            "`cities` hält die bekannten Städte mit ihren Koordinaten (der deutsche Grundstock), `city_distances` deren Distanzmatrix. Die eingegebene Stadt wird gegen OpenStreetMap geprüft: `resolveCity()` fragt Nominatim, begrenzt auf Deutschland, und speichert den Namen, den die Karte kennt. Die Entfernung ist Nebensache: eine Stadt außerhalb der Liste zeigt keine Kilometer.",
+            "`cities` hält die bekannten Städte mit ihren Koordinaten (der deutsche Grundstock), `city_distances` deren Distanzmatrix. Die Stadt wird aus einer Liste deutscher Gemeinden gewählt, die OpenStreetMap liefert (`searchCities()`, über Photon, das Vorschläge beim Tippen erlaubt; antwortet es nicht, werden die des lokalen Grundstocks angeboten) und beim Speichern mit `resolveCity()` geprüft, das Nominatim fragt, begrenzt auf Deutschland, und den Namen speichert, den die Karte kennt. Die Entfernung ist Nebensache: eine Stadt außerhalb der Liste zeigt keine Kilometer.",
           ],
         },
         {
@@ -748,7 +750,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 717 Unit- und Integrationstests in 91 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 725 Unit- und Integrationstests in 92 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

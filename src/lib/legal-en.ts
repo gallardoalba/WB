@@ -61,7 +61,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
           "Email provider: on this service, Brevo (Sendinblue SAS, Paris), which processes the data on our instructions and within the EU; it receives the address and the text of the notice, never the content of encrypted messages.",
           "Book covers: the images are downloaded through our server and cached; Open Library (Internet Archive) sees the server’s IP address and the ISBN, not the IP address of the visitor.",
           "Other book data: to complete the bibliographic record the server queries the German National Library (services.dnb.de) and, as a fallback source of covers, Google Books (Google Ireland Ltd.); both receive only the ISBN and the server’s IP address.",
-          "Place names: the town typed by the person is checked against Nominatim (OpenStreetMap Foundation) to catch typos. Only the town name is sent, never the visitor’s IP address.",
+          "Place names: while the person types, the server asks Photon (Komoot GmbH), a search engine over OpenStreetMap data, for the list of municipalities; afterwards it checks the chosen name against Nominatim (OpenStreetMap Foundation) to catch typos. Only the typed text or the town name is sent, never the visitor’s IP address.",
           "Cloudflare Turnstile: only if enabled, when registering.",
           "Hosting: the provider on whose infrastructure this service runs.",
           "There are no analytics, advertising or tracking services, and no external fonts.",

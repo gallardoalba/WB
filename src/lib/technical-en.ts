@@ -47,7 +47,7 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               72 handlers grouped by domain",
+            "    api/               73 handlers grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 717 unit and integration tests (91 files)",
+            "tests/                 725 unit and integration tests (92 files)",
             "e2e/                   browser tests with Playwright (8 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -118,7 +118,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 72 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
+          text: "The API has 73 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
         },
         {
           kind: "list",
@@ -131,8 +131,7 @@ export const EN: TechnicalDocument = {
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messaging, following and blocking.",
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",
-            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries the Mastodon outbox, purges old rows and, with `MASTODON_LIKES=on`, gives a few well-spaced favourites to book posts.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries the Mastodon outbox, purges old rows and, with `MASTODON_LIKES=on`, gives a few well-spaced favourites to book posts.",
           ],
         },
       ],
@@ -148,7 +147,7 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. A city typed in a form is checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list simply shows no kilometres.",
+            "`cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. The city is picked from a list of German municipalities supplied by OpenStreetMap (`searchCities()`, through Photon, which does allow suggestions while typing; if it does not answer, the local catalogue is offered instead) and checked on save with `resolveCity()`, which asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list simply shows no kilometres.",
           ],
         },
         {
@@ -298,7 +297,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 717 unit and integration tests in 91 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 725 unit and integration tests in 92 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

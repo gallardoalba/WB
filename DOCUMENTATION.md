@@ -8,7 +8,7 @@ The running instance serves the same content in Spanish and German at `/techdoc`
 
 A modular monolith on Next.js 16 (App Router with Cache Components), strict TypeScript and SQLite through `better-sqlite3`. One single process: SQLite has one writer and the live notification bus lives in memory.
 
-No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records) and Nominatim (city coordinates); with `MASTODON_TOKEN` or `INDEXNOW_KEY` it also talks to Mastodon and IndexNow. The browser only talks to this instance.
+No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records), Photon and Nominatim (city suggestions and coordinates); with `MASTODON_TOKEN` or `INDEXNOW_KEY` it also talks to Mastodon and IndexNow. The browser only talks to this instance.
 
 The code is MIT licensed.
 
@@ -17,7 +17,7 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               72 handlers grouped by domain
+    api/               73 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 717 unit and integration tests (91 files)
+tests/                 725 unit and integration tests (92 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -69,7 +69,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/health` | Service and database status. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 72 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
+The API has 73 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -80,6 +80,7 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
+- `/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.
 - `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It also retries the Mastodon outbox, purges old rows and, if `MASTODON_LIKES=on`, favourites up to 40 book posts a day in German, Spanish or English, one every 25 minutes at most and only for accounts whose bio talks about books.
 
 ## Data
@@ -88,7 +89,7 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - Copy states: `available`, `reserved`, `given`, `paused`, `removed`.
 - Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
-- `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
+- `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. The city is picked from a list of German municipalities supplied by OpenStreetMap (`searchCities()`, through Photon, which does allow suggestions while typing; if it does not answer, the local catalogue is offered instead) and checked on save with `resolveCity()`, which asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
 Migrations are versioned with `PRAGMA user_version` (currently v51) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table. v49 adds `push_subscriptions`, the browsers that accepted notifications. v50 stores `books.description` and `books.pages`, the synopsis and page count the catalogue returns for the ISBN. v51 rewrites the Mastodon posts still waiting in the queue so that they go out in German and with the new hashtags.
 
@@ -175,7 +176,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 717 unit and integration tests in 91 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 725 unit and integration tests in 92 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

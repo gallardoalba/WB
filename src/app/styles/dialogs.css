@@ -296,8 +296,7 @@
   color: var(--ink-soft);
 }
 
-/* Campo de ciudad: texto libre con el icono dentro (antes era un combobox con
-   la lista alemana, que ya no tiene sentido). */
+/* Campo de ciudad: el icono dentro y la lista de municipios debajo. */
 .city-field {
   position: relative;
 }
@@ -318,6 +317,65 @@
   left: 11px;
   color: var(--muted-2);
   pointer-events: none;
+}
+
+/* Sugerencias de ciudad: municipios de OpenStreetMap mientras se escribe. */
+.city-suggestions {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  padding: 4px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* Sin sitio debajo, la lista se abre hacia arriba. */
+.city-suggestions.is-above {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.city-options {
+  max-height: 232px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.city-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.city-option.is-active {
+  background: var(--paper-sunk);
+}
+
+.city-option-name {
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+
+.city-option-region {
+  color: var(--muted-2);
+  font-size: var(--text-sm);
+}
+
+.city-options-note {
+  margin: 0;
+  padding: 9px 10px;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 
 .listing-form input,
