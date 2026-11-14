@@ -220,7 +220,8 @@ Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 
 Con `MASTODON_TOKEN` definido, cada obra que publica una **cuenta de administración**
 se anuncia en el perfil del proyecto; lo que ofrece la comunidad no llega a la
-cola. El token se crea en la instancia —**Preferencias →
+cola. Los avisos salen **siempre en alemán**, sea cual sea el idioma del
+ejemplar. El token se crea en la instancia —**Preferencias →
 Desarrollo → Nueva aplicación**— con los permisos `write:statuses`, `write:media`
 (para adjuntar la portada) y `read:accounts`; el tercero es el que usa
 `mastodon:test` para comprobar que la credencial vale. Para los «me gusta» hace
@@ -244,6 +245,9 @@ sudo npm ... run mastodon:test -- --enviar bok_123
 
 # Reintentar lo que quedó pendiente (el cron también lo hace cada hora)
 sudo npm ... run mastodon:test -- --cola
+
+# Repasar lo ya publicado: enlaces y avisos que siguen en otro idioma
+sudo npm ... run mastodon:test -- --publicadas
 ```
 
 Lo que hay que saber:
@@ -265,13 +269,19 @@ regla por olvido. El envío manual (`--enviar`) cuenta como administración.
   (`MASTODON_GAP_MINUTES`, por defecto `240-420`) para que el perfil no parezca
   un robot. Con `0` no hay espera: solo para una prueba desde la web.
 - **Registro sobrio**: una frase enunciativa, sin emoji ni exclamaciones, el
-  enlace y tres etiquetas. Hay veinte formulaciones por idioma y la variante se
-  elige con un hash del id de la obra, así que el mismo libro siempre se anuncia
-  igual.
-- **La portada viaja como imagen adjunta**, con texto alternativo en el idioma
-  del aviso. La imagen se sube **antes** de encolar el post y su id se guarda en
-  la fila: un reintento adjunta el mismo medio en vez de subirlo otra vez. Si no
-  hay portada —o la instancia rechaza la imagen— el aviso sale solo con texto.
+  enlace y tres etiquetas. Hay cien formulaciones, siempre en alemán, y la
+  variante se elige con un hash del id de la obra, así que el mismo libro siempre
+  se anuncia igual. Las etiquetas combinan la casa, el tema del libro (sus
+  etiquetas curadas o su categoría) y la lectura; no hay etiquetas de librerías.
+- **Los avisos anteriores al cambio siguen en el idioma del ejemplar.** Mastodon
+  permite editar una publicación, así que `--publicadas` lista los avisos ya
+  enviados que llevan enlace `/es` o `/en` o las etiquetas antiguas, con su
+  enlace directo y el texto, para traducirlos a mano. No toca nada y no necesita
+  token: lee la cola, donde está anotada cada publicación.
+- **La portada viaja como imagen adjunta**, con texto alternativo en alemán. La
+  imagen se sube **antes** de encolar el post y su id se guarda en la fila: un
+  reintento adjunta el mismo medio en vez de subirlo otra vez. Si no hay portada
+  —o la instancia rechaza la imagen— el aviso sale solo con texto.
 - **El post se encola en la base.** Si la instancia no contesta, el aviso no se
   pierde: se reintenta con espera creciente (5 intentos) desde el cron. Un token
   revocado o un texto inválido se marcan como fallidos sin reintentar.

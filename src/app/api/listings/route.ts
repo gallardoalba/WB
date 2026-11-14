@@ -88,7 +88,6 @@ export async function POST(request: Request) {
           bookId: listing.bookId,
           title: input.title,
           author: input.author,
-          language: input.language ?? null,
           base,
           isAdmin: user.isAdmin,
           ownerId: user.id,

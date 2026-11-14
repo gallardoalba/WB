@@ -958,7 +958,7 @@ export default function WanderbibliothekApp({
                         aria-pressed={filters.scope === "region"}
                         onClick={() => navigate({ scope: "region", page: 1 })}
                       >
-                        {t("Toda Europa")}
+                        {t("Toda Alemania")}
                       </button>
                       <button
                         type="button"

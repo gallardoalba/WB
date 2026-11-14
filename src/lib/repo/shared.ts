@@ -238,8 +238,8 @@ export function distanceParts(viewerId: string | null | undefined) {
 /**
  * Ciudades que hay de verdad en los datos, para los filtros de la comunidad.
  *
- * Antes salían de una lista fija de municipios alemanes; con la plataforma
- * abierta a Europa es más útil ofrecer solo las que tienen lectores o clubes.
+ * Antes salían de una lista fija de municipios alemanes; con la ciudad como
+ * texto libre es más útil ofrecer solo las que tienen lectores o clubes.
  */
 export function citiesInUse(kind: "readers" | "clubs", limit = 200): string[] {
   const sql =

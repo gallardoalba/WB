@@ -8,7 +8,9 @@ import { randomUUID } from "node:crypto";
 import type { Db } from "./index";
 import { CITIES, cityDistances } from "../cities";
 import { CATEGORIES, TAGS } from "../domain";
+import { composeStatus, workUrl } from "../mastodon-post";
 import { encryptSecret, isEncrypted, shipContext } from "../secret-box";
+import { siteUrl } from "../site";
 import { normalizeText } from "../text";
 import { workKeyFromTitle } from "../work";
 import { INDEXES, LEGACY_UPGRADE, SCHEMA_V2, SCHEMA_VERSION } from "./schema";
@@ -1576,6 +1578,67 @@ function migrateToV50(db: Db) {
 }
 
 /**
+ * Reescribe el texto de los avisos que aún esperan en la cola.
+ *
+ * El bot pasó a escribir siempre en alemán y cambió las etiquetas: ahora
+ * combinan la casa, el tema del libro (sus etiquetas curadas o su categoría) y
+ * la lectura. Lo que ya estaba encolado conservaba el texto anterior, así que se
+ * recompone con la misma función que usa el alta: el aviso que salga es el que
+ * habría salido hoy. Las filas enviadas o fallidas no se tocan; son historial.
+ *
+ * Devuelve cuántos avisos se actualizaron.
+ */
+export function refreshQueuedPosts(db: Db): number {
+  const pendientes = db
+    .prepare(
+      `SELECT id, subject FROM social_outbox
+        WHERE network = 'mastodon' AND status = 'pending'
+          AND subject IN (SELECT id FROM books)`,
+    )
+    .all() as { id: string; subject: string }[];
+  if (pendientes.length === 0) return 0;
+
+  const bookStmt = db.prepare("SELECT title, author, category FROM books WHERE id = ?");
+  const tagsStmt = db.prepare(
+    `SELECT DISTINCT lt.tag FROM listing_tags lt
+       JOIN listings l ON l.id = lt.listing_id
+      WHERE l.book_id = ?
+      ORDER BY lt.tag`,
+  );
+  const update = db.prepare("UPDATE social_outbox SET body = ? WHERE id = ?");
+  const base = siteUrl();
+  let updated = 0;
+  db.transaction(() => {
+    for (const fila of pendientes) {
+      const book = bookStmt.get(fila.subject) as
+        | { title: string; author: string; category: string }
+        | undefined;
+      if (!book) continue;
+      const tags = (tagsStmt.all(fila.subject) as { tag: string }[]).map((row) => row.tag);
+      update.run(
+        composeStatus({
+          title: book.title,
+          author: book.author,
+          url: workUrl(base, fila.subject),
+          seed: fila.subject,
+          category: book.category,
+          tags,
+        }),
+        fila.id,
+      );
+      updated += 1;
+    }
+  })();
+  return updated;
+}
+
+/** v51: los avisos que esperan en la cola pasan al alemán y a las etiquetas nuevas. */
+function migrateToV51(db: Db) {
+  refreshQueuedPosts(db);
+  db.pragma("user_version = 51");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1710,6 +1773,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 48) migrateToV48(db);
   if (userVersion(db) < 49) migrateToV49(db);
   if (userVersion(db) < 50) migrateToV50(db);
+  if (userVersion(db) < 51) migrateToV51(db);
 
   backfillSearchKeys(db);
 }

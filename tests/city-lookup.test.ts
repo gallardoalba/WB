@@ -80,20 +80,20 @@ test("una ciudad del catálogo se reconoce sin salir a la red", async () => {
 });
 
 test("una ciudad nueva se busca una sola vez y queda en caché", async () => {
-  await conFetch(nominatim([{ address: { city: "Barcelona" } }]), async (calls) => {
-    assert.deepEqual(await resolveCity("Barcelona"), { status: "found", name: "Barcelona" });
+  await conFetch(nominatim([{ address: { city: "Rendsburg" } }]), async (calls) => {
+    assert.deepEqual(await resolveCity("Rendsburg"), { status: "found", name: "Rendsburg" });
     assert.equal(calls.length, 1);
 
     const url = calls[0]!.url;
     assert.equal(url.origin + url.pathname, "https://nominatim.openstreetmap.org/search");
-    assert.equal(url.searchParams.get("q"), "Barcelona");
+    assert.equal(url.searchParams.get("q"), "Rendsburg");
     assert.equal(url.searchParams.get("format"), "jsonv2");
     assert.equal(url.searchParams.get("addressdetails"), "1");
     assert.equal(url.searchParams.get("limit"), "1");
-    assert.match(url.searchParams.get("countrycodes") ?? "", /\b(es|de|fr)\b/);
+    assert.equal(url.searchParams.get("countrycodes"), "de");
 
     // Misma ciudad escrita de otra forma: sale de la caché, sin otra petición.
-    assert.deepEqual(await resolveCity("  barcelona "), { status: "found", name: "Barcelona" });
+    assert.deepEqual(await resolveCity("  rendsburg "), { status: "found", name: "Rendsburg" });
     assert.equal(calls.length, 1, "la caché evita repetir la consulta");
   });
 });
@@ -107,7 +107,7 @@ test("una respuesta vacía es «no existe», no un fallo de red", async () => {
 test("un servicio caído o una respuesta ilegible no bloquean el alta", async () => {
   // Error HTTP: mantenimiento, cuota…
   await conFetch(() => new Response("{}", { status: 503 }), async () => {
-    assert.deepEqual(await resolveCity("Lisboa"), { status: "unavailable" });
+    assert.deepEqual(await resolveCity("Cuxhaven"), { status: "unavailable" });
   });
   // Error de red (DNS, timeout…).
   await conFetch(
@@ -115,11 +115,11 @@ test("un servicio caído o una respuesta ilegible no bloquean el alta", async ()
       throw new Error("ECONNREFUSED");
     },
     async () => {
-      assert.deepEqual(await resolveCity("Porto"), { status: "unavailable" });
+      assert.deepEqual(await resolveCity("Nordhorn"), { status: "unavailable" });
     },
   );
   // 200 con HTML (portal cautivo): `json()` falla y tampoco se bloquea.
   await conFetch(() => new Response("<html>captcha</html>", { status: 200 }), async () => {
-    assert.deepEqual(await resolveCity("Roma"), { status: "unavailable" });
+    assert.deepEqual(await resolveCity("Garmisch-Partenkirchen"), { status: "unavailable" });
   });
 });

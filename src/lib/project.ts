@@ -14,7 +14,7 @@ import { maskContact } from "./legal";
 import type { Locale } from "./i18n";
 import type { TechnicalDocument } from "./technical";
 
-const UPDATED = "2026-11-10";
+const UPDATED = "2026-11-14";
 
 const ES = (contact: string): TechnicalDocument => ({
   title: "El proyecto",
@@ -114,14 +114,14 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "La parte visible es lo de menos. Lo que define la plataforma es lo que no hace con los datos de nadie: no pide más de lo necesario, no los comparte con terceros y no los usa para retener a quien entra.",
+          text: "La parte visible es solo una parte. Lo que define la plataforma es lo que no hace con los datos de nadie: no pide más de lo necesario, no los comparte con terceros y no los usa para retener a quien entra.",
         },
         {
           kind: "terms",
           items: [
             {
               label: "Privacidad por defecto",
-              text: "el registro pide nombre, ciudad y correo, y la contraseña se guarda solo como hash; la biografía es opcional. No hay analítica de terceros ni píxeles de seguimiento: los contadores propios se quedan en la base de datos y caducan a los 180 días. Todo lo propio se puede exportar en JSON y la cuenta se puede borrar por completo.",
+              text: "el registro pide nombre, ciudad y correo, y la contraseña se guarda solo como hash; la biografía es opcional. No hay analítica de terceros ni píxeles de seguimiento: los contadores propios se quedan en la base de datos y se conservan 180 días. Todos los datos propios se pueden exportar en JSON y la cuenta se puede borrar por completo.",
             },
             {
               label: "El catálogo público no lleva nombres",
@@ -133,19 +133,19 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Catalogación cuidada",
-              text: "las fichas se rellenan con datos de la DNB (MARC21) y Open Library, incluida la clasificación; las consultas salen del servidor y se guardan en disco, así que el navegador no habla con ellos.",
+              text: "las fichas se rellenan con datos de la DNB (MARC21) y Open Library, incluida la clasificación; las consultas salen del servidor y se guardan en disco, así que el navegador no habla con esos servicios.",
             },
             {
               label: "Accesibilidad",
-              text: "contraste suficiente, foco visible, objetivos táctiles amplios, navegación con teclado y etiquetas para lectores de pantalla, también cuando se pide menos movimiento.",
+              text: "contraste suficiente, foco visible, áreas táctiles amplias, navegación con teclado y etiquetas para lectores de pantalla, también cuando se pide menos movimiento.",
             },
             {
               label: "Alemán, castellano e inglés",
               text: "la interfaz completa en los tres idiomas, con el contenido largo compuesto por idioma.",
             },
             {
-              label: "Copias y continuidad",
-              text: "copias cifradas cada seis horas y una restauración ensayada: el servicio se puede levantar de cero con la copia y el código.",
+              label: "Copias de seguridad y continuidad",
+              text: "copias de seguridad cifradas cada seis horas y una restauración ensayada: el servicio se puede reconstruir desde cero con la copia de seguridad y el código.",
             },
           ],
         },
@@ -196,7 +196,7 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Manche Bücher behält man wegen ihrer Bedeutung und nicht, weil sie Platz im Regal brauchen. Sie weiterzugeben heißt, das mit anderen zu teilen, was man mit ihnen gelernt hat, und die Bibliothek als Gemeingut zu verstehen, nicht als private Sammlung.",
+          text: "Manche Bücher behält man wegen ihrer Bedeutung, nicht wegen des Platzes, den sie im Regal einnehmen. Sie weiterzugeben heißt, das mit anderen zu teilen, was man mit ihnen gelernt hat, und die Bibliothek als Gemeingut zu verstehen, nicht als private Sammlung.",
         },
         {
           kind: "p",
@@ -225,7 +225,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Bücher als Gemeingut",
-              text: "ein gelesenes Buch ist kein ruhender Bestand, sondern etwas, das weiter zirkulieren kann. Die Plattform verwaltet Übergaben, nicht Eigentum: Ein Exemplar wegzugeben verliert es nicht, es bringt es in Umlauf.",
+              text: "ein gelesenes Buch ist kein ruhender Bestand, sondern etwas, das weiter zirkulieren kann. Die Plattform verwaltet Übergaben, nicht Eigentum: Ein Exemplar wegzugeben heißt nicht, es zu verlieren; es kommt in Umlauf.",
             },
             {
               label: "Selbstorganisation",
@@ -285,7 +285,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Ende-zu-Ende-verschlüsselte Nachrichten",
-              text: "der private Schlüssel bleibt im Browser und in der Android-App, der Server befördert nur undurchsichtige Umschläge, einen je Gerät. Heikles am Konto – etwa der zweite Faktor – liegt verschlüsselt mit einem Schlüssel, der nicht in der Datenbank steht.",
+              text: "der private Schlüssel bleibt im Browser und in der Android-App, der Server befördert nur undurchsichtige Umschläge, einen je Gerät. Vertrauliche Angaben zum Konto – etwa der zweite Faktor – werden mit einem Schlüssel verschlüsselt, der nicht in der Datenbank liegt.",
             },
             {
               label: "Sorgfältige Titelaufnahme",
@@ -293,15 +293,15 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Barrierefreiheit",
-              text: "ausreichender Kontrast, sichtbarer Fokus, großzügige Ziele für Finger, Bedienung per Tastatur und Beschriftungen für Screenreader — auch wenn weniger Bewegung gewünscht ist.",
+              text: "ausreichender Kontrast, sichtbarer Fokus, großzügig bemessene Berührungsflächen, Bedienung per Tastatur und Beschriftungen für Screenreader — auch wenn weniger Bewegung gewünscht ist.",
             },
             {
               label: "Deutsch, Spanisch und Englisch",
               text: "die Oberfläche vollständig in den drei Sprachen, lange Texte je Sprache verfasst.",
             },
             {
-              label: "Sicherungen und Fortbestand",
-              text: "verschlüsselte Sicherungen alle sechs Stunden und eine geübte Wiederherstellung: Der Dienst lässt sich aus Sicherung und Code von Grund auf neu aufsetzen.",
+              label: "Datensicherung und Fortbestand",
+              text: "verschlüsselte Datensicherungen alle sechs Stunden und eine geübte Wiederherstellung: Der Dienst lässt sich aus Datensicherung und Code von Grund auf neu aufsetzen.",
             },
           ],
         },
@@ -332,7 +332,7 @@ const EN = (contact: string): TechnicalDocument => ({
   title: "The project",
   updated: UPDATED,
   intro: [
-    "Wanderbibliothek is a community project with no commercial purpose: a place to share the books that have marked us most, so they can circulate again and knowledge can grow between all of us.",
+    "Wanderbibliothek is a community project with no commercial purpose: a place to share the books that have shaped us most, so they can circulate again and knowledge can grow between all of us.",
     "This page explains what it is, why it exists and which decisions stand behind how it is built.",
   ],
   sections: [
@@ -356,11 +356,11 @@ const EN = (contact: string): TechnicalDocument => ({
         },
         {
           kind: "p",
-          text: "Hence the underlying idea: knowledge is not property each of us keeps, but a commons that grows when it circulates. A book that circulates does more than one kept on a shelf: readings, conversations and disagreement. That is why the platform is meant for titles that matter, not for stock.",
+          text: "Hence the underlying idea: knowledge is not property each of us keeps, but a commons that grows when it circulates. A book in circulation does more than one left on a shelf: it produces readings, conversations and disagreement. That is why the platform is meant for titles that matter, not for stock.",
         },
         {
           kind: "p",
-          text: "Nothing is sold here: copies are given away or swapped, with no price and no payment. There is no internal currency, no points for activity and no rankings rewarding whoever posts the most: what is expected is reciprocity, not a balance.",
+          text: "Nothing is sold here: copies are given away or swapped, with no price and no payment. There is no internal currency, no points for activity and no rankings that reward those who post the most: what is expected is reciprocity, not a balance.",
         },
       ],
     },
@@ -381,7 +381,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Books as commons",
-              text: "a book that has been read is not idle stock; it can keep circulating. The platform manages hand-overs, not property: giving a copy away does not lose it, it puts it into circulation.",
+              text: "a book that has been read is not idle stock; it can keep circulating. The platform manages hand-overs, not property: giving a copy away does not mean losing it; it puts it into circulation.",
             },
             {
               label: "Self-organisation",
@@ -426,14 +426,14 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "The visible part is the smaller half. What defines the platform is what it does not do with other people's data: it asks for no more than it needs, hands none of it to third parties and uses none of it to keep anyone in.",
+          text: "The visible part is the smaller half. What defines the platform is what it does not do with other people's data: it asks for no more than it needs, hands none of it to third parties and uses none of it to keep anyone tied to it.",
         },
         {
           kind: "terms",
           items: [
             {
               label: "Privacy by default",
-              text: "signing up asks for a name, a city and an email address, and the password is stored only as a hash; the biography is optional. There is no third-party analytics and no tracking pixels: the project's own counters stay in the database and expire after 180 days. Everything of your own can be exported as JSON, and the account can be deleted entirely.",
+              text: "signing up asks for a name, a city and an email address, and the password is stored only as a hash; the biography is optional. There is no third-party analytics and no tracking pixels: the project's own counters stay in the database and expire after 180 days. All your own data can be exported as JSON, and the account can be deleted entirely.",
             },
             {
               label: "The public catalogue carries no names",
@@ -441,7 +441,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "End-to-end encrypted messaging",
-              text: "the private key stays in the browser and in the Android app, and the server carries only opaque envelopes, one per device. Account secrets such as the second factor are stored encrypted with a key that is not in the database.",
+              text: "the private key stays in the browser and in the Android app, and the server only relays opaque envelopes, one per device. Account secrets such as the second factor are stored encrypted with a key that is not in the database.",
             },
             {
               label: "Careful cataloguing",

@@ -6,10 +6,11 @@
  * - **Registro sobrio.** Sin emoji, sin exclamaciones y sin superlativos: una
  *   frase enunciativa, el enlace y tres etiquetas. Es la voz de una biblioteca,
  *   no la de una promoción.
- * - **Cincuenta formulaciones por idioma** y **etiquetas variables**. Un perfil
- *   que repite la misma frase y las mismas tres etiquetas parece un robot. La
- *   variante se elige con el id de la obra, así que el mismo libro siempre se
- *   anuncia igual y lo que se ve en la cola es lo que se publica.
+ * - **Cien formulaciones** y **etiquetas variables**. Un perfil que repite la
+ *   misma frase y las mismas tres etiquetas parece un robot. La variante se
+ *   elige con el id de la obra, así que el mismo libro siempre se anuncia igual
+ *   y lo que se ve en la cola es lo que se publica. Las etiquetas combinan la
+ *   casa, el tema del libro (sus etiquetas o su categoría) y la lectura.
  * - **Cola en la base, no una llamada suelta.** Publicar un libro no puede
  *   depender de que mastodon.social conteste ahora: si falla, el post se pierde
  *   y nadie se entera. Se encola (`social_outbox`) y lo intenta el `after()` de
@@ -21,28 +22,37 @@
  *   ni nombre de quien publica: la ciudad está en la ficha y quien quiera verla
  *   entra.
  *
- * El idioma del aviso es el del ejemplar; «Otro» y «No especificado» caen al
- * alemán, que es el idioma de la casa. Sin `MASTODON_TOKEN` no hay bot: no se
- * encola nada y el proceso queda apagado.
+ * **Siempre en alemán.** El perfil se dirige al público alemán, así que el aviso
+ * no cambia de idioma con el ejemplar: la frase, las etiquetas y el texto
+ * alternativo de la portada salen en alemán. Sin `MASTODON_TOKEN` no hay bot: no
+ * se encola nada y el proceso queda apagado.
  */
 import { randomUUID } from "node:crypto";
 
 import { toJpeg } from "./cover-convert";
 import { readUploadedCover, uploadedCoverPath } from "./covers";
 import { getDb, type Db } from "./db";
-import { DEFAULT_LOCALE, localePath, type Locale } from "./locale";
+import { composeStatus, coverAlt, workUrl } from "./mastodon-post";
 import { siteUrl } from "./site";
+
+export {
+  ANNOUNCE_REF,
+  composeStatus,
+  coverAlt,
+  hashtagsFor,
+  leadVariants,
+  readingTags,
+  STATUS_LIMIT,
+  subjectHashtags,
+  variantIndex,
+  workUrl,
+} from "./mastodon-post";
+export type { Lead, PostInput } from "./mastodon-post";
 
 /** Red social del post. La tabla admite más; hoy solo hay esta. */
 export const SOCIAL_NETWORK = "mastodon";
 /** Minutos que una fila puede estar «en envío» antes de darla por abandonada. */
 const CLAIM_SECONDS = 5 * 60;
-
-/** Un estado de Mastodon admite 500 caracteres. */
-export const STATUS_LIMIT = 500;
-
-/** Mastodon corta las descripciones de medios a 1500 caracteres. */
-const ALT_LIMIT = 1500;
 
 /** Intentos antes de dar un post por perdido. */
 const MAX_ATTEMPTS = 5;
@@ -162,317 +172,6 @@ export function mastodonConfig(env: Record<string, string | undefined> = process
     token,
     visibility: visibility === "unlisted" || visibility === "private" ? visibility : "public",
   };
-}
-
-/** Una forma de empezar el aviso. Recibe el título y la autoría ya limpios. */
-export type Lead = (title: string, author: string) => string;
-
-/**
- * Voz del bot por idioma: cincuenta formulaciones enunciativas.
- *
- * No vive en `i18n.ts` porque el diccionario es de **interfaz** y esto es
- * contenido con marcadores: aquí se compone una frase con el título y la
- * autoría, igual que `technical.ts` compone su documentación por idioma.
- *
- * Reglas de estilo, para que las cincuenta suenen a la misma voz:
- *
- * - Una sola frase, enunciativa, sin emoji ni exclamaciones.
- * - Nada de superlativos ni de promesas que la plataforma no hace: el texto dice
- *   lo único cierto, que ese libro está y puede leerse.
- * - Comillas tipográficas de cada idioma y coma antes de la autoría cuando la
- *   frase lo pide (««X», de Y» frente a ««X» de Y»).
- */
-const LEADS: Record<Locale, Lead[]> = {
-  de: [
-    (title, author) => `Neu im gemeinsamen Regal: „${title}“ von ${author}.`,
-    (title, author) => `Soeben eingetroffen: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} ist ab heute im Katalog.`,
-    (title, author) => `Der Katalog wächst um „${title}“ von ${author}.`,
-    (title, author) => `Neu aufgenommen: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} steht jetzt im Regal.`,
-    (title, author) => `Ab heute verfügbar: „${title}“ von ${author}.`,
-    (title, author) => `Eingestellt und zu vergeben: „${title}“ von ${author}.`,
-    (title, author) => `Dem Regal hinzugefügt: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} sucht neue Leserinnen und Leser.`,
-    (title, author) => `Ein weiteres Buch im Regal: „${title}“ von ${author}.`,
-    (title, author) => `Neu bei Wanderbibliothek: „${title}“ von ${author}.`,
-    (title, author) => `Eben eingetragen: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author}, jetzt Teil des Katalogs.`,
-    (title, author) => `Zur Weitergabe eingestellt: „${title}“ von ${author}.`,
-    (title, author) => `Im Katalog zu finden: „${title}“ von ${author}.`,
-    (title, author) => `In die Wanderbibliothek aufgenommen: „${title}“ von ${author}.`,
-    (title, author) => `Ab sofort zu lesen und weiterzugeben: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} ergänzt das gemeinsame Regal.`,
-    (title, author) => `Der Bestand wächst: „${title}“ von ${author}.`,
-    (title, author) => `Heute im Katalog: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} ist eingezogen.`,
-    (title, author) => `Ein neuer Titel im Regal: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} wartet auf eine Leserin oder einen Leser.`,
-    (title, author) => `Verfügbar ab heute: „${title}“ von ${author}.`,
-    (title, author) => `Frisch im Katalog: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} lässt sich ab heute ausleihen.`,
-    (title, author) => `Das Regal hat Zuwachs: „${title}“ von ${author}.`,
-    (title, author) => `Von Hand zu Hand: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author}, neu im gemeinsamen Bestand.`,
-    (title, author) => `Aufgenommen: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} ist jetzt verfügbar.`,
-    (title, author) => `Ein Buch mehr auf dem Regal: „${title}“ von ${author}.`,
-    (title, author) => `Der gemeinsame Bestand wächst: „${title}“ von ${author}.`,
-    (title, author) => `Heute eingestellt: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} sucht ein neues Zuhause.`,
-    (title, author) => `„${title}“ von ${author}, ab heute im Bestand.`,
-    (title, author) => `Neu im Verzeichnis: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} ist da.`,
-    (title, author) => `Wieder ein Buch, das weiterreisen möchte: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} bereichert den Bestand.`,
-    (title, author) => `Eintrag ergänzt: „${title}“ von ${author}.`,
-    (title, author) => `Lesen und weitergeben: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} steht bereit.`,
-    (title, author) => `Das Verzeichnis wächst: „${title}“ von ${author}.`,
-    (title, author) => `Neu eingetragen und zu haben: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} gehört ab jetzt dazu.`,
-    (title, author) => `Ein Werk mehr im Katalog: „${title}“ von ${author}.`,
-    (title, author) => `„${title}“ von ${author} ist eingetroffen und wartet.`,
-    (title, author) => `Im Bestand seit heute: „${title}“ von ${author}.`,
-  ],
-  es: [
-    (title, author) => `Nuevo en la estantería común: «${title}» de ${author}.`,
-    (title, author) => `Recién incorporado al catálogo: «${title}» de ${author}.`,
-    (title, author) => `«${title}», de ${author}, ya forma parte del catálogo.`,
-    (title, author) => `El catálogo suma «${title}», de ${author}.`,
-    (title, author) => `Disponible desde hoy: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, espera en la estantería.`,
-    (title, author) => `Se incorpora a la estantería «${title}», de ${author}.`,
-    (title, author) => `Nueva entrada en la estantería común: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, busca nuevos lectores.`,
-    (title, author) => `El fondo crece con «${title}», de ${author}.`,
-    (title, author) => `Añadido al catálogo: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, disponible para su intercambio.`,
-    (title, author) => `Un nuevo título en la estantería: «${title}», de ${author}.`,
-    (title, author) => `Pasa a formar parte del catálogo «${title}», de ${author}.`,
-    (title, author) => `Registrado hoy: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, queda a disposición de quien lo lea.`,
-    (title, author) => `Ampliamos el catálogo con «${title}», de ${author}.`,
-    (title, author) => `Nuevo ejemplar en la estantería común: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, inicia su recorrido entre lectores.`,
-    (title, author) => `Desde hoy figura en el catálogo «${title}», de ${author}.`,
-    (title, author) => `Hoy entra en la estantería: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, ya está disponible.`,
-    (title, author) => `Un libro más en la estantería: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, espera a su próxima lectura.`,
-    (title, author) => `Sumamos «${title}», de ${author}, al catálogo.`,
-    (title, author) => `«${title}», de ${author}, se une al catálogo.`,
-    (title, author) => `Disponible para intercambio: «${title}», de ${author}.`,
-    (title, author) => `La estantería recibe «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, disponible desde hoy.`,
-    (title, author) => `Nueva incorporación: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, encuentra su lugar en la estantería.`,
-    (title, author) => `Otro título disponible: «${title}», de ${author}.`,
-    (title, author) => `El catálogo se amplía con «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, entra en circulación.`,
-    (title, author) => `Acaba de registrarse: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, listo para su próximo lector.`,
-    (title, author) => `Se añade «${title}», de ${author}, al fondo.`,
-    (title, author) => `«${title}», de ${author}, ya puede solicitarse.`,
-    (title, author) => `Un título más para compartir: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, pasa a estar disponible.`,
-    (title, author) => `El fondo bibliográfico crece: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, disponible en la estantería.`,
-    (title, author) => `Registro nuevo: «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, aguarda nuevas lecturas.`,
-    (title, author) => `Incorporamos «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, disponible desde este momento.`,
-    (title, author) => `La comunidad suma «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, en el catálogo desde hoy.`,
-    (title, author) => `Se estrena en la estantería «${title}», de ${author}.`,
-    (title, author) => `«${title}», de ${author}, a disposición de los lectores.`,
-  ],
-  en: [
-    (title, author) => `New in the shared library: “${title}” by ${author}.`,
-    (title, author) => `Newly added to the catalogue: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is now part of the collection.`,
-    (title, author) => `The catalogue grows with “${title}” by ${author}.`,
-    (title, author) => `Available from today: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is waiting on the shelf.`,
-    (title, author) => `Added to the shelf: “${title}” by ${author}.`,
-    (title, author) => `A new entry in the shared library: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is looking for its next reader.`,
-    (title, author) => `“${title}” by ${author} joins the collection.`,
-    (title, author) => `Now in the catalogue: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author}, available to borrow.`,
-    (title, author) => `One more title on the shelf: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} becomes part of the catalogue.`,
-    (title, author) => `Recorded today: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is available to whoever reads it next.`,
-    (title, author) => `The catalogue has gained “${title}” by ${author}.`,
-    (title, author) => `A new copy in the shared library: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} begins its journey between readers.`,
-    (title, author) => `From today, “${title}” by ${author} is in the catalogue.`,
-    (title, author) => `“${title}” by ${author} has arrived on the shelf.`,
-    (title, author) => `A further title is available: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is now available.`,
-    (title, author) => `The shelf receives “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} takes its place on the shelf.`,
-    (title, author) => `Just added: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is ready for its next reader.`,
-    (title, author) => `The collection grows: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author}, available from this moment.`,
-    (title, author) => `Another title to share: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} enters circulation.`,
-    (title, author) => `The library gains “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is now part of the shared library.`,
-    (title, author) => `Posted today: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} can now be requested.`,
-    (title, author) => `One more book on the shelf: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is waiting to be read.`,
-    (title, author) => `A new arrival: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author}, now listed in the catalogue.`,
-    (title, author) => `The catalogue expands with “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} joins the shared shelf.`,
-    (title, author) => `Available for exchange: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is at the readers' disposal.`,
-    (title, author) => `Newly registered: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} becomes available today.`,
-    (title, author) => `The collection welcomes “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author}, from one reader to the next.`,
-    (title, author) => `Listed in the catalogue: “${title}” by ${author}.`,
-    (title, author) => `“${title}” by ${author} is ready to travel.`,
-    (title, author) => `“${title}” by ${author} is now on the shared shelf.`,
-  ],
-};
-
-/**
- * Etiquetas disponibles por idioma. La primera es la de la casa y va siempre;
- * de las demás se eligen dos, de modo que la combinación cambia de un libro a
- * otro sin salirse nunca de etiquetas que se usan de verdad.
- */
-const TAG_POOLS: Record<Locale, string[]> = {
-  de: ["Wanderbibliothek", "Bücher", "Büchertausch", "Lesen", "Bibliothek", "Literatur", "Buch"],
-  es: ["Wanderbibliothek", "Libros", "IntercambioDeLibros", "Lectura", "Biblioteca", "Literatura", "Libro"],
-  en: ["Wanderbibliothek", "Books", "BookSwap", "Reading", "Library", "Literature", "Bookstodon"],
-};
-
-/** Texto alternativo de la portada: lo lee quien no ve la imagen. */
-const ALT: Record<Locale, (title: string, author: string) => string> = {
-  de: (title, author) => `Buchcover von „${title}“ von ${author}`,
-  es: (title, author) => `Portada de «${title}» de ${author}`,
-  en: (title, author) => `Cover of “${title}” by ${author}`,
-};
-
-/**
- * Elige una entrada con un hash del id de la obra.
- *
- * Determinista a propósito: el mismo libro da siempre el mismo texto, así que lo
- * que se ve en la cola es lo que se publica y un reintento no cambia el aviso.
- * El segundo argumento («sal») separa los sorteos: la frase y las etiquetas de
- * un mismo libro no van correlacionadas.
- */
-export function variantIndex(seed: string, count: number): number {
-  // FNV-1a de 32 bits: corto, sin dependencias y bien repartido para ids cortos.
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return count > 0 ? hash % count : 0;
-}
-
-/** Las formulaciones de un idioma (las del idioma base si no lo hay). */
-export function leadVariants(locale: Locale): Lead[] {
-  return LEADS[locale] ?? LEADS[DEFAULT_LOCALE];
-}
-
-/** Las etiquetas entre las que se elige, con la de la casa siempre delante. */
-export function tagPool(locale: Locale): string[] {
-  return TAG_POOLS[locale] ?? TAG_POOLS[DEFAULT_LOCALE];
-}
-
-/**
- * Tres etiquetas: la de la casa y dos más del fondo, elegidas con el id de la
- * obra. Dos libros seguidos no repiten combinación, y el reparto es amplio
- * (seis candidatas, dos sin repetir: quince parejas posibles por idioma).
- */
-export function hashtagsFor(locale: Locale, seed: string): string[] {
-  const [brand, ...rest] = tagPool(locale);
-  const first = variantIndex(`${seed}|tag-a`, rest.length);
-  const secondRaw = variantIndex(`${seed}|tag-b`, rest.length - 1);
-  // Se salta la elegida para que nunca coincidan.
-  const second = secondRaw >= first ? secondRaw + 1 : secondRaw;
-  return [brand ?? "Wanderbibliothek", rest[first] ?? rest[0]!, rest[second] ?? rest[0]!];
-}
-
-export type PostInput = {
-  title: string;
-  author: string;
-  /** Enlace público a la obra, ya con el prefijo de idioma. */
-  url: string;
-  locale: Locale;
-  /** Id de la obra: decide la variante del texto y las etiquetas. */
-  seed: string;
-};
-
-/** Corta por puntos de código: `length` cuenta unidades UTF-16 y un emoji cuenta doble. */
-function truncate(text: string, max: number): string {
-  const chars = Array.from(text);
-  if (chars.length <= max) return text;
-  if (max <= 1) return "…";
-  return `${chars.slice(0, max - 1).join("").trimEnd()}…`;
-}
-
-/**
- * Texto del estado: frase, enlace y etiquetas, sin pasarse de 500 caracteres.
- *
- * El enlace y las etiquetas se reservan **antes** de cortar: es lo que no puede
- * perderse. Un título de 400 caracteres se recorta y el post sigue siendo útil.
- */
-export function composeStatus(input: PostInput): string {
-  const locale = LEADS[input.locale] ? input.locale : DEFAULT_LOCALE;
-  const leads = leadVariants(locale);
-  const lead = leads[variantIndex(input.seed, leads.length)]!;
-  const tags = hashtagsFor(locale, input.seed)
-    .map((tag) => `#${tag}`)
-    .join(" ");
-  const tail = `\n\n${input.url}\n\n${tags}`;
-  const room = Math.max(1, STATUS_LIMIT - Array.from(tail).length);
-  return `${truncate(lead(input.title, input.author), room)}${tail}`;
-}
-
-/** Texto alternativo de la portada, en el idioma del aviso. */
-export function coverAlt(locale: Locale, title: string, author: string): string {
-  const build = ALT[locale] ?? ALT[DEFAULT_LOCALE];
-  return truncate(build(title, author), ALT_LIMIT);
-}
-
-/** Idioma del aviso a partir del idioma del ejemplar, que está en castellano. */
-export function localeForLanguage(language: string | null | undefined): Locale {
-  switch (language) {
-    case "Español":
-      return "es";
-    case "Inglés":
-      return "en";
-    case "Alemán":
-      return "de";
-    default:
-      // «Otro» y «No especificado» no dicen en qué idioma escribir: se usa el
-      // de la casa, que es el que ve quien llega sin cookie.
-      return DEFAULT_LOCALE;
-  }
-}
-
-/**
- * Etiqueta del enlace de los avisos.
- *
- * Las apps del fediverso no siempre mandan `Referer` (y el navegador solo manda
- * el origen), así que sin marca es imposible saber cuántas visitas trae el bot.
- * El parámetro no cambia la página ni su canónica (`/werk/<id>`): solo deja un
- * rastro contable en el access log. Se cuenta en `deploy/informe-accesos.sh`.
- */
-export const ANNOUNCE_REF = "mastodon";
-
-/** Enlace público de la obra en el idioma del aviso, con la marca del bot. */
-export function workUrl(base: string, bookId: string, locale: Locale): string {
-  const url = `${base.replace(/\/+$/, "")}${localePath(locale, `/werk/${bookId}`)}`;
-  return `${url}?ref=${ANNOUNCE_REF}`;
 }
 
 /**
@@ -805,20 +504,17 @@ async function asegurarMedio(
   if (row.media_id) return row.media_id;
   try {
     const book = getDb()
-      .prepare("SELECT title, author, language FROM books WHERE id = ?")
-      .get(row.subject) as
-      | { title: string; author: string; language: string | null }
-      | undefined;
+      .prepare("SELECT title, author FROM books WHERE id = ?")
+      .get(row.subject) as { title: string; author: string } | undefined;
     if (!book) return null;
     const media = await mediaForPost(siteUrl(), row.subject, fetchImpl);
     if (!media) return null;
-    const locale = localeForLanguage(book.language);
     const subida = await uploadMedia(
       config,
       {
         data: media.data,
         contentType: media.contentType,
-        description: coverAlt(locale, book.title, book.author),
+        description: coverAlt(book.title, book.author),
       },
       fetchImpl,
     );
@@ -1055,11 +751,33 @@ export function purgeSocialOutbox(days = 90): number {
  * cataloga su estantería de una sentada no convierte el perfil en una lista de
  * la compra. Se publica el primero y los demás se quedan sin aviso.
  */
+/**
+ * Tema del libro para las etiquetas del aviso: la categoría y las etiquetas
+ * curadas que haya puesto quien publica.
+ *
+ * La obra puede no estar todavía en la base (el alta se prueba con ids
+ * inventados) o no traer etiquetas; en ese caso queda la categoría y, si
+ * tampoco hay, la composición usa dos etiquetas de lectura.
+ */
+export function subjectsForBook(bookId: string): { category: string | null; tags: string[] } {
+  const book = getDb()
+    .prepare("SELECT category FROM books WHERE id = ?")
+    .get(bookId) as { category: string } | undefined;
+  const tags = getDb()
+    .prepare(
+      `SELECT DISTINCT lt.tag FROM listing_tags lt
+         JOIN listings l ON l.id = lt.listing_id
+        WHERE l.book_id = ?
+        ORDER BY lt.tag`,
+    )
+    .all(bookId) as { tag: string }[];
+  return { category: book?.category ?? null, tags: tags.map((row) => row.tag) };
+}
+
 export async function announceBook(input: {
   bookId: string;
   title: string;
   author: string;
-  language?: string | null;
   base: string;
   /**
    * Quien publica tiene que ser administración: es la única puerta de entrada a
@@ -1120,13 +838,12 @@ export async function announceBook(input: {
       if (today) return { queued: false, sent: false, media: false };
     }
 
-    const locale = localeForLanguage(input.language);
     const text = composeStatus({
       title: input.title,
       author: input.author,
-      url: workUrl(input.base, input.bookId, locale),
-      locale,
+      url: workUrl(input.base, input.bookId),
       seed: input.bookId,
+      ...subjectsForBook(input.bookId),
     });
 
     // ¿La obra tiene ISBN? Entonces hay portada de respaldo (Open Library) y no

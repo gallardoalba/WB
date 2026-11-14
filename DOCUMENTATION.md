@@ -22,14 +22,14 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v50), seed
+    db/                connection, base schema (v2), migrations (v3–v51), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 708 unit and integration tests (90 files)
-e2e/                   52 browser tests with Playwright
+tests/                 717 unit and integration tests (91 files)
+e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -67,7 +67,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/documentacion` | Technical documentation page (Spanish and German). |
 | `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
 | `/api/health` | Service and database status. |
-| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
+| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
 The API has 72 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
@@ -88,9 +88,9 @@ The API has 72 handlers under `src/app/api`. Almost all are declared with `route
 - Copy states: `available`, `reserved`, `given`, `paused`, `removed`.
 - Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.
 - Search through FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
-- `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
+- `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. Cities typed in a form are checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
-Migrations are versioned with `PRAGMA user_version` (currently v50) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table. v49 adds `push_subscriptions`, the browsers that accepted notifications. v50 stores `books.description` and `books.pages`, the synopsis and page count the catalogue returns for the ISBN.
+Migrations are versioned with `PRAGMA user_version` (currently v51) and keep the data of an existing installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messages and v37 shipping by mail. v41–v43 add the social outbox with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy handed over stays `given` and the receiver gets one of their own; v45 adds `social_likes`, the memory of what the bot has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table. v49 adds `push_subscriptions`, the browsers that accepted notifications. v50 stores `books.description` and `books.pages`, the synopsis and page count the catalogue returns for the ISBN. v51 rewrites the Mastodon posts still waiting in the queue so that they go out in German and with the new hashtags.
 
 The hand-over and shipping columns (`handover_code`, `handover_method`, `ship_kind`, `ship_number`, `ship_station`, `ship_street`, `ship_postal_code`, `ship_city`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the exchange conversation and each side confirms in the platform once it has the book, with no code and no addresses.
 
@@ -171,11 +171,11 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `LEGAL_VAT_ID` / `LEGAL_PHONE` / `LEGAL_REGISTER` | unset | Optional details for the imprint. |
 | `SEED_DEMO` | `1` outside production | Seeds demo data; in production only with an explicit `1`. |
 | `GOOGLE_BOOKS_API_KEY` | unset | Raises the Google Books quota for covers. |
-| `MASTODON_TOKEN` | unset | Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 4 to 7 hours (the administration has no daily cap). |
+| `MASTODON_TOKEN` | unset | Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. Announcements are always written in German and keep the book's original title. One announcement per work; the person publishing is also capped at one per day (administration excepted). When several works are published at once the first goes out immediately and the rest are queued with a random gap of 4 to 7 hours. |
 
 ## Tests and continuous integration
 
-`npm test` runs 708 unit and integration tests in 90 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 52 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 717 unit and integration tests in 91 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

@@ -14,7 +14,7 @@ import type { TechnicalDocument } from "./technical";
 
 export const EN: TechnicalDocument = {
   title: "Technical documentation",
-  updated: "2026-11-06",
+  updated: "2026-11-14",
   intro: [
     "How Wanderbibliothek is built: architecture, routes, data, security and operations. It is meant for anyone who is going to read the code, deploy it or audit what it stores.",
     "Everything described here is in the repository. If the code changes, this page changes with it.",
@@ -52,14 +52,14 @@ export const EN: TechnicalDocument = {
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v50), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v51), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 708 unit and integration tests (90 files)",
-            "e2e/                   browser tests with Playwright (6 spec files)",
+            "tests/                 717 unit and integration tests (91 files)",
+            "e2e/                   browser tests with Playwright (8 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
         },
@@ -69,7 +69,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The German dictionary never travels to the browser: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, not the whole dictionary. On top of that they are indexed by a 32-bit identifier (`messageId`) instead of by the source text: the key takes ten digits and the Spanish text does not travel, which leaves the German HTML at 182 KB instead of 236.",
+          text: "The German dictionary never travels to the browser: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, not the whole dictionary. On top of that they are indexed by a 32-bit identifier (`messageId`) instead of by the source text: the key takes at most ten digits and the Spanish text does not travel, which leaves the German HTML at 182 KB instead of 236.",
         },
         {
           kind: "p",
@@ -93,13 +93,13 @@ export const EN: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Content"],
           rows: [
-            ["`/`", "Public home page: hero, four figures and a row of books."],
+            ["`/`", "Public home page: full-width header, four figures and a row of books."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public page for the work with JSON-LD `Book`/`Offer`: the URL that gets indexed."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
             ["`/buscar`", "Global search: works, clubs, readers and lists."],
             ["`/estanteria`, `/intercambios`", "Private sections: own copies and requests with their next step."],
-            ["`/comunidad`", "Hub with tabs (conversations, activity, clubs, readers, lists) and scope in `?scope=`."],
+            ["`/comunidad`", "Overview with tabs (conversations, activity, clubs, readers, lists) and scope in `?scope=`."],
             ["`/lectores`", "Directory with search, city and sorting by proximity or activity."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubs by city: requests, current read, voting, attendance and private forum."],
             ["`/listas`, `/listas/[listId]`", "Reading lists: readable without a session (the signature only appears if its owner authorises it) and only their owner edits them."],
@@ -113,7 +113,7 @@ export const EN: TechnicalDocument = {
             ["`/documentacion`", "This page."],
             ["`/projekt`", "What the project is, why it exists, that it is non-commercial and what it demonstrates."],
             ["`/api/health`", "Status of the service and of the database."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexing: the sitemap publishes the home page, the public catalogue and the pages for works."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed."],
           ],
         },
         {
@@ -148,12 +148,12 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 (`listings_fts`) maintained by triggers; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. A city typed in a form is checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to European countries, and stores the name the map knows. Distance is secondary: a city outside that list simply shows no kilometres.",
+            "`cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. A city typed in a form is checked against OpenStreetMap: `resolveCity()` asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list simply shows no kilometres.",
           ],
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v50) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table. v49 adds `push_subscriptions`, the browsers that accepted notifications. v50 stores `books.description` and `books.pages`, the synopsis and page count the catalogue returns for the ISBN.",
+          text: "Migrations are versioned with `PRAGMA user_version` (current: v51) and preserve the data of a previous installation. v40 gives each device its own key slot (`web` and `android`) and stores one encrypted envelope per recipient key, so the browser and the app read the same messages; v38 opens the catalogue to every city again, adds `requests.ship_kind` and `ship_street`, encrypts the shipping data that v37 stored in plain text and removes the Deutsche Post branches; v36 added encrypted direct messaging and v37 shipping by mail. The next three (v41–v43) add the social outbox (`social_outbox`) with the image of the post and the daily cap per account; v44 closes the loop of the exchange: the copy that was handed over stays `given` and the person who receives it gets one of their own; v45 adds `social_likes`, the bot's memory of what it has already favourited, and v46 adds the `books_fts` index so works are found without scanning the whole table. v49 adds `push_subscriptions`, the browsers that accepted notifications. v50 stores `books.description` and `books.pages`, the synopsis and page count the catalogue returns for the ISBN. v51 rewrites the Mastodon posts still waiting in the queue so that they go out in German and with the new hashtags.",
         },
         {
           kind: "p",
@@ -276,7 +276,7 @@ export const EN: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "unset",
-              "Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. One announcement per work, account and day; when several are published at once the first goes out immediately and the rest are queued with a random gap of 4 to 7 hours (the administration has no daily cap).",
+              "Enables the bot that announces on Mastodon the works published by an administrator account (community listings never reach the queue); without it nothing is queued or posted. Announcements are always written in German and keep the book's original title. One announcement per work; the person publishing is also capped at one per day (administration excepted). When several works are published at once the first goes out immediately and the rest are queued with a random gap of 4 to 7 hours.",
             ],
             [
               "`MASTODON_QUIET_HOURS`",
@@ -298,7 +298,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 708 unit and integration tests in 90 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 52 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 717 unit and integration tests in 91 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

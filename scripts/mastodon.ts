@@ -6,6 +6,7 @@
  *   sudo npm ... run mastodon:test -- --enviar bok_123     # lo publica
  *   sudo npm ... run mastodon:test -- --ahora bok_123      # adelanta su turno
  *   sudo npm ... run mastodon:test -- --cola               # reintenta pendientes
+ *   sudo npm ... run mastodon:test -- --publicadas         # revisa lo ya publicado
  *   sudo npm ... run mastodon:test -- --gustar             # enseña qué le gustaría
  *   sudo npm ... run mastodon:test -- --gustar-enviar      # da el «me gusta»
  *   sudo npm ... run mastodon:test -- --gustos             # historial de «me gusta»
@@ -24,13 +25,13 @@ import {
   announceBook,
   composeStatus,
   coverAlt,
-  localeForLanguage,
   mastodonConfig,
   mediaForPost,
   pendingPostFor,
   processSocialOutbox,
   purgeSocialOutbox,
   STATUS_LIMIT,
+  subjectsForBook,
   uploadMedia,
   workUrl,
 } from "../src/lib/mastodon";
@@ -41,11 +42,13 @@ import {
   purgeSocialLikes,
   recentLikes,
 } from "../src/lib/mastodon-likes";
+import { reviewPublished } from "../src/lib/mastodon-review";
+import { getDb } from "../src/lib/db";
 import { getBook } from "../src/lib/repo";
 import { siteUrl } from "../src/lib/site";
 
 const USAGE =
-  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--ahora <obra>] [--cola] [--gustar] [--gustar-enviar] [--gustos] [--env /ruta]";
+  "Uso: npm run mastodon:test -- [--libro <obra>] [--media <obra>] [--enviar <obra>] [--ahora <obra>] [--cola] [--publicadas] [--gustar] [--gustar-enviar] [--gustos] [--env /ruta]";
 
 type Options = {
   libro: string | null;
@@ -53,6 +56,7 @@ type Options = {
   enviar: string | null;
   ahora: string | null;
   cola: boolean;
+  publicadas: boolean;
   gustar: boolean;
   gustarEnviar: boolean;
   gustos: boolean;
@@ -66,6 +70,7 @@ function parseArgs(argv: string[]): Options {
     enviar: null,
     ahora: null,
     cola: false,
+    publicadas: false,
     gustar: false,
     gustarEnviar: false,
     gustos: false,
@@ -75,6 +80,10 @@ function parseArgs(argv: string[]): Options {
     const arg = argv[index]!;
     if (arg === "--cola") {
       options.cola = true;
+      continue;
+    }
+    if (arg === "--publicadas") {
+      options.publicadas = true;
       continue;
     }
     if (arg === "--gustar") {
@@ -118,6 +127,12 @@ const problema = envFileProblem(options.entorno);
 const leidas = problema ? 0 : loadEnvFile(options.entorno);
 if (leidas > 0) console.log(`Entorno leído de ${options.entorno}.`);
 
+// Revisar lo publicado fue la primera petición: no necesita token ni red.
+if (options.publicadas) {
+  showPublished();
+  process.exit(0);
+}
+
 const config = mastodonConfig();
 if (!config) {
   console.error(
@@ -132,7 +147,6 @@ const SAMPLE = {
   title: "El infinito en un junco",
   author: "Irene Vallejo",
   url: "https://wanderbibliothek.org/werk/bok_ejemplo",
-  locale: "de" as const,
   seed: "bok_ejemplo",
 };
 
@@ -140,6 +154,65 @@ function showText(text: string): void {
   console.log(`\n--- Aviso (${Array.from(text).length}/${STATUS_LIMIT} caracteres) ---`);
   console.log(text);
   console.log("--- fin ---\n");
+}
+
+/**
+ * Lista los avisos que ya salieron en el perfil y señala los que siguen en
+ * castellano o en inglés, con su enlace para editarlos a mano en Mastodon.
+ *
+ * No habla con la instancia ni necesita token: lee la cola, que es donde el
+ * bot anotó el estado que publicó (`external_url`). Los avisos publicados antes
+ * de que el bot pasara al alemán conservan el idioma del ejemplar.
+ */
+function showPublished(): void {
+  const rows = getDb()
+    .prepare(
+      `SELECT o.id, o.subject, o.body, o.external_url, o.sent_at, b.title, b.author
+         FROM social_outbox o
+         LEFT JOIN books b ON b.id = o.subject
+        WHERE o.network = 'mastodon' AND o.status = 'sent'
+        ORDER BY o.sent_at ASC, o.id ASC`,
+    )
+    .all() as {
+    id: string;
+    subject: string;
+    body: string;
+    external_url: string | null;
+    sent_at: string | null;
+    title: string | null;
+    author: string | null;
+  }[];
+
+  const revisadas = reviewPublished(
+    rows.map((row) => ({
+      id: row.id,
+      bookId: row.subject,
+      title: row.title,
+      author: row.author,
+      body: row.body,
+      url: row.external_url,
+      sentAt: row.sent_at,
+    })),
+  );
+  const pendientes = revisadas.filter((post) => post.needsTranslation);
+
+  console.log(
+    `Avisos publicados en el perfil: ${revisadas.length} · pendientes de traducción: ${pendientes.length}`,
+  );
+  if (pendientes.length === 0) {
+    console.log("No hay avisos en otros idiomas: el perfil está en alemán.");
+    return;
+  }
+
+  for (const post of pendientes) {
+    const fecha = post.sentAt ? post.sentAt.slice(0, 10) : "sin fecha";
+    const obra = post.title ? `${post.title} — ${post.author ?? ""}`.trim() : post.bookId;
+    console.log(`\n${fecha} · ${obra}`);
+    console.log(post.url ?? "(sin enlace guardado: búscalo en el perfil)");
+    console.log(post.body.replace(/\n+/g, " "));
+    console.log(`Motivos: ${post.reasons.join("; ")}`);
+  }
+  console.log("\nAbre cada enlace y edita la publicación en Mastodon para traducirla a mano.");
 }
 
 async function verifyCredentials(): Promise<boolean> {
@@ -180,14 +253,13 @@ async function main() {
       console.error(`No existe la obra ${objetivo} en esta base de datos.`);
       process.exit(1);
     }
-    const locale = localeForLanguage(book.language);
     showText(
       composeStatus({
         title: book.title,
         author: book.author,
-        url: workUrl(siteUrl(), book.id, locale),
-        locale,
+        url: workUrl(siteUrl(), book.id),
         seed: book.id,
+        ...subjectsForBook(book.id),
       }),
     );
 
@@ -208,7 +280,7 @@ async function main() {
       const uploaded = await uploadMedia(config!, {
         data: cover.data,
         contentType: cover.contentType,
-        description: coverAlt(locale, book.title, book.author),
+        description: coverAlt(book.title, book.author),
       });
       console.log(
         uploaded.ok
@@ -244,7 +316,6 @@ async function main() {
         bookId: book.id,
         title: book.title,
         author: book.author,
-        language: book.language,
         base: siteUrl(),
         // El script se lanza a mano con `sudo`, desde la administración del
         // servicio: la regla de «solo la administración anuncia» se cumple.

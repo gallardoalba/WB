@@ -34,7 +34,7 @@ export type TechnicalDocument = {
 };
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-06";
+const UPDATED = "2026-11-14";
 
 const ES: TechnicalDocument = {
   title: "Documentación técnica",
@@ -70,30 +70,30 @@ const ES: TechnicalDocument = {
           kind: "code",
           lines: [
             "src/",
-            "  app/                 páginas y route handlers (App Router)",
-            "    api/               72 handlers agrupados por dominio",
+            "  app/                 páginas y manejadores de ruta (App Router)",
+            "    api/               72 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
-            "  components/          armazón de servidor e islas de cliente",
+            "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v50), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v51), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 708 pruebas unitarias y de integración (90 ficheros)",
-            "e2e/                   pruebas de navegador con Playwright (6 ficheros)",
+            "tests/                 717 pruebas unitarias y de integración (91 ficheros)",
+            "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
         },
         {
           kind: "p",
-          text: "El armazón (`site-shell.tsx`, `site-rail.tsx`) es Server Component: la barra lateral, la cabecera, el pie y la navegación móvil llegan ya pintados y solo se hidratan las islas interactivas (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
+          text: "La estructura (`site-shell.tsx`, `site-rail.tsx`) es Server Component: la barra lateral, la cabecera, el pie y la navegación móvil llegan ya pintados y solo se hidratan las islas interactivas (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
         },
         {
           kind: "p",
-          text: "El diccionario alemán no viaja al navegador: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente los textos del idioma activo, no el diccionario entero. Además van indexados por un identificador de 32 bits (`messageId`) en vez de por el texto origen: la clave ocupa diez dígitos y el texto castellano no viaja, lo que deja el HTML en alemán en 182 KB en lugar de 236.",
+          text: "El diccionario alemán no viaja al navegador: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente los textos del idioma activo, no el diccionario entero. Además van indexados por un identificador de 32 bits (`messageId`) en vez de por el texto origen: la clave ocupa como mucho diez dígitos y el texto castellano no viaja, lo que deja el HTML en alemán en 182 KB en lugar de 236.",
         },
         {
           kind: "p",
@@ -101,7 +101,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "El render no lee `Date.now()` ni `new Date()`: Next lo trata como valor inestable al prerenderizar. Las marcas de tiempo de avisos, mantenimiento y limitadores las pone SQLite con `strftime('%Y-%m-%dT%H:%M:%fZ','now')`.",
+          text: "El renderizado no lee `Date.now()` ni `new Date()`: Next lo trata como valor inestable al prerenderizar. Las marcas de tiempo de avisos, mantenimiento y limitadores las pone SQLite con `strftime('%Y-%m-%dT%H:%M:%fZ','now')`.",
         },
       ],
     },
@@ -117,13 +117,13 @@ const ES: TechnicalDocument = {
           kind: "table",
           head: ["Ruta", "Contenido"],
           rows: [
-            ["`/`", "Portada pública: hero, cuatro cifras y una fila de libros."],
+            ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros."],
             ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
             ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`: la URL que se indexa."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
             ["`/buscar`", "Buscador global: obras, clubes, lectores y listas."],
             ["`/estanteria`, `/intercambios`", "Secciones privadas: ejemplares propios y solicitudes con su siguiente paso."],
-            ["`/comunidad`", "Hub con pestañas (conversaciones, actividad, clubes, lectores, listas) y ámbito en `?scope=`."],
+            ["`/comunidad`", "Espacio con pestañas (conversaciones, actividad, clubes, lectores, listas) y ámbito en `?scope=`."],
             ["`/lectores`", "Directorio con búsqueda, ciudad y orden por cercanía o actividad."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubes por ciudad: solicitudes, lectura en curso, votación, asistencia y foro privado."],
             ["`/listas`, `/listas/[listId]`", "Listas de lectura: se leen sin sesión (la firma solo aparece si su autor la autoriza) y solo las edita su dueño."],
@@ -137,12 +137,12 @@ const ES: TechnicalDocument = {
             ["`/documentacion`", "Esta página."],
             ["`/projekt`", "Qué es el proyecto, por qué existe, que no tiene ánimo de lucro y qué demuestra."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra y las páginas informativas **en los tres idiomas** (con `xhtml:link`), y `/indexnow` avisa a Bing —y con él a DuckDuckGo y Ecosia— cuando se publica un libro."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra, las listas públicas y las páginas informativas **en los tres idiomas** (con `xhtml:link`), e IndexNow avisa a Bing —y con él a DuckDuckGo y Ecosia— cuando se publica un libro."],
           ],
         },
         {
           kind: "p",
-          text: "La API tiene 72 handlers en `src/app/api`. Casi todos se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
+          text: "La API tiene 72 rutas en `src/app/api`. Casi todas se declaran con `route()` (`src/lib/route.ts`), que aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`; `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON.",
         },
         {
           kind: "list",
@@ -172,12 +172,12 @@ const ES: TechnicalDocument = {
             "Estados de ejemplar: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Estados de solicitud: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Búsqueda con FTS5 (`listings_fts`) mantenida por disparadores; `unaccent()` pliega las tildes para que «Lucía» se encuentre escribiendo «lucia».",
-            "`cities` guarda las ciudades conocidas con sus coordenadas (la semilla alemana) y `city_distances` su matriz de distancias. La ciudad que escribe una persona se comprueba contra OpenStreetMap: `resolveCity()` pregunta a Nominatim, limitado a países europeos, y guarda el nombre con el que lo conoce el mapa. La distancia es un dato secundario: una ciudad fuera de la lista no muestra kilómetros.",
+            "`cities` guarda las ciudades conocidas con sus coordenadas (la semilla alemana) y `city_distances` su matriz de distancias. La ciudad que escribe una persona se comprueba contra OpenStreetMap: `resolveCity()` pregunta a Nominatim, limitado a Alemania, y guarda el nombre con el que lo conoce el mapa. La distancia es un dato secundario: una ciudad fuera de la lista no muestra kilómetros.",
           ],
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v50) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a todas las ciudades, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo. Las tres siguientes (v41–v43) crean la bandeja de salida social (`social_outbox`) y le añaden la imagen del anuncio y el tope diario por cuenta; la v44 cierra el círculo del intercambio: el ejemplar entregado queda `given` y quien lo recibe estrena su propia copia; la v45 estrena `social_likes`, la memoria de los «me gusta» del bot, y la v46 crea el índice `books_fts`, que busca obras sin recorrer la tabla entera. La v49 añade `push_subscriptions`, los navegadores que han aceptado los avisos. La v50 guarda `books.description` y `books.pages`: la sinopsis y el número de páginas que devuelve el catálogo al consultar el ISBN.",
+          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v51) y conservan los datos de una instalación anterior. La v40 da a cada dispositivo su propia ranura de clave (`web` y `android`) y guarda un sobre cifrado por cada clave del destinatario, así que el navegador y la app leen los mismos mensajes; la v38 vuelve a abrir el catálogo a todas las ciudades, añade `requests.ship_kind` y `ship_street`, cifra los datos de envío que la v37 guardó en claro y retira las oficinas de Deutsche Post; la v36 añadió la mensajería directa cifrada y la v37 el envío por correo. Las tres siguientes (v41–v43) crean la bandeja de salida social (`social_outbox`) y le añaden la imagen del anuncio y el tope diario por cuenta; la v44 cierra el círculo del intercambio: el ejemplar entregado queda `given` y quien lo recibe estrena su propia copia; la v45 estrena `social_likes`, la memoria de los «me gusta» del bot, y la v46 crea el índice `books_fts`, que busca obras sin recorrer la tabla entera. La v49 añade `push_subscriptions`, los navegadores que han aceptado los avisos. La v50 guarda `books.description` y `books.pages`: la sinopsis y el número de páginas que devuelve el catálogo al consultar el ISBN. La v51 reescribe los avisos de Mastodon que aún esperan en la cola para que salgan en alemán y con las etiquetas nuevas.",
         },
         {
           kind: "p",
@@ -300,7 +300,7 @@ const ES: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "sin definir",
-              "Activa el bot que anuncia en Mastodon las obras que publica una cuenta de administración (las de la comunidad no llegan a la cola); sin él no se encola ni se publica nada. Un aviso por obra y cuenta y día; si se publican varias de golpe, el primero sale en el acto y los demás se encolan con una separación aleatoria de 4 a 7 horas (la administración, además, no tiene tope diario).",
+              "Activa el bot que anuncia en Mastodon las obras que publica una cuenta de administración (las de la comunidad no llegan a la cola); sin él no se encola ni se publica nada. Los avisos salen siempre en alemán y conservan el título original del libro. Un aviso por obra; además, quien lo publica tiene un máximo de uno al día (la administración está exenta). Si se publican varias obras de golpe, el primero sale en el acto y los demás se encolan con una separación aleatoria de 4 a 7 horas.",
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
@@ -322,7 +322,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 708 pruebas unitarias y de integración en 90 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 52 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 717 pruebas unitarias y de integración en 91 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -496,30 +496,30 @@ const DE: TechnicalDocument = {
           kind: "code",
           lines: [
             "src/",
-            "  app/                 Seiten und Route Handler (App Router)",
-            "    api/               72 Handler, nach Domäne gruppiert",
+            "  app/                 Seiten und Route-Handler (App Router)",
+            "    api/               72 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
-            "  components/          Server-Gerüst und interaktive Inseln",
+            "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v50), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v51), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 708 Unit- und Integrationstests (90 Dateien)",
-            "e2e/                   Browser-Tests mit Playwright (6 Dateien)",
+            "tests/                 717 Unit- und Integrationstests (91 Dateien)",
+            "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
         },
         {
           kind: "p",
-          text: "Das Gerüst (`site-shell.tsx`, `site-rail.tsx`) ist ein Server Component: Seitenleiste, Kopfzeile, Fußzeile und mobile Navigation kommen fertig gerendert an, hydratisiert werden nur die interaktiven Inseln (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
+          text: "Die Struktur (`site-shell.tsx`, `site-rail.tsx`) ist ein Server Component: Seitenleiste, Kopfzeile, Fußzeile und mobile Navigation kommen fertig gerendert an, hydratisiert werden nur die interaktiven Inseln (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
         },
         {
           kind: "p",
-          text: "Das deutsche Wörterbuch geht nicht an den Browser: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache, nicht das ganze Wörterbuch. Sie sind außerdem über eine 32-Bit-Kennung (`messageId`) adressiert statt über den Quelltext: der Schlüssel ist zehn Ziffern lang und der spanische Text reist nicht mit, was das deutsche HTML von 236 auf 182 KB bringt.",
+          text: "Das deutsche Wörterbuch geht nicht an den Browser: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache, nicht das ganze Wörterbuch. Sie sind außerdem über eine 32-Bit-Kennung (`messageId`) adressiert statt über den Quelltext: der Schlüssel ist höchstens zehn Ziffern lang und der spanische Text reist nicht mit, was das deutsche HTML von 236 auf 182 KB bringt.",
         },
         {
           kind: "p",
@@ -543,13 +543,13 @@ const DE: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Inhalt"],
           rows: [
-            ["`/`", "Öffentliche Startseite: Hero, vier Kennzahlen und eine Reihe Bücher."],
+            ["`/`", "Öffentliche Startseite: Kopfbereich über die volle Breite, vier Kennzahlen und eine Reihe Bücher."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
             ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`: die URL, die indexiert wird."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
             ["`/buscar`", "Globale Suche: Werke, Clubs, Leser:innen und Listen."],
             ["`/estanteria`, `/intercambios`", "Private Bereiche: eigene Exemplare und Anfragen mit dem nächsten Schritt."],
-            ["`/comunidad`", "Hub mit Tabs (Gespräche, Aktivität, Clubs, Leser:innen, Listen) und Umfang über `?scope=`."],
+            ["`/comunidad`", "Bereich mit Tabs (Gespräche, Aktivität, Clubs, Leser:innen, Listen) und Umfang über `?scope=`."],
             ["`/lectores`", "Verzeichnis mit Suche, Stadt und Sortierung nach Nähe oder Aktivität."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubs je Stadt: Anfragen, laufende Lektüre, Abstimmung, Teilnahme und privates Forum."],
             ["`/listas`, `/listas/[listId]`", "Leselisten: ohne Sitzung lesbar (die Unterschrift erscheint nur mit Zustimmung), bearbeitbar nur von der Eigentümerin."],
@@ -563,12 +563,12 @@ const DE: TechnicalDocument = {
             ["`/documentacion`", "Diese Seite."],
             ["`/projekt`", "Was das Projekt ist, warum es existiert, dass es keinen kommerziellen Zweck hat und was es zeigt."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing — und damit DuckDuckGo und Ecosia —, sobald ein Buch eingestellt wird."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten, öffentliche Listen und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing — und damit DuckDuckGo und Ecosia —, sobald ein Buch eingestellt wird."],
           ],
         },
         {
           kind: "p",
-          text: "Die API besteht aus 72 Handlern unter `src/app/api`. Fast alle werden mit `route()` (`src/lib/route.ts`) deklariert, das an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` anwendet; `tests/route.test.ts` prüft an den Dateien, dass keine Route Fehler unübersetzt durchlässt.",
+          text: "Die API besteht aus 72 Routen unter `src/app/api`. Fast alle werden mit `route()` (`src/lib/route.ts`) deklariert, das an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` anwendet; `tests/route.test.ts` prüft an den Dateien, dass keine Route Fehler unübersetzt durchlässt.",
         },
         {
           kind: "list",
@@ -598,12 +598,12 @@ const DE: TechnicalDocument = {
             "Zustände eines Exemplars: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Zustände einer Anfrage: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Suche über FTS5 (`listings_fts`), von Triggern gepflegt; `unaccent()` faltet Akzente, damit „Lucía“ auch als „lucia“ gefunden wird.",
-            "`cities` hält die bekannten Städte mit ihren Koordinaten (der deutsche Grundstock), `city_distances` deren Distanzmatrix. Die eingegebene Stadt wird gegen OpenStreetMap geprüft: `resolveCity()` fragt Nominatim, begrenzt auf europäische Länder, und speichert den Namen, den die Karte kennt. Die Entfernung ist Nebensache: eine Stadt außerhalb der Liste zeigt keine Kilometer.",
+            "`cities` hält die bekannten Städte mit ihren Koordinaten (der deutsche Grundstock), `city_distances` deren Distanzmatrix. Die eingegebene Stadt wird gegen OpenStreetMap geprüft: `resolveCity()` fragt Nominatim, begrenzt auf Deutschland, und speichert den Namen, den die Karte kennt. Die Entfernung ist Nebensache: eine Stadt außerhalb der Liste zeigt keine Kilometer.",
           ],
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v50) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für alle Städte, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post. Die folgenden drei (v41–v43) legen die Social-Ausgangsablage (`social_outbox`) an und ergänzen das Bild der Meldung und die Tagesgrenze je Konto; die v44 schließt den Kreis des Tauschs: das übergebene Exemplar bleibt `given` und wer es bekommt, bekommt ein eigenes; die v45 legt `social_likes` an, das Gedächtnis der «Gefällt mir» des Bots, und die v46 schafft den Index `books_fts`, der Werke findet, ohne die ganze Tabelle zu durchlaufen. Die v49 legt `push_subscriptions` an: die Browser, die Benachrichtigungen abonniert haben. Die v50 speichert `books.description` und `books.pages`: die Inhaltsangabe und die Seitenzahl, die der Katalog zur ISBN liefert.",
+          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v51) und erhalten die Daten einer bestehenden Installation. Die v40 gibt jedem Gerät seinen eigenen Schlüssel-Slot (`web` und `android`) und speichert pro Empfängerschlüssel einen verschlüsselten Umschlag, sodass Browser und App dieselben Nachrichten lesen; die v38 öffnet den Katalog wieder für alle Städte, ergänzt `requests.ship_kind` und `ship_street`, verschlüsselt die Versanddaten, die die v37 im Klartext abgelegt hat, und entfernt die Deutsche-Post-Filialen; die v36 brachte die verschlüsselten Direktnachrichten, die v37 den Versand per Post. Die folgenden drei (v41–v43) legen die Social-Ausgangsablage (`social_outbox`) an und ergänzen das Bild der Meldung und die Tagesgrenze je Konto; die v44 schließt den Kreis des Tauschs: das übergebene Exemplar bleibt `given` und wer es bekommt, bekommt ein eigenes; die v45 legt `social_likes` an, das Gedächtnis der «Gefällt mir» des Bots, und die v46 schafft den Index `books_fts`, der Werke findet, ohne die ganze Tabelle zu durchlaufen. Die v49 legt `push_subscriptions` an: die Browser, die Benachrichtigungen abonniert haben. Die v50 speichert `books.description` und `books.pages`: die Inhaltsangabe und die Seitenzahl, die der Katalog zur ISBN liefert. Die v51 schreibt die noch wartenden Mastodon-Avisos neu, damit sie auf Deutsch und mit den neuen Etiketten erscheinen.",
         },
         {
           kind: "p",
@@ -611,7 +611,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Ein Tausch lässt das Buch nicht verwaisen: beim Abschluss bleibt das übergebene Exemplar `given` (das ist der Verlauf) und wer es bekommt, bekommt **ein eigenes Exemplar** – dieselbe Ausgabe, derselbe Zustand, seine Stadt und pausiert (`listings.from_listing_id` und `from_request_id` halten die Spur). Aus seinem Regal kann er es aktivieren, und das Buch wandert weiter; hatte die Moderation das ursprüngliche Exemplar entfernt, entsteht die Kopie trotzdem und nichts kehrt ohne seinen Willen in den Katalog zurück.",
+          text: "Ein Tausch lässt das Buch nicht verwaisen: beim Abschluss bleibt das übergebene Exemplar `given` (das ist der Verlauf) und wer es bekommt, bekommt **ein eigenes Exemplar** – dieselbe Ausgabe, derselbe Zustand, in derselben Stadt und pausiert (`listings.from_listing_id` und `from_request_id` halten die Spur). Aus dem eigenen Regal lässt es sich aktivieren, und das Buch wandert weiter; hatte die Moderation das ursprüngliche Exemplar entfernt, entsteht die Kopie trotzdem und nichts kehrt ohne die Entscheidung der Person in den Katalog zurück.",
         },
         {
           kind: "p",
@@ -726,7 +726,7 @@ const DE: TechnicalDocument = {
             [
               "`MASTODON_TOKEN`",
               "nicht gesetzt",
-              "Aktiviert den Bot, der auf Mastodon die Werke ankündigt, die ein Administrationskonto veröffentlicht (Werke aus der Community erreichen die Warteschlange nicht); ohne ihn wird nichts eingereiht oder veröffentlicht. Ein Hinweis pro Werk und Konto und Tag; bei mehreren auf einmal geht der erste sofort raus und die übrigen warten mit einem zufälligen Abstand von 4 bis 7 Stunden (die Administration hat außerdem keine Tagesgrenze).",
+              "Aktiviert den Bot, der auf Mastodon die Werke ankündigt, die ein Administrationskonto veröffentlicht (Werke aus der Community erreichen die Warteschlange nicht); ohne ihn wird nichts eingereiht oder veröffentlicht. Die Avisos erscheinen immer auf Deutsch und behalten den Originaltitel des Buchs. Ein Aviso pro Werk; wer einstellt, hat außerdem höchstens einen pro Tag (die Administration ist ausgenommen). Bei mehreren Werken auf einmal geht das erste sofort raus und die übrigen warten mit einem zufälligen Abstand von 4 bis 7 Stunden.",
             ],
             [
               "`MASTODON_LIKES` / `MASTODON_LIKES_PER_DAY` / `MASTODON_LIKES_MIN_GAP_MINUTES`",
@@ -748,7 +748,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 708 Unit- und Integrationstests in 90 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 52 Browser-Tests mit Playwright, die ihren eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 717 Unit- und Integrationstests in 91 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
@@ -829,7 +829,7 @@ const DE: TechnicalDocument = {
         {
           kind: "list",
           items: [
-            "Ein einziges Gerüst (`SiteShell`) für die internen Seiten; die Startseite ist die Ausnahme und überlässt dem Katalog die volle Breite.",
+            "Eine einzige Struktur (`SiteShell`) für die internen Seiten; die Startseite ist die Ausnahme und überlässt dem Katalog die volle Breite.",
             "Farben kommen aus Tokens (`src/app/styles/tokens.css`): außerhalb dieser Datei gibt es keine Literale, deshalb teilen helles und dunkles Thema dasselbe Markup.",
             "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",

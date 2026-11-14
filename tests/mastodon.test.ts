@@ -83,14 +83,8 @@ test("la instancia se normaliza y la visibilidad no acepta inventos", () => {
   );
 });
 
-test("hay cincuenta formulaciones por idioma", () => {
-  for (const locale of ["de", "es", "en"] as const) {
-    assert.equal(
-      mastodon.leadVariants(locale).length,
-      50,
-      `${locale}: ${mastodon.leadVariants(locale).length} variantes`,
-    );
-  }
+test("hay cien formulaciones", () => {
+  assert.equal(mastodon.leadVariants().length, 100);
 });
 
 test("todas las formulaciones son enunciativas: sin exclamaciones ni emoji", () => {
@@ -98,46 +92,62 @@ test("todas las formulaciones son enunciativas: sin exclamaciones ni emoji", () 
   // exclamación y sin pictogramas.
   const pictogram = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
   const seen = new Set<string>();
-  for (const locale of ["de", "es", "en"] as const) {
-    for (const lead of mastodon.leadVariants(locale)) {
-      const text = lead("Título", "Autoría");
-      assert.doesNotMatch(text, /[!¡]/, `${locale}: «${text}» lleva exclamación`);
-      assert.doesNotMatch(text, pictogram, `${locale}: «${text}» lleva emoji`);
-      assert.ok(text.endsWith("."), `${locale}: «${text}» no cierra con punto`);
-      assert.match(text, /Título/, `${locale}: «${text}» no nombra el título`);
-      assert.match(text, /Autoría/, `${locale}: «${text}» no nombra la autoría`);
-      seen.add(text);
-    }
+  for (const lead of mastodon.leadVariants()) {
+    const text = lead("Título", "Autoría");
+    assert.doesNotMatch(text, /[!¡]/, `«${text}» lleva exclamación`);
+    assert.doesNotMatch(text, pictogram, `«${text}» lleva emoji`);
+    assert.ok(text.endsWith("."), `«${text}» no cierra con punto`);
+    assert.match(text, /Título/, `«${text}» no nombra el título`);
+    assert.match(text, /Autoría/, `«${text}» no nombra la autoría`);
+    seen.add(text);
   }
   // Dos variantes calcadas serían una variante menos, y nadie lo notaría.
-  assert.equal(seen.size, 150, "hay formulaciones duplicadas");
+  assert.equal(seen.size, 100, "hay formulaciones duplicadas");
 });
 
 test("la variante depende del id de la obra y se reparte", () => {
-  assert.equal(mastodon.variantIndex("bok_abc", 50), mastodon.variantIndex("bok_abc", 50));
+  assert.equal(mastodon.variantIndex("bok_abc", 100), mastodon.variantIndex("bok_abc", 100));
   const used = new Set<number>();
   for (let index = 0; index < 2000; index += 1) {
-    used.add(mastodon.variantIndex(`bok_${index}`, 50));
+    used.add(mastodon.variantIndex(`bok_${index}`, 100));
   }
-  assert.equal(used.size, 50, `solo se usan ${used.size} de 50 variantes`);
+  assert.equal(used.size, 100, `solo se usan ${used.size} de 100 variantes`);
   assert.equal(mastodon.variantIndex("bok_x", 0), 0);
 });
 
-test("la combinación de etiquetas cambia de un libro a otro", () => {
-  for (const locale of ["de", "es", "en"] as const) {
-    const pool = mastodon.tagPool(locale);
-    const combos = new Set<string>();
-    for (let index = 0; index < 200; index += 1) {
-      const tags = mastodon.hashtagsFor(locale, `bok_${index}`);
-      assert.equal(tags.length, 3, "la casa y dos del fondo");
-      assert.equal(tags[0], pool[0], "la etiqueta de la casa va siempre primero");
-      assert.equal(new Set(tags).size, 3, `etiquetas repetidas: ${tags.join(", ")}`);
-      for (const tag of tags) assert.ok(pool.includes(tag), `${tag} no está en el fondo de ${locale}`);
-      combos.add(tags.join(" "));
-    }
-    // Con seis candidatas y dos elegidas sin repetir, y contando el orden, salen
-    // treinta combinaciones: el reparto tiene que cubrirlas todas.
-    assert.equal(combos.size, 30, `${locale}: solo ${combos.size} combinaciones distintas`);
+test("las etiquetas mezclan la casa, el tema del libro y la lectura", () => {
+  const reading = mastodon.readingTags();
+  // Sin tema conocido: la casa y dos etiquetas de lectura distintas.
+  for (let index = 0; index < 200; index += 1) {
+    const tags = mastodon.hashtagsFor(`bok_${index}`);
+    assert.equal(tags.length, 3, "siempre tres etiquetas");
+    assert.equal(tags[0], "Wanderbibliothek", "la etiqueta de la casa va primero");
+    assert.equal(new Set(tags).size, 3, `etiquetas repetidas: ${tags.join(", ")}`);
+    for (const tag of tags.slice(1)) assert.ok(reading.includes(tag), `${tag} no es de lectura`);
+  }
+  // El tema sale de las etiquetas curadas del ejemplar…
+  const filosofia = mastodon.hashtagsFor("bok_filo", { tags: ["Filosofía"] });
+  assert.deepEqual(filosofia.slice(0, 2), ["Wanderbibliothek", "Philosophie"]);
+  assert.ok(reading.includes(filosofia[2]!), `la tercera es de lectura: ${filosofia[2]}`);
+  // …y, si no hay, de la categoría de la obra.
+  assert.equal(mastodon.hashtagsFor("bok_hist", { category: "Humanidades" })[1], "Geisteswissenschaften");
+  // La etiqueta del ejemplar manda sobre la categoría.
+  assert.equal(
+    mastodon.hashtagsFor("bok_x", { category: "Ficción", tags: ["Historia"] })[1],
+    "Geschichte",
+  );
+});
+
+test("cada etiqueta y categoría del catálogo tiene su etiqueta alemana", async () => {
+  const { TAGS, CATEGORIES } = await import("../src/lib/domain.ts");
+  const hashtag = /^[A-ZÄÖÜ][A-Za-zÄÖÜäöüß]+$/;
+  for (const tag of TAGS) {
+    const [subject] = mastodon.subjectHashtags({ tags: [tag] });
+    assert.match(subject ?? "", hashtag, `${tag} no tiene etiqueta alemana`);
+  }
+  for (const category of CATEGORIES) {
+    const [subject] = mastodon.subjectHashtags({ category });
+    assert.match(subject ?? "", hashtag, `${category} no tiene etiqueta alemana`);
   }
 });
 
@@ -146,7 +156,6 @@ test("el aviso lleva el texto elegido, el enlace y las etiquetas", () => {
     title: "El infinito en un junco",
     author: "Irene Vallejo",
     url: "https://wanderbibliothek.org/werk/bok_1",
-    locale: "de",
     seed: "bok_1",
   });
   assert.match(text, /El infinito en un junco/);
@@ -161,29 +170,37 @@ test("el aviso lleva el texto elegido, el enlace y las etiquetas", () => {
       title: "El infinito en un junco",
       author: "Irene Vallejo",
       url: "https://wanderbibliothek.org/werk/bok_1",
-      locale: "de",
       seed: "bok_1",
     }),
   );
 });
 
-test("cada idioma escribe con sus comillas y sus etiquetas", () => {
-  const base = { title: "T", author: "A", url: "https://x.org/werk/bok_1", seed: "bok_1" };
-  const de = mastodon.composeStatus({ ...base, locale: "de" });
-  const es = mastodon.composeStatus({ ...base, locale: "es" });
-  const en = mastodon.composeStatus({ ...base, locale: "en" });
-  assert.match(de, /„T“/);
-  assert.match(es, /«T»/);
-  assert.match(en, /“T”/);
-  // Las etiquetas salen del fondo de cada idioma, no de una lista fija.
-  for (const [locale, text] of [
-    ["de", de],
-    ["es", es],
-    ["en", en],
-  ] as const) {
-    const tags = (text.match(/#\S+/g) ?? []).map((tag) => tag.slice(1));
-    assert.deepEqual(tags, mastodon.hashtagsFor(locale, base.seed));
-  }
+test("el título se conserva tal y como es, sin traducirlo", () => {
+  // Un libro puede titularse en cualquier lengua: el aviso va en alemán, pero
+  // el título no se toca. Ni acentos ni guiones ni mayúsculas se normalizan.
+  const title = "Cien años de soledad — edición conmemorativa";
+  const text = mastodon.composeStatus({
+    title,
+    author: "Gabriel García Márquez",
+    url: "https://wanderbibliothek.org/werk/bok_1",
+    seed: "bok_1",
+    category: "Ficción",
+  });
+  assert.ok(text.includes(`„${title}“`), `el título cambia: ${text}`);
+  assert.match(text, /#Belletristik/);
+});
+
+test("el aviso se escribe siempre en alemán, con sus comillas y etiquetas", () => {
+  const text = mastodon.composeStatus({
+    title: "T",
+    author: "A",
+    url: "https://x.org/werk/bok_1",
+    seed: "bok_1",
+  });
+  assert.match(text, /„T“/);
+  // Las etiquetas salen del fondo alemán, no de una lista fija.
+  const tags = (text.match(/#\S+/g) ?? []).map((tag) => tag.slice(1));
+  assert.deepEqual(tags, mastodon.hashtagsFor("bok_1"));
 });
 
 test("un título enorme se recorta y el enlace sobrevive", () => {
@@ -192,7 +209,6 @@ test("un título enorme se recorta y el enlace sobrevive", () => {
     title: "Muy largo ".repeat(200),
     author: "Alguien",
     url,
-    locale: "de",
     seed: "bok_1",
   });
   assert.ok(Array.from(text).length <= mastodon.STATUS_LIMIT, `mide ${Array.from(text).length}`);
@@ -200,27 +216,18 @@ test("un título enorme se recorta y el enlace sobrevive", () => {
   assert.ok(text.includes(url), "el enlace no puede quedar cortado");
 });
 
-test("el enlace lleva el prefijo de idioma y el bot escribe en el del ejemplar", () => {
-  assert.equal(mastodon.localeForLanguage("Español"), "es");
-  assert.equal(mastodon.localeForLanguage("Inglés"), "en");
-  assert.equal(mastodon.localeForLanguage("Alemán"), "de");
-  // «Otro» y «No especificado» no dicen nada: idioma de la casa.
-  assert.equal(mastodon.localeForLanguage("Otro"), "de");
-  assert.equal(mastodon.localeForLanguage("No especificado"), "de");
-  assert.equal(mastodon.localeForLanguage(null), "de");
-
-  assert.equal(mastodon.workUrl("https://x.org/", "bok_1", "de"), "https://x.org/werk/bok_1?ref=mastodon");
-  assert.equal(mastodon.workUrl("https://x.org", "bok_1", "es"), "https://x.org/es/werk/bok_1?ref=mastodon");
-  assert.equal(mastodon.workUrl("https://x.org", "bok_1", "en"), "https://x.org/en/werk/bok_1?ref=mastodon");
+test("el enlace de la obra no lleva prefijo de idioma y conserva la marca del bot", () => {
+  assert.equal(mastodon.workUrl("https://x.org/", "bok_1"), "https://x.org/werk/bok_1?ref=mastodon");
   // La marca no puede cambiar la página: la ruta sigue siendo la de la obra y
   // la canónica de esa página no lleva parámetros.
-  assert.ok(mastodon.workUrl("https://x.org", "bok_1", "de").includes("?ref=" + mastodon.ANNOUNCE_REF));
+  assert.equal(
+    mastodon.workUrl("https://x.org", "bok_1"),
+    `https://x.org/werk/bok_1?ref=${mastodon.ANNOUNCE_REF}`,
+  );
 });
 
-test("la portada lleva texto alternativo en el idioma del aviso", () => {
-  assert.equal(mastodon.coverAlt("de", "1984", "George Orwell"), "Buchcover von „1984“ von George Orwell");
-  assert.equal(mastodon.coverAlt("es", "1984", "George Orwell"), "Portada de «1984» de George Orwell");
-  assert.equal(mastodon.coverAlt("en", "1984", "George Orwell"), "Cover of “1984” by George Orwell");
+test("la portada lleva texto alternativo en alemán", () => {
+  assert.equal(mastodon.coverAlt("1984", "George Orwell"), "Buchcover von „1984“ von George Orwell");
 });
 
 test("una obra se anuncia una sola vez, aunque la pongan tres personas", () => {
@@ -433,7 +440,6 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
       bookId: "bok_anuncio",
       title: "Ficciones",
       author: "Jorge Luis Borges",
-      language: "Español",
       base: "https://wanderbibliothek.org",
       isAdmin: true,
     });
@@ -444,10 +450,10 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
       .prepare("SELECT body, status FROM social_outbox WHERE subject = ?")
       .get("bok_anuncio") as { body: string; status: string };
     assert.equal(row.status, "sent");
-    // El ejemplar está en español: enlace con prefijo y etiquetas en español.
-    assert.match(row.body, /https:\/\/wanderbibliothek\.org\/es\/werk\/bok_anuncio/);
+    // El aviso sale siempre en alemán: enlace sin prefijo y etiquetas alemanas.
+    assert.match(row.body, /https:\/\/wanderbibliothek\.org\/werk\/bok_anuncio/);
     assert.match(row.body, /#Wanderbibliothek/);
-    for (const tag of mastodon.hashtagsFor("es", "bok_anuncio")) {
+    for (const tag of mastodon.hashtagsFor("bok_anuncio")) {
       assert.ok(row.body.includes(`#${tag}`), `falta #${tag}`);
     }
 
@@ -456,7 +462,6 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
       bookId: "bok_anuncio",
       title: "Ficciones",
       author: "Jorge Luis Borges",
-      language: "Español",
       base: "https://wanderbibliothek.org",
       isAdmin: true,
     });
@@ -464,6 +469,51 @@ test("publicar anuncia la obra y no deja la cola a medias", async () => {
   } finally {
     globalThis.fetch = original;
     delete process.env.MASTODON_TOKEN;
+  }
+});
+
+test("la migración reescribe los avisos que aún esperan en la cola", async () => {
+  clearQueue();
+  const db = dbModule.getDb();
+  const ahora = new Date().toISOString();
+  db.prepare(
+    `INSERT OR REPLACE INTO books
+       (id, title, title_key, author, isbn, category, language, cover_url, created_at)
+     VALUES ('bok_cola', 'Ficciones', 'ficciones', 'Jorge Luis Borges', NULL, 'Ficción', 'Español', NULL, ?)`,
+  ).run(ahora);
+  db.prepare(
+    `INSERT OR REPLACE INTO books
+       (id, title, title_key, author, isbn, category, language, cover_url, created_at)
+     VALUES ('bok_cola_hist', 'Rayuela', 'rayuela', 'Julio Cortázar', NULL, 'Ficción', 'Español', NULL, ?)`,
+  ).run(ahora);
+  const insert = db.prepare(
+    `INSERT INTO social_outbox (id, network, subject, body, status, attempts, next_attempt_at, created_at)
+     VALUES (?, 'mastodon', ?, ?, ?, 0, ?, ?)`,
+  );
+  const viejo = "Alte Fassung: https://ejemplo/es/werk/bok_cola";
+  insert.run("soc_cola_pendiente", "bok_cola", viejo, "pending", ahora, ahora);
+  // La clave única es por obra, así que el historial va con otra obra.
+  insert.run("soc_cola_enviada", "bok_cola_hist", viejo, "sent", ahora, ahora);
+
+  try {
+    const { refreshQueuedPosts } = await import("../src/lib/db/migrations.ts");
+    assert.equal(refreshQueuedPosts(db), 1, "solo se reescribe el aviso pendiente");
+
+    const filas = db
+      .prepare("SELECT id, body FROM social_outbox ORDER BY id")
+      .all() as { id: string; body: string }[];
+    const pendiente = filas.find((fila) => fila.id === "soc_cola_pendiente")!;
+    // Texto en alemán, enlace sin prefijo y etiquetas de tema y lectura.
+    assert.match(pendiente.body, /„Ficciones“ von Jorge Luis Borges/);
+    assert.match(pendiente.body, /#Wanderbibliothek/);
+    assert.match(pendiente.body, /#Belletristik/);
+    assert.match(pendiente.body, /\/werk\/bok_cola\?ref=mastodon/);
+    // Lo ya enviado es historial: no se reescribe.
+    const enviada = filas.find((fila) => fila.id === "soc_cola_enviada")!;
+    assert.equal(enviada.body, viejo);
+  } finally {
+    db.prepare("DELETE FROM social_outbox WHERE id LIKE 'soc_cola_%'").run();
+    db.prepare("DELETE FROM books WHERE id LIKE 'bok_cola%'").run();
   }
 });
 

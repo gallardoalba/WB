@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 /**
- * Ciudades de toda Europa.
+ * Ciudades de toda Alemania.
  *
  * La lista cerrada de municipios alemanes dejó de ser la puerta: lo que escribe
  * una persona se contrasta con OpenStreetMap. Estas pruebas cubren la parte que
@@ -25,31 +25,31 @@ test("una respuesta de Nominatim sin ciudad no vale", async () => {
   assert.equal(cityFromNominatim(null), null);
   assert.equal(cityFromNominatim([{ name: "  " }]), null);
   // Un resultado que solo identifica un país o una calle no es una ciudad.
-  assert.equal(cityFromNominatim([{ name: "", address: { country: "Frankreich" } }]), null);
+  assert.equal(cityFromNominatim([{ name: "", address: { country: "Deutschland" } }]), null);
 });
 
 test("Nominatim da el nombre local de la ciudad", async () => {
   const { cityFromNominatim } = await import("../src/lib/geocode.ts");
   assert.equal(
     cityFromNominatim([
-      { name: "Lyon", lat: "45.7578", lon: "4.8320", address: { city: "Lyon", country_code: "fr" } },
+      { name: "Freising", lat: "48.4030", lon: "11.7485", address: { city: "Freising", country_code: "de" } },
     ]),
-    "Lyon",
+    "Freising",
   );
   // Los pueblos llegan como `village` o `municipality`, no como `city`.
   assert.equal(
-    cityFromNominatim([{ address: { village: "Saint-Cirq-Lapopie" }, name: "Saint-Cirq-Lapopie" }]),
-    "Saint-Cirq-Lapopie",
+    cityFromNominatim([{ address: { village: "Spiekeroog" }, name: "Spiekeroog" }]),
+    "Spiekeroog",
   );
   assert.equal(
-    cityFromNominatim([{ address: { municipality: "Vila Nova de Gaia" }, name: "Vila Nova de Gaia" }]),
-    "Vila Nova de Gaia",
+    cityFromNominatim([{ address: { municipality: "Nordhorn" }, name: "Nordhorn" }]),
+    "Nordhorn",
   );
   // Sin `address` se acepta el nombre propio del resultado.
-  assert.equal(cityFromNominatim([{ name: "Braga" }]), "Braga");
+  assert.equal(cityFromNominatim([{ name: "Rendsburg" }]), "Rendsburg");
 });
 
-test("el formulario acepta ciudades de cualquier país", async () => {
+test("el formulario acepta cualquier ciudad alemana", async () => {
   const { registerSchema } = await import("../src/lib/validation.ts");
   const base = {
     name: "Prueba",
@@ -57,7 +57,7 @@ test("el formulario acepta ciudades de cualquier país", async () => {
     password: "una-clave-larga-9",
     ageConfirmed: true,
   };
-  for (const city of ["Lyon", "Milano", "Porto", "Kraków", "zürich"]) {
+  for (const city of ["Rendsburg", "Cuxhaven", "Bad Tölz", "Garmisch-Partenkirchen", "Spiekeroog"]) {
     const parsed = registerSchema.parse({ ...base, city });
     assert.equal(typeof parsed.city, "string");
     assert.ok(parsed.city.length > 1, city);

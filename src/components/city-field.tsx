@@ -7,8 +7,8 @@ import { useI18n } from "./i18n-provider";
 /**
  * Campo de ciudad.
  *
- * Antes era un combobox con las 123 ciudades alemanas: con la plataforma
- * abierta a toda Europa esa lista mentía, porque parecía que solo se podía
+ * Antes era un combobox con las 123 ciudades alemanas: cuando la plataforma
+ * se abrió a otros países esa lista mentía, porque parecía que solo se podía
  * elegir una de ellas. Ahora es un campo de texto libre —se escribe la ciudad—
  * y el servidor comprueba contra OpenStreetMap que existe, guardando su nombre
  * canónico (así «Munich» y «München» son la misma). Si el geocodificador no
