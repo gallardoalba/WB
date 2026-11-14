@@ -641,6 +641,33 @@ export function pendingPostFor(bookId: string): string | null {
   return row?.id ?? null;
 }
 
+/**
+ * Texto del aviso tal y como está la obra **en el momento de publicar**.
+ *
+ * El cuerpo se componía al encolar, y una fila puede esperar horas o días (las
+ * tandas van separadas 4–7 horas): si mientras tanto se corrige el título o el
+ * autor, el aviso salía con el dato viejo mientras la tarjeta —que se pinta al
+ * publicar— ya llevaba el nuevo. Se recompone con los datos actuales y solo se
+ * cae al cuerpo guardado si la obra ya no existe (entonces el aviso ni se
+ * publica, lo corta `sinEjemplaresVivos`).
+ *
+ * `seed` sigue siendo el id: la formulación elegida no cambia entre el encolado
+ * y el envío, solo los datos que se insertan en ella.
+ */
+function textoDelAviso(subject: string, guardado: string): string {
+  const book = getDb()
+    .prepare("SELECT title, author FROM books WHERE id = ?")
+    .get(subject) as { title: string; author: string } | undefined;
+  if (!book) return guardado;
+  return composeStatus({
+    title: book.title,
+    author: book.author,
+    url: workUrl(siteUrl(), subject),
+    seed: subject,
+    ...subjectsForBook(subject),
+  });
+}
+
 export async function processSocialOutbox(
   options: {
     limit?: number;
@@ -689,7 +716,7 @@ export async function processSocialOutbox(
       continue;
     }
     const mediaId = await asegurarMedio(config, row, fetchImpl);
-    const result = await postStatus(config, row.body, row.id, {
+    const result = await postStatus(config, textoDelAviso(row.subject, row.body), row.id, {
       mediaIds: mediaId ? [mediaId] : [],
       fetchImpl,
     });

@@ -275,6 +275,60 @@ test("un aviso pendiente se publica con el token y la clave de idempotencia", as
   assert.match(row.external_url, /@wanderbibliothek\/110/);
 });
 
+test("si la obra cambia antes de publicarse, el aviso sale con los datos nuevos", async () => {
+  // Una fila puede esperar horas (las tandas van separadas 4–7 horas): si
+  // mientras tanto se corrige el título, ni el texto ni la tarjeta deben salir
+  // con el dato viejo. La tarjeta se pinta al publicar y el texto se recompone
+  // en ese momento con lo que hay en la base.
+  clearQueue();
+  const db = dbModule.getDb();
+  const alta = "2026-01-01T00:00:00.000Z";
+  db.prepare(
+    `INSERT INTO users (id, name, email, city, password_hash, created_at)
+     VALUES ('usr_mastodon', 'Mastodón', 'mastodon@example.test', 'Leipzig', 'scrypt$00$00', ?)`,
+  ).run(alta);
+  db.prepare(
+    `INSERT INTO books (id, title, title_key, author, category, created_at)
+     VALUES ('bok_actualiza', 'Título viejo', 'titulo viejo', 'Autora vieja', 'Ficción', ?)`,
+  ).run(alta);
+  db.prepare(
+    `INSERT INTO listings (id, book_id, owner_id, condition, city, status, search_key, notes, created_at)
+     VALUES ('lst_actualiza', 'bok_actualiza', 'usr_mastodon', 'Buen estado', 'Leipzig',
+             'available', 'titulo viejo autora vieja leipzig', '', ?)`,
+  ).run(alta);
+  mastodon.enqueuePost({ bookId: "bok_actualiza", text: "«Título viejo» von Autora vieja ist im Katalog." });
+  db.prepare(
+    "UPDATE books SET title = 'Título nuevo', author = 'Autora nueva' WHERE id = 'bok_actualiza'",
+  ).run();
+
+  const png = PNG.sync.write(
+    (() => {
+      const image = new PNG({ width: 1200, height: 630 });
+      image.data.fill(90);
+      return image;
+    })(),
+  );
+  const { impl, calls } = fakeFetch((url) =>
+    url.includes("/api/og/werk/")
+      ? new Response(new Uint8Array(png), { status: 200, headers: { "content-type": "image/png" } })
+      : jsonResponse({ id: "121" }),
+  );
+  const result = await mastodon.processSocialOutbox({ limit: 50, config: CONFIG, fetchImpl: impl });
+  assert.equal(result.sent, 1);
+
+  // La tarjeta se pide **al publicar**, no al encolar: la ruta la pinta con los
+  // datos de ese instante (y la fila guardaba otra cosa).
+  assert.ok(
+    calls.some((call) => call.url.endsWith("/api/og/werk/bok_actualiza")),
+    "tiene que pedir la tarjeta en el momento de publicar",
+  );
+
+  const estado = calls.find((call) => call.url.endsWith("/api/v1/statuses"))!;
+  const texto = String((estado.init.body as FormData).get("status"));
+  assert.match(texto, /Título nuevo/, "el texto lleva el título corregido");
+  assert.doesNotMatch(texto, /Título viejo/);
+});
+
 test("si la fila guarda una imagen, el estado la adjunta", async () => {
   clearQueue();
   mastodon.enqueuePost({ bookId: "bok_con_imagen", text: "texto", mediaId: "22348641" });

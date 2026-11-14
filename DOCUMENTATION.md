@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 749 unit and integration tests (95 files)
+tests/                 750 unit and integration tests (95 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -166,7 +166,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 749 unit and integration tests in 95 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 750 unit and integration tests in 95 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
