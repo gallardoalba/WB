@@ -60,7 +60,7 @@ New works are announced on Mastodon at [@wanderbibliothek@mastodon.social](https
 
 Bug reports, suggestions and pull requests are welcome.
 
-Lint, type checking, more than 700 automated tests, browser tests, a production build and an image build run on every push in CI; `npm audit --omit=dev` currently reports no open issues.
+Lint, type checking, 730 unit and integration tests (92 files), 53 browser tests, a production build and an image build run on every push in CI; `npm audit --omit=dev` currently reports no open issues.
 
 ## Security
 

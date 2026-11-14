@@ -155,7 +155,16 @@ test("las cifras de la documentación no se contradicen", () => {
   // «709 en 88» tres párrafos más abajo: nadie lo vio porque el número está a
   // mano en seis sitios. Aquí se exige que todas las menciones digan lo mismo,
   // y que los handlers citados sean los `route.ts` que hay en el disco.
-  const ficheros = ["DOCUMENTATION.md", "src/lib/technical.ts", "src/lib/technical-en.ts"];
+  //
+  // CONTRIBUTING y README se quedaron en «188 pruebas» durante meses: la
+  // revisión de coherencia solo miraba los tres documentos técnicos.
+  const ficheros = [
+    "DOCUMENTATION.md",
+    "src/lib/technical.ts",
+    "src/lib/technical-en.ts",
+    "CONTRIBUTING.md",
+    "README.md",
+  ];
   const fuentes = ficheros.map((file) => ({
     file,
     texto: readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8"),
@@ -184,4 +193,49 @@ test("las cifras de la documentación no se contradicen", () => {
       `${file} cita ${[...citados].join("/")} handlers y en src/app/api hay ${handlers}`,
     );
   }
+});
+
+/** Todos los ficheros TypeScript de `src/`, para buscar lecturas del entorno. */
+function sourceFiles(dir: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...sourceFiles(full));
+    else if (/\.(ts|tsx)$/.test(entry.name)) found.push(full);
+  }
+  return found;
+}
+
+/** Variables que pone la plataforma: no las configura quien despliega. */
+const DEL_ENTORNO = new Set(["NODE_ENV", "NEXT_PHASE", "NEXT_RUNTIME"]);
+
+test("toda variable de entorno que lee el código está en la plantilla", () => {
+  // La lista de variables se quedaba atrás: el código leía ADMIN_EMAIL,
+  // REQUIRE_EMAIL_VERIFICATION o WANDERBIBLIOTHEK_COVER_CACHE y `env.example`
+  // no las mencionaba. Este test convierte «acordarse de documentarlas» en algo
+  // que falla solo. Solo ve `process.env.X`; las que se leen por parámetro
+  // (`pushConfig(env)`) hay que mirarlas a mano.
+  const usadas = new Map<string, string>();
+  for (const file of sourceFiles(path.join(process.cwd(), "src"))) {
+    const source = readFileSync(file, "utf8");
+    for (const match of source.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) {
+      const name = match[1]!;
+      if (!usadas.has(name)) usadas.set(name, path.relative(process.cwd(), file));
+    }
+  }
+  assert.ok(usadas.size > 10, "no se ha encontrado ninguna variable: revisa el patrón");
+
+  const plantilla = readFileSync(path.join(process.cwd(), "deploy", "env.example"), "utf8");
+  const declaradas = new Set(
+    [...plantilla.matchAll(/^#?\s*([A-Z][A-Z0-9_]*)=/gm)].map((match) => match[1]!),
+  );
+
+  const faltan = [...usadas.entries()]
+    .filter(([name]) => !DEL_ENTORNO.has(name) && !declaradas.has(name))
+    .map(([name, file]) => `${name} (${file})`);
+  assert.deepEqual(
+    faltan,
+    [],
+    `Variables sin documentar en deploy/env.example: ${faltan.join(", ")}`,
+  );
 });

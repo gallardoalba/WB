@@ -18,9 +18,10 @@ Todo esto tiene que pasar; el CI ejecuta lo mismo:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 188 pruebas, SQLite en memoria
+npm test            # 730 pruebas unitarias y de integración (92 ficheros)
 npm run build
-npm run test:e2e    # Playwright; la primera vez: npx playwright install chromium
+npm run test:e2e    # Playwright: 53 casos en 8 ficheros; la primera vez:
+                    # npx playwright install chromium
 ```
 
 `npm run test:e2e` levanta su propio servidor en `localhost:3100`. Si ya tienes
@@ -39,7 +40,8 @@ directorio).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 188 tests, build y 18/18 E2E.
+  Validado: tsc, eslint, 730 pruebas unitarias y de integración (92 ficheros),
+  build y 53/53 E2E.
   ```
 
 - **Idioma de la interfaz**: los textos se escriben en español y los diccionarios
