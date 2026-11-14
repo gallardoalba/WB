@@ -69,7 +69,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The German dictionary never travels to the browser: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, not the whole dictionary. On top of that they are indexed by a 32-bit identifier (`messageId`) instead of by the source text: the key takes at most ten digits and the Spanish text does not travel, which leaves the German HTML at 182 KB instead of 236.",
+          text: "The three dictionaries do not travel together: `i18n.ts` is only imported on the server and the layout hands the client provider only the texts of the active language (Spanish is the source and arrives empty). They are indexed by a 32-bit `messageId` instead of by the source text: the key takes at most ten digits and the Spanish text does not travel.",
         },
         {
           kind: "p",
@@ -332,7 +332,7 @@ export const EN: TechnicalDocument = {
             "Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` returned by a 500 is the first 8 characters of that id.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.",
-            "Ceiling measured with `npm run bench:sqlite`: about 99 000 single writes/s, 250 000/s in a batch, 350 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",
+            "Ceiling measured with `npm run bench:sqlite`: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",
           ],
         },
         {

@@ -93,7 +93,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "El diccionario alemán no viaja al navegador: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente los textos del idioma activo, no el diccionario entero. Además van indexados por un identificador de 32 bits (`messageId`) en vez de por el texto origen: la clave ocupa como mucho diez dígitos y el texto castellano no viaja, lo que deja el HTML en alemán en 182 KB en lugar de 236.",
+          text: "No viajan los tres diccionarios: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente únicamente los textos del idioma activo (el castellano es el origen y llega vacío). Van indexados por un identificador de 32 bits (`messageId`) en vez de por el texto origen: la clave ocupa como mucho diez dígitos y el texto castellano no viaja.",
         },
         {
           kind: "p",
@@ -356,7 +356,7 @@ const ES: TechnicalDocument = {
             "Cada respuesta lleva `x-request-id` y `x-response-time`, y cada petición deja una línea `[req] {…}` en el registro. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor y el bus de avisos vive en memoria. Escalar exige PostgreSQL y Redis/pubsub.",
-            "Techo medido con `npm run bench:sqlite`: unas 99 000 escrituras/s sueltas, 250 000/s en lote, 350 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
+            "Techo medido con `npm run bench:sqlite`: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
           ],
         },
         {
@@ -519,7 +519,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Das deutsche Wörterbuch geht nicht an den Browser: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache, nicht das ganze Wörterbuch. Sie sind außerdem über eine 32-Bit-Kennung (`messageId`) adressiert statt über den Quelltext: der Schlüssel ist höchstens zehn Ziffern lang und der spanische Text reist nicht mit, was das deutsche HTML von 236 auf 182 KB bringt.",
+          text: "Es reisen nicht alle drei Wörterbücher: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache (Spanisch ist die Ausgangssprache und kommt leer an). Sie sind über eine 32-Bit-Kennung (`messageId`) adressiert statt über den Quelltext: der Schlüssel ist höchstens zehn Ziffern lang und der spanische Text reist nicht mit.",
         },
         {
           kind: "p",
@@ -782,7 +782,7 @@ const DE: TechnicalDocument = {
             "Jede Antwort trägt `x-request-id` und `x-response-time`, und jede Anfrage hinterlässt eine Zeile `[req] {…}` im Log. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, und der Hinweis-Bus liegt im Speicher. Skalierung verlangt PostgreSQL und Redis/Pubsub.",
-            "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 99 000 Einzel-Schreibvorgänge/s, 250 000/s im Stapel, 350 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
+            "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
           ],
         },
         {

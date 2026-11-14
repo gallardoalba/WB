@@ -35,7 +35,7 @@ deploy/                systemd, nginx, environment template and guide
 
 **Rendering.** The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, header, footer and mobile navigation arrive already rendered, and only the interactive islands hydrate (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`, `repository-link` is a plain link).
 
-**Interface language.** The German dictionary never ships wholesale: `i18n.ts` is only imported on the server and the layout hands the client provider the texts of the active language, addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
+**Interface language.** The three dictionaries do not ship together: `i18n.ts` is only imported on the server and the layout hands the client provider only the active language's texts (Spanish is the source and arrives empty), addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
 
 **Data access.** `getDb()` hooks `prepare` to reuse compiled statements (FIFO cache of 400 per connection). Public aggregates are served through `use cache` with the `public-data` tag, invalidated by the routes that mutate.
 
