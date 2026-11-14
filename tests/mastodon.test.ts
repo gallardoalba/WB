@@ -605,10 +605,9 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
     return jsonResponse({ id: String(posted) });
   }) as unknown as typeof fetch;
   process.env.MASTODON_TOKEN = "tok";
-  // Horas simuladas: el primer aviso sale en el acto y los siguientes esperan
-  // el turno de la cuenta (4-7 h). Media hora después ya no toca, y al día
-  // siguiente la cola vuelve a estar libre. Las fechas son lógicas: la prueba
-  // no debe depender del reloj real del equipo.
+  // Horas simuladas: el primer aviso sale en el acto y el segundo, el mismo día,
+  // espera a la jornada siguiente (un libro al día). Las fechas son lógicas: la
+  // prueba no debe depender del reloj real del equipo.
   const primeraHora = new Date("2026-11-08T09:00:00Z");
   const mediaHora = new Date("2026-11-08T09:30:00Z");
   const diaSiguiente = new Date("2026-11-09T07:00:00Z");
@@ -631,13 +630,19 @@ test("publicar varios libros el mismo día anuncia solo el primero", async () =>
     assert.deepEqual(primero, { queued: true, sent: true, media: false });
     assert.deepEqual(segundo, { queued: false, sent: false, media: false }, "el segundo libro del día no se anuncia");
     // Otra persona sí tiene su aviso, pero entra en el turno de la cuenta: el
-    // bot publica de uno en uno, separado 4-7 horas.
+    // bot publica uno al día, así que cae en la jornada siguiente.
     assert.deepEqual(
       { queued: otraPersona.queued, sent: otraPersona.sent },
       { queued: true, sent: false },
       "otra persona sí tiene su aviso, encolado",
     );
-    assert.deepEqual(alDiaSiguiente, { queued: true, sent: true, media: false }, "al día siguiente vuelve a tocar");
+    // El día siguiente a las 08:00 de Berlín ese turno ya está tomado, así que
+    // el cuarto libro se va al día de después en vez de publicarse ahora.
+    assert.deepEqual(
+      { queued: alDiaSiguiente.queued, sent: alDiaSiguiente.sent },
+      { queued: true, sent: false },
+      "el turno del día siguiente ya lo tiene el aviso de otra persona",
+    );
 
     const filas = dbModule
       .getDb()
@@ -875,11 +880,14 @@ test("la administración anuncia cada libro del día, sin el tope de uno", async
   }
 });
 
-test("la separación entre avisos encolados está entre 4 y 7 horas", () => {
+test("la separación entre avisos es de un día: un libro al día", () => {
+  // El bot anuncia **un libro al día**: la banda por defecto es de 24 h, así
+  // que el segundo libro de una tanda cae en la jornada siguiente.
+  assert.equal(mastodon.SOCIAL_GAP_MIN_MS, 24 * 60 * 60 * 1000);
+  assert.equal(mastodon.SOCIAL_GAP_MAX_MS, 24 * 60 * 60 * 1000);
   assert.equal(mastodon.separacionAviso(() => 0), mastodon.SOCIAL_GAP_MIN_MS);
   assert.equal(mastodon.separacionAviso(() => 1), mastodon.SOCIAL_GAP_MAX_MS);
-  const medio = mastodon.separacionAviso(() => 0.5);
-  assert.ok(medio > mastodon.SOCIAL_GAP_MIN_MS && medio < mastodon.SOCIAL_GAP_MAX_MS);
+  assert.equal(mastodon.separacionAviso(() => 0.5), mastodon.SOCIAL_GAP_MIN_MS);
   // Con azar real, siempre dentro de la banda.
   for (let i = 0; i < 50; i += 1) {
     const hueco = mastodon.separacionAviso();
@@ -1011,9 +1019,49 @@ test("con MASTODON_GAP_MINUTES=0 dos libros seguidos salen en el acto", async ()
   }
 });
 
+test("el cron no publica dos libros el mismo día", async () => {
+  // Un libro al día: aunque haya dos avisos vencidos, la segunda pasada del
+  // cron (cada quince minutos) se queda quieta y el segundo sale mañana.
+  clearQueue();
+  const { impl, calls } = fakeFetch(() => jsonResponse({ id: "1" }));
+  const estados = () => calls.filter((call) => call.url.endsWith("/api/v1/statuses")).length;
+  const manana = new Date("2026-11-09T09:00:00Z"); // 10:00 en Berlín
+  const tarde = new Date("2026-11-09T17:00:00Z"); // 18:00, misma jornada
+  const otroDia = new Date("2026-11-10T09:00:00Z"); // 10:00 del día siguiente
+  mastodon.enqueuePost({ bookId: "bok_uno_al_dia_1", text: "uno", nextAttemptAt: manana, now: manana });
+  mastodon.enqueuePost({ bookId: "bok_uno_al_dia_2", text: "dos", nextAttemptAt: manana, now: manana });
+
+  const primera = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: manana,
+  });
+  assert.equal(primera.sent, 1, "sale uno");
+  assert.equal(estados(), 1);
+
+  const segunda = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: tarde,
+  });
+  assert.deepEqual(segunda, { sent: 0, failed: 0, skipped: true }, "el segundo espera a mañana");
+  assert.equal(estados(), 1, "no se publica nada más ese día");
+
+  const tercera = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: otroDia,
+  });
+  assert.equal(tercera.sent, 1, "al día siguiente sí toca");
+  assert.equal(estados(), 2);
+});
+
 /* ------------------------- silencio nocturno ------------------------------ */
 
-test("entre las 22:00 y las 09:00 de Berlín no se publica nada", () => {
+test("entre las 20:00 y las 09:00 de Berlín no se publica nada", () => {
   const anterior = process.env.MASTODON_QUIET_HOURS;
   delete process.env.MASTODON_QUIET_HOURS;
   try {
@@ -1022,8 +1070,8 @@ test("entre las 22:00 y las 09:00 de Berlín no se publica nada", () => {
       ["2026-11-09T07:59:00Z", true], // 08:59
       ["2026-11-09T08:00:00Z", false], // 09:00, ya se puede
       ["2026-11-09T12:00:00Z", false], // 13:00
-      ["2026-11-09T20:59:00Z", false], // 21:59
-      ["2026-11-09T21:00:00Z", true], // 22:00, se cierra
+      ["2026-11-09T18:59:00Z", false], // 19:59, último minuto permitido
+      ["2026-11-09T19:00:00Z", true], // 20:00, se cierra
       ["2026-11-09T23:59:00Z", true], // 00:59 del día siguiente
       ["2026-11-09T03:30:00Z", true], // 04:30
     ];

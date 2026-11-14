@@ -84,8 +84,8 @@ export function hourKey(now: Date = new Date(), timeZone = DAY_TIME_ZONE): numbe
   );
 }
 
-/** De 22:00 a 09:00 (hora de Berlín) el bot no publica nada. */
-export const QUIET_FROM_HOUR = 22;
+/** Fuera de las 09:00–20:00 (hora de Berlín) el bot no publica nada. */
+export const QUIET_FROM_HOUR = 20;
 export const QUIET_UNTIL_HOUR = 9;
 
 /**
@@ -112,7 +112,7 @@ function bandaSilencio(): [number, number] | null {
  *
  * Un catálogo que anuncia libros a las tres de la mañana se lee como un robot
  * descontrolado, y quien lo sigue se despierta con notificaciones. Entre las
- * 22:00 y las 09:00 (hora de Berlín, la del servicio) no salen avisos ni «me
+ * 20:00 y las 09:00 (hora de Berlín, la del servicio) no salen avisos ni «me
  * gusta»: lo que vence se queda en cola y se publica al abrirse la ventana.
  */
 export function enHorarioSilencioso(now: Date = new Date(), timeZone = DAY_TIME_ZONE): boolean {
@@ -423,17 +423,18 @@ export function enqueuePost(input: {
   return result.changes > 0 ? id : null;
 }
 
-/** Separación mínima entre dos avisos encolados: 4 horas. */
-export const SOCIAL_GAP_MIN_MS = 4 * 60 * 60 * 1000;
-/** Separación máxima entre dos avisos encolados: 7 horas. */
-export const SOCIAL_GAP_MAX_MS = 7 * 60 * 60 * 1000;
+/** Separación mínima entre dos avisos encolados: un día. */
+export const SOCIAL_GAP_MIN_MS = 24 * 60 * 60 * 1000;
+/** Separación máxima: la misma, porque el bot anuncia **un libro al día**. */
+export const SOCIAL_GAP_MAX_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Banda de separación, en minutos: `MASTODON_GAP_MINUTES="240-420"`.
+ * Banda de separación, en minutos: `MASTODON_GAP_MINUTES="1440"`.
  *
  * Existe para poder hacer una prueba real desde la web sin esperar el turno:
- * con `0` no hay espera y cada obra se anuncia en el acto. Un valor raro se
- * ignora en vez de dejar la cola parada.
+ * con `0` no hay espera, cada obra se anuncia en el acto y el tope de un aviso
+ * al día queda desactivado. Un valor raro se ignora en vez de dejar la cola
+ * parada.
  */
 function bandaSeparacion(): [number, number] {
   const porDefecto: [number, number] = [
@@ -450,11 +451,12 @@ function bandaSeparacion(): [number, number] {
 }
 
 /**
- * Separación aleatoria entre dos avisos: entre 4 y 7 horas por defecto.
+ * Separación aleatoria entre dos avisos: un día por defecto.
  *
  * Quien cataloga diez libros de una sentada no debe convertir su cuenta en un
- * aluvión para quien la sigue, y un hueco fijo parecería programado. El azar se
- * inyecta en las pruebas para que no dependan del reloj ni de la suerte.
+ * aluvión para quien la sigue: el bot anuncia uno al día y el resto espera a su
+ * jornada. La banda se puede acortar para una prueba (`MASTODON_GAP_MINUTES`),
+ * y el azar se inyecta en las pruebas para que no dependan del reloj.
  */
 export function separacionAviso(random: () => number = Math.random): number {
   const [min, max] = bandaSeparacion();
@@ -488,11 +490,38 @@ function ultimoAvisoProgramado(): Date | null {
 }
 
 /**
+ * ¿Ya salió un aviso hoy (hora de Berlín)?
+ *
+ * El tope es de uno al día y se mira el `sent_at` real, no el día del encolado:
+ * una fila encolada ayer y publicada hoy ocupa la jornada de hoy. La comparación
+ * va con `dayKey` porque el instante guardado está en UTC y en Berlín puede ser
+ * ya otro día.
+ */
+function yaPublicadoHoy(ahora: Date): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT sent_at FROM social_outbox
+        WHERE network = ? AND status = 'sent' AND sent_at IS NOT NULL
+        ORDER BY sent_at DESC LIMIT 1`,
+    )
+    .get(SOCIAL_NETWORK) as { sent_at: string } | undefined;
+  if (!row) return false;
+  const enviado = new Date(row.sent_at);
+  if (Number.isNaN(enviado.getTime())) return false;
+  return dayKey(enviado) === dayKey(ahora);
+}
+
+/** `MASTODON_GAP_MINUTES=0` es la prueba real: sin espera y sin tope diario. */
+function sinEspera(): boolean {
+  const [, max] = bandaSeparacion();
+  return max === 0;
+}
+
+/**
  * Sube la imagen del aviso **justo antes de publicarlo**.
  *
- * No se sube al encolar porque un aviso puede esperar horas o días en la cola
- * (una tanda va separada 4–7 horas) y Mastodon descarta los medios que no se
- * adjuntan en 24 horas: el post saldría sin portada o fallaría. El id queda
+ * No se sube al encolar porque un aviso puede esperar días en la cola (uno al
+ * día) y Mastodon descarta los medios que no se adjuntan en 24 horas: el post saldría sin portada o fallaría. El id queda
  * anotado en la fila para que un reintento adjunte la misma imagen en vez de
  * subir otra.
  */
@@ -598,7 +627,7 @@ function claimPosts(
 /**
  * ¿Sigue habiendo algo que anunciar?
  *
- * Una fila puede esperar horas o días (la tanda va separada 4–7 h) y en ese
+ * Una fila puede esperar días (el bot anuncia uno al día) y en ese tiempo la
  * tiempo el ejemplar se puede pausar, retirar o moderar. Si ya no queda ninguna
  * copia viva, `/werk/<obra>` deja de ofrecer el libro y el aviso mandaría a la
  * gente a una página sin nada que pedir.
@@ -644,8 +673,8 @@ export function pendingPostFor(bookId: string): string | null {
 /**
  * Texto del aviso tal y como está la obra **en el momento de publicar**.
  *
- * El cuerpo se componía al encolar, y una fila puede esperar horas o días (las
- * tandas van separadas 4–7 horas): si mientras tanto se corrige el título o el
+ * El cuerpo se componía al encolar, y una fila puede esperar días (el bot
+ * anuncia uno al día): si mientras tanto se corrige el título o el
  * autor, el aviso salía con el dato viejo mientras la tarjeta —que se pinta al
  * publicar— ya llevaba el nuevo. Se recompone con los datos actuales y solo se
  * cae al cuerpo guardado si la obra ya no existe (entonces el aviso ni se
@@ -700,8 +729,18 @@ export async function processSocialOutbox(
   if (!force && enHorarioSilencioso(ahora)) {
     return { sent: 0, failed: 0, skipped: true };
   }
+  // Un libro al día: si el aviso de hoy ya salió, lo que vence se queda en cola
+  // para mañana. La vía manual (`force`) y la prueba con `MASTODON_GAP_MINUTES=0`
+  // se lo saltan a propósito.
+  if (!force && !sinEspera() && yaPublicadoHoy(ahora)) {
+    return { sent: 0, failed: 0, skipped: true };
+  }
   const db = getDb();
-  const rows = claimPosts(db, ahora, limit, options.only ?? null, force);
+  // Con el tope activo se reclama **una** fila por pasada: si se reclamaran
+  // varias, el bucle las publicaría todas en el mismo minuto y el tope no
+  // serviría de nada. Las demás quedan pendientes para los días siguientes.
+  const cuantas = force || sinEspera() ? limit : 1;
+  const rows = claimPosts(db, ahora, cuantas, options.only ?? null, force);
 
   let sent = 0;
   let failed = 0;
@@ -890,10 +929,12 @@ export async function announceBook(input: {
     // justo antes de publicarlo (ver `processSocialOutbox`).
 
     // Un aviso detrás de otro, pero no a la vez: quien publica diez libros de una
-    // sentada tiene su primer aviso en el acto y los demás en cola, separados
-    // entre 4 y 7 horas (`separacionAviso`). Así el catálogo crece sin que la
-    // cuenta parezca un robot que escupe veinte posts seguidos.
-    const anterior = input.ownerId ? ultimoAvisoProgramado() : null;
+    // sentada tiene su primer aviso en el acto y los demás en cola, uno por día
+    // (`separacionAviso`). Así el catálogo crece sin que la cuenta parezca un
+    // robot que escupe veinte posts seguidos.
+    // El tope es de la cuenta, no de la persona: da igual quién haya publicado
+    // hoy, el siguiente aviso espera a la jornada siguiente.
+    const anterior = ultimoAvisoProgramado();
     const ahora = input.now ?? new Date();
     const candidato = anterior ? anterior.getTime() + separacionAviso() : 0;
     // Ni de noche ni a las 09:00 justas si el hueco vencía de madrugada: el
