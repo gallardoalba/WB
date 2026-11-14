@@ -942,15 +942,17 @@ test("veinte libros de golpe: el primero sale y los demás esperan su turno", as
       .all() as { subject: string; next_attempt_at: string }[];
     const fechas = turnos.map((fila) => new Date(fila.next_attempt_at).getTime());
     assert.ok(fechas[1]! > ahora.getTime(), "el segundo espera, no sale ya");
-    const hueco = fechas[1]! - ahora.getTime();
-    assert.ok(
-      hueco >= mastodon.SOCIAL_GAP_MIN_MS && hueco <= mastodon.SOCIAL_GAP_MAX_MS,
-      `hueco inesperado: ${hueco} ms`,
+    // El turno se marca al abrir la ventana del día siguiente; la hora exacta
+    // la sortea el cron dentro de la ventana.
+    assert.equal(
+      fechas[1]!,
+      mastodon.inicioDeVentana(new Date(fechas[1]!)).getTime(),
+      "el turno apunta a las 09:00 de Berlín",
     );
-    const entreDos = fechas[2]! - fechas[1]!;
-    assert.ok(
-      entreDos >= mastodon.SOCIAL_GAP_MIN_MS && entreDos <= mastodon.SOCIAL_GAP_MAX_MS,
-      `hueco inesperado entre el 2 y el 3: ${entreDos} ms`,
+    assert.equal(
+      fechas[2]! - fechas[1]!,
+      24 * 60 * 60 * 1000,
+      "un aviso por jornada: cada uno cae en el día siguiente",
     );
 
     // El cron no los suelta antes de tiempo.
@@ -1019,48 +1021,102 @@ test("con MASTODON_GAP_MINUTES=0 dos libros seguidos salen en el acto", async ()
   }
 });
 
-test("el cron no publica dos libros el mismo día", async () => {
+test("el cron no publica dos libros el mismo día, y la hora se sortea", async () => {
   // Un libro al día: aunque haya dos avisos vencidos, la segunda pasada del
-  // cron (cada quince minutos) se queda quieta y el segundo sale mañana.
+  // cron (cada quince minutos) se queda quieta y el segundo sale mañana. Y no
+  // sale a las 09:00 en punto: cada fila tiene su minuto al azar dentro de la
+  // ventana, estable durante el día.
   clearQueue();
   const { impl, calls } = fakeFetch(() => jsonResponse({ id: "1" }));
   const estados = () => calls.filter((call) => call.url.endsWith("/api/v1/statuses")).length;
-  const manana = new Date("2026-11-09T09:00:00Z"); // 10:00 en Berlín
-  const tarde = new Date("2026-11-09T17:00:00Z"); // 18:00, misma jornada
-  const otroDia = new Date("2026-11-10T09:00:00Z"); // 10:00 del día siguiente
-  mastodon.enqueuePost({ bookId: "bok_uno_al_dia_1", text: "uno", nextAttemptAt: manana, now: manana });
+  const manana = new Date("2026-11-09T08:00:00Z"); // 09:00 en Berlín, abre la ventana
+  const id1 = mastodon.enqueuePost({
+    bookId: "bok_uno_al_dia_1",
+    text: "uno",
+    nextAttemptAt: manana,
+    now: manana,
+  })!;
   mastodon.enqueuePost({ bookId: "bok_uno_al_dia_2", text: "dos", nextAttemptAt: manana, now: manana });
 
-  const primera = await mastodon.processSocialOutbox({
+  const momento = mastodon.momentoDelAviso(id1, manana);
+  assert.ok(
+    momento.getTime() >= mastodon.inicioDeVentana(manana).getTime(),
+    "el minuto sorteado está dentro de la ventana",
+  );
+  assert.ok(momento.getTime() < new Date("2026-11-09T19:00:00Z").getTime(), "y antes de las 20:00");
+
+  // Antes de su minuto no se publica, aunque la ventana esté abierta.
+  const temprano = await mastodon.processSocialOutbox({
     limit: 50,
     config: CONFIG,
     fetchImpl: impl,
     now: manana,
   });
-  assert.equal(primera.sent, 1, "sale uno");
+  if (momento.getTime() > manana.getTime()) {
+    assert.deepEqual(temprano, { sent: 0, failed: 0, skipped: true }, "todavía no es su minuto");
+    assert.equal(estados(), 0);
+  }
+
+  const primera = await mastodon.processSocialOutbox({
+    limit: 50,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: momento,
+  });
+  assert.equal(primera.sent, 1, "sale cuando llega su minuto");
   assert.equal(estados(), 1);
 
+  // Ya publicado el de hoy, el siguiente no sale aunque le llegue la hora.
   const segunda = await mastodon.processSocialOutbox({
     limit: 50,
     config: CONFIG,
     fetchImpl: impl,
-    now: tarde,
+    now: momento,
   });
   assert.deepEqual(segunda, { sent: 0, failed: 0, skipped: true }, "el segundo espera a mañana");
   assert.equal(estados(), 1, "no se publica nada más ese día");
 
+  // Al día siguiente sí: se prueba al final de la ventana, cuando ya pasó
+  // cualquier minuto sorteado.
+  const inicioManana = mastodon.inicioDeVentana(new Date(momento.getTime() + 24 * 60 * 60 * 1000));
+  const finManana = new Date(inicioManana.getTime() + 11 * 60 * 60 * 1000 - 60_000); // 19:59
   const tercera = await mastodon.processSocialOutbox({
     limit: 50,
     config: CONFIG,
     fetchImpl: impl,
-    now: otroDia,
+    now: finManana,
   });
   assert.equal(tercera.sent, 1, "al día siguiente sí toca");
   assert.equal(estados(), 2);
 });
 
-/* ------------------------- silencio nocturno ------------------------------ */
+test("la hora del aviso se sortea dentro de la ventana y no cambia en el día", () => {
+  const dia = new Date("2026-11-09T08:00:00Z"); // 09:00 en Berlín
+  const inicio = mastodon.inicioDeVentana(dia).getTime();
+  const fin = inicio + 11 * 60 * 60 * 1000; // 20:00
 
+  const primera = mastodon.momentoDelAviso("soc_abc", dia);
+  assert.ok(primera.getTime() >= inicio, "no antes de las 09:00");
+  assert.ok(primera.getTime() < fin, "no después de las 20:00");
+
+  // El cron pasa cada quince minutos: la hora ya sorteada no cambia en el día.
+  assert.equal(
+    mastodon.momentoDelAviso("soc_abc", new Date("2026-11-09T17:00:00Z")).getTime(),
+    primera.getTime(),
+  );
+
+  // Filas distintas, minutos distintos: no salen todas a la misma hora.
+  const minutos = new Set(
+    Array.from({ length: 20 }, (_, i) => mastodon.momentoDelAviso(`soc_${i}`, dia).getTime()),
+  );
+  assert.ok(minutos.size > 15, `el reparto debería usar la ventana, no ${minutos.size} minutos`);
+
+  // Y cada día toca una hora nueva.
+  const otroDia = mastodon.momentoDelAviso("soc_abc", new Date("2026-11-10T08:00:00Z"));
+  assert.notEqual(otroDia.getTime(), primera.getTime(), "el mismo libro no sale siempre a la misma hora");
+});
+
+/* ------------------------- silencio nocturno ------------------------------ */
 test("entre las 20:00 y las 09:00 de Berlín no se publica nada", () => {
   const anterior = process.env.MASTODON_QUIET_HOURS;
   delete process.env.MASTODON_QUIET_HOURS;

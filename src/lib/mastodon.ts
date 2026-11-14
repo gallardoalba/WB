@@ -140,6 +140,70 @@ export function fueraDeSilencio(desde: Date, timeZone = DAY_TIME_ZONE): Date {
   return paso;
 }
 
+/** Minutos que dura la ventana de publicación (de 09:00 a 20:00). */
+const VENTANA_MINUTOS = (QUIET_FROM_HOUR - QUIET_UNTIL_HOUR) * 60;
+
+/** Cuánto va Berlín por delante de UTC en ese instante, en minutos. */
+function desfaseBerlinMinutos(instante: Date): number {
+  // Se trunca al minuto: con segundos, la resta no da un número entero de
+  // minutos y el redondeo se comía un minuto entero (09:01 en vez de 09:00).
+  const base = new Date(Math.floor(instante.getTime() / 60_000) * 60_000);
+  const partes = new Intl.DateTimeFormat("en-US", {
+    timeZone: DAY_TIME_ZONE,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(base);
+  const valor = (tipo: string) => Number(partes.find((parte) => parte.type === tipo)!.value);
+  const comoUtc = Date.UTC(
+    valor("year"),
+    valor("month") - 1,
+    valor("day"),
+    valor("hour") % 24,
+    valor("minute"),
+  );
+  return Math.round((comoUtc - base.getTime()) / 60_000);
+}
+
+/**
+ * Las 09:00 de Berlín del día de `ahora`.
+ *
+ * Hace falta para repartir los avisos dentro de la ventana, y no vale sumar
+ * horas a UTC: en el cambio de horario de verano Berlín no está a la misma
+ * distancia.
+ */
+export function inicioDeVentana(ahora: Date): Date {
+  const desfase = desfaseBerlinMinutos(ahora);
+  const pared = new Date(ahora.getTime() + desfase * 60_000);
+  const inicio = Date.UTC(
+    pared.getUTCFullYear(),
+    pared.getUTCMonth(),
+    pared.getUTCDate(),
+    QUIET_UNTIL_HOUR,
+  );
+  return new Date(inicio - desfase * 60_000);
+}
+
+/**
+ * Momento del día en que sale el aviso: al azar entre las 09:00 y las 20:00.
+ *
+ * Se deriva del id de la fila y del día, así que el cron —que pasa cada quince
+ * minutos— no cambia de idea en cada vuelta, y cada jornada toca una hora
+ * distinta. Publicar siempre a las 09:00 en punto parecía un despertador.
+ */
+export function momentoDelAviso(semilla: string, ahora: Date): Date {
+  let hash = 2166136261;
+  for (const caracter of `${semilla}:${dayKey(ahora)}`) {
+    hash ^= caracter.codePointAt(0)!;
+    hash = Math.imul(hash, 16777619);
+  }
+  const minutos = (hash >>> 0) % VENTANA_MINUTOS;
+  return new Date(inicioDeVentana(ahora).getTime() + minutos * 60_000);
+}
+
 export type MastodonConfig = {
   /** Origen, sin barra final: `https://mastodon.social`. */
   instance: string;
@@ -736,6 +800,22 @@ export async function processSocialOutbox(
     return { sent: 0, failed: 0, skipped: true };
   }
   const db = getDb();
+  // La hora del aviso se sortea cada día dentro de la ventana: si a la fila que
+  // toca le ha caído más tarde, el cron espera en vez de publicar a las 09:00 en
+  // punto. La vía manual (`only`) y la prueba con `MASTODON_GAP_MINUTES=0` no
+  // esperan. Se mira la fila más antigua vencida, que es la que saldría.
+  if (!force && !options.only && !sinEspera()) {
+    const siguiente = db
+      .prepare(
+        `SELECT id FROM social_outbox
+          WHERE network = ? AND status = 'pending' AND next_attempt_at <= ?
+          ORDER BY next_attempt_at ASC, created_at ASC LIMIT 1`,
+      )
+      .get(SOCIAL_NETWORK, ahora.toISOString()) as { id: string } | undefined;
+    if (siguiente && momentoDelAviso(siguiente.id, ahora) > ahora) {
+      return { sent: 0, failed: 0, skipped: true };
+    }
+  }
   // Con el tope activo se reclama **una** fila por pasada: si se reclamaran
   // varias, el bucle las publicaría todas en el mismo minuto y el tope no
   // serviría de nada. Las demás quedan pendientes para los días siguientes.
@@ -936,12 +1016,12 @@ export async function announceBook(input: {
     // hoy, el siguiente aviso espera a la jornada siguiente.
     const anterior = ultimoAvisoProgramado();
     const ahora = input.now ?? new Date();
+    // El turno es el de la jornada siguiente. La hora exacta **no** se fija
+    // aquí: el cron la sortea dentro de la ventana (`momentoDelAviso`), así que
+    // solo se marca el día, a las 09:00, y el aviso espera su minuto.
     const candidato = anterior ? anterior.getTime() + separacionAviso() : 0;
-    // Ni de noche ni a las 09:00 justas si el hueco vencía de madrugada: el
-    // turno se empuja hasta la primera hora permitida. Un aviso que nace de
-    // madrugada se encola ya para las 09:00, sin intentar publicarlo.
     const turno =
-      anterior && candidato > ahora.getTime() ? fueraDeSilencio(new Date(candidato)) : null;
+      anterior && candidato > ahora.getTime() ? inicioDeVentana(new Date(candidato)) : null;
     const cuando = turno ?? (enHorarioSilencioso(ahora) ? fueraDeSilencio(ahora) : null);
 
     const id = enqueuePost({
