@@ -2,7 +2,7 @@
 
 How Wanderbibliothek is built: architecture, routes, data, security and operations. It is meant for anyone who is going to read the code, deploy it or audit what it stores.
 
-The running instance serves the same content in Spanish and German at `/documentacion`; `src/lib/technical.ts` is the source for both, so when you change one, change the other.
+The running instance serves the same content in Spanish and German at `/techdoc`; `src/lib/technical.ts` is the source for both, so when you change one, change the other.
 
 ## Overview
 
@@ -64,7 +64,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/admin` | Community moderation; requires an active second factor. |
 | `/privacidad`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
-| `/documentacion` | Technical documentation page (Spanish and German). |
+| `/techdoc` | Technical documentation page (Spanish and German). |
 | `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
 | `/api/health` | Service and database status. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |

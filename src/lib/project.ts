@@ -101,7 +101,7 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Documentación técnica",
-              href: "/documentacion",
+              href: "/techdoc",
               note: "Arquitectura, datos, seguridad y operación.",
             },
           ],
@@ -257,7 +257,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Technische Dokumentation",
-              href: "/documentacion",
+              href: "/techdoc",
               note: "Architektur, Daten, Sicherheit und Betrieb.",
             },
           ],
@@ -413,7 +413,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Technical documentation",
-              href: "/documentacion",
+              href: "/techdoc",
               note: "Architecture, data, security and operation.",
             },
           ],

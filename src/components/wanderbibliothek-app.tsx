@@ -1691,7 +1691,7 @@ export default function WanderbibliothekApp({
               <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
               <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
               <Link href={href("/projekt")}>{t("El proyecto")}</Link>
-              <Link href={href("/documentacion")}>{t("Documentación")}</Link>
+              <Link href={href("/techdoc")}>{t("Documentación")}</Link>
               <MastodonLink />
             </nav>
             <span>

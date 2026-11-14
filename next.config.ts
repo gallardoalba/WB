@@ -16,7 +16,16 @@ const nextConfig: NextConfig = {
    * siempre en vez de desaparecer.
    */
   async redirects() {
-    return [{ source: "/buecher", destination: "/descubrir", permanent: true }];
+    return [
+      { source: "/buecher", destination: "/descubrir", permanent: true },
+      // La documentación técnica vivió en `/documentacion` hasta noviembre de
+      // 2026: los enlaces y lo indexado siguen funcionando con un 301. Los
+      // prefijos de idioma también, porque las redirecciones se resuelven antes
+      // que las reescrituras de `/es/:path*` y `/en/:path*`.
+      { source: "/documentacion", destination: "/techdoc", permanent: true },
+      { source: "/es/documentacion", destination: "/es/techdoc", permanent: true },
+      { source: "/en/documentacion", destination: "/en/techdoc", permanent: true },
+    ];
   },
   /**
    * Idioma en la URL: `/es/…` y `/en/…` se sirven con la misma página que la

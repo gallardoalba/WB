@@ -1,5 +1,5 @@
 /**
- * Documentación técnica de la plataforma (`/documentacion`).
+ * Documentación técnica de la plataforma (`/techdoc`).
  *
  * El README del repositorio presenta el proyecto; los detalles de arquitectura,
  * rutas, datos, seguridad y operación viven aquí, dentro de la aplicación y en
@@ -134,7 +134,7 @@ const ES: TechnicalDocument = {
             ["`/admin`", "Moderación de la comunidad; exige el segundo factor activo."],
             ["`/privacidad`, `/aviso-legal`", "Política de privacidad (art. 13 RGPD) y aviso legal (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "Confirmación de correo y contraseña nueva desde el enlace."],
-            ["`/documentacion`", "Esta página."],
+            ["`/techdoc`", "Esta página."],
             ["`/projekt`", "Qué es el proyecto, por qué existe, que no tiene ánimo de lucro y qué demuestra."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
             ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra, las listas públicas y las páginas informativas **en los tres idiomas** (con `xhtml:link`), e IndexNow avisa a Bing —y con él a DuckDuckGo y Ecosia— cuando se publica un libro."],
@@ -560,7 +560,7 @@ const DE: TechnicalDocument = {
             ["`/admin`", "Moderation der Community; verlangt einen aktiven zweiten Faktor."],
             ["`/privacidad`, `/aviso-legal`", "Datenschutzerklärung (Art. 13 DSGVO) und Impressum (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "E-Mail bestätigen und neues Passwort über den Link setzen."],
-            ["`/documentacion`", "Diese Seite."],
+            ["`/techdoc`", "Diese Seite."],
             ["`/projekt`", "Was das Projekt ist, warum es existiert, dass es keinen kommerziellen Zweck hat und was es zeigt."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
             ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten, öffentliche Listen und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing — und damit DuckDuckGo und Ecosia —, sobald ein Buch eingestellt wird."],

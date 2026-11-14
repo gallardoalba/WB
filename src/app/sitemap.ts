@@ -64,7 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((list) => list.items > 0)
       .map((list) => entry(`/listas/${list.id}`, "monthly", 0.5)),
     entry("/projekt", "yearly", 0.4),
-    entry("/documentacion", "monthly", 0.4),
+    entry("/techdoc", "monthly", 0.4),
     entry("/privacidad", "yearly", 0.3),
     entry("/aviso-legal", "yearly", 0.3),
   ];

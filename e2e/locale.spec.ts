@@ -16,7 +16,7 @@ test.describe("idioma por defecto: el del navegador", () => {
       "Bücher reisen, Ideen verbinden Menschen.",
     );
 
-    await page.goto("/documentacion");
+    await page.goto("/techdoc");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "Technische Dokumentation",
     );

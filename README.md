@@ -50,7 +50,7 @@ An admin account is created with `ADMIN_EMAIL`/`ADMIN_PASSWORD` or with `npm run
 
 ## Documentation and contributing
 
-The same documentation is in the application, at `/documentacion`, and in the repository:
+The same documentation is in the application, at `/techdoc`, and in the repository:
 
 - [`DOCUMENTATION.md`](DOCUMENTATION.md): architecture, routes, data model, security and operations.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): local environment, the checks a change has to pass, commit, migration and translation conventions.

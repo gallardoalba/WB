@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       locale,
       "Arquitectura, rutas, datos, seguridad y operación de Wanderbibliothek.",
     ),
-    alternates: alternatesFor(locale, "/documentacion"),
+    alternates: alternatesFor(locale, "/techdoc"),
   };
 }
 

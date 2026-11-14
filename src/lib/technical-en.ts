@@ -1,5 +1,5 @@
 /**
- * Documentación técnica en inglés (`/documentacion`).
+ * Documentación técnica en inglés (`/techdoc`).
  *
  * Es la traducción del documento `ES` de `technical.ts`: mismos identificadores
  * de sección, mismos tipos de bloque y mismo orden, de modo que las tres
@@ -110,7 +110,7 @@ export const EN: TechnicalDocument = {
             ["`/admin`", "Community moderation; requires an active second factor."],
             ["`/privacidad`, `/aviso-legal`", "Privacy policy (art. 13 GDPR) and legal notice (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "Email confirmation and a new password from the link."],
-            ["`/documentacion`", "This page."],
+            ["`/techdoc`", "This page."],
             ["`/projekt`", "What the project is, why it exists, that it is non-commercial and what it demonstrates."],
             ["`/api/health`", "Status of the service and of the database."],
             ["`/sitemap.xml`, `/robots.txt`", "Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed."],

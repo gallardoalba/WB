@@ -36,7 +36,7 @@ export default async function Page({ searchParams }: AppViewPageProps) {
  * dejar la pantalla en blanco hasta tenerlo todo.
  *
  * La frontera va aquí, en la portada, y **no** como `loading.tsx` del segmento
- * raíz: ese `loading` lo heredarían `/documentacion`, `/privacidad`,
+ * raíz: ese `loading` lo heredarían `/techdoc`, `/privacidad`,
  * `/projekt`… y les pintaría un esqueleto de catálogo que no tiene nada que ver
  * con lo que van a recibir.
  */
