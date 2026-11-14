@@ -798,9 +798,11 @@ function storeMessage(input: {
 }
 
 /**
- * Mensaje en claro. Solo se admite mientras la conversación no esté cifrada:
- * en cuanto ambas cuentas publican su clave pública, el servidor rechaza el
- * texto plano para que no quede contenido legible en la base de datos.
+ * Mensaje en claro. **Solo para pruebas y datos heredados**: el API de
+ * `/api/requests/[id]/messages` ya no acepta texto plano (exige sobres), así
+ * que este camino no es alcanzable desde HTTP. Se conserva para poder montar
+ * conversaciones legibles en las pruebas, y sigue negándose en cuanto alguna de
+ * las dos partes tiene clave publicada.
  */
 export function addMessage(requestId: string, userId: string, body: string): MessageView {
   const request = assertCanMessage(requestId, userId);

@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 728 pruebas unitarias y de integración (92 ficheros)",
+            "tests/                 729 pruebas unitarias y de integración (92 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -190,7 +190,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Los mensajes de un intercambio y los mensajes directos se cifran en el navegador (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 con AAD). El servidor guarda el sobre y la huella de la clave, y rechaza el texto plano si alguna de las partes tiene una clave publicada (409).",
+          text: "Los mensajes de un intercambio y los mensajes directos se cifran en el navegador (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 con AAD). El servidor guarda el sobre y la huella de la clave, y rechaza el texto plano: un cuerpo sin cifrar no entra (422).",
         },
         {
           kind: "list",
@@ -323,7 +323,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 728 pruebas unitarias y de integración en 92 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 729 pruebas unitarias y de integración en 92 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -509,7 +509,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 728 Unit- und Integrationstests (92 Dateien)",
+            "tests/                 729 Unit- und Integrationstests (92 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -617,7 +617,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Nachrichten eines Tauschs und Direktnachrichten werden im Browser verschlüsselt (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 mit AAD). Der Server speichert den Umschlag und den Schlüssel-Fingerabdruck und lehnt Klartext ab, sobald eine der beiden Seiten einen Schlüssel veröffentlicht hat (409).",
+          text: "Nachrichten eines Tauschs und Direktnachrichten werden im Browser verschlüsselt (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 mit AAD). Der Server speichert den Umschlag und den Schlüssel-Fingerabdruck und lehnt Klartext ab: Ein unverschlüsselter Text kommt nicht durch (422).",
         },
         {
           kind: "list",
@@ -750,7 +750,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 728 Unit- und Integrationstests in 92 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 729 Unit- und Integrationstests in 92 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

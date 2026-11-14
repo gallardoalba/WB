@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 728 unit and integration tests (92 files)
+tests/                 729 unit and integration tests (92 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -97,7 +97,7 @@ The hand-over and shipping columns (`handover_code`, `handover_method`, `ship_ki
 
 An exchange never leaves the book orphaned. When it closes, the copy that was handed over stays `given` (it is the record of what happened) and the receiver gets **a copy of their own**: same edition, same condition, their city, paused. `listings.from_listing_id` and `from_request_id` keep the trail, and the unique index on `from_request_id` makes sure one exchange can never produce two copies. From their shelf the receiver can activate it and the book travels again.
 
-Messages within an exchange and direct messages are encrypted in the browser (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 with AAD). The server stores the envelope and the key fingerprint, and rejects plain text as soon as either side has published a key (409).
+Messages within an exchange and direct messages are encrypted in the browser (ECDH P-256 + HKDF-SHA256 + AES-GCM-256 with AAD). The server stores the envelope and the key fingerprint, and rejects plain text: an unencrypted body does not get in (422).
 
 - A copy is only reserved if it is still `available`, inside the same transaction.
 - On acceptance, competing requests move to `expired`; only the owner accepts or declines.
@@ -176,7 +176,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 
 ## Tests and continuous integration
 
-`npm test` runs 728 unit and integration tests in 92 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 729 unit and integration tests in 92 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image without publishing it.
 

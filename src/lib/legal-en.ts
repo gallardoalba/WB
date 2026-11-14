@@ -36,7 +36,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
           "Account: name, email address, town or city, short biography and language. Legal basis: performance of a contract (Art. 6(1)(b) GDPR (art. 6.1.b RGPD)).",
           "Password: stored only as a scrypt hash, never in plain text. Sessions: a random token that is likewise kept in the database only as a hash.",
           "Books and exchanges: title, condition, city, requests and ratings. Notes on a copy are voluntary.",
-          "Messages: encrypted in the browser (point 7). The server stores the encrypted text and the metadata (who, with whom, when); only messages from older clients that do not encrypt yet are stored in plain text and are marked as such.",
+          "Messages: encrypted in the browser (point 7). The server stores the encrypted text and the metadata (who, with whom, when); it does not accept unencrypted messages.",
           "IP address: used solely to rate-limit requests and to slow down password attacks, and stored only as a daily pseudonym, never as the address itself.",
           "Email: to confirm the account, reset the password and give notice of activity. These notices can be switched off in the account.",
           "This information is necessary to provide the service: without a name, email address and password no account can be created. There is no automated decision-making and no profiling with legal effects on the person concerned.",

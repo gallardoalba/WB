@@ -2,9 +2,9 @@ import { after } from "next/server";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { processOutbox } from "@/lib/outbox";
-import { addEncryptedMessage, addMessage, conversationKeys, listMessages } from "@/lib/repo";
+import { addEncryptedMessage, conversationKeys, listMessages } from "@/lib/repo";
 import { guard, hit } from "@/lib/throttle";
-import { encryptedMessageSchema, messageSchema } from "@/lib/validation";
+import { encryptedMessageSchema } from "@/lib/validation";
 
 export async function GET(
   request: Request,
@@ -39,14 +39,10 @@ export async function POST(
       windowMs: 60 * 60 * 1000,
     });
     const payload = await readJson(request);
-    // Clientes nuevos: `envelopes`. Clientes anteriores a la v40: `ciphertext`.
-    const isEncrypted =
-      payload !== null &&
-      typeof payload === "object" &&
-      ("ciphertext" in payload || "envelopes" in payload);
-    const message = isEncrypted
-      ? addEncryptedMessage(requestId, user.id, encryptedMessageSchema.parse(payload))
-      : addMessage(requestId, user.id, messageSchema.parse(payload).body);
+    // Solo se aceptan mensajes cifrados. El esquema exige `envelopes` (un sobre
+    // por clave activa del destinatario) o el `ciphertext`/`iv` de las pestañas
+    // abiertas antes de la v40; un `{ body: "…" }` en claro sale como 422.
+    const message = addEncryptedMessage(requestId, user.id, encryptedMessageSchema.parse(payload));
     after(async () => {
       await processOutbox().catch((error: unknown) => {
         console.error("[mail] no se pudo procesar el aviso", error);

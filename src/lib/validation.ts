@@ -366,14 +366,6 @@ export const clubUpdateSchema = z.object({
     .default(""),
 });
 
-export const messageSchema = z.object({
-  body: z
-    .string()
-    .trim()
-    .min(1, "Escribe un mensaje.")
-    .max(800, "El mensaje no puede superar 800 caracteres."),
-});
-
 /**
  * Sobre cifrado (AES-GCM): el servidor no sabe qué contiene, solo comprueba
  * que el formato y el tamaño son razonables.

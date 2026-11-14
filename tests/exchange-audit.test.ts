@@ -490,6 +490,24 @@ test("si alguien publicó su clave, el servidor rechaza el texto plano", async (
   assert.match(error.message, /debe enviarse cifrado/);
 });
 
+test("el API ya no acepta mensajes sin cifrar", async () => {
+  // La ruta valida siempre con el esquema de sobres: un cuerpo en claro no
+  // pasa y sale como 422, sin llegar a la base de datos.
+  const { encryptedMessageSchema } = await import("../src/lib/validation.ts");
+  assert.equal(encryptedMessageSchema.safeParse({ body: "Hola" }).success, false);
+  assert.equal(encryptedMessageSchema.safeParse({ keyId: "A".repeat(43) }).success, false);
+
+  const huella = "A".repeat(43);
+  const sobre = { keyId: huella, ciphertext: "A".repeat(24), iv: "A".repeat(16) };
+  // Cliente actual (un sobre por dispositivo) y pestaña abierta antes de la v40.
+  assert.equal(encryptedMessageSchema.safeParse({ keyId: huella, envelopes: [sobre] }).success, true);
+  assert.equal(
+    encryptedMessageSchema.safeParse({ keyId: huella, ciphertext: sobre.ciphertext, iv: sobre.iv })
+      .success,
+    true,
+  );
+});
+
 test("cifrar exige clave propia y sobre dirigido a la otra parte", async () => {
   const { request } = intercambioAceptado("usr_ana", "usr_diego");
   const dispositivo = await nuevoDispositivo();
