@@ -63,9 +63,9 @@ jobs:
       - name: Inventario de dependencias (SBOM)
         run: npm sbom --sbom-format=cyclonedx --omit=dev > sbom.cdx.json
 
-      # v5 apunta a Node 24: la v4 se ejecutaba forzada en Node 24 con aviso
-      # de deprecación en cada run.
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      # v7 es la primera que declara `node24` en su `action.yml`: la v5 seguía
+      # usando `node20` y dejaba el aviso de deprecación en cada ejecución.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom-ciclo-de-vida
           path: sbom.cdx.json
@@ -97,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Construir la imagen de producción
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
