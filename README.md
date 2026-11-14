@@ -14,17 +14,17 @@ It is deliberately built as a counter-model to commercial marketplaces: nothing 
 - **Direct messages.** Each exchange opens a conversation encrypted end to end, and readers who follow each other can write privately. The server stores sealed envelopes it cannot open.
 - **Reading circles.** A current read, meetings in person or online, an attendance list, a vote on the next book and a forum only members can read.
 - **Lists, directory, activity.** Public reading lists, a directory of readers you can sort by distance, and a stream of what is happening nearby.
-- **Self-hosted.** One small server with SQLite is enough. Mail and the Mastodon bot are optional; catalogue lookups (Open Library, Google Books, the DNB, Nominatim for cities) run on the server and are cached on disk, so the browser never talks to them.
+- **Self-hosted.** One small server with SQLite is enough. Mail and the Mastodon bot are optional; catalogue and place lookups (Open Library, Google Books, the DNB, Photon and Nominatim for cities) run on the server and are cached on disk, so the browser never talks to them.
 
 ## Principles
 
-**Reciprocity.** Whoever gives a book away makes room for another one. It is not a one-to-one swap: anyone can ask for any copy and whoever owns it decides, so what one person gives today another person receives tomorrow. There is no currency, no balance and no points.
+**Reciprocity.** Sharing does not mean expecting something in return. Anyone can ask for any book and whoever has it decides freely whether to give it away or swap it. There are no equivalents and no individual debts: every contribution helps keep books in circulation and knowledge reaching more people. There is no currency, no balance and no points.
 
 **Free of charge.** No fees, no premium tier, no advertising and no data sold.
 
-**Books as commons.** A book that has been read is not dead stock; it wants to be passed on. The platform manages hand-overs rather than property: giving a copy away does not mean losing it; it puts it into circulation.
+**Books as commons.** A book that has been read is not an object to be kept; it is something that can keep circulating. The platform manages hand-overs, not property: giving a copy away does not lose it, it puts it into circulation.
 
-**Self-organisation.** What a reading circle reads, when it meets and who joins is decided by the reading circle, not by a head office.
+**Self-organisation.** Communities and reading circles decide for themselves what to read, when to meet and how to organise, without a central management.
 
 **Transparency.** The source is open and the documentation is public, so what happens to your data can be checked rather than taken on trust.
 

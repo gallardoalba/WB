@@ -65,7 +65,7 @@ const ES = (contact: string): TechnicalDocument => ({
           items: [
             {
               label: "Reciprocidad",
-              text: "quien regala un libro hace sitio a otro. No es un intercambio uno a uno: cualquiera puede pedir cualquier ejemplar y quien lo tiene decide, así que lo que una persona da hoy lo recibe otra mañana.",
+              text: "compartir no implica esperar algo a cambio. Cualquiera puede pedir cualquier libro y quien lo tiene decide libremente si regalarlo o intercambiarlo. No hay equivalencias ni deudas individuales: cada aportación contribuye a que los libros sigan circulando y el conocimiento llegue a más personas.",
             },
             {
               label: "Libros como bienes comunes",
@@ -73,7 +73,7 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Autoorganización",
-              text: "lo que lee un círculo de lectura, cuándo se reúne y quién entra lo decide el círculo, no una oficina central. La moderación también es reversible y trazable: lo retirado se puede reponer y cada decisión deja rastro.",
+              text: "las comunidades y los círculos de lectura deciden autónomamente qué leer, cuándo reunirse y cómo organizarse, sin una dirección central.",
             },
           ],
         },
@@ -221,7 +221,7 @@ const DE = (contact: string): TechnicalDocument => ({
           items: [
             {
               label: "Gegenseitigkeit",
-              text: "wer ein Buch verschenkt, macht Platz für ein neues. Das ist kein Eins-zu-eins-Tausch: Jede Person kann jedes Exemplar anfragen, und wer es hat, entscheidet – was eine Person heute gibt, bekommt eine andere morgen.",
+              text: "teilen heißt nicht, etwas dafür zu erwarten. Jede Person kann jedes Buch anfragen, und wer es hat, entscheidet frei, ob sie es verschenkt oder tauscht. Es gibt keine Gegenrechnung und keine Schulden zwischen Einzelnen: Jeder Beitrag hilft, dass die Bücher weiter zirkulieren und das Wissen mehr Menschen erreicht.",
             },
             {
               label: "Bücher als Gemeingut",
@@ -229,7 +229,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Selbstorganisation",
-              text: "was ein Lesekreis liest, wann er sich trifft und wer dazukommt, entscheidet der Kreis, nicht eine Zentrale. Auch Moderation ist umkehrbar und nachvollziehbar: Was entfernt wurde, kann wiederhergestellt werden, und jede Entscheidung hinterlässt eine Spur.",
+              text: "Gemeinschaften und Lesekreise entscheiden selbstständig, was sie lesen, wann sie sich treffen und wie sie sich organisieren – ohne eine zentrale Leitung.",
             },
           ],
         },
@@ -377,7 +377,7 @@ const EN = (contact: string): TechnicalDocument => ({
           items: [
             {
               label: "Reciprocity",
-              text: "whoever gives a book away makes room for another one. This is not a one-to-one swap: anyone can ask for any copy and whoever owns it decides, so what one person gives today another receives tomorrow.",
+              text: "sharing does not mean expecting something in return. Anyone can ask for any book and whoever has it decides freely whether to give it away or swap it. There are no equivalents and no individual debts: every contribution helps keep books in circulation and knowledge reaching more people.",
             },
             {
               label: "Books as commons",
@@ -385,7 +385,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Self-organisation",
-              text: "what a reading circle reads, when it meets and who joins is decided by the circle, not by a head office. Moderation is reversible and traceable too: what has been taken down can be restored, and every decision leaves a trail.",
+              text: "communities and reading circles decide for themselves what to read, when to meet and how to organise, with no central management.",
             },
           ],
         },
