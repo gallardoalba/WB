@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 725 pruebas unitarias y de integración (92 ficheros)",
+            "tests/                 728 pruebas unitarias y de integración (92 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -323,7 +323,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 725 pruebas unitarias y de integración en 92 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 728 pruebas unitarias y de integración en 92 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -352,7 +352,7 @@ const ES: TechnicalDocument = {
           kind: "list",
           items: [
             "`npm run db:backup` usa la API `.backup()` de SQLite, comprueba la integridad, rota las copias, cifra si hay clave y lanza `WANDERBIBLIOTHEK_BACKUP_HOOK`. Nunca copies el fichero en caliente con WAL activo.",
-            "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
+            "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
             "Cada respuesta lleva `x-request-id` y `x-response-time`, y cada petición deja una línea `[req] {…}` en el registro. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
@@ -509,7 +509,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 725 Unit- und Integrationstests (92 Dateien)",
+            "tests/                 728 Unit- und Integrationstests (92 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -750,7 +750,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 725 Unit- und Integrationstests in 92 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 728 Unit- und Integrationstests in 92 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
@@ -779,7 +779,7 @@ const DE: TechnicalDocument = {
           kind: "list",
           items: [
             "`npm run db:backup` nutzt die `.backup()`-API von SQLite, prüft die Integrität, rotiert die Sicherungen, verschlüsselt bei vorhandenem Schlüssel und startet `WANDERBIBLIOTHEK_BACKUP_HOOK`. Die Datei nie bei aktivem WAL im laufenden Betrieb kopieren.",
-            "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf und verschickt die Erinnerungen der Clubs.",
+            "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
             "Jede Antwort trägt `x-request-id` und `x-response-time`, und jede Anfrage hinterlässt eine Zeile `[req] {…}` im Log. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",

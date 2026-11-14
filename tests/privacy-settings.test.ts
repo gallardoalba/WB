@@ -142,3 +142,78 @@ test("los mensajes siguen el ajuste de quien los recibe", () => {
   repo.setUserPrivacy("usr_marcos", { ...DEFAULT_PRIVACY, dmPolicy: "mutual" });
   assert.equal(repo.canDirectMessage("usr_ana", "usr_marcos"), true);
 });
+
+test("la ciudad oculta no se revela en una solicitud pendiente", () => {
+  // Diego pide el libro de Clara (`req_seed_2`, pendiente). Con la ciudad
+  // oculta, Clara no debe ver dónde está Diego hasta aceptar el intercambio.
+  repo.setUserPrivacy("usr_diego", { ...DEFAULT_PRIVACY, cityPrecision: "hidden" });
+
+  const pendiente = repo.getRequest("req_seed_2", "usr_clara");
+  assert.ok(pendiente);
+  assert.equal(pendiente.requester.city, "", "la ciudad no puede verse antes de aceptar");
+  assert.equal(pendiente.owner.city, "Stuttgart", "quien publica sí ve la suya");
+
+  // Quien la publicó la sigue viendo siempre.
+  assert.equal(repo.getRequest("req_seed_2", "usr_diego")?.requester.city, "Mannheim");
+
+  repo.updateRequestStatus("req_seed_2", "usr_clara", "accepted");
+  const aceptada = repo.getRequest("req_seed_2", "usr_clara");
+  assert.equal(aceptada?.requester.city, "Mannheim", "sin ciudad no se puede quedar");
+
+  repo.setUserPrivacy("usr_diego", DEFAULT_PRIVACY);
+});
+
+test("una lista anónima no publica quién la firma", () => {
+  const list = repo.createReadingList("usr_ana", {
+    title: "Lista sin firma",
+    description: "",
+    showOwner: false,
+  });
+
+  // Sin sesión no se recibe el nombre ni el id; con sesión se sigue viendo,
+  // que es lo que ya hacía la página.
+  assert.deepEqual(repo.getReadingList(list.id, null)?.owner, { id: "", name: "" });
+  assert.deepEqual(repo.getReadingList(list.id, "usr_diego")?.owner, {
+    id: "usr_ana",
+    name: "Ana Martínez",
+  });
+  assert.deepEqual(repo.getReadingList(list.id, "usr_ana")?.owner, {
+    id: "usr_ana",
+    name: "Ana Martínez",
+  });
+
+  // Si se firma, vuelve a verse también sin sesión.
+  repo.updateReadingList("usr_ana", list.id, {
+    title: "Lista firmada",
+    description: "",
+    showOwner: true,
+  });
+  assert.equal(repo.getReadingList(list.id, null)?.owner.name, "Ana Martínez");
+});
+
+test("el directorio respeta la visibilidad del perfil", () => {
+  const viewers = (viewerId: string) => repo.listReaders({ viewerId });
+  repo.setFollow("usr_ana", "usr_lucia", false);
+
+  // «Solo yo»: no aparece en el directorio.
+  repo.setUserPrivacy("usr_lucia", { ...DEFAULT_PRIVACY, profileVisibility: "private" });
+  assert.equal(
+    viewers("usr_ana").readers.some((reader) => reader.user.id === "usr_lucia"),
+    false,
+  );
+
+  // «Solo a quienes sigo»: aparece con el nombre (reconocer a quién sigues) pero
+  // sin biografía hasta que hay seguimiento.
+  repo.setUserPrivacy("usr_lucia", { ...DEFAULT_PRIVACY, profileVisibility: "followers" });
+  const sinSeguir = viewers("usr_ana").readers.find((reader) => reader.user.id === "usr_lucia");
+  assert.ok(sinSeguir);
+  assert.equal(sinSeguir.user.name, "Lucía Prieto");
+  assert.equal(sinSeguir.user.bio, "");
+
+  repo.setFollow("usr_ana", "usr_lucia", true);
+  const siguiendo = viewers("usr_ana").readers.find((reader) => reader.user.id === "usr_lucia");
+  assert.equal(siguiendo?.user.bio, "Novela contemporánea.");
+
+  repo.setFollow("usr_ana", "usr_lucia", false);
+  repo.setUserPrivacy("usr_lucia", DEFAULT_PRIVACY);
+});

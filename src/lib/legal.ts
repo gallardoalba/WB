@@ -101,8 +101,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           body: [
             "Konto: Name, E-Mail-Adresse, Stadt, kurze Biografie und Sprache. Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).",
             "Passwort: nur als scrypt-Hash gespeichert, niemals im Klartext. Sitzungen: ein zufälliges Token, in der Datenbank ebenfalls nur als Hash.",
-            "Bücher und Tauschvorgänge: Titel, Zustand, Stadt, Anfragen, Abholcodes und Bewertungen. Notizen zum Exemplar sind freiwillig.",
-            "Nachrichten: werden im Browser verschlüsselt (siehe Punkt 7). Der Server speichert nur den verschlüsselten Text sowie die Metadaten (wer, mit wem, wann).",
+          "Bücher und Tauschvorgänge: Titel, Zustand, Stadt, Anfragen und Bewertungen. Notizen zum Exemplar sind freiwillig.",
+          "Nachrichten: werden im Browser verschlüsselt (siehe Punkt 7). Der Server speichert den verschlüsselten Text sowie die Metadaten (wer, mit wem, wann); nur Nachrichten älterer Clients, die noch nicht verschlüsseln, liegen im Klartext und sind als solche gekennzeichnet.",
             "IP-Adresse: ausschließlich zur Begrenzung von Anfragen und zum Schutz vor Passwort-Angriffen, und nur als tagesaktueller Pseudonym gespeichert, nicht als Adresse.",
             "E-Mail-Versand: Für Bestätigung, Passwort-Reset und Benachrichtigungen. Die Benachrichtigungen lassen sich im Konto abschalten.",
             "Die Angaben sind für die Nutzung erforderlich: Ohne Name, E-Mail-Adresse und Passwort kann kein Konto angelegt werden. Es gibt keine automatisierte Entscheidungsfindung und kein Profiling mit rechtlicher Wirkung.",
@@ -117,6 +117,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "IP-Pseudonyme: höchstens 1 Tag.",
             "Benachrichtigungen: 90 Tage nach dem Lesen, spätestens 180 Tage nach Entstehung. Aktivität im öffentlichen Bereich und in Clubs: 180 Tage.",
             "Moderationsprotokoll: bis zu 730 Tage (konfigurierbar).",
+            "Erledigte Meldungen: 1 Jahr nach ihrer Erledigung.",
             "Konto und Profil: bis zur Löschung des Kontos.",
             "Server-Logs: IP-Adresse, Pfad ohne Query-String und Antwortcode, gemäß der Rotation des Systems (logrotate, standardmäßig 14 Tage). Suchbegriffe und Einmal-Links werden nicht protokolliert.",
           ],
@@ -173,7 +174,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         {
           heading: "9. Sicherungskopien",
           body: [
-            "Von der Datenbank werden täglich Sicherungskopien erstellt. Sie können Daten enthalten, die inzwischen gelöscht wurden, und werden nach 14 Tagen überschrieben.",
+            "Von der Datenbank wird alle sechs Stunden eine Sicherung erstellt. Sie kann inzwischen gelöschte Daten enthalten; aufbewahrt werden die 14 jüngsten Sicherungen (etwa dreieinhalb Tage) und in der externen Kopie 30.",
           ],
         },
         {
@@ -206,8 +207,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         body: [
           "Cuenta: nombre, correo, ciudad, biografía breve e idioma. Base jurídica: ejecución del contrato (art. 6.1.b RGPD).",
           "Contraseña: solo se guarda su hash scrypt, nunca en claro. Sesiones: un token aleatorio que en la base también queda como hash.",
-          "Libros e intercambios: título, estado, ciudad, solicitudes, códigos de entrega y valoraciones. Las notas del ejemplar son voluntarias.",
-          "Mensajes: se cifran en el navegador (punto 7). El servidor guarda solo el texto cifrado y los metadatos (quién, con quién, cuándo).",
+          "Libros e intercambios: título, estado, ciudad, solicitudes y valoraciones. Las notas del ejemplar son voluntarias.",
+          "Mensajes: se cifran en el navegador (punto 7). El servidor guarda el texto cifrado y los metadatos (quién, con quién, cuándo); solo los mensajes de clientes antiguos, que aún no cifran, se guardan en claro y quedan marcados como tales.",
           "Dirección IP: únicamente para limitar peticiones y frenar ataques de contraseña, y guardada como pseudónimo diario, no como dirección.",
           "Correo electrónico: para confirmar la cuenta, restablecer la contraseña y avisar de actividad. Los avisos se pueden desactivar en la cuenta.",
           "Estos datos son necesarios para prestar el servicio: sin nombre, correo y contraseña no se puede crear la cuenta. No hay decisiones automatizadas ni elaboración de perfiles con efectos jurídicos sobre la persona.",
@@ -222,6 +223,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Pseudónimos de IP: como máximo 1 día.",
           "Avisos: 90 días tras leerse y 180 como máximo. Actividad pública y de clubes: 180 días.",
           "Auditoría de moderación: hasta 730 días (configurable).",
+          "Denuncias resueltas: 1 año desde su resolución.",
           "Cuenta y perfil: hasta que se borra la cuenta.",
           "Registros del servidor: dirección IP, ruta sin la cadena de consulta y código de respuesta, según la rotación del sistema (`logrotate`, 14 días por defecto). No se registran las búsquedas ni los enlaces de un solo uso.",
         ],
@@ -278,7 +280,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
       {
         heading: "9. Copias de seguridad",
         body: [
-          "Cada día se hace una copia de la base de datos. Puede contener datos ya borrados y se sobrescribe a los 14 días.",
+          "Cada seis horas se hace una copia de la base de datos. Puede contener datos ya borrados: se conservan las 14 más recientes (unos tres días y medio) y la copia externa guarda 30.",
         ],
       },
       {

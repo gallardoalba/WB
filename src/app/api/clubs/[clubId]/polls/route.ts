@@ -1,7 +1,7 @@
 import { handleApiError, json, readJson } from "@/lib/api";
 import { getSessionUser, requireUser } from "@/lib/auth";
 import { createClubPoll, getActiveClubPoll } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { guard, hit } from "@/lib/throttle";
 import { clubPollSchema } from "@/lib/validation";
 
 type Context = { params: Promise<{ clubId: string }> };
@@ -11,6 +11,7 @@ export async function GET(request: Request, { params }: Context) {
   try {
     const user = await getSessionUser();
     if (!user) return json({ poll: null }, 401);
+    hit({ bucket: "club:poll:read", key: user.id, limit: 300, windowMs: 60 * 60 * 1000 });
     const { clubId } = await params;
     return json({ poll: getActiveClubPoll(clubId, user.id) });
   } catch (error) {

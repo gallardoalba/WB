@@ -123,7 +123,7 @@ export default async function Page({ searchParams }: PageProps) {
               <Link href={`/listas/${list.id}`} className="community-list-card">
                 <strong>{list.title}</strong>
                 <span>
-                  {viewer || list.showOwner ? list.owner.name : t("Una persona de la comunidad")} ·{" "}
+                  {list.owner.name || t("Una persona de la comunidad")}{" · "}
                   {list.items === 1 ? t("1 obra") : t("{n} obras", { n: list.items })}
                 </span>
                 {list.description && <p>{list.description}</p>}

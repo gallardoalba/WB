@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 725 unit and integration tests (92 files)",
+            "tests/                 728 unit and integration tests (92 files)",
             "e2e/                   browser tests with Playwright (8 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -297,7 +297,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 725 unit and integration tests in 92 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 728 unit and integration tests in 92 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",
@@ -326,7 +326,7 @@ export const EN: TechnicalDocument = {
           kind: "list",
           items: [
             "`npm run db:backup` uses the `.backup()` API of SQLite, checks the integrity, rotates the backups, encrypts if there is a key and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while it is running with WAL active.",
-            "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
+            "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
             "Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` returned by a 500 is the first 8 characters of that id.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",

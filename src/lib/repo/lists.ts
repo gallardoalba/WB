@@ -26,13 +26,18 @@ const LIST_SELECT = `
 `;
 
 function toListRow(row: ListRow, viewerId: string | null): ReadingListView {
+  const own = row.owner_id === viewerId;
+  // `show_owner` es la preferencia de quien firma la lista: sin sesión no se
+  // publica ni su nombre ni su id. La página ya lo sustituía por «una persona
+  // de la comunidad», pero el API devolvía el nombre real a quien no la tenía.
+  const anonima = !row.show_owner && !own && viewerId === null;
   return {
     id: row.id,
     title: row.title,
     description: row.description,
     createdAt: row.created_at,
     items: row.items,
-    owner: { id: row.owner_id, name: row.owner_name },
+    owner: anonima ? { id: "", name: "" } : { id: row.owner_id, name: row.owner_name },
     isMine: row.owner_id === viewerId,
     showOwner: Boolean(row.show_owner),
   };

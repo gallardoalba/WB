@@ -120,6 +120,8 @@ type ReaderRow = {
   name: string;
   city: string;
   bio: string;
+  city_precision: string;
+  profile_visibility: string;
   published: number;
   followers: number;
   is_following: number;
@@ -147,6 +149,8 @@ export function listReaders(options: {
     u.is_suspended = 0
     AND u.email NOT LIKE 'deleted-%'
     AND u.id <> @viewerId
+    -- «Solo yo» significa solo yo: ese perfil no aparece en el directorio.
+    AND u.profile_visibility <> 'private'
     AND (
       EXISTS (SELECT 1 FROM listings l WHERE l.owner_id = u.id AND l.status <> 'removed')
       OR EXISTS (SELECT 1 FROM book_comments c WHERE c.author_id = u.id AND c.status = 'visible')
@@ -176,7 +180,7 @@ export function listReaders(options: {
 
   const rows = db
     .prepare(
-      `SELECT u.id, u.name, u.city, u.bio, u.city_precision,
+      `SELECT u.id, u.name, u.city, u.bio, u.city_precision, u.profile_visibility,
               (SELECT COUNT(*) FROM listings l
                 WHERE l.owner_id = u.id AND l.status = 'available') AS published,
               (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,
@@ -226,6 +230,7 @@ export function listReaders(options: {
     shared_books: number;
     clubs: number;
     last_active: string | null;
+    profile_visibility: string;
   }[];
 
   return {
@@ -235,7 +240,10 @@ export function listReaders(options: {
         name: row.name,
         // Quien prefiere no enseñar su ciudad tampoco aparece con ella aquí.
         city: row.city_precision === "hidden" ? "" : row.city,
-        bio: row.bio,
+        // La biografía del perfil «solo a quienes sigo» no se enseña a quien no
+        // sigue: es la misma regla que en la ficha del perfil.
+        bio:
+          row.profile_visibility === "followers" && !row.is_following ? "" : row.bio,
       },
       published: row.published,
       followers: row.followers,

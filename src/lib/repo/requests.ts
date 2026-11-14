@@ -36,9 +36,11 @@ type RequestRow = {
   requester_id: string;
   requester_name: string;
   requester_city: string;
+  requester_city_precision: string;
   owner_id: string;
   owner_name: string;
   owner_city: string;
+  owner_city_precision: string;
   owner_confirmed_at: string | null;
   requester_confirmed_at: string | null;
   message_count: number;
@@ -52,7 +54,9 @@ const REQUEST_SELECT = `
          r.owner_confirmed_at, r.requester_confirmed_at,
          b.title, b.author, b.cover_url, l.status AS listing_status,
          req.id AS requester_id, req.name AS requester_name, req.city AS requester_city,
+         req.city_precision AS requester_city_precision,
          own.id AS owner_id, own.name AS owner_name, own.city AS owner_city,
+         own.city_precision AS owner_city_precision,
          (SELECT COUNT(*) FROM messages m WHERE m.request_id = r.id) AS message_count,
          (SELECT MAX(m.created_at) FROM messages m WHERE m.request_id = r.id) AS last_message_at,
          (SELECT COUNT(*) FROM messages m
@@ -69,6 +73,13 @@ const REQUEST_SELECT = `
 `;
 
 function toRequestView(row: RequestRow, viewerId: string): RequestView {
+  // La ciudad es un dato personal y hay quien prefiere no enseñarla. Se oculta
+  // salvo a quien la publicó y salvo cuando el intercambio ya está aceptado:
+  // sin saber dónde está la otra persona no se puede quedar.
+  const cerrado = row.status === "accepted" || row.status === "completed";
+  const city = (value: string, precision: string, isSelf: boolean) =>
+    isSelf || cerrado || precision !== "hidden" ? value : "";
+
   return {
     id: row.id,
     status: row.status,
@@ -84,8 +95,16 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
       coverUrl: normalizeCoverUrl(row.cover_url),
       status: row.listing_status,
     },
-    requester: { id: row.requester_id, name: row.requester_name, city: row.requester_city },
-    owner: { id: row.owner_id, name: row.owner_name, city: row.owner_city },
+    requester: {
+      id: row.requester_id,
+      name: row.requester_name,
+      city: city(row.requester_city, row.requester_city_precision, row.requester_id === viewerId),
+    },
+    owner: {
+      id: row.owner_id,
+      name: row.owner_name,
+      city: city(row.owner_city, row.owner_city_precision, row.owner_id === viewerId),
+    },
     messageCount: row.message_count,
     lastMessageAt: row.last_message_at,
     unreadMessages: row.unread_messages,

@@ -66,6 +66,8 @@ export type MaintenanceReport = {
   events: number;
   productEvents: number;
   audit: number;
+  /** Denuncias ya resueltas que se han tirado (retención: un año). */
+  resolvedReports: number;
   clubReminders: number;
   covers: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
@@ -116,6 +118,13 @@ export function runMaintenance(): MaintenanceReport {
     auditDays > 0
       ? changes("DELETE FROM admin_audit WHERE created_at < ?", daysAgo(auditDays))
       : 0;
+  // Las denuncias resueltas se tiran al año: guardan el texto libre de quien
+  // denuncia, que puede hablar de terceras personas, y el histórico de
+  // moderación que hace falta conservar ya está en `admin_audit`.
+  const resolvedReports = changes(
+    "DELETE FROM reports WHERE status <> 'open' AND created_at < ?",
+    daysAgo(365),
+  );
 
   const clubReminders = notifyUpcomingMeetings();
   // Las portadas cacheadas se acumulan con cada ISBN visitado: se olvidan las
@@ -144,6 +153,7 @@ export function runMaintenance(): MaintenanceReport {
     events,
     productEvents,
     audit,
+    resolvedReports,
     clubReminders,
     covers,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.

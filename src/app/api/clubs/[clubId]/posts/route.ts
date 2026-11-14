@@ -1,7 +1,7 @@
 import { handleApiError, json, readJson } from "@/lib/api";
 import { getSessionUser, requireUser } from "@/lib/auth";
 import { createClubPost, listClubPosts } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { guard, hit } from "@/lib/throttle";
 import { clubPostSchema } from "@/lib/validation";
 
 type Context = { params: Promise<{ clubId: string }> };
@@ -13,6 +13,9 @@ type Context = { params: Promise<{ clubId: string }> };
 export async function GET(request: Request, { params }: Context) {
   try {
     const user = await getSessionUser();
+    if (user) {
+      hit({ bucket: "club:post:list", key: user.id, limit: 600, windowMs: 60 * 60 * 1000 });
+    }
     const { clubId } = await params;
     const before = new URL(request.url).searchParams.get("before");
     const page = listClubPosts(clubId, user ? { id: user.id, isAdmin: user.isAdmin } : null, {

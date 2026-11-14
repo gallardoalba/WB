@@ -3,7 +3,7 @@ import { handleApiError, json, readJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { processOutbox } from "@/lib/outbox";
 import { addEncryptedMessage, addMessage, conversationKeys, listMessages } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { guard, hit } from "@/lib/throttle";
 import { encryptedMessageSchema, messageSchema } from "@/lib/validation";
 
 export async function GET(
@@ -12,6 +12,8 @@ export async function GET(
 ) {
   try {
     const user = await requireUser();
+    // Lectura con cuota: el hilo se puede sondear y no debe ser un amplificador.
+    hit({ bucket: "message:list", key: user.id, limit: 600, windowMs: 60 * 60 * 1000 });
     const { requestId } = await params;
     const beforeId = new URL(request.url).searchParams.get("before");
     const page = listMessages(requestId, user.id, { beforeId });

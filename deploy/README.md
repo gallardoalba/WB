@@ -850,8 +850,9 @@ Quedan tres decisiones que son tuyas:
    incompletas y el arranque lo recuerda en el log. El texto sigue siendo un
    borrador técnico: revísalo con quien asuma la responsabilidad legal.
 2. **Copias de seguridad.** Cada copia contiene datos que quizá ya se borraron
-   de la base: se conservan `WANDERBIBLIOTHEK_BACKUP_KEEP` días (14 por
-   defecto). La política lo declara; no restaures una copia para uso normal.
+   de la base: se conservan las `WANDERBIBLIOTHEK_BACKUP_KEEP` más recientes
+   (14 por defecto, una cada seis horas) y la copia externa guarda 30. La
+   política lo declara; no restaures una copia para uso normal.
 3. **Terceros que ven al visitante.** Tu proveedor de correo (recibe el correo y
    el texto del aviso, nunca el contenido de los mensajes cifrados), Cloudflare
    si activas Turnstile, y el proveedor de alojamiento. Open Library/Internet

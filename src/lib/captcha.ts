@@ -10,6 +10,20 @@ export type HumanCheck = {
 const MIN_FILL_MS = 1_200;
 const MAX_FORM_AGE_MS = 2 * 60 * 60 * 1000;
 
+/**
+ * Dominio de este despliegue, para no dar por bueno un token emitido para otro
+ * sitio que compartiera el mismo secreto.
+ */
+function siteHost(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).hostname;
+  } catch {
+    return "";
+  }
+}
+
 if (process.env.NODE_ENV === "production" && !process.env.TURNSTILE_SECRET) {
   console.warn(
     "[captcha] TURNSTILE_SECRET no está configurado: el registro solo tiene honeypot y tiempo mínimo.",
@@ -42,8 +56,13 @@ export async function assertHuman(input: HumanCheck): Promise<void> {
           signal: AbortSignal.timeout(5_000),
         },
       );
-      const data = (await response.json()) as { success?: boolean };
+      const data = (await response.json()) as { success?: boolean; hostname?: unknown };
       success = Boolean(data.success);
+      // `siteverify` dice para qué host se emitió el token: si no es el nuestro,
+      // no vale aunque el secreto coincida.
+      const esperado = siteHost();
+      const emitidoPara = typeof data.hostname === "string" ? data.hostname : "";
+      if (success && esperado && emitidoPara && emitidoPara !== esperado) success = false;
     } catch (error) {
       console.error("[captcha] no se pudo verificar Turnstile", error);
       throw new ApiError(503, "No se pudo verificar la petición. Inténtalo de nuevo.");

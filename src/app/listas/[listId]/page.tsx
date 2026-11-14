@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: t("Lista no encontrada"), robots: { index: false, follow: false } };
   }
   // El nombre solo viaja a los buscadores si quien firma lo ha aceptado.
-  const signature = list.showOwner ? t(" de {name}", { name: list.owner.name }) : "";
+  const signature = list.owner.name ? t(" de {name}", { name: list.owner.name }) : "";
   return {
     title: list.title,
     description: t("{n} libros en la lista «{title}»{signature}.", {
@@ -54,7 +54,7 @@ export default async function Page({ params }: PageProps) {
   const list = getReadingList(listId, viewer?.id ?? null);
   if (!list) notFound();
 
-  const signature = viewer || list.showOwner ? list.owner.name : t("Una persona de la comunidad");
+  const signature = list.owner.name || t("Una persona de la comunidad");
   // Dentro de la sesión se entra a la ficha con conversación; fuera, a la
   // ficha pública de la obra (que no publica datos de nadie).
   const bookHref = (bookId: string) => (viewer ? `/obra/${bookId}` : `/werk/${bookId}`);
