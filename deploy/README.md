@@ -109,14 +109,16 @@ consecuencias están comentadas en el propio fichero; el resumen:
 | `MAINTENANCE_TOKEN` | El cron responde 404: sin purgas, sin reintentos de correo, sin recordatorios de club |
 | `TRUST_PROXY=1` | Todas las peticiones comparten la cuota global: un cliente puede agotar el login del sitio |
 | `WANDERBIBLIOTHEK_DB` | La base se crea dentro de la release y se pierde en el siguiente despliegue |
+| `WANDERBIBLIOTHEK_BACKUP_KEY` | La copia se guarda en claro con correos, hashes de contraseña y los mensajes dentro, y esa copia acaba fuera del servidor |
 | `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | `/privacidad` y `/aviso-legal` salen con un aviso de que faltan datos; el Impressum es obligatorio en Alemania |
 | `MASTODON_TOKEN` | El bot no publica: el catálogo funciona igual, solo no hay avisos en el perfil |
 
 Al arrancar, `[env]` también avisa (sin bloquear) de los errores que solo se
-notarían semanas después: un `MAINTENANCE_TOKEN` de menos de 24 caracteres, una
-`WANDERBIBLIOTHEK_BACKUP_KEY` que no son 32 bytes (la copia fallaría a las
-03:20), rutas de base o de copias relativas, `TRUSTED_PROXY_HOPS` no numérico y
-`ADMIN_EMAIL`/`ADMIN_PASSWORD` a medias.
+notarían semanas después: un `MAINTENANCE_TOKEN` de menos de 24 caracteres,
+rutas de base o de copias relativas, `TRUSTED_PROXY_HOPS` no numérico y
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` a medias. La clave de las copias no está en esa
+lista: vacía o mal escrita **impide arrancar**, porque lo que se juega es una
+base con correos y hashes en claro.
 
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se **incrusta en el bundle
 del cliente**: si lo activas, tiene que existir en el momento del `build`, no
@@ -551,9 +553,11 @@ apareció el bucle de redirecciones de `/api/requests`.
   con `integrity_check` y rotación de 14 copias.
 - Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
   se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
-  sirven. Sin clave, la copia queda en claro con correos y hashes dentro, así que
-  `env-check` lo avisa al arrancar (una variable **vacía** cuenta como ausente:
-  era la causa de que las copias se guardaran sin cifrar).
+  sirven. Sin clave la copia quedaría en claro con correos y hashes dentro, así
+  que `env-check` la trata como **error** y el servicio no arranca (una variable
+  **vacía** cuenta como ausente: era la causa de que las copias se guardaran sin
+  cifrar). `WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1` sigue existiendo para entornos de
+  prueba que asumen la carencia.
 - Una copia en el mismo disco que la base no protege de lo que más pasa (el disco
   o el propio servidor se van enteros). `deploy/backup-pull.sh` **trae** las
   copias al portátil, que funciona aunque el portátil esté detrás de un NAT:
@@ -577,6 +581,16 @@ apareció el bucle de redirecciones de `/api/requests`.
 - `WANDERBIBLIOTHEK_BACKUP_HOOK` permite lo contrario, enviarlas desde el
   servidor (`rsync`, `rclone`, S3); `env-check` avisa si no hay ni gancho ni
   copia externa.
+- **Ensayo de restauración**: `npm run db:verify` descifra la copia más reciente
+  (o la que se le pase), la abre en solo lectura como lo haría la aplicación,
+  ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del
+  esquema y cuenta las tablas principales. Sale con error si la copia no se
+  puede restaurar, así que sirve para una comprobación periódica:
+
+  ```bash
+  WANDERBIBLIOTHEK_BACKUP_KEY="$(cat ~/.config/wanderbibliothek/backup-key)" \
+    npm run db:verify -- ~/copias/wanderbibliothek-2026-11-14T03-20-00-000Z.db.enc
+  ```
 
 Restauración (ensáyala antes de necesitarla):
 

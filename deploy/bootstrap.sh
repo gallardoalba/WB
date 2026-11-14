@@ -264,6 +264,9 @@ else
   else
     KEY="$(openssl rand -hex 32)"
     MAINT_TOKEN="$(openssl rand -hex 32)"
+    # La clave de las copias se genera aquí porque `env-check` la exige: sin
+    # ella el servicio no arranca y la copia iría en claro.
+    BACKUP_KEY="$(openssl rand -hex 32)"
     cat >"$ENV_FILE" <<EOF
 # Generado por deploy/bootstrap.sh el $(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Cambios aquí: sudo systemctl restart $SERVICE
@@ -289,7 +292,7 @@ MAINTENANCE_TOKEN=$MAINT_TOKEN
 
 WANDERBIBLIOTHEK_BACKUP_DIR=$BACKUP_DIR
 WANDERBIBLIOTHEK_BACKUP_KEEP=14
-WANDERBIBLIOTHEK_BACKUP_KEY=
+WANDERBIBLIOTHEK_BACKUP_KEY=$BACKUP_KEY
 EOF
     chown root:root "$ENV_FILE"
     chmod 600 "$ENV_FILE"
@@ -450,8 +453,12 @@ ${BOLD}Falta lo que ningún script puede adivinar:${NC}
          npm --prefix $CURRENT_LINK run admin:create -- admin@$DOMAIN
      Después entra en /cuenta, activa la verificación en dos pasos y borra
      ADMIN_PASSWORD del entorno.
-  4. Copias: guarda WANDERBIBLIOTHEK_BACKUP_KEY fuera del servidor y lee el
-     apartado 8 de deploy/README.md para ensayar una restauración.
+  4. Copias: la clave ya está en el fichero de entorno (el servicio la
+     necesita para cifrar), pero guarda una **copia fuera del servidor**: sin
+     ella las copias no se pueden restaurar. Léela con:
+       sudo sed -n 's/^WANDERBIBLIOTHEK_BACKUP_KEY=//p' $ENV_FILE
+     Después lee el apartado 8 de deploy/README.md y ensaya una restauración
+     con `npm run db:verify`.
 
 ${BOLD}Para las siguientes versiones:${NC}
   sudo $PROJECT_ROOT/current/deploy/deploy.sh

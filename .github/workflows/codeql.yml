@@ -1,0 +1,44 @@
+name: CodeQL
+
+# Análisis estático (SAST) del código de la aplicación. Cubre lo que las
+# pruebas no pueden: flujos de datos entre la entrada del usuario y cada salida
+# (inyección de SQL, XSS, redirecciones abiertas, rutas sin filtrar).
+#
+# Corre también los lunes: una consulta nueva de CodeQL encuentra cosas que la
+# del mes pasado no veía, aunque el código no haya cambiado.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "30 4 * * 1"
+
+# El token necesita leer el código y publicar los resultados del análisis; nada
+# más. `packages` es donde GitHub guarda los SARIF.
+permissions:
+  contents: read
+  security-events: write
+  packages: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # `security-extended` añade las consultas de la comunidad: más ruido, pero
+      # este proyecto es pequeño y el análisis cabe en el tiempo del CI.
+      - name: Preparar el análisis
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Analizar
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:javascript-typescript"

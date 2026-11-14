@@ -30,6 +30,7 @@
     "db:reset": "rm -f .data/wanderbibliothek.db .data/wanderbibliothek.db-wal .data/wanderbibliothek.db-shm",
     "db:backup": "node --import tsx scripts/backup.ts",
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
+    "db:verify": "node --import tsx scripts/verify-backup.ts",
     "admin:create": "node --import tsx scripts/create-admin.ts",
     "admin:2fa-off": "node --import tsx scripts/disable-2fa.ts",
     "rotate:secrets": "node --import tsx scripts/rotate-secrets.ts",

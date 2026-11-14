@@ -37,32 +37,43 @@ test("un entorno completo y coherente no da problemas", () => {
   assert.deepEqual(checkEnv(complete()), []);
 });
 
-test("en producción faltan el correo, la URL y la clave de cifrado", () => {
+test("en producción faltan el correo, la URL y las dos claves", () => {
   const issues = checkEnv({ NODE_ENV: "production" });
   assert.deepEqual(keys(issues, "error").sort(), [
     "APP_ENCRYPTION_KEY",
     "MAIL_WEBHOOK_URL",
     "NEXT_PUBLIC_SITE_URL",
+    "WANDERBIBLIOTHEK_BACKUP_KEY",
   ]);
   // El resto son avisos: la app arranca, pero el operador debe saberlo.
   assert.ok(keys(issues, "warn").includes("MAINTENANCE_TOKEN"));
   assert.ok(keys(issues, "warn").includes("TRUST_PROXY"));
   assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_DB"));
-  // Sin clave de copia el respaldo va en claro y sin gancho no sale del
-  // servidor: las dos cosas se avisan al arrancar, no a las 03:20.
-  assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_BACKUP_KEY"));
+  // Que la copia no salga del servidor sí es un aviso: la copia existe y está
+  // cifrada, solo le falta el segundo destino.
   assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_BACKUP_HOOK"));
   assert.ok(keys(issues, "warn").includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"));
 });
 
-test("las copias sin cifrar y el registro sin captcha son avisos, no errores", () => {
+test("sin clave de copias no se arranca; el registro sin captcha solo avisa", () => {
   const issues = checkEnv(
     complete({ WANDERBIBLIOTHEK_BACKUP_KEY: undefined, TURNSTILE_SECRET: undefined }),
   );
-  assert.ok(issues.every((issue) => issue.severity === "warn"));
+  // Una copia en claro lleva correos y hashes: no es un aviso, es un fallo de
+  // configuración. `assertEnv` aborta el arranque con esto.
+  assert.deepEqual(keys(issues, "error"), ["WANDERBIBLIOTHEK_BACKUP_KEY"]);
+  assert.ok(keys(issues, "warn").includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"));
   assert.match(
     issues.find((issue) => issue.key === "WANDERBIBLIOTHEK_BACKUP_KEY")!.message,
     /en claro/,
+  );
+  // Sin captcha el sitio funciona: solo pierde la barrera contra registros
+  // automatizados, y por eso no bloquea el arranque.
+  assert.equal(
+    checkEnv(complete({ TURNSTILE_SECRET: undefined })).some(
+      (issue) => issue.severity === "error",
+    ),
+    false,
   );
 });
 
@@ -132,7 +143,8 @@ test("una clave de copias mal escrita se detecta al arrancar, no a las 03:20", (
   const issue = checkEnv(complete({ WANDERBIBLIOTHEK_BACKUP_KEY: "secreto-corto" })).find(
     (item) => item.key === "WANDERBIBLIOTHEK_BACKUP_KEY",
   );
-  assert.equal(issue?.severity, "warn");
+  // Con una clave inválida la copia falla: tampoco hay respaldo cifrado.
+  assert.equal(issue?.severity, "error");
   assert.match(issue!.message, /16 bytes|32 bytes/);
   // Una clave válida (hex o base64) no genera ningún aviso.
   assert.deepEqual(checkEnv(complete({ WANDERBIBLIOTHEK_BACKUP_KEY: KEY_B64 })), []);

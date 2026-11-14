@@ -56,6 +56,20 @@ jobs:
       - name: Auditoría completa (incluye desarrollo)
         run: npm audit
 
+      # Inventario de lo que se ejecuta en producción (CycloneDX): ante un CVE
+      # en una dependencia, el SBOM dice si esa versión llegó a desplegarse.
+      # `npm test` incluye además el escaneo de credenciales del árbol de
+      # trabajo (`tests/no-secrets.test.ts`), que no necesita ningún servicio.
+      - name: Inventario de dependencias (SBOM)
+        run: npm sbom --sbom-format=cyclonedx --omit=dev > sbom.cdx.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-ciclo-de-vida
+          path: sbom.cdx.json
+          retention-days: 90
+          if-no-files-found: error
+
   e2e:
     runs-on: ubuntu-latest
     steps:
@@ -88,6 +102,23 @@ jobs:
         with:
           context: .
           push: false
-          load: false
+          # Se carga en el demonio para poder escanearla aquí mismo.
+          load: true
+          tags: wanderbibliothek:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Las dependencias de npm las cubre `npm audit`; esto mira lo que el
+      # Dockerfile añade por su cuenta (paquetes de Debian del runner, el
+      # propio Node). Solo corta el trabajo con vulnerabilidades **críticas y
+      # corregidas**: un `HIGH` sin parche publicado no bloquea un despliegue
+      # que no puede arreglarse hoy, pero queda en el registro.
+      - name: Vulnerabilidades de la imagen
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
+        with:
+          image-ref: wanderbibliothek:ci
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          scanners: vuln

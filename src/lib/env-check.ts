@@ -240,18 +240,21 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     );
   }
 
-  // Copias de seguridad: la rotación y el cifrado solo se descubren a las 03:20,
-  // así que una clave mal escrita se avisa al arrancar en vez de dejar copias
-  // en claro (o ninguna) durante semanas.
+  // Copias de seguridad. Sin clave la copia se guarda en claro con correos,
+  // hashes de contraseña y los mensajes dentro, y esa copia acaba fuera del
+  // servidor (gancho externo, `backup-pull.sh`, una extracción manual cuando
+  // algo se rompe). Por eso faltar la clave **impide arrancar**: es preferible
+  // un error al desplegar a una base legible circulando. La rotación y el
+  // cifrado, si no, solo se descubren a las 03:20.
   if (!has(env, "WANDERBIBLIOTHEK_BACKUP_KEY")) {
-    warn(
+    error(
       "WANDERBIBLIOTHEK_BACKUP_KEY",
-      "Sin clave, la copia diaria se guarda en claro: el fichero lleva correos, hashes de contraseña y el texto cifrado de los mensajes. Genérala con `openssl rand -hex 32` y guárdala fuera del servidor.",
+      "Sin clave, la copia se guarda en claro: el fichero lleva correos, hashes de contraseña y el texto cifrado de los mensajes. Genérala con `openssl rand -hex 32` y guárdala fuera del servidor.",
     );
   } else if (!isKeyOf32Bytes(env.WANDERBIBLIOTHEK_BACKUP_KEY!)) {
-    warn(
+    error(
       "WANDERBIBLIOTHEK_BACKUP_KEY",
-      "No son 32 bytes en hexadecimal (64 caracteres) ni en base64: la copia diaria fallará y no habrá respaldo cifrado. Genérala con `openssl rand -hex 32`.",
+      "No son 32 bytes en hexadecimal (64 caracteres) ni en base64: la copia fallaría y no habría respaldo cifrado. Genérala con `openssl rand -hex 32`.",
     );
   }
   // Una copia en el mismo disco que la base no protege de lo que más pasa

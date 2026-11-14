@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 730 pruebas unitarias y de integración (92 ficheros)",
+            "tests/                 749 pruebas unitarias y de integración (95 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -300,11 +300,15 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 730 pruebas unitarias y de integración en 92 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 749 pruebas unitarias y de integración en 95 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker sin publicarla.",
+          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker, que además se escanea con Trivy: el trabajo se corta solo con vulnerabilidades **críticas y con parche**, porque un aviso sin corrección disponible no se puede arreglar en ese momento pero queda en el registro.",
+        },
+        {
+          kind: "p",
+          text: "Cada ejecución publica un **SBOM** en CycloneDX (`npm sbom`) con las dependencias de producción: ante un aviso, dice si esa versión llegó a desplegarse. `tests/no-secrets.test.ts` escanea el árbol de trabajo buscando credenciales (claves de Brevo, tokens de GitHub, claves privadas, claves de 32 bytes asignadas a una variable con nombre de clave): corre en local y en el CI sin depender de ningún servicio, y no sustituye a revisar el historial de git. El análisis estático (CodeQL con las consultas `security-extended`) va aparte en `.github/workflows/codeql.yml`, también programado los lunes para recoger consultas nuevas.",
         },
         {
           kind: "p",
@@ -329,6 +333,7 @@ const ES: TechnicalDocument = {
           kind: "list",
           items: [
             "`npm run db:backup` usa la API `.backup()` de SQLite, comprueba la integridad, rota las copias, cifra si hay clave y lanza `WANDERBIBLIOTHEK_BACKUP_HOOK`. Nunca copies el fichero en caliente con WAL activo.",
+            "`npm run db:verify` es el ensayo de restauración: descifra la copia más reciente (o la que se le pase), la abre en solo lectura como lo haría la aplicación, ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del esquema y cuenta las tablas principales. Sale con error si la copia no se puede restaurar.",
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
             "Cada respuesta lleva `x-request-id` y `x-response-time`, y cada petición deja una línea `[req] {…}` en el registro. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
@@ -486,7 +491,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 730 Unit- und Integrationstests (92 Dateien)",
+            "tests/                 749 Unit- und Integrationstests (95 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -704,11 +709,15 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 730 Unit- und Integrationstests in 92 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 749 Unit- und Integrationstests in 95 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images ohne Veröffentlichung aus.",
+          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images aus, das zusätzlich mit Trivy geprüft wird: der Job bricht nur bei **kritischen Schwachstellen mit Patch** ab, denn eine Warnung ohne verfügbare Korrektur lässt sich in dem Moment nicht beheben, bleibt aber im Protokoll.",
+        },
+        {
+          kind: "p",
+          text: "Jeder Lauf veröffentlicht eine **SBOM** in CycloneDX (`npm sbom`) mit den Produktionsabhängigkeiten: bei einer Warnung zeigt sie, ob diese Version je ausgeliefert wurde. `tests/no-secrets.test.ts` durchsucht den Arbeitsbaum nach Zugangsdaten (Brevo-Schlüssel, GitHub-Token, private Schlüssel, 32-Byte-Schlüssel, die einer Variablen mit Schlüsselnamen zugewiesen sind): läuft lokal und in der CI, ohne Dienst, und ersetzt nicht die Prüfung der git-Historie. Die statische Analyse (CodeQL mit `security-extended`) liegt separat in `.github/workflows/codeql.yml`, ebenfalls montags geplant, um neue Abfragen mitzunehmen.",
         },
         {
           kind: "p",
@@ -733,6 +742,7 @@ const DE: TechnicalDocument = {
           kind: "list",
           items: [
             "`npm run db:backup` nutzt die `.backup()`-API von SQLite, prüft die Integrität, rotiert die Sicherungen, verschlüsselt bei vorhandenem Schlüssel und startet `WANDERBIBLIOTHEK_BACKUP_HOOK`. Die Datei nie bei aktivem WAL im laufenden Betrieb kopieren.",
+            "`npm run db:verify` ist die Wiederherstellungsprobe: entschlüsselt die neueste Sicherung (oder die übergebene), öffnet sie schreibgeschützt wie die Anwendung, führt `integrity_check` und `foreign_key_check` aus, prüft die Schemaversion und zählt die wichtigsten Tabellen. Bricht mit Fehler ab, wenn die Sicherung sich nicht wiederherstellen lässt.",
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
             "Jede Antwort trägt `x-request-id` und `x-response-time`, und jede Anfrage hinterlässt eine Zeile `[req] {…}` im Log. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
