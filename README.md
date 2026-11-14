@@ -22,7 +22,7 @@ It is deliberately built as a counter-model to commercial marketplaces: nothing 
 
 **Free of charge.** No fees, no premium tier, no advertising and no data sold.
 
-**Books as commons.** A book that has been read is not dead stock; it wants to be passed on. The platform manages hand-overs rather than property: giving a copy away does not lose it, it puts it into circulation.
+**Books as commons.** A book that has been read is not dead stock; it wants to be passed on. The platform manages hand-overs rather than property: giving a copy away does not mean losing it; it puts it into circulation.
 
 **Self-organisation.** What a reading circle reads, when it meets and who joins is decided by the reading circle, not by a head office.
 
@@ -55,6 +55,8 @@ The same documentation is in the application, at `/techdoc`, and in the reposito
 - [`DOCUMENTATION.md`](DOCUMENTATION.md): architecture, routes, data model, security and operations.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): local environment, the checks a change has to pass, commit, migration and translation conventions.
 - [`deploy/README.md`](deploy/README.md): production setup with systemd, nginx, TLS, backups and timers.
+
+New works are announced on Mastodon at [@wanderbibliothek@mastodon.social](https://mastodon.social/@wanderbibliothek).
 
 Bug reports, suggestions and pull requests are welcome.
 
