@@ -89,7 +89,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La estructura (`site-shell.tsx`, `site-rail.tsx`) es Server Component: la barra lateral, la cabecera, el pie y la navegación móvil llegan ya pintados y solo se hidratan las islas interactivas (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
+          text: "La estructura (`site-shell.tsx`, `site-rail.tsx`) es Server Component: la barra lateral, la cabecera, el pie y la navegación móvil llegan ya pintados. De la estructura solo se hidratan las islas interactivas (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`); el contenido de la aplicación (`wanderbibliothek-app`) es una isla de cliente independiente.",
         },
         {
           kind: "p",
@@ -515,7 +515,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die Struktur (`site-shell.tsx`, `site-rail.tsx`) ist ein Server Component: Seitenleiste, Kopfzeile, Fußzeile und mobile Navigation kommen fertig gerendert an, hydratisiert werden nur die interaktiven Inseln (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
+          text: "Die Struktur (`site-shell.tsx`, `site-rail.tsx`) ist ein Server Component: Seitenleiste, Kopfzeile, Fußzeile und mobile Navigation kommen fertig gerendert an. Von der Struktur werden nur die interaktiven Inseln hydratisiert (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`); der Inhalt der Anwendung (`wanderbibliothek-app`) ist eine eigene Client-Insel.",
         },
         {
           kind: "p",

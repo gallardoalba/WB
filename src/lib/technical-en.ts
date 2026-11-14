@@ -65,7 +65,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, the header, the footer and the mobile navigation arrive already rendered and only the interactive islands are hydrated (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`).",
+          text: "The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, the header, the footer and the mobile navigation arrive already rendered. Within the shell, only the interactive islands hydrate (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`); the application view (`wanderbibliothek-app`) is a separate client island.",
         },
         {
           kind: "p",
