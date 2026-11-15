@@ -857,8 +857,10 @@ final para que nadie crea que está cubierta.
 Si la instalación no sabe qué commit ejecuta, los campos valen `null`: no se
 inventa nada. El pie de página enseña el mismo commit cuando existe.
 
-- **systemd:** `deploy/deploy.sh` escribe `.build-info.json` en cada release con
-  el commit del clon y la hora del build.
+- **systemd desde código:** `deploy/deploy.sh` escribe `.build-info.json` en
+  cada release con el commit del clon y la hora del build. Es lo que hay en este
+  modo, pero no hay digest que publicar: para eso, usa el
+  [despliegue por imagen firmada](#despliegue-por-imagen-firmada).
 - **Docker:** el commit y la hora entran como *build args* y quedan dentro de la
   imagen (`docker inspect` los muestra en `org.opencontainers.image.revision`).
   El digest se publica si despliegas con `WANDERBIBLIOTHEK_IMAGE` fijada por
@@ -976,6 +978,104 @@ desde la aplicación: dependen del host, del hipervisor y, en la práctica, de u
 segundo canal para publicar el *quote*. Mientras no existan, la transparencia de
 Wanderbibliothek es **detectable, no imposible**: código abierto, imagen firmada,
 commit publicado e instantáneas firmadas del contenido.
+
+## Despliegue por imagen firmada
+
+El despliegue de las secciones anteriores compila desde el código y ejecuta
+`next start` directamente. Funciona, pero entonces **no hay artefacto OCI** y
+`/api/version` publica `image: null`: el commit es autoinformado y no existe una
+firma que ligue los ficheros que corren con la release de GitHub.
+
+Este apartado cambia solo el servicio web a la imagen firmada de GHCR. Los
+datos siguen en el host, las copias y los timers no cambian, y nginx tampoco.
+La diferencia es que `/api/version` pasa a publicar el digest, y cualquiera
+puede comprobarlo con `cosign verify` y `slsa-verifier`.
+
+### Requisitos
+
+```bash
+sudo apt-get update && sudo apt-get install -y docker.io
+sudo systemctl enable --now docker
+
+# cosign (binario oficial; no hace falta el resto de Sigstore)
+curl -fsSL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
+  -o /tmp/cosign && sudo install -m 755 /tmp/cosign /usr/local/bin/cosign
+```
+
+La imagen es pública: no hace falta `docker login` para descargarla.
+
+### Instalación de la unidad
+
+```bash
+# 1. Envoltorio que arranca el contenedor con los montajes del host.
+sudo install -m 755 deploy/run-container.sh /usr/local/sbin/wanderbibliothek-container
+
+# 2. Unidad de systemd (sustituye a la del servicio de código).
+sudo cp -a /etc/systemd/system/wanderbibliothek.service \
+  /etc/systemd/system/wanderbibliothek.service.source   # vuelta atrás
+sudo install -m 644 deploy/wanderbibliothek-image.service \
+  /etc/systemd/system/wanderbibliothek.service
+sudo systemctl daemon-reload
+
+# 3. Caché de Next escribible por el usuario del host.
+sudo install -d -m 700 -o wanderbibliothek -g wanderbibliothek \
+  /var/lib/wanderbibliothek/next-cache
+
+# 4. Primera imagen, verificada y fijada por digest.
+sudo deploy/deploy-image.sh --ref 1.0.1
+```
+
+`deploy-image.sh` descarga la etiqueta, resuelve el digest, **verifica la firma
+keyless** contra este repositorio, escribe `/etc/wanderbibliothek/image.env`
+(600 root) y reinicia el servicio. Si `/api/health` no responde, restaura la
+imagen anterior y vuelve a arrancar.
+
+Comprobar:
+
+```bash
+curl -fsS http://127.0.0.1:3000/api/version | python3 -m json.tool
+# "commit": "e8d969c…", "image": "sha256:844acd…"
+
+docker inspect --format '{{.Config.Labels}}' \
+  "$(sed -n 's/^WANDERBIBLIOTHEK_IMAGE=//p' /etc/wanderbibliothek/image.env)"
+```
+
+### Actualizar y volver atrás
+
+```bash
+sudo deploy/deploy-image.sh --ref 1.0.2     # nueva release firmada
+sudo deploy/deploy-image.sh --rollback      # vuelve a la anterior
+```
+
+El rollback real de la aplicación es cambiar el digest; el enlace
+`/srv/wanderbibliothek/current` ya solo se usa para los scripts de operación
+(copias, administración) y la documentación.
+
+### Lo que no cambia
+
+- **Base y portadas**: siguen en `/var/lib/wanderbibliothek`, montadas en
+  `/data`. El contenedor corre con el UID/GID del usuario `wanderbibliothek`
+  del host para que los ficheros conserven el dueño y las copias sigan
+  funcionando.
+- **Copias**: `wanderbibliothek-backup.service` ejecuta el script del host
+  contra la misma base; no hay que tocar el timer. (Si prefieres que la copia
+  salga de la imagen, sustituye el `ExecStart` por un `docker run --rm` con los
+  mismos montajes.)
+- **nginx, TLS, watchdog y uptime**: el contenedor publica en
+  `127.0.0.1:3000`, igual que el proceso anterior.
+
+### Volver al despliegue por código
+
+```bash
+sudo cp -a /etc/systemd/system/wanderbibliothek.service.source \
+  /etc/systemd/system/wanderbibliothek.service
+sudo systemctl daemon-reload
+sudo systemctl restart wanderbibliothek
+```
+
+No mezcles los dos modos: si vuelves a `deploy.sh` con la unidad de imagen
+instalada, el servicio seguirá arrancando el contenedor. Restaura la unidad
+antes de desplegar desde código.
 
 ## 12. Privacidad y retención de datos
 

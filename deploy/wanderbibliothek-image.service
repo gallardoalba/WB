@@ -1,0 +1,49 @@
+# Unidad de systemd para ejecutar Wanderbibliothek desde la imagen firmada.
+#
+# Se instala como `/etc/systemd/system/wanderbibliothek.service`:
+#
+#   sudo install -m 644 deploy/wanderbibliothek-image.service \
+#     /etc/systemd/system/wanderbibliothek.service
+#   sudo install -m 755 deploy/run-container.sh \
+#     /usr/local/sbin/wanderbibliothek-container
+#   sudo systemctl daemon-reload
+#
+# El servicio arranca `docker run` con la imagen de
+# `/etc/wanderbibliothek/image.env`; el digest queda publicado en
+# `/api/version`. Los datos siguen en el host (`/var/lib/wanderbibliothek`),
+# así que las copias y los scripts de operación no cambian de sitio.
+
+[Unit]
+Description=Wanderbibliothek (imagen firmada)
+Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+# Si el contenedor no arranca (imagen no descargada, base ilegible), no se
+# reintenta en bucle cada tres segundos.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+# `env` trae los secretos y la URL pública; `image.env` la referencia exacta y
+# el usuario del host con el que corre el contenedor.
+EnvironmentFile=/etc/wanderbibliothek/env
+EnvironmentFile=/etc/wanderbibliothek/image.env
+ExecStart=/usr/local/sbin/wanderbibliothek-container
+# `-` porque el contenedor puede haberse caído ya: no es un fallo del stop.
+ExecStop=-/usr/bin/docker stop --time 30 wanderbibliothek
+Restart=always
+RestartSec=5
+TimeoutStopSec=45
+UMask=0077
+
+# Endurecimiento del cliente de Docker. El aislamiento real del proceso lo pone
+# el propio contenedor (usuario sin privilegios, sin capabilities, sin
+# new-privileges, límites de memoria y de PIDs).
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
