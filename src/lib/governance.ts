@@ -8,7 +8,7 @@ const ES: TechnicalDocument = {
   updated: UPDATED,
   intro: [
     "Wanderbibliothek es software libre y cada instancia la gobierna su comunidad. Este documento separa lo que garantiza el proyecto de lo que decide cada instancia.",
-    "También explica cómo se modera, cómo se sanciona y cómo se puede recurrir una sanción.",
+    "También explica cómo se modera y cómo se apela una sanción.",
   ],
   sections: [
     {
@@ -46,11 +46,11 @@ const ES: TechnicalDocument = {
             },
             {
               label: "Moderación",
-              text: "revisa denuncias, oculta contenido, documenta sus actuaciones y propone suspensiones. No suspende cuentas ni nombra al equipo.",
+              text: "revisa denuncias, oculta contenido y documenta sus actuaciones. Propone suspensiones, pero no las aplica ni nombra al equipo.",
             },
             {
               label: "Comunidad",
-              text: "participa en clubes y listas, propone cambios y puede pedir la revisión de cualquier decisión que le afecte.",
+              text: "participa en clubes y listas y propone cambios; además puede pedir la revisión de cualquier decisión que le afecte.",
             },
           ],
         },
@@ -69,15 +69,15 @@ const ES: TechnicalDocument = {
           items: [
             {
               label: "Proporcionalidad",
-              text: "se aplica la medida menos restrictiva que resuelve el problema y solo se sube de nivel cuando la anterior no ha funcionado: primero una corrección, después ocultar el contenido y al final suspender la cuenta. Un daño grave o en curso —amenazas, datos personales publicados, acoso sostenido— justifica actuar de inmediato. La reincidencia pesa en la decisión y la auditoría guarda el historial.",
+              text: "se aplica la medida menos restrictiva que resuelve el problema. Solo se sube de nivel cuando la anterior no ha funcionado: primero una corrección, después ocultar el contenido y al final suspender la cuenta. Un daño grave o en curso —amenazas, datos personales publicados, acoso sostenido— justifica actuar de inmediato. La reincidencia pesa en la decisión y la auditoría guarda el historial.",
             },
             {
               label: "Quién decide",
               text: "la moderación investiga y propone; la administración decide y aplica la suspensión. Si una misma persona reúne ambos papeles, la decisión se toma como administración y así queda registrada.",
             },
             {
-              label: "Qué se comunica",
-              text: "se dice qué norma se ha incumplido, qué conducta lo motiva y cómo llegó el caso al equipo (por una denuncia o por revisión propia), en el idioma de la cuenta.",
+              label: "Contenido del aviso",
+              text: "nombra la norma incumplida, la conducta que la motiva y cómo llegó el caso al equipo (por una denuncia o por revisión propia), en el idioma de la cuenta.",
             },
             {
               label: "Plazo",
@@ -85,7 +85,7 @@ const ES: TechnicalDocument = {
             },
             {
               label: "Privacidad",
-              text: "quién denunció no se revela a la persona sancionada ni públicamente; el equipo sí necesita saberlo para valorar la denuncia. La moderación no lee los mensajes cifrados: solo puede actuar sobre lo que se le denuncia.",
+              text: "quien denunció no aparece ante la persona sancionada ni en público; el equipo sí necesita saber quién fue para valorar el caso. La moderación no lee los mensajes cifrados: solo puede actuar sobre lo que se le denuncia.",
             },
           ],
         },
@@ -151,7 +151,7 @@ const DE: TechnicalDocument = {
   updated: UPDATED,
   intro: [
     "Wanderbibliothek ist freie Software, und jede Instanz wird von ihrer Community geführt. Dieses Dokument trennt, was das Projekt zusichert, von dem, was jede Instanz entscheidet.",
-    "Es erklärt außerdem, wie moderiert und sanktioniert wird und wie gegen eine Sanktion Einspruch eingelegt werden kann.",
+    "Es erklärt außerdem, wie moderiert wird und wie gegen eine Sanktion Einspruch eingelegt werden kann.",
   ],
   sections: [
     {
@@ -181,8 +181,8 @@ const DE: TechnicalDocument = {
           items: [
             { label: "Projektpflege", text: "prüft den Code, veröffentlicht Versionen und pflegt die technische Dokumentation. Sie verwaltet keine Instanzen." },
             { label: "Instanzverwaltung", text: "kümmert sich um Server, Backups und die Aufnahme ins Team und ist die einzige Stelle, die Konten sperren kann." },
-            { label: "Moderation", text: "prüft Meldungen, verbirgt Inhalte, dokumentiert ihr Vorgehen und schlägt Sperren vor. Sie sperrt keine Konten und ernennt niemanden." },
-            { label: "Community", text: "beteiligt sich an Clubs und Listen, schlägt Änderungen vor und kann jede Entscheidung überprüfen lassen, die sie betrifft." },
+            { label: "Moderation", text: "prüft Meldungen, verbirgt Inhalte und dokumentiert ihr Vorgehen. Sie schlägt Sperren vor, verhängt sie aber nicht, und ernennt niemanden." },
+            { label: "Community", text: "beteiligt sich an Clubs und Listen und schlägt Änderungen vor; außerdem kann sie jede Entscheidung überprüfen lassen, die sie betrifft." },
           ],
         },
       ],
@@ -198,11 +198,11 @@ const DE: TechnicalDocument = {
         {
           kind: "terms",
           items: [
-            { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst; erst wenn sie nicht wirkt, wird gesteigert: zuerst eine Korrektur, dann das Verbergen des Inhalts, zuletzt die Sperre des Kontos. Bei schwerem oder andauerndem Schaden — Drohungen, veröffentlichte persönliche Daten, anhaltende Belästigung — ist sofortiges Handeln gerechtfertigt. Wiederholtes Verhalten zählt bei der Entscheidung, und das Protokoll hält den Verlauf fest." },
+            { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst. Erst wenn sie nicht wirkt, wird gesteigert: zuerst eine Korrektur, dann das Verbergen des Inhalts, zuletzt die Sperre des Kontos. Bei schwerem oder andauerndem Schaden — Drohungen, veröffentlichte persönliche Daten, anhaltende Belästigung — ist sofortiges Handeln gerechtfertigt. Wiederholtes Verhalten zählt bei der Entscheidung, und das Protokoll hält den Verlauf fest." },
             { label: "Wer entscheidet", text: "die Moderation untersucht und schlägt vor; die Verwaltung entscheidet und verhängt die Sperre. Vereint eine Person beide Rollen, wird die Entscheidung als Verwaltung getroffen und so protokolliert." },
-            { label: "Was mitgeteilt wird", text: "mitgeteilt wird, welche Regel verletzt wurde, welches Verhalten dahintersteckt und wie der Fall zum Team kam (durch eine Meldung oder durch eigene Prüfung), in der Sprache des Kontos." },
+            { label: "Inhalt des Hinweises", text: "er nennt die verletzte Regel, das Verhalten dahinter und wie der Fall zum Team kam (durch eine Meldung oder durch eigene Prüfung), in der Sprache des Kontos." },
             { label: "Frist", text: "Sperren haben eine konkrete Dauer von einem Tag bis zu einem Jahr und enden automatisch." },
-            { label: "Privatsphäre", text: "wer gemeldet hat, wird der gesperrten Person und der Öffentlichkeit nicht genannt; das Team muss es aber wissen, um die Meldung zu bewerten. Die Moderation liest keine verschlüsselten Nachrichten: sie kann nur auf Meldungen reagieren." },
+            { label: "Privatsphäre", text: "wer gemeldet hat, erfährt die gesperrte Person nicht, und öffentlich wird es auch nicht; das Team muss es aber wissen, um die Meldung zu bewerten. Die Moderation liest keine verschlüsselten Nachrichten: sie kann nur auf Meldungen reagieren." },
           ],
         },
       ],
@@ -267,7 +267,7 @@ const EN: TechnicalDocument = {
   updated: UPDATED,
   intro: [
     "Wanderbibliothek is free software, and each instance is governed by its community. This document separates what the project guarantees from what each instance decides.",
-    "It also explains how moderation works, how sanctions are applied and how a sanction can be appealed.",
+    "It also explains how moderation works and how a sanction can be appealed.",
   ],
   sections: [
     {
@@ -297,8 +297,8 @@ const EN: TechnicalDocument = {
           items: [
             { label: "Project maintenance", text: "reviews the code, publishes releases and maintains the technical documentation. It does not administer instances." },
             { label: "Instance administration", text: "manages the server, backups and the team, and is the only role that can suspend accounts." },
-            { label: "Moderation", text: "reviews reports, hides content, documents its actions and proposes suspensions. It does not suspend accounts or appoint the team." },
-            { label: "Community", text: "takes part in circles and lists, proposes changes and can ask for any decision affecting them to be reviewed." },
+            { label: "Moderation", text: "reviews reports, hides content and documents its actions. It proposes suspensions but does not apply them, and it does not appoint the team." },
+            { label: "Community", text: "takes part in circles and lists and proposes changes; it can also ask for any decision affecting it to be reviewed." },
           ],
         },
       ],
@@ -314,11 +314,11 @@ const EN: TechnicalDocument = {
         {
           kind: "terms",
           items: [
-            { label: "Proportionality", text: "the least restrictive measure that solves the problem, escalating only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record." },
+            { label: "Proportionality", text: "the least restrictive measure that solves the problem. Escalate only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record." },
             { label: "Who decides", text: "moderation investigates and proposes; administration decides and applies a suspension. When one person holds both roles, the decision is taken under the administration role and recorded as such." },
-            { label: "What the notice says", text: "it states which rule was broken, which conduct led to it and how the case reached the team (a report or a proactive review), in the language of the account." },
+            { label: "What it contains", text: "the rule that was broken, the conduct behind it and how the case reached the team (a report or a proactive review), in the language of the account." },
             { label: "Time limit", text: "suspensions have a specific duration, from one day to one year, and end automatically." },
-            { label: "Privacy", text: "the reporter is not revealed to the sanctioned person or publicly; the team does need to know who reported in order to assess the report. Moderators do not read encrypted messages: they act on what is reported." },
+            { label: "Privacy", text: "the reporter is not named to the sanctioned person or in public; the team does need to know who it was in order to assess the case. Moderators do not read encrypted messages: they act on what is reported." },
           ],
         },
       ],

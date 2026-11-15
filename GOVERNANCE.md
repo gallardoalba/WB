@@ -2,7 +2,7 @@
 
 Status: 2026-11-15. The same text is published by the application at `/normas`.
 
-Wanderbibliothek is free software, and each instance is governed by its own community. This document separates what **the project** guarantees from what **each instance** decides. It also explains how moderation, sanctions and appeals work in the application.
+Wanderbibliothek is free software, and each instance is governed by its own community. This document separates what **the project** guarantees from what **each instance** decides. It also explains how moderation works and how a sanction can be appealed.
 
 ## Project and instance
 
@@ -17,8 +17,8 @@ Wanderbibliothek is free software, and each instance is governed by its own comm
 | --- | --- | --- |
 | Project maintenance | Reviews code, publishes releases, maintains documentation | Does not administer instances |
 | Instance administration | Server, backups, team management, **account suspensions** | Cannot edit the code of other instances |
-| Moderation | Reviews reports, hides content, documents actions and proposes suspensions | Does not suspend accounts or appoint the team |
-| Community | Takes part in circles and lists, proposes changes, requests reviews | — |
+| Moderation | Reviews reports, hides content, documents actions, proposes suspensions | Does not apply suspensions or appoint the team |
+| Community | Takes part in circles and lists, proposes changes, asks for reviews | — |
 
 An administrator may also moderate, but moderation does not imply administration. In the application, `is_admin` and `is_moderator` are separate flags.
 
@@ -26,11 +26,11 @@ An administrator may also moderate, but moderation does not imply administration
 
 Moderation protects people. Discomfort or disagreement is not grounds for a sanction, and neither is a harsh review or an awkward conversation.
 
-- **Proportionality.** Apply the least restrictive measure that solves the problem, escalating only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record.
+- **Proportionality.** Apply the least restrictive measure that solves the problem. Escalate only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record.
 - **Who decides.** Moderation investigates and proposes; an administrator decides and applies a suspension. When one person holds both roles, the decision is taken under the administrator role and recorded as such.
-- **What the notice says.** It states which rule was broken, which conduct led to it and how the case reached the team (a report or a proactive review), in the language of the account.
+- **What it contains.** The rule that was broken, the conduct behind it and how the case reached the team (a report or a proactive review), in the language of the account.
 - **Time limit.** Suspensions last from 1 to 365 days and are lifted automatically when they expire. There is no indefinite suspension in the application.
-- **Privacy.** The reporter is not revealed to the sanctioned person or publicly; the team does need to know who reported in order to assess the report. Moderators do not read end-to-end encrypted messages; they act on what is reported.
+- **Privacy.** The reporter is not named to the sanctioned person or in public; the team does need to know who it was in order to assess the case. Moderators do not read end-to-end encrypted messages; they act on what is reported.
 
 ## Sanctions and appeals
 
