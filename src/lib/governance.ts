@@ -119,7 +119,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Las actuaciones de moderación quedan registradas en una auditoría interna que solo puede leer el equipo. La aplicación nunca la edita y la poda según AUDIT_RETENTION_DAYS. Cada instancia publica al menos una vez al año un informe agregado, sin nombres ni casos concretos: denuncias recibidas y su resultado, medidas aplicadas, suspensiones activas y apelaciones con su resultado y tiempo medio de respuesta. En una comunidad pequeña el detalle por caso permitiría identificar personas, así que el informe se queda en cifras.",
+          text: "Las actuaciones de moderación quedan registradas en una auditoría interna que solo puede leer el equipo. La aplicación nunca la edita y la poda según AUDIT_RETENTION_DAYS. Cada instancia publica al menos una vez al año un informe agregado, sin nombres ni casos concretos. Recoge las denuncias recibidas y su resultado, las medidas aplicadas, las suspensiones activas y las apelaciones con su resultado y su tiempo medio de respuesta. En una comunidad pequeña el detalle por caso permitiría identificar personas, así que el informe se queda en cifras.",
         },
       ],
     },
@@ -129,7 +129,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Una instancia no debería depender de una sola persona. La guía de despliegue recomienda al menos dos administradores, copias cifradas fuera del servidor, un procedimiento de relevo para el dominio, las credenciales y las copias, y un procedimiento de cierre: aviso a sus miembros, plazo para exportar sus datos y borrado de lo que la ley no obligue a conservar.",
+          text: "Una instancia no debería depender de una sola persona. La guía de despliegue recomienda al menos dos administradores, copias cifradas fuera del servidor y un procedimiento de relevo para el dominio, las credenciales y las copias. Pide además un procedimiento de cierre que avise a los miembros, les dé plazo para exportar sus datos y borre lo que la ley no obligue a conservar.",
         },
       ],
     },
@@ -235,7 +235,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderationsmaßnahmen werden in einem internen Protokoll festgehalten, das nur das Team lesen kann. Die Anwendung ändert es nie und kürzt es nach AUDIT_RETENTION_DAYS. Jede Instanz veröffentlicht mindestens einmal im Jahr einen aggregierten Bericht, ohne Namen und ohne Einzelfälle: eingegangene Meldungen und ihr Ergebnis, angewandte Maßnahmen, aktive Sperren sowie Einsprüche mit Ergebnis und durchschnittlicher Antwortzeit. In einer kleinen Community würden Einzelfälle auf Personen schließen lassen, deshalb bleibt der Bericht bei Zahlen.",
+          text: "Moderationsmaßnahmen werden in einem internen Protokoll festgehalten, das nur das Team lesen kann. Die Anwendung ändert es nie und kürzt es nach AUDIT_RETENTION_DAYS. Jede Instanz veröffentlicht mindestens einmal im Jahr einen aggregierten Bericht, ohne Namen und ohne Einzelfälle. Er nennt die eingegangenen Meldungen und ihr Ergebnis, die angewandten Maßnahmen, die aktiven Sperren sowie die Einsprüche mit Ergebnis und durchschnittlicher Antwortzeit. In einer kleinen Community würden Einzelfälle auf Personen schließen lassen, deshalb bleibt der Bericht bei Zahlen.",
         },
       ],
     },
@@ -245,7 +245,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Eine Instanz sollte nicht von einer einzigen Person abhängen. Die Betriebsanleitung empfiehlt mindestens zwei Administrator:innen, verschlüsselte Backups außerhalb des Servers, ein Übergabeverfahren für Domain, Zugangsdaten und Backups sowie ein Verfahren zum Schließen der Instanz: Ankündigung an die Mitglieder, Frist zum Exportieren der Daten und Löschung dessen, was nicht gesetzlich aufzubewahren ist.",
+          text: "Eine Instanz sollte nicht von einer einzigen Person abhängen. Die Betriebsanleitung empfiehlt mindestens zwei Administrator:innen, verschlüsselte Backups außerhalb des Servers und ein Übergabeverfahren für Domain, Zugangsdaten und Backups. Dazu kommt ein Verfahren zum Schließen der Instanz: Es kündigt die Schließung den Mitgliedern an, lässt ihnen Zeit für den Export ihrer Daten und löscht, was nicht gesetzlich aufzubewahren ist.",
         },
       ],
     },
@@ -351,7 +351,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderation actions are recorded in an internal audit log that only the team can read. The application never edits it and prunes it according to AUDIT_RETENTION_DAYS. Each instance publishes an aggregate report at least once a year, without names or individual cases: reports received and their outcome, measures applied, active suspensions and appeals with their outcome and average response time. In a small community per-case detail would identify people, so the report stays at aggregate figures.",
+          text: "Moderation actions are recorded in an internal audit log that only the team can read. The application never edits it and prunes it according to AUDIT_RETENTION_DAYS. Each instance publishes an aggregate report at least once a year, without names or individual cases. It covers reports received and their outcome, measures applied, active suspensions, and appeals with their outcome and average response time. In a small community per-case detail would identify people, so the report stays at aggregate figures.",
         },
       ],
     },
@@ -361,7 +361,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "An instance should not depend on a single person. The deployment guide recommends at least two administrators, encrypted backups kept off the server, a handover procedure for the domain, credentials and backups, and a procedure for closing the instance: notice to its members, a window to export their data and deletion of what is not required by law.",
+          text: "An instance should not depend on a single person. The deployment guide recommends at least two administrators, encrypted backups kept off the server and a handover procedure for the domain, credentials and backups. It also asks for a closure procedure: it tells the members, gives them time to export their data and deletes what the law does not require keeping.",
         },
       ],
     },

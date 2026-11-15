@@ -8,11 +8,11 @@ Nothing is sold, and no one is rewarded for taking part.
 
 ## Why it exists
 
-Some books stay with us because of what they mean to us and the lasting mark they leave. Passing them on is a way of sharing what we have learned from them and of treating the library as a commons rather than a private collection.
+Some books stay with us. Passing one on shares what it gave us and keeps the library in common hands.
 
-Knowledge is not something each of us owns and keeps to ourselves, but a commons that grows through circulation. A book passed from hand to hand gives rise to new readings, conversations and disagreements. That is why this platform is about books that matter, not about stock.
+Knowledge grows when books circulate. Every copy passed on brings readings, conversations and disagreements. The platform is built around books people care about.
 
-## What the platform offers
+## What you can do
 
 - **Share books.** List a book you'd like to pass on, including its condition and city. Entering an ISBN automatically retrieves its bibliographic details from Open Library, Google Books or the German National Library (DNB).
 - **Exchange books.** Every exchange follows a simple, mutual process: one reader requests a book, the owner accepts, and both confirm the handover. Neither side can complete an exchange on their own. Once it's done, both readers can leave each other feedback. The book that has changed hands remains in the platform's history, while the recipient's own copy is temporarily paused.
@@ -62,13 +62,13 @@ Create an admin account using `ADMIN_EMAIL` and `ADMIN_PASSWORD`, or run `npm ru
 
 The documentation is available both in the application at `/techdoc` and in the repository. The project page at [wanderbibliothek.org/projekt](https://wanderbibliothek.org/projekt) explains what it is, why it exists and which decisions stand behind how it is built.
 
-- [`DOCUMENTATION.md`](DOCUMENTATION.md): architecture, routes, data model, security and operations.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): local environment, the checks a change has to pass, commit, migration and translation conventions.
-- [`GOVERNANCE.md`](GOVERNANCE.md): who decides what, how moderation and sanctions work, and how appeals are reviewed.
-- [`deploy/README.md`](deploy/README.md): production setup with systemd, nginx, TLS, backups and timers.
+- [`DOCUMENTATION.md`](DOCUMENTATION.md) covers architecture, routes, the data model, security and operations.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) explains the local environment, the checks a change has to pass, and the commit, migration and translation conventions.
+- [`GOVERNANCE.md`](GOVERNANCE.md) says who decides what, how moderation and sanctions work, and how appeals are reviewed.
+- [`deploy/README.md`](deploy/README.md) walks through production setup with systemd, nginx, TLS, backups and timers.
 
 Project updates are posted on Mastodon at [@wanderbibliothek@mastodon.social](https://mastodon.social/@wanderbibliothek).
 
 ## License and credits
 
-The source code is released under the **MIT License**. Third-party assets, including the cover photograph and the typeface used on book covers, remain subject to their respective licenses and are credited in [`NOTICE`](NOTICE).
+The code is under the **MIT License**. The cover photograph and the typeface used on book covers keep their own licenses and are credited in [`NOTICE`](NOTICE).

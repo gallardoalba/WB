@@ -44,7 +44,7 @@ One appeal may be open at a time per sanction; a rejection does not prevent a la
 
 ## Transparency
 
-Moderation actions are written to an internal audit log that only the team can read. The application never edits it and prunes it according to `AUDIT_RETENTION_DAYS`. Each instance publishes an aggregate report at least once a year, without names or individual cases: reports received and their outcome, measures applied, active suspensions and appeals with their outcome and average response time. In a small community per-case detail would identify people, so the report stays at aggregate figures.
+Moderation actions are written to an internal audit log that only the team can read. The application never edits it and prunes it according to `AUDIT_RETENTION_DAYS`. Each instance publishes an aggregate report at least once a year, without names or individual cases. It covers reports received and their outcome, measures applied, active suspensions, and appeals with their outcome and average response time. In a small community per-case detail would identify people, so the report stays at aggregate figures.
 
 ```bash
 npm run informe:moderacion
@@ -57,7 +57,7 @@ An instance should not depend on a single person. The deployment guide recommend
 - at least two administrators, with `npm run admin:create` (and `npm run moderator:create` for moderation-only accounts);
 - encrypted backups kept off the server, with a rehearsed restore (`npm run db:verify`);
 - a documented handover for the domain, DNS, server provider, credentials, mail provider and backup keys;
-- a documented procedure for closing the instance: notice to its members, a window to export their data and deletion of what is not required by law.
+- a documented closure procedure (tell the members, give them time to export their data, delete what the law does not require keeping).
 
 ## Changes to this document
 

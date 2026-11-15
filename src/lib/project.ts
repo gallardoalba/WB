@@ -119,7 +119,7 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "La parte visible es solo una parte. Lo que define la plataforma es lo que no hace con los datos de nadie: no pide más de lo necesario, no los comparte con terceros y no los usa para retener a quien entra.",
+          text: "La parte visible es solo una parte. La plataforma pide los datos que necesita, no los comparte con terceros y no los usa para retener a quien entra.",
         },
         {
           kind: "terms",
@@ -280,7 +280,7 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Das Sichtbare ist der kleinere Teil. Was die Plattform ausmacht, ist das, was sie mit den Daten anderer nicht tut: Sie verlangt nicht mehr als nötig, gibt sie nicht an Dritte weiter und nutzt sie nicht, um jemanden zu halten.",
+          text: "Das Sichtbare ist der kleinere Teil. Die Plattform verlangt die Daten, die sie braucht, gibt sie nicht an Dritte weiter und nutzt sie nicht, um jemanden zu halten.",
         },
         {
           kind: "terms",
@@ -441,7 +441,7 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "The visible part is the smaller half. What defines the platform is what it does not do with other people's data: it asks for no more than it needs, hands none of it to third parties and uses none of it to keep anyone tied to it.",
+          text: "The visible part is the smaller half. The platform asks for the data it needs, hands none of it to third parties and uses none of it to keep anyone tied to it.",
         },
         {
           kind: "terms",
