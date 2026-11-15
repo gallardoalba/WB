@@ -1021,7 +1021,10 @@ sudo systemctl daemon-reload
 sudo install -d -m 700 -o wanderbibliothek -g wanderbibliothek \
   /var/lib/wanderbibliothek/next-cache
 
-# 4. Primera imagen, verificada y fijada por digest.
+# 4. El comando de despliegue, disponible sin depender del clon.
+sudo install -m 755 deploy/deploy-image.sh /usr/local/sbin/wanderbibliothek-deploy-image
+
+# 5. Primera imagen, verificada y fijada por digest.
 sudo deploy/deploy-image.sh --ref 1.0.1
 ```
 
@@ -1045,6 +1048,9 @@ docker inspect --format '{{.Config.Labels}}' \
 ```bash
 sudo deploy/deploy-image.sh --ref 1.0.2     # nueva release firmada
 sudo deploy/deploy-image.sh --rollback      # vuelve a la anterior
+
+# o, si se instaló en /usr/local/sbin:
+sudo wanderbibliothek-deploy-image --ref 1.0.2
 ```
 
 El rollback real de la aplicación es cambiar el digest; el enlace
