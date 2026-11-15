@@ -350,9 +350,19 @@ export default function WanderbibliothekApp({
         ...patch,
       };
       const params = new URLSearchParams();
+      // Cambiar de vista empieza arriba; cambiar un filtro no mueve la página.
+      // El desplazamiento lo hace el router **después** de pintar la vista
+      // nueva: hacerlo a mano en el efecto dejaba la página a media altura
+      // cuando el contenido nuevo todavía no tenía su altura definitiva.
+      const cambiaVista = next.view !== view;
+      // El idioma no cruza de una vista a otra: la portada lo elige por su
+      // cuenta (el de la interfaz) y el catálogo arranca entero, que su barra ya
+      // deja filtrarlo a mano. Dentro de una misma vista el filtro se conserva.
+      if (!cambiaVista && next.language && next.language !== "Todos") {
+        params.set("language", String(next.language));
+      }
       if (next.q) params.set("q", String(next.q));
       if (next.category && next.category !== "Todos") params.set("category", String(next.category));
-      if (next.language && next.language !== "Todos") params.set("language", String(next.language));
       if (next.sort && next.sort !== "near") params.set("sort", String(next.sort));
       if (Number(next.radius) > 0) params.set("radius", String(next.radius));
       if (next.shelf && next.shelf !== "all") params.set("shelf", String(next.shelf));
@@ -368,7 +378,6 @@ export default function WanderbibliothekApp({
       // El desplazamiento lo hace el router **después** de pintar la vista
       // nueva: hacerlo a mano en el efecto dejaba la página a media altura
       // cuando el contenido nuevo todavía no tenía su altura definitiva.
-      const cambiaVista = next.view !== view;
       startTransition(() => {
         router.replace(query ? `${target}?${query}` : target, { scroll: cambiaVista });
       });
