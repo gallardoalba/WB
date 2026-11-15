@@ -25,7 +25,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Sea cual sea su tamaño, una instancia debe publicar sus normas, explicar cada decisión de moderación y ofrecer una vía para apelar una suspensión.",
+          text: "Esas normas no bastan por sí solas: cada decisión de moderación debe explicarse y toda suspensión debe poder apelarse, también en la instancia más pequeña.",
         },
       ],
     },
@@ -76,8 +76,8 @@ const ES: TechnicalDocument = {
               text: "la moderación investiga y propone; la administración decide y aplica la suspensión. Si una misma persona reúne ambos papeles, la decisión se toma como administración y así queda registrada.",
             },
             {
-              label: "Aviso",
-              text: "el aviso dice qué norma se ha incumplido, qué conducta lo motiva y cómo llegó el caso al equipo —por una denuncia o por revisión propia—, en el idioma de la cuenta.",
+              label: "Qué se comunica",
+              text: "se dice qué norma se ha incumplido, qué conducta lo motiva y cómo llegó el caso al equipo (por una denuncia o por revisión propia), en el idioma de la cuenta.",
             },
             {
               label: "Plazo",
@@ -105,11 +105,11 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La revisa alguien sin participación en la decisión original y sin conflicto de interés, y responde en un plazo máximo de 14 días; si la instancia no tiene a nadie disponible, puede hacerlo una persona externa y su nombre queda registrado. Puede levantar la suspensión o mantenerla; la aplicación no permite acortarla.",
+          text: "La revisión la hace alguien ajeno a la decisión original y sin conflicto de interés, y se responde en un plazo máximo de 14 días. Si la instancia no tiene a nadie disponible, puede hacerlo una persona externa y su nombre queda registrado. Quien revisa puede levantar la suspensión o mantenerla; la aplicación no permite acortarla.",
         },
         {
           kind: "p",
-          text: "Si se estima, la cuenta se reactiva y se avisa por correo; si se mantiene, la respuesta explica por qué. La decisión queda en la auditoría. Solo puede haber una apelación abierta a la vez por sanción; un rechazo no impide otra posterior si la persona consigue un enlace nuevo. Las resueltas se borran a los 730 días —tiempo suficiente para valorar la reincidencia y responder a una reclamación posterior—.",
+          text: "Si se estima, la cuenta se reactiva y se avisa por correo; si se mantiene, la respuesta explica por qué. La decisión queda en la auditoría. Solo puede haber una apelación abierta a la vez por sanción; un rechazo no impide otra posterior si la persona consigue un enlace nuevo. Las apelaciones resueltas se borran a los 730 días, tiempo suficiente para valorar la reincidencia y responder a una reclamación posterior.",
         },
       ],
     },
@@ -119,7 +119,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Las actuaciones de moderación quedan registradas en una auditoría interna que solo puede leer el equipo, que la aplicación nunca edita y que se poda según AUDIT_RETENTION_DAYS. Cada instancia publica al menos una vez al año un informe agregado —denuncias recibidas y su resultado, medidas aplicadas, suspensiones activas y apelaciones con su resultado y tiempo medio de respuesta— sin nombres ni casos concretos. En una comunidad pequeña, el detalle por caso permite identificar personas: el informe se queda en cifras agregadas.",
+          text: "Las actuaciones de moderación quedan registradas en una auditoría interna que solo puede leer el equipo. La aplicación nunca la edita y la poda según AUDIT_RETENTION_DAYS. Cada instancia publica al menos una vez al año un informe agregado, sin nombres ni casos concretos: denuncias recibidas y su resultado, medidas aplicadas, suspensiones activas y apelaciones con su resultado y tiempo medio de respuesta. En una comunidad pequeña el detalle por caso permitiría identificar personas, así que el informe se queda en cifras.",
         },
       ],
     },
@@ -168,7 +168,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Unabhängig von ihrer Größe muss jede Instanz ihre Regeln veröffentlichen, jede Moderationsentscheidung begründen und einen Weg bieten, gegen eine Sperre Einspruch einzulegen.",
+          text: "Regeln allein genügen nicht: jede Moderationsentscheidung muss begründet werden und gegen jede Sperre muss Einspruch möglich sein, auch in der kleinsten Instanz.",
         },
       ],
     },
@@ -200,7 +200,7 @@ const DE: TechnicalDocument = {
           items: [
             { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst; erst wenn sie nicht wirkt, wird gesteigert: zuerst eine Korrektur, dann das Verbergen des Inhalts, zuletzt die Sperre des Kontos. Bei schwerem oder andauerndem Schaden — Drohungen, veröffentlichte persönliche Daten, anhaltende Belästigung — ist sofortiges Handeln gerechtfertigt. Wiederholtes Verhalten zählt bei der Entscheidung, und das Protokoll hält den Verlauf fest." },
             { label: "Wer entscheidet", text: "die Moderation untersucht und schlägt vor; die Verwaltung entscheidet und verhängt die Sperre. Vereint eine Person beide Rollen, wird die Entscheidung als Verwaltung getroffen und so protokolliert." },
-            { label: "Hinweis", text: "der Hinweis nennt die verletzte Regel, das Verhalten dahinter und wie der Fall zum Team kam — durch eine Meldung oder durch eigene Prüfung —, in der Sprache des Kontos." },
+            { label: "Was mitgeteilt wird", text: "mitgeteilt wird, welche Regel verletzt wurde, welches Verhalten dahintersteckt und wie der Fall zum Team kam (durch eine Meldung oder durch eigene Prüfung), in der Sprache des Kontos." },
             { label: "Frist", text: "Sperren haben eine konkrete Dauer von einem Tag bis zu einem Jahr und enden automatisch." },
             { label: "Privatsphäre", text: "wer gemeldet hat, wird der gesperrten Person und der Öffentlichkeit nicht genannt; das Team muss es aber wissen, um die Meldung zu bewerten. Die Moderation liest keine verschlüsselten Nachrichten: sie kann nur auf Meldungen reagieren." },
           ],
@@ -221,11 +221,11 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Geprüft wird von jemandem ohne Beteiligung am ursprünglichen Entscheid und ohne Interessenkonflikt, mit Antwort innerhalb von 14 Tagen; hat die Instanz niemanden frei, kann das eine externe Person übernehmen, deren Name protokolliert wird. Sie kann die Sperre aufheben oder bestätigen; die Anwendung erlaubt keine Verkürzung.",
+          text: "Geprüft wird von jemandem, der an der ursprünglichen Entscheidung nicht beteiligt war und keinen Interessenkonflikt hat; geantwortet wird innerhalb von 14 Tagen. Hat die Instanz niemanden frei, kann das eine externe Person übernehmen, deren Name protokolliert wird. Sie kann die Sperre aufheben oder bestätigen; die Anwendung erlaubt keine Verkürzung.",
         },
         {
           kind: "p",
-          text: "Wird ihm stattgegeben, wird das Konto reaktiviert und per E-Mail informiert; sonst erklärt die Antwort, warum. Die Entscheidung wird protokolliert. Pro Sanktion ist jeweils ein offener Einspruch möglich; eine Ablehnung verhindert keinen späteren, wenn die Person einen neuen Link erhält. Entschiedene Einsprüche werden nach 730 Tagen gelöscht — genug, um wiederholtes Verhalten zu bewerten und eine spätere Beschwerde zu beantworten.",
+          text: "Wird ihm stattgegeben, wird das Konto reaktiviert und per E-Mail informiert; sonst erklärt die Antwort, warum. Die Entscheidung wird protokolliert. Pro Sanktion ist ein offener Einspruch möglich; eine Ablehnung verhindert keinen späteren, wenn die Person einen neuen Link erhält. Entschiedene Einsprüche werden nach 730 Tagen gelöscht, genug, um wiederholtes Verhalten zu bewerten und eine spätere Beschwerde zu beantworten.",
         },
       ],
     },
@@ -235,7 +235,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderationsmaßnahmen werden in einem internen Protokoll festgehalten, das nur das Team lesen kann, das die Anwendung nie ändert und das nach AUDIT_RETENTION_DAYS gekürzt wird. Jede Instanz veröffentlicht mindestens einmal im Jahr einen aggregierten Bericht — eingegangene Meldungen und ihr Ergebnis, angewandte Maßnahmen, aktive Sperren sowie Einsprüche mit Ergebnis und durchschnittlicher Antwortzeit — ohne Namen und ohne Einzelfälle. In einer kleinen Community lassen Einzelfälle auf Personen schließen: der Bericht bleibt aggregiert.",
+          text: "Moderationsmaßnahmen werden in einem internen Protokoll festgehalten, das nur das Team lesen kann. Die Anwendung ändert es nie und kürzt es nach AUDIT_RETENTION_DAYS. Jede Instanz veröffentlicht mindestens einmal im Jahr einen aggregierten Bericht, ohne Namen und ohne Einzelfälle: eingegangene Meldungen und ihr Ergebnis, angewandte Maßnahmen, aktive Sperren sowie Einsprüche mit Ergebnis und durchschnittlicher Antwortzeit. In einer kleinen Community würden Einzelfälle auf Personen schließen lassen, deshalb bleibt der Bericht bei Zahlen.",
         },
       ],
     },
@@ -284,7 +284,7 @@ const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Whatever its size, an instance must publish its rules, explain every moderation decision and offer a way to appeal a suspension.",
+          text: "Rules alone are not enough: every moderation decision has to be explained and every suspension has to be appealable, even in the smallest instance.",
         },
       ],
     },
@@ -316,7 +316,7 @@ const EN: TechnicalDocument = {
           items: [
             { label: "Proportionality", text: "the least restrictive measure that solves the problem, escalating only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record." },
             { label: "Who decides", text: "moderation investigates and proposes; administration decides and applies a suspension. When one person holds both roles, the decision is taken under the administration role and recorded as such." },
-            { label: "Notice", text: "the notice states which rule was broken, which conduct led to it and how the case reached the team — a report or a proactive review — in the language of the account." },
+            { label: "What the notice says", text: "it states which rule was broken, which conduct led to it and how the case reached the team (a report or a proactive review), in the language of the account." },
             { label: "Time limit", text: "suspensions have a specific duration, from one day to one year, and end automatically." },
             { label: "Privacy", text: "the reporter is not revealed to the sanctioned person or publicly; the team does need to know who reported in order to assess the report. Moderators do not read encrypted messages: they act on what is reported." },
           ],
@@ -337,11 +337,11 @@ const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Someone with no part in the original decision and no conflict of interest reviews it and answers within 14 days; where the instance has nobody available, an external reviewer may do it and their name is recorded. The reviewer may lift the suspension or uphold it; the application does not allow shortening it.",
+          text: "Someone with no part in the original decision and no conflict of interest reviews it, and the answer arrives within 14 days. Where the instance has nobody available, an external reviewer may do it and their name is recorded. The reviewer may lift the suspension or uphold it; the application does not allow shortening it.",
         },
         {
           kind: "p",
-          text: "If upheld, the account is reactivated and the person is notified by email; if rejected, the reply explains why. The decision is recorded in the audit log. One appeal may be open at a time per sanction; a rejection does not prevent a later one if the person obtains a new link. Resolved appeals are deleted after 730 days — enough to judge repeated conduct and to answer a later complaint.",
+          text: "If upheld, the account is reactivated and the person is notified by email; if rejected, the reply explains why. The decision is recorded in the audit log. One appeal may be open at a time per sanction; a rejection does not prevent a later one if the person obtains a new link. Resolved appeals are deleted after 730 days, enough to judge repeated conduct and to answer a later complaint.",
         },
       ],
     },
@@ -351,7 +351,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderation actions are recorded in an internal audit log that only the team can read, that the application never edits and that is pruned according to AUDIT_RETENTION_DAYS. Each instance publishes an aggregate report at least once a year — reports received and their outcome, measures applied, active suspensions and appeals with their outcome and average response time — without names or individual cases. In a small community, per-case detail can identify people: the report stays aggregate.",
+          text: "Moderation actions are recorded in an internal audit log that only the team can read. The application never edits it and prunes it according to AUDIT_RETENTION_DAYS. Each instance publishes an aggregate report at least once a year, without names or individual cases: reports received and their outcome, measures applied, active suspensions and appeals with their outcome and average response time. In a small community per-case detail would identify people, so the report stays at aggregate figures.",
         },
       ],
     },
