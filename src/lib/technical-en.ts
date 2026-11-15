@@ -155,7 +155,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v51). A new installation starts from `SCHEMA_V2` and its indexes; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Only two steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key) and v44 (when an exchange closes, the receiver gets a copy of their own). The detail of every step lives in that file and in its git history.",
+          text: "Migrations are versioned with `PRAGMA user_version` (current: v53). A new installation starts from `SCHEMA_V2` and its indexes; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Four steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals) and v53 (who reviewed an appeal and whether they came from outside the team). The detail of every step lives in that file and in its git history.",
         },
         {
           kind: "p",
