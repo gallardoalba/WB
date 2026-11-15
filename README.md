@@ -20,7 +20,7 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 - **Private messages.** Every exchange comes with an end-to-end encrypted conversation. Readers who follow each other can also send private messages.
 - **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
 - **Lists, community and activity.** Create public reading lists, discover other readers through a directory you can sort by distance, and follow what's happening in your area.
-- **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Email and the Mastodon bot are optional. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
+- **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
 
 ## Principles
 
