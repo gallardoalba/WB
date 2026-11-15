@@ -113,28 +113,28 @@ export function suspensionMail(
 /** Respuesta a una apelación: si se estima, la suspensión ya está levantada. */
 export function appealResolvedMail(
   locale: Locale,
-  input: { upheld: boolean; resolution: string },
+  input: { upheld: boolean; stillSuspended: boolean; resolution: string },
 ): MailText {
   if (locale === "de") {
-    return {
-      subject: "Antwort auf deinen Einspruch bei Wanderbibliothek",
-      text: input.upheld
-        ? `Dein Einspruch war erfolgreich: die Sperre wurde aufgehoben. Du kannst dich wieder anmelden.\n\n${input.resolution}`
-        : `Dein Einspruch wurde geprüft. Die Sperre bleibt bestehen.\n\n${input.resolution}`,
-    };
+    const outcome = input.upheld
+      ? "Dein Einspruch war erfolgreich: die Sperre wurde aufgehoben. Du kannst dich wieder anmelden."
+      : input.stillSuspended
+        ? "Dein Einspruch wurde geprüft. Die Sperre bleibt bestehen."
+        : "Dein Einspruch wurde geprüft. Die Sperre war bei dieser Antwort bereits abgelaufen.";
+    return { subject: "Antwort auf deinen Einspruch bei Wanderbibliothek", text: `${outcome}\n\n${input.resolution}` };
   }
   if (locale === "en") {
-    return {
-      subject: "Reply to your appeal at Wanderbibliothek",
-      text: input.upheld
-        ? `Your appeal was upheld and the suspension has been lifted. You can sign in again.\n\n${input.resolution}`
-        : `Your appeal has been reviewed. The suspension remains in place.\n\n${input.resolution}`,
-    };
+    const outcome = input.upheld
+      ? "Your appeal was upheld and the suspension has been lifted. You can sign in again."
+      : input.stillSuspended
+        ? "Your appeal has been reviewed. The suspension remains in place."
+        : "Your appeal has been reviewed. The suspension had already ended when this reply was written.";
+    return { subject: "Reply to your appeal at Wanderbibliothek", text: `${outcome}\n\n${input.resolution}` };
   }
-  return {
-    subject: "Respuesta a tu apelación en Wanderbibliothek",
-    text: input.upheld
-      ? `Tu apelación ha sido estimada y la suspensión se ha levantado. Ya puedes volver a entrar.\n\n${input.resolution}`
-      : `Tu apelación se ha revisado. La suspensión se mantiene.\n\n${input.resolution}`,
-  };
+  const outcome = input.upheld
+    ? "Tu apelación ha sido estimada y la suspensión se ha levantado. Ya puedes volver a entrar."
+    : input.stillSuspended
+      ? "Tu apelación se ha revisado. La suspensión se mantiene."
+      : "Tu apelación se ha revisado. La suspensión ya había terminado cuando se escribió esta respuesta.";
+  return { subject: "Respuesta a tu apelación en Wanderbibliothek", text: `${outcome}\n\n${input.resolution}` };
 }

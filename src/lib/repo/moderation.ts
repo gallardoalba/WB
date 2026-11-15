@@ -538,7 +538,13 @@ function sendSuspensionNotice(userId: string, suspension: { reason: string; unti
     .prepare("SELECT email FROM users WHERE id = ?")
     .get(userId) as { email: string } | undefined;
   if (row?.email && !row.email.startsWith("deleted-")) {
-    sendSuspensionEmail(userId, row.email, suspension.reason, suspension.until);
+    try {
+      sendSuspensionEmail(userId, row.email, suspension.reason, suspension.until);
+    } catch (error) {
+      // La sanción ya está aplicada: el correo se puede reintentar, pero no
+      // debe convertir una acción correcta en un 500.
+      console.error("[moderation] no se pudo encolar el aviso de sanción", error);
+    }
   }
 }
 

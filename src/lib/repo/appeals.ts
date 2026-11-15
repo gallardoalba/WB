@@ -203,9 +203,21 @@ export function resolveAppeal(
   })();
 
   const row = getDb()
-    .prepare("SELECT email FROM users WHERE id = ?")
-    .get(appeal.user_id) as { email: string } | undefined;
+    .prepare("SELECT email, is_suspended FROM users WHERE id = ?")
+    .get(appeal.user_id) as { email: string; is_suspended: number } | undefined;
   if (row?.email && !row.email.startsWith("deleted-")) {
-    sendAppealResolvedEmail(appeal.user_id, row.email, outcome === "upheld", resolution.trim());
+    try {
+      sendAppealResolvedEmail(
+        appeal.user_id,
+        row.email,
+        outcome === "upheld",
+        Boolean(row.is_suspended),
+        resolution.trim(),
+      );
+    } catch (error) {
+      // La decisión ya está tomada y auditada; un fallo al encolar el correo no
+      // debe devolver un error que haga pensar que no se guardó.
+      console.error("[appeals] no se pudo encolar la respuesta", error);
+    }
   }
 }

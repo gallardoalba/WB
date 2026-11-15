@@ -136,9 +136,15 @@ export function sendSuspensionEmail(
   const token = issueAccountToken(userId, "appeal");
   const locale = accountLocale(userId);
   const link = `${siteUrl()}/apelar?token=${token}&lang=${locale}`;
+  // El plazo se enseña en la zona de la casa: cortar el ISO en UTC podía
+  // adelantar un día la fecha para quien lo lee desde Berlín.
+  const day = new Intl.DateTimeFormat(
+    locale === "de" ? "de-DE" : locale === "en" ? "en-GB" : "es-ES",
+    { dateStyle: "medium", timeZone: "Europe/Berlin" },
+  ).format(new Date(until));
   enqueueMail({
     to: email,
-    ...suspensionMail(locale, { reason, until: until.slice(0, 10), link }),
+    ...suspensionMail(locale, { reason, until: day, link }),
   });
 }
 
@@ -147,8 +153,12 @@ export function sendAppealResolvedEmail(
   userId: string,
   email: string,
   upheld: boolean,
+  stillSuspended: boolean,
   resolution: string,
 ): void {
   const locale = accountLocale(userId);
-  enqueueMail({ to: email, ...appealResolvedMail(locale, { upheld, resolution }) });
+  enqueueMail({
+    to: email,
+    ...appealResolvedMail(locale, { upheld, stillSuspended, resolution }),
+  });
 }

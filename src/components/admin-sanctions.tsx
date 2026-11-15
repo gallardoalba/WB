@@ -73,6 +73,8 @@ const ACTION_LABELS: Record<string, MessageKey> = {
   hide_club: "Club oculto",
   restore_club: "Club restablecido",
   dismiss: "Denuncia descartada",
+  appeal_upheld: "Apelación estimada",
+  appeal_rejected: "Apelación rechazada",
 };
 
 export function AdminSanctions({

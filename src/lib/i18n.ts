@@ -1355,6 +1355,8 @@ export const DE = {
   "hasta el {date}": "bis zum {date}",
   "Normas": "Regeln",
   "Cómo se gobierna una instancia de Wanderbibliothek, cómo se modera, cómo se sanciona y cómo se apela una sanción.": "Wie eine Wanderbibliothek-Instanz geführt wird, wie moderiert und sanktioniert wird und wie Einspruch eingelegt werden kann.",
+  "Apelación estimada": "Einspruch stattgegeben",
+  "Apelación rechazada": "Einspruch abgelehnt",
 } satisfies Dictionary;
 
 /**
@@ -2684,6 +2686,8 @@ export const EN = {
   "hasta el {date}": "until {date}",
   "Normas": "Rules",
   "Cómo se gobierna una instancia de Wanderbibliothek, cómo se modera, cómo se sanciona y cómo se apela una sanción.": "How a Wanderbibliothek instance is governed, how moderation and sanctions work, and how an appeal can be made.",
+  "Apelación estimada": "Appeal upheld",
+  "Apelación rechazada": "Appeal rejected",
 } satisfies Dictionary;
 
 /** Textos con traducción alemana (las claves del diccionario). */
