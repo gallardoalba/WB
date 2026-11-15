@@ -404,9 +404,12 @@ sola:
 - **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
 - **Compresión y estáticos en el borde.** El vhost activa `gzip` (con
   `gzip_proxied any`, sin él no comprime lo que viene de Node) y sirve
-  `/_next/static/` y `public/{fonts,icons,hero}/` **desde el disco de la release
-  activa**: antes los pedía a Next uno por uno y los recursos de `public/`
-  salían con `max-age=0`. Por eso la aplicación va con `compress: false` en
+  `public/{fonts,icons,hero}/` desde el disco de la release activa. Los assets
+  de `/_next/static/` pasan por el contenedor que generó el HTML: así no se
+  mezclan los ficheros del checkout operativo con los de la imagen desplegada.
+  Next sirve esos assets con caché inmutable solo cuando existen; el hash se
+  separa por commit para que los navegadores no reutilicen errores 404 de una
+  versión previa. Por eso la aplicación va con `compress: false` en
   `next.config.ts`: comprimir en los dos sitios solo gastaba CPU.
 - **HTTP/3** (`listen 443 quic` + `Alt-Svc`) con el módulo `http_v3_module` de
   Debian. Hay que abrir UDP: `sudo ufw allow 443/udp`. Si el navegador no lo

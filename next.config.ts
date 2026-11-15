@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // El digest de cada imagen también separa sus nombres de assets. Así una
+  // caché que hubiera guardado un 404 de una release anterior no reutiliza la
+  // misma URL tras desplegar otra.
+  outputHashSalt: process.env.APP_COMMIT_SHA ?? "",
   cacheComponents: true,
   partialPrefetching: true,
   /**

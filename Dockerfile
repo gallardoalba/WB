@@ -31,6 +31,8 @@ RUN npm ci
 FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG APP_COMMIT_SHA=""
+ENV APP_COMMIT_SHA=$APP_COMMIT_SHA
 
 # Las variables NEXT_PUBLIC_* se incrustan en el bundle del cliente durante el
 # build: definirlas solo en el entorno del contenedor NO sirve (el widget de
