@@ -14,8 +14,8 @@ Knowledge is not property each of us keeps, but a commons that grows when it cir
 
 ## What the platform does
 
-- **Publishing books.** Put the books you have finished on the shelf in a couple of steps, with the condition they are in and where they are. The ISBN is optional: when you give one, the record is filled from Open Library, Google Books or the DNB (MARC21), classification included, and the lookup is cached on the server.
-- **Swapping.** Request, acceptance, a hand-over agreed between the two of you and a confirmation from both sides, so nobody can close an exchange alone; afterwards each person can review the other. When it closes, the copy that travelled stays as a record and the person who received it gets a copy of their own, paused until they offer it.
+- **Publishing books.** List a copy with its condition and city. An ISBN fills in the bibliographic record from Open Library, Google Books or the DNB.
+- **Swapping.** Request, acceptance and a hand-over confirmed by both sides, so nobody can close an exchange alone; afterwards each can review the other. The copy that travelled stays as a record and the receiver gets a paused copy of their own.
 - **No addresses.** The platform never asks for an address, a postcode or a delivery method.
 - **Direct messages.** Each exchange opens a conversation encrypted end to end, and readers who follow each other can write privately.
 - **Reading circles.** A current read, meetings in person or online, an attendance list, a vote on the next book and a forum only members can read.
