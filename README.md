@@ -8,9 +8,9 @@ Nothing is sold, and no one is rewarded for taking part.
 
 ## Why it exists
 
-Some books stay with us. Passing one on shares what it gave us and keeps the library in common hands.
+Some books stay with us because of what they mean to us and the lasting mark they leave. Passing them on is a way of sharing what we have learned from them and of treating the library as a commons rather than a private collection.
 
-Knowledge grows when books circulate. Every copy passed on brings readings, conversations and disagreements. The platform is built around books people care about.
+Knowledge is not something each of us owns and keeps to ourselves, but a commons that grows through circulation. A book passed from hand to hand gives rise to new readings, conversations and disagreements. That is why this platform is about books that matter, not about stock.
 
 ## What you can do
 
