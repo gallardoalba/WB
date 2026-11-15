@@ -60,7 +60,7 @@ Create an admin account using `ADMIN_EMAIL` and `ADMIN_PASSWORD`, or run `npm ru
 
 ## Documentation and contributing
 
-The documentation is available both in the application at `/techdoc` and in the repository. The project page at [wanderbibliothek.org/projekt](https://wanderbibliothek.org/projekt) explains what it is and why it exists.
+The documentation is available both in the application at `/techdoc` and in the repository.
 
 - [`DOCUMENTATION.md`](DOCUMENTATION.md) covers architecture, routes, the data model, security and operations.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) explains the local environment, the checks a change has to pass, and the commit, migration and translation conventions.
