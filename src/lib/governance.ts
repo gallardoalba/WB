@@ -25,7 +25,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Esas normas no bastan por sí solas: cada decisión de moderación debe explicarse y toda suspensión debe poder apelarse, también en la instancia más pequeña.",
+          text: "Esas normas no bastan por sí solas. Hasta la instancia más pequeña explica sus decisiones de moderación y permite apelar una suspensión.",
         },
       ],
     },
@@ -62,7 +62,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Se modera para proteger a las personas, no para castigar la incomodidad o el desacuerdo. Una crítica, una reseña dura o una conversación incómoda no son, por sí mismas, motivos de sanción.",
+          text: "Se modera para proteger a las personas. La incomodidad o el desacuerdo no son motivo de sanción, y una crítica dura o una conversación incómoda tampoco.",
         },
         {
           kind: "terms",
@@ -168,7 +168,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Regeln allein genügen nicht: jede Moderationsentscheidung muss begründet werden und gegen jede Sperre muss Einspruch möglich sein, auch in der kleinsten Instanz.",
+          text: "Regeln allein genügen nicht. Auch die kleinste Instanz begründet ihre Moderationsentscheidungen und lässt gegen eine Sperre Einspruch zu.",
         },
       ],
     },
@@ -193,7 +193,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderation schützt Menschen, sie bestraft nicht Unbehagen oder Widerspruch. Kritik, eine harsche Rezension oder ein unbequemes Gespräch sind für sich genommen kein Grund für eine Sanktion.",
+          text: "Moderation schützt Menschen. Unbehagen oder Widerspruch sind kein Grund für eine Sanktion, eine harsche Kritik oder ein unbequemes Gespräch auch nicht.",
         },
         {
           kind: "terms",
@@ -284,7 +284,7 @@ const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Rules alone are not enough: every moderation decision has to be explained and every suspension has to be appealable, even in the smallest instance.",
+          text: "Rules alone are not enough. Even the smallest instance explains its moderation decisions and lets a suspension be appealed.",
         },
       ],
     },
@@ -309,7 +309,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderation protects people; it does not punish discomfort or disagreement. Criticism, a harsh review or an awkward conversation are not, by themselves, grounds for a sanction.",
+          text: "Moderation protects people. Discomfort or disagreement is not grounds for a sanction, and neither is a harsh review or an awkward conversation.",
         },
         {
           kind: "terms",

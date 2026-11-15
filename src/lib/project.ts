@@ -40,11 +40,11 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Hay libros que conservamos por lo que significan y por la profunda huella que dejaron en nosotros. Ponerlos a circular es compartir lo que uno ha aprendido con ellos y entender la biblioteca como un bien común, no como una colección privada.",
+          text: "Hay libros que guardamos porque nos marcaron. Ponerlos a circular es compartir lo que uno ha aprendido con ellos y entender la biblioteca como un bien común, no como una colección privada.",
         },
         {
           kind: "p",
-          text: "De ahí la idea de fondo: el conocimiento no es una propiedad que cada cual guarda, sino un bien común que crece cuando circula. Un libro que circula produce más que uno guardado: lecturas, conversaciones y también desacuerdos. Por eso la plataforma está pensada para los títulos que importan, no para un inventario.",
+          text: "De ahí la idea de fondo: el conocimiento crece cuando circula; guardado se queda como está. Cuando un libro pasa de mano en mano salen lecturas, conversaciones y desacuerdos; en la estantería, ninguno. Por eso la plataforma está pensada para los títulos que importan, no para un inventario.",
         },
         {
           kind: "p",
@@ -201,11 +201,11 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Manche Bücher bewahren wir wegen ihrer Bedeutung und wegen der tiefen Spuren, die sie in uns hinterlassen haben. Sie weiterzugeben heißt, das mit anderen zu teilen, was man mit ihnen gelernt hat, und die Bibliothek als Gemeingut zu verstehen, nicht als private Sammlung.",
+          text: "Manche Bücher behalten wir, weil sie uns geprägt haben. Sie weiterzugeben heißt, das mit anderen zu teilen, was man mit ihnen gelernt hat, und die Bibliothek als Gemeingut zu verstehen, nicht als private Sammlung.",
         },
         {
           kind: "p",
-          text: "Daher der Grundgedanke: Wissen ist kein Besitz, den jede und jeder für sich behält, sondern ein Gemeingut, das wächst, wenn es zirkuliert. Ein Buch, das zirkuliert, bringt mehr als eines, das im Regal bleibt: Lektüren, Gespräche und auch Widerspruch. Deshalb ist die Plattform für Titel gedacht, die etwas bedeuten, nicht für einen Bestand.",
+          text: "Daher der Grundgedanke: Wissen wächst, wenn es zirkuliert; im Regal bleibt es, wie es ist. Geht ein Buch von Hand zu Hand, entstehen Lektüren, Gespräche und Widerspruch; bleibt es liegen, entsteht nichts. Deshalb ist die Plattform für Titel gedacht, die etwas bedeuten, nicht für einen Bestand.",
         },
         {
           kind: "p",
@@ -362,11 +362,11 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Some books we keep for what they mean and for the deep mark they left on us. Passing them on is a way of sharing what one has learned with them and of understanding the library as a commons rather than a private collection.",
+          text: "Some books we keep because they marked us. Passing them on is a way of sharing what one has learned with them and of understanding the library as a commons rather than a private collection.",
         },
         {
           kind: "p",
-          text: "Hence the underlying idea: knowledge is not property each of us keeps, but a commons that grows when it circulates. A book in circulation does more than one left on a shelf: it produces readings, conversations and disagreement. That is why the platform is meant for titles that matter, not for stock.",
+          text: "Hence the underlying idea: knowledge grows when it circulates; stored away, it does not. A book passed from hand to hand produces readings, conversations and disagreement; one left on the shelf, none. That is why the platform is meant for titles that matter, not for stock.",
         },
         {
           kind: "p",

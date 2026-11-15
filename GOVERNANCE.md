@@ -9,7 +9,7 @@ Wanderbibliothek is free software, and each instance is governed by its own comm
 - **The project** publishes the code under the MIT licence, maintains the documentation and publishes releases. It does not administer instances and does not decide their rules.
 - **Each instance** decides its rules, whom it admits, how it organises moderation and who administers it. The software provides the mechanisms; the community gives them legitimacy.
 - **The rules of conduct are public.** What an instance does not admit and which measure corresponds to each case must be visible before registering. This document describes the procedure; it does not replace those rules.
-- **Minimum guarantees.** Rules alone are not enough: every moderation decision has to be explained and every suspension has to be appealable, even in the smallest instance.
+- **Minimum guarantees.** Rules alone are not enough. Even the smallest instance explains its moderation decisions and lets a suspension be appealed.
 
 ## Roles
 
@@ -24,7 +24,7 @@ An administrator may also moderate, but moderation does not imply administration
 
 ## Moderation
 
-Moderation protects people; it does not punish discomfort or disagreement. Criticism, a harsh review or an awkward conversation are not, by themselves, grounds for a sanction.
+Moderation protects people. Discomfort or disagreement is not grounds for a sanction, and neither is a harsh review or an awkward conversation.
 
 - **Proportionality.** Apply the least restrictive measure that solves the problem, escalating only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record.
 - **Who decides.** Moderation investigates and proposes; an administrator decides and applies a suspension. When one person holds both roles, the decision is taken under the administrator role and recorded as such.

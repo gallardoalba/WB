@@ -24,11 +24,11 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 
 ## Principles
 
-**Reciprocity.** Sharing does not mean expecting something in return. Anyone can request any book, and whoever has it is free to give it away or exchange it. Every contribution helps keep books in circulation and knowledge within reach of more people; there is no currency, no balance and no points.
+**Reciprocity.** Nobody has to give something back. Anyone can request any book, and whoever has it is free to give it away or exchange it. Every contribution helps keep books in circulation and knowledge within reach of more people; there is no currency, no balance and no points.
 
 **Non-profit and no market.** The project charges nothing, shows no advertising and sells no data. There is no premium tier and no paid placement: everything the platform offers is available to every account.
 
-**Books as commons.** A book need not remain a private possession once it has been read. It can continue travelling, reaching new readers along the way. The platform handles handovers, not ownership: passing a copy on does not lose it, it puts it back into circulation.
+**Books as commons.** Once you have read a book, it can travel on to someone else. The platform handles handovers, not ownership: passing a copy on does not lose it, it puts it back into circulation.
 
 **Self-organisation.** Communities and reading circles decide for themselves what to read, when to meet and how to organise, without centralised management.
 
