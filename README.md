@@ -2,9 +2,7 @@
 
 **Books travel, ideas connect people.**
 
-Wanderbibliothek is a community project with no commercial purpose: a place to share the books that have shaped us most, so that they circulate again and knowledge grows between all of us. The interface is available in German, Spanish and English.
-
-It is deliberately built as a counter-model to commercial marketplaces: nothing is sold and nobody is rewarded for being active.
+Wanderbibliothek is a community project with no commercial purpose: a place to share the books that have shaped us most, so that they circulate again and knowledge grows between all of us. Nothing is sold and nobody is rewarded for being active.
 
 ## Why it exists
 
