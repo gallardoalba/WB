@@ -15,7 +15,7 @@
 
 [Unit]
 Description=Wanderbibliothek (imagen firmada)
-Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+Documentation=https://github.com/gallardoalba/WB/blob/main/deploy/README.md
 After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service
