@@ -131,7 +131,7 @@ export const EN: TechnicalDocument = {
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messaging, following and blocking.",
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries the Mastodon outbox (one work a day, and only when the account's last post is not the bot's own), purges old rows and, with `MASTODON_LIKES=on`, gives a few well-spaced favourites to book posts.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
           ],
         },
       ],
@@ -259,7 +259,7 @@ export const EN: TechnicalDocument = {
             ["`REQUIRE_EMAIL_VERIFICATION`", "unset", "`1` requires a confirmed address to publish, request, comment and write."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Days `admin_audit` is kept (0 = forever)."],
             ["`LEGAL_*`", "unset", "Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`."],
-            ["`MASTODON_*`", "off", "Bot for announcements and favourites; without `MASTODON_TOKEN` nothing is queued."],
+            ["`MASTODON_*`", "off", "Optional Mastodon integration; disabled without `MASTODON_TOKEN`."],
           ],
         },
         {

@@ -81,7 +81,7 @@ The API has 73 handlers under `src/app/api`. Almost all are declared with `route
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
 - `/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.
-- `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It also retries the Mastodon outbox (one work a day, and only when the account's last post is not the bot's own), purges old rows and, if `MASTODON_LIKES=on`, favourites up to 40 book posts a day in German, Spanish or English, one every 25 minutes at most and only for accounts whose bio talks about books.
+- `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.
 
 ## Data
 
@@ -160,7 +160,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `REQUIRE_EMAIL_VERIFICATION` | unset | `1` requires a confirmed address to publish, request, comment and write. |
 | `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
 | `LEGAL_*` | unset | Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`. |
-| `MASTODON_*` | off | Bot for announcements and favourites; without `MASTODON_TOKEN` nothing is queued. |
+| `MASTODON_*` | off | Optional Mastodon integration; disabled without `MASTODON_TOKEN`. |
 
 The canonical template is `deploy/env.example`: every variable — the ones in this table and the detail ones (bot, backups, demo data, Google Books quota, first administrator) — is there, commented, with its default value.
 
