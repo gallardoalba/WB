@@ -134,7 +134,7 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Mensajería cifrada de extremo a extremo",
-              text: "la clave privada vive en el navegador y en la aplicación de Android, y el servidor solo transporta sobres opacos, uno por dispositivo. Lo delicado de la cuenta, como el segundo factor, se guarda cifrado con una clave que no está en la base de datos.",
+              text: "la clave privada vive en el navegador y el servidor solo transporta sobres opacos. Lo delicado de la cuenta, como el segundo factor, se guarda cifrado con una clave que no está en la base de datos.",
             },
             {
               label: "Catalogación cuidada",
@@ -295,7 +295,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Ende-zu-Ende-verschlüsselte Nachrichten",
-              text: "der private Schlüssel bleibt im Browser und in der Android-App, der Server befördert nur undurchsichtige Umschläge, einen je Gerät. Vertrauliche Angaben zum Konto – etwa der zweite Faktor – werden mit einem Schlüssel verschlüsselt, der nicht in der Datenbank liegt.",
+              text: "der private Schlüssel bleibt im Browser, der Server befördert nur undurchsichtige Umschläge. Vertrauliche Angaben zum Konto – etwa der zweite Faktor – werden mit einem Schlüssel verschlüsselt, der nicht in der Datenbank liegt.",
             },
             {
               label: "Sorgfältige Titelaufnahme",
@@ -456,7 +456,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "End-to-end encrypted messaging",
-              text: "the private key stays in the browser and in the Android app, and the server only relays opaque envelopes, one per device. Account secrets such as the second factor are stored encrypted with a key that is not in the database.",
+              text: "the private key stays in the browser, and the server only relays opaque envelopes. Account secrets such as the second factor are stored encrypted with a key that is not in the database.",
             },
             {
               label: "Careful cataloguing",
