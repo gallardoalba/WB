@@ -19,6 +19,10 @@ const ES: TechnicalDocument = {
           kind: "p",
           text: "El proyecto publica el código con licencia MIT, mantiene la documentación y publica versiones. Cada instancia decide sus normas, a quién admite y cómo organiza su moderación: el proyecto no gobierna las instancias.",
         },
+        {
+          kind: "p",
+          text: "Las normas de conducta de cada instancia —qué no se admite y qué medida corresponde a cada caso— deben ser públicas y estar visibles antes de registrarse. Este documento describe el procedimiento; no las sustituye.",
+        },
       ],
     },
     {
@@ -61,11 +65,11 @@ const ES: TechnicalDocument = {
           items: [
             {
               label: "Proporcionalidad",
-              text: "se aplica la medida menos restrictiva que resuelve el problema: ocultar un contenido antes que suspender una cuenta.",
+              text: "se aplica la medida menos restrictiva que resuelve el problema y solo se sube de nivel cuando la anterior no ha funcionado: primero una corrección, después ocultar el contenido y al final suspender la cuenta. La reincidencia pesa en la decisión y la auditoría guarda el historial.",
             },
             {
-              label: "Motivo",
-              text: "toda sanción explica qué norma se ha incumplido y qué conducta la motiva. La persona afectada lo recibe por correo.",
+              label: "Aviso",
+              text: "el aviso dice qué norma se ha incumplido, qué conducta lo motiva y cómo llegó el caso al equipo —por una denuncia o por revisión propia—, en el idioma de la cuenta.",
             },
             {
               label: "Plazo",
@@ -73,7 +77,7 @@ const ES: TechnicalDocument = {
             },
             {
               label: "Privacidad",
-              text: "no se revela quién denunció. La moderación no lee los mensajes cifrados: solo puede actuar sobre lo que se le denuncia.",
+              text: "quién denunció no se revela a la persona sancionada ni públicamente; el equipo sí necesita saberlo para valorar la denuncia. La moderación no lee los mensajes cifrados: solo puede actuar sobre lo que se le denuncia.",
             },
           ],
         },
@@ -85,11 +89,19 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "El correo de la suspensión incluye el motivo, el plazo y un enlace personal para apelar. El enlace vale 30 días y solo puede usarse una vez.",
+          text: "El correo de la suspensión incluye el motivo, la fecha de fin y un enlace personal para apelar, en el idioma de la cuenta. El enlace vale 30 días y solo puede usarse una vez.",
         },
         {
           kind: "p",
-          text: "La apelación la revisa otra persona del equipo, nunca quien impuso la sanción. Si se estima, la cuenta se reactiva y se avisa por correo; si se mantiene, la respuesta explica por qué. La decisión queda en la auditoría.",
+          text: "La apelación se envía desde esta página sin iniciar sesión —una cuenta suspendida no puede entrar— y admite cualquier información que la persona considere relevante.",
+        },
+        {
+          kind: "p",
+          text: "La revisa otra persona del equipo, que responde en un plazo máximo de 14 días, y nunca quien impuso la sanción. Si la instancia tiene una sola persona moderadora, debe acordar esa revisión con otra persona del equipo, otra instancia o una tercera persona de confianza antes de registrar el resultado.",
+        },
+        {
+          kind: "p",
+          text: "Si se estima, la cuenta se reactiva y se avisa por correo; si se mantiene, la respuesta explica por qué. La decisión queda en la auditoría. Solo hay una apelación abierta por sanción; las resueltas se borran a los 730 días.",
         },
       ],
     },
@@ -99,7 +111,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Las actuaciones de moderación quedan registradas en una auditoría interna con retención configurable. Cada instancia puede publicar informes agregados —denuncias, medidas y apelaciones— sin nombres ni casos concretos.",
+          text: "Las actuaciones de moderación quedan registradas en una auditoría interna. Cada instancia publica al menos una vez al año un informe agregado —denuncias recibidas y su resultado, medidas aplicadas, suspensiones activas y apelaciones con su resultado y tiempo medio de respuesta— sin nombres ni casos concretos.",
         },
       ],
     },
@@ -142,6 +154,10 @@ const DE: TechnicalDocument = {
           kind: "p",
           text: "Das Projekt veröffentlicht den Code unter der MIT-Lizenz, pflegt die Dokumentation und veröffentlicht Versionen. Jede Instanz entscheidet über ihre Regeln, wen sie aufnimmt und wie sie ihre Moderation organisiert: Das Projekt regiert die Instanzen nicht.",
         },
+        {
+          kind: "p",
+          text: "Die Verhaltensregeln jeder Instanz — was nicht geduldet wird und welche Maßnahme zu welchem Fall gehört — müssen öffentlich und vor der Registrierung sichtbar sein. Dieses Dokument beschreibt das Verfahren; es ersetzt sie nicht.",
+        },
       ],
     },
     {
@@ -170,10 +186,10 @@ const DE: TechnicalDocument = {
         {
           kind: "terms",
           items: [
-            { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst: einen Inhalt verbergen statt ein Konto sperren." },
-            { label: "Begründung", text: "jede Sanktion nennt die verletzte Regel und das Verhalten. Die betroffene Person erhält dies per E-Mail." },
+            { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst; erst wenn sie nicht wirkt, wird gesteigert: zuerst eine Korrektur, dann das Verbergen des Inhalts, zuletzt die Sperre des Kontos. Wiederholtes Verhalten zählt bei der Entscheidung, und das Protokoll hält den Verlauf fest." },
+            { label: "Hinweis", text: "der Hinweis nennt die verletzte Regel, das Verhalten dahinter und wie der Fall zum Team kam — durch eine Meldung oder durch eigene Prüfung —, in der Sprache des Kontos." },
             { label: "Frist", text: "Sperren haben eine konkrete Dauer von einem Tag bis zu einem Jahr und enden automatisch." },
-            { label: "Privatsphäre", text: "wer gemeldet hat, wird nicht offengelegt. Die Moderation liest keine verschlüsselten Nachrichten." },
+            { label: "Privatsphäre", text: "wer gemeldet hat, wird der gesperrten Person und der Öffentlichkeit nicht genannt; das Team muss es aber wissen, um die Meldung zu bewerten. Die Moderation liest keine verschlüsselten Nachrichten: sie kann nur auf Meldungen reagieren." },
           ],
         },
       ],
@@ -184,11 +200,19 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Die E-Mail zur Sperre enthält Grund, Frist und einen persönlichen Link für den Einspruch. Der Link gilt 30 Tage und kann einmal verwendet werden.",
+          text: "Die E-Mail zur Sperre enthält Grund, Enddatum und einen persönlichen Link für den Einspruch, in der Sprache des Kontos. Der Link gilt 30 Tage und kann einmal verwendet werden.",
         },
         {
           kind: "p",
-          text: "Über den Einspruch entscheidet eine andere Person im Team, nie die Person, die die Sanktion verhängt hat. Wird ihm stattgegeben, wird das Konto reaktiviert und per E-Mail informiert; sonst erklärt die Antwort, warum. Die Entscheidung wird protokolliert.",
+          text: "Der Einspruch wird auf dieser Seite ohne Anmeldung eingereicht — ein gesperrtes Konto kann sich nicht anmelden — und kann jede Information enthalten, die die Person für relevant hält.",
+        },
+        {
+          kind: "p",
+          text: "Über ihn entscheidet eine andere Person im Team, die innerhalb von 14 Tagen antwortet, nie die Person, die die Sanktion verhängt hat. Hat eine Instanz nur eine moderierende Person, muss sie diese Prüfung mit einer weiteren Person im Team, einer anderen Instanz oder einer Vertrauensperson absprechen, bevor das Ergebnis festgehalten wird.",
+        },
+        {
+          kind: "p",
+          text: "Wird ihm stattgegeben, wird das Konto reaktiviert und per E-Mail informiert; sonst erklärt die Antwort, warum. Die Entscheidung wird protokolliert. Pro Sanktion ist ein offener Einspruch möglich; entschiedene werden nach 730 Tagen gelöscht.",
         },
       ],
     },
@@ -198,7 +222,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderationsmaßnahmen werden in einem internen Prüfprotokoll mit konfigurierbarer Aufbewahrung festgehalten. Jede Instanz kann aggregierte Berichte veröffentlichen — Meldungen, Maßnahmen und Einsprüche — ohne Namen oder Einzelfälle.",
+          text: "Moderationsmaßnahmen werden in einem internen Protokoll festgehalten. Jede Instanz veröffentlicht mindestens einmal im Jahr einen aggregierten Bericht — eingegangene Meldungen und ihr Ergebnis, angewandte Maßnahmen, aktive Sperren sowie Einsprüche mit Ergebnis und durchschnittlicher Antwortzeit — ohne Namen und ohne Einzelfälle.",
         },
       ],
     },
@@ -241,6 +265,10 @@ const EN: TechnicalDocument = {
           kind: "p",
           text: "The project publishes the code under the MIT licence, maintains the documentation and publishes releases. Each instance decides its own rules, whom it admits and how it organises moderation: the project does not govern the instances.",
         },
+        {
+          kind: "p",
+          text: "The rules of conduct of each instance — what is not admitted and which measure corresponds to each case — must be public and visible before registering. This document describes the procedure; it does not replace those rules.",
+        },
       ],
     },
     {
@@ -269,10 +297,10 @@ const EN: TechnicalDocument = {
         {
           kind: "terms",
           items: [
-            { label: "Proportionality", text: "the least restrictive measure that solves the problem: hiding content before suspending an account." },
-            { label: "Reason", text: "every sanction states which rule was broken and which conduct led to it. The affected person receives this by email." },
+            { label: "Proportionality", text: "the least restrictive measure that solves the problem, escalating only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Repeated conduct weighs in the decision, and the audit log keeps the record." },
+            { label: "Notice", text: "the notice states which rule was broken, which conduct led to it and how the case reached the team — a report or a proactive review — in the language of the account." },
             { label: "Time limit", text: "suspensions have a specific duration, from one day to one year, and end automatically." },
-            { label: "Privacy", text: "the reporter is never revealed. Moderators do not read encrypted messages: they can only act on what is reported." },
+            { label: "Privacy", text: "the reporter is not revealed to the sanctioned person or publicly; the team does need to know who reported in order to assess the report. Moderators do not read encrypted messages: they act on what is reported." },
           ],
         },
       ],
@@ -283,11 +311,19 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "The suspension email includes the reason, the time limit and a personal appeal link. The link is valid for 30 days and can be used once.",
+          text: "The suspension email includes the reason, the end date and a personal appeal link, in the language of the account. The link is valid for 30 days and can be used once.",
         },
         {
           kind: "p",
-          text: "The appeal is reviewed by another member of the team, never by the person who imposed the sanction. If upheld, the account is reactivated and the person is notified by email; if rejected, the reply explains why. The decision is recorded in the audit log.",
+          text: "The appeal is submitted from this page without signing in — a suspended account cannot log in — and may include any information the person considers relevant.",
+        },
+        {
+          kind: "p",
+          text: "Another member of the team reviews it and answers within 14 days, never the person who imposed the sanction. An instance with a single moderator must arrange that review with another member of the team, another instance or a trusted third party before the outcome is recorded.",
+        },
+        {
+          kind: "p",
+          text: "If upheld, the account is reactivated and the person is notified by email; if rejected, the reply explains why. The decision is recorded in the audit log. One open appeal is allowed per sanction; resolved appeals are deleted after 730 days.",
         },
       ],
     },
@@ -297,7 +333,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Moderation actions are recorded in an internal audit log with configurable retention. Each instance may publish aggregate reports — reports, measures and appeals — without names or individual cases.",
+          text: "Moderation actions are recorded in an internal audit log. Each instance publishes an aggregate report at least once a year — reports received and their outcome, measures applied, active suspensions and appeals with their outcome and average response time — without names or individual cases.",
         },
       ],
     },
