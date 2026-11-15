@@ -223,7 +223,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - `deploy/wanderbibliothek.service`, `deploy/nginx.conf` and `deploy/env.example`: the application listens on `127.0.0.1:3000`, nginx terminates TLS, and `/api/requests/` runs without buffering so the SSE channel is not cut.
 - `deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (every 6 hours).
 - Alternatively `Dockerfile` and `docker-compose.yml`, multi-stage and with production dependencies only; the image build is checked in CI. `better-sqlite3` compiles with node-gyp, so the final stage reuses the `node_modules` already built in the dependencies stage and prunes devDependencies instead of installing again.
-- When something important is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, rather than looking healthy.
+- When a required setting is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, rather than looking healthy.
 - `tsx` is a production dependency: `admin:create`, `db:backup`, `user:verify` and `smoke` need it, also inside the image with `npm ci --omit=dev`.
 
 ## Interface and accessibility

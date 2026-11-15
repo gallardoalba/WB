@@ -350,7 +350,7 @@ export const EN: TechnicalDocument = {
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` and `deploy/env.example`: the application listens on `127.0.0.1:3000` and nginx terminates TLS, with `/api/requests/` unbuffered so that the SSE channel is not cut.",
             "`deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (every 6 hours).",
             "There is also a multi-stage `Dockerfile` and `docker-compose.yml` with production dependencies only; the image build is validated in continuous integration.",
-            "If something important is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, instead of appearing to work.",
+            "If a required setting is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, instead of appearing to work.",
             "`tsx` is a production dependency: `admin:create`, `db:backup`, `user:verify` and `smoke` use it, also inside the image with `npm ci --omit=dev`.",
           ],
         },
