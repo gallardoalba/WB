@@ -67,6 +67,7 @@ const EXPECTED_TABLES = [
   "social_likes",
   "social_outbox",
   "throttle",
+  "transparency_snapshots",
   "user_keys",
   "users",
 ] as const;
@@ -118,6 +119,16 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   clubs: ["meets_at", "meets_on", "status", "meets_place", "meets_link"],
   club_posts: ["club_id", "author_id", "parent_id", "body", "status"],
   social_outbox: ["network", "subject", "body", "status", "attempts", "media_id", "owner_id", "day"],
+  transparency_snapshots: [
+    "created_at",
+    "item_count",
+    "merkle_root",
+    "payload_hash",
+    "previous_root",
+    "payload",
+    "signature",
+    "public_key",
+  ],
 };
 
 function freshDatabase(): Database.Database {

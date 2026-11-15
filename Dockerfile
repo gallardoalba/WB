@@ -9,7 +9,13 @@
 # herramientas de compilación de better-sqlite3.
 
 # --- 1. Dependencias completas (incluye devDependencies para el build) ------
-FROM node:22-bookworm-slim AS deps
+#
+# La imagen base va fijada por **digest**, no solo por etiqueta: `22-bookworm-slim`
+# es un puntero que se mueve, y con él cambiarían Node y las librerías del
+# sistema sin que cambie nada en este repositorio. Dependabot (ecosistema
+# `docker`) propone el digest nuevo; actualizarlo es un cambio visible en el
+# diff y en la imagen firmada de la release.
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS deps
 WORKDIR /app
 
 # `better-sqlite3` se compila con node-gyp al instalarlo (no trae binarios para
@@ -22,7 +28,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # --- 2. Build ---------------------------------------------------------------
-FROM node:22-bookworm-slim AS builder
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -40,8 +46,26 @@ COPY . .
 RUN npm run build
 
 # --- 3. Runtime -------------------------------------------------------------
-FROM node:22-bookworm-slim AS runner
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS runner
 WORKDIR /app
+
+# Identidad del build dentro de la imagen. `/api/version` y el pie de página la
+# publican para que cualquiera pueda contrastar el contenedor con el repositorio
+# y con el digest firmado de la release. Se pasan como build args (no como
+# entorno del contenedor) para que no se puedan cambiar en caliente sin cambiar
+# la imagen.
+ARG APP_COMMIT_SHA=""
+ARG APP_BUILD_TIME=""
+ENV APP_COMMIT_SHA=$APP_COMMIT_SHA \
+    APP_BUILD_TIME=$APP_BUILD_TIME
+
+# Metadatos OCI: `docker inspect` y los registros los muestran sin ejecutar la
+# imagen. `revision` ata la imagen al commit del que salió.
+LABEL org.opencontainers.image.title="Wanderbibliothek" \
+      org.opencontainers.image.source="https://github.com/gallardoalba/WB" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.revision=$APP_COMMIT_SHA \
+      org.opencontainers.image.created=$APP_BUILD_TIME
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

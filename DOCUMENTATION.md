@@ -17,18 +17,18 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               76 handlers grouped by domain
+    api/               79 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v53), seed
+    db/                connection, base schema (v2), migrations (v3–v54), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 773 unit and integration tests (96 files)
+tests/                 799 unit and integration tests (100 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -69,9 +69,11 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/normas` | Governance, moderation, sanctions and appeals policy (public). |
 | `/apelar` | Appeal form opened from the sanction email; token-based, no session and not indexed. |
 | `/api/health` | Service and database status. |
+| `/api/version` | Commit, image digest and build time this instance claims to serve. Public, with no personal data. |
+| `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 76 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
+The API has 79 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -84,7 +86,7 @@ The API has 76 handlers under `src/app/api`. Almost all are declared with `route
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
 - `/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.
-- `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.
+- `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries, purges old rows and creates the daily signed catalogue snapshot.
 
 ## Data
 
@@ -129,6 +131,39 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 - Account tokens are single-use, hashed and expire (24 hours for verification, 1 hour for password reset, 30 days for appeals); changing the password ends every session.
 - `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
+## Transparency
+
+Wanderbibliothek separates two questions that are easy to mix: **which code is
+running** and **what content is being served**. Each has its own, deliberately
+limited, mechanism.
+
+**Software.** `/api/version` is public and publishes the commit, the image digest
+and the build time the instance was built with, plus the repository links. When a
+deployment does not know them, the fields are `null` rather than invented. The
+release workflow (`.github/workflows/release.yml`) pushes every `v*` tag to GHCR
+by digest, attaches SLSA provenance and an SBOM, signs the image with cosign in
+keyless mode and publishes `SHA256SUMS` with the release. `deploy/verify-release.sh`
+checks the signature against this repository and workflow; `deploy/README.md`
+documents the exact commands.
+
+**Content.** The maintenance cron creates at most one snapshot per day of the
+public catalogue: one canonical JSON line per work, its SHA-256, a Merkle root and
+an Ed25519 signature (when `TRANSPARENCY_SIGNING_KEY` is set). `/api/transparency`
+lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was
+signed. `npm run transparency:verify -- --url …` recomputes everything from
+outside and checks the chain of roots; an external witness can pin a root and
+detect a rewritten snapshot. The payload only contains data that is already
+public — work, editions, copies per city — and never who owns a copy, so the
+whole thing can be public without exposing anyone. Moderation stays aggregate,
+for the same reason: per-case detail would identify people in a small community.
+
+**What is not covered.** Without hardware attestation (TPM 2.0 with IMA and a
+verifier such as Keylime, or a confidential VM with SEV-SNP/TDX), nothing
+cryptographically proves that the process answering is the signed image. Open
+code, signed images and signed snapshots make tampering **detectable**, not
+impossible. The technical documentation and `deploy/README.md` state this
+explicitly instead of implying a guarantee that does not exist.
+
 ## Permissions per resource
 
 Signing in is not enough: every operation also checks that the resource belongs to the person asking for it, and does so **inside the query** (`owner_id = ?` or “either of the two parties”), not in an `if` in the component. That is why a foreign id answers `404` — “it does not exist” — rather than `403`: a 403 would confirm that something with that id exists.
@@ -170,16 +205,18 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
 | `LEGAL_*` | unset | Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`. |
 | `MASTODON_*` | off | Optional Mastodon integration; disabled without `MASTODON_TOKEN`. |
+| `TRANSPARENCY_SIGNING_KEY` | unset | Ed25519 private key (PKCS#8 in base64, or PEM) used to sign the daily catalogue snapshots. Without it, snapshots are published unsigned and marked as such. |
+| `APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE` | unset | Build identity published at `/api/version`. Filled by the release workflow (Docker build args) or by `deploy/deploy.sh` (`.build-info.json`). |
 
 The canonical template is `deploy/env.example`: every variable — the ones in this table and the detail ones (bot, backups, demo data, Google Books quota, first administrator) — is there, commented, with its default value.
 
 ## Tests and continuous integration
 
-`npm test` runs 773 unit and integration tests in 96 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 799 unit and integration tests in 100 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
-Every run publishes a **CycloneDX SBOM** (`npm sbom`) with the production dependencies, so an advisory can be traced back to a deployment. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a key-like variable), locally and in CI, without any service; it does not replace reviewing the git history. Static analysis (CodeQL, `security-extended`) lives in `.github/workflows/codeql.yml` and is also scheduled weekly.
+Every run publishes a **CycloneDX SBOM** (`npm sbom`) with the production dependencies, so an advisory can be traced back to a deployment. Tags (`v*`) go through `.github/workflows/release.yml`: GHCR image pinned by digest, SLSA provenance, image SBOM, cosign keyless signature and a release with `SHA256SUMS` and the image reference. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a key-like variable), locally and in CI, without any service; it does not replace reviewing the git history. Static analysis (CodeQL, `security-extended`) lives in `.github/workflows/codeql.yml` and is also scheduled weekly.
 
 CI also audits **development** dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.
 
@@ -198,6 +235,7 @@ npx playwright install chromium && npm run test:e2e
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
 - `npm run moderator:create -- <address> 'password'` creates a moderation-only account (no suspensions); `npm run admin:create` keeps creating administrators.
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
+- `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--pin` makes an external witness fail if a published snapshot is rewritten.
 - Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.

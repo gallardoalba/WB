@@ -16,7 +16,17 @@ services:
       # NEXT_PUBLIC_* se fija en el BUILD, no en tiempo de ejecución.
       args:
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
-    image: wanderbibliothek:latest
+        # Identidad del build: queda dentro de la imagen y la publica
+        # `/api/version`. Para una imagen firmada de la release, el commit lo
+        # trae el propio workflow; al construir en local, pásalo a mano:
+        #   APP_COMMIT_SHA=$(git rev-parse HEAD) APP_BUILD_TIME=$(date -u +%FT%TZ) docker compose build
+        APP_COMMIT_SHA: ${APP_COMMIT_SHA:-}
+        APP_BUILD_TIME: ${APP_BUILD_TIME:-}
+    # Por defecto se construye en local. Para ejecutar una release firmada,
+    # fija `WANDERBIBLIOTHEK_IMAGE=ghcr.io/gallardoalba/wb@sha256:…` en `.env` y
+    # usa `docker compose pull && docker compose up -d --no-build`: el digest
+    # fija exactamente la imagen verificada.
+    image: ${WANDERBIBLIOTHEK_IMAGE:-wanderbibliothek:latest}
     restart: unless-stopped
     # Recoge los procesos hijos (Next no suele dejar zombis, pero si algún día
     # lanza uno, no se queda colgado del PID 1).
@@ -35,6 +45,9 @@ services:
       WANDERBIBLIOTHEK_DB: /data/wanderbibliothek.db
       WANDERBIBLIOTHEK_BACKUP_DIR: /backups
       NEXT_TELEMETRY_DISABLED: "1"
+      # De aquí sale el digest que publica `/api/version` cuando se despliega
+      # una imagen fijada por digest (vacío si se construye en local).
+      APP_IMAGE: ${WANDERBIBLIOTHEK_IMAGE:-}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

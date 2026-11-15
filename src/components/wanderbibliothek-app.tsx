@@ -155,11 +155,16 @@ export default function WanderbibliothekApp({
   openAuth = false,
   openNotifications = false,
   nextPath = null,
+  buildCommit = null,
+  buildCommitUrl = null,
 }: {
   snapshot: AppSnapshot;
   openAuth?: boolean;
   openNotifications?: boolean;
   nextPath?: string | null;
+  /** Commit desplegado, tal y como lo publica `/api/version`. */
+  buildCommit?: string | null;
+  buildCommitUrl?: string | null;
 }) {
   const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
   /**
@@ -1704,6 +1709,14 @@ export default function WanderbibliothekApp({
               <Link href={href("/techdoc")}>{t("Documentación")}</Link>
               <MastodonLink />
             </nav>
+            {buildCommit && buildCommitUrl ? (
+              <span className="footer-build">
+                {t("Código desplegado")}{" "}
+                <a href={buildCommitUrl} target="_blank" rel="noreferrer">
+                  {buildCommit.slice(0, 7)}
+                </a>
+              </span>
+            ) : null}
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {stats.cities}{" "}
               {t("ciudades de")} {REGION}

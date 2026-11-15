@@ -173,7 +173,7 @@ test("las cifras de la documentación no se contradicen", () => {
   const pruebas = new Set<string>();
   const archivos = new Set<string>();
   const patron =
-    /(\d{3,4})\s+(?:unit and integration tests|unit- und Integrationstests|pruebas unitarias y de integración)\s*(?:in\s+|en\s+|\()?(\d{2})\s+(?:files|ficheros|Dateien)/g;
+    /(\d{3,4})\s+(?:unit and integration tests|unit- und Integrationstests|pruebas unitarias y de integración)\s*(?:in\s+|en\s+|\()?(\d{2,3})\s+(?:files|ficheros|Dateien)/g;
   for (const { texto } of fuentes) {
     for (const match of texto.matchAll(patron)) {
       pruebas.add(match[1]!);
@@ -185,7 +185,7 @@ test("las cifras de la documentación no se contradicen", () => {
 
   const handlers = routeFiles(API_DIR).length;
   for (const { file, texto } of fuentes) {
-    const citados = new Set([...texto.matchAll(/\b(\d{2}) handlers\b/g)].map((match) => match[1]!));
+    const citados = new Set([...texto.matchAll(/\b(\d{2,3}) handlers\b/g)].map((match) => match[1]!));
     if (citados.size === 0) continue;
     assert.deepEqual(
       [...citados],

@@ -121,6 +121,10 @@ const ES: TechnicalDocument = {
           kind: "p",
           text: "Las actuaciones de moderación quedan registradas en una auditoría interna que solo puede leer el equipo. La aplicación nunca la edita y la poda según AUDIT_RETENTION_DAYS. Cada instancia publica al menos una vez al año un informe agregado, sin nombres ni casos concretos. Recoge las denuncias recibidas y su resultado, las medidas aplicadas, las suspensiones activas y las apelaciones con su resultado y su tiempo medio de respuesta. En una comunidad pequeña el detalle por caso permitiría identificar personas, así que el informe se queda en cifras.",
         },
+        {
+          kind: "p",
+          text: "Aparte de ese informe, cada instancia publica instantáneas firmadas del catálogo público en `/api/transparency`: las obras ofrecidas y las ciudades donde están, nunca quién tiene cada ejemplar. Cualquiera puede descargar el contenido exacto, recalcular su raíz y comprobar la firma. La moderación no se publica caso por caso por la misma razón: en una comunidad pequeña señalaría a personas.",
+        },
       ],
     },
     {
@@ -237,6 +241,10 @@ const DE: TechnicalDocument = {
           kind: "p",
           text: "Moderationsmaßnahmen werden in einem internen Protokoll festgehalten, das nur das Team lesen kann. Die Anwendung ändert es nie und kürzt es nach AUDIT_RETENTION_DAYS. Jede Instanz veröffentlicht mindestens einmal im Jahr einen aggregierten Bericht, ohne Namen und ohne Einzelfälle. Er nennt die eingegangenen Meldungen und ihr Ergebnis, die angewandten Maßnahmen, die aktiven Sperren sowie die Einsprüche mit Ergebnis und durchschnittlicher Antwortzeit. In einer kleinen Community würden Einzelfälle auf Personen schließen lassen, deshalb bleibt der Bericht bei Zahlen.",
         },
+        {
+          kind: "p",
+          text: "Unabhängig davon veröffentlicht jede Instanz unter `/api/transparency` signierte Momentaufnahmen des öffentlichen Katalogs: die angebotenen Werke und die Städte, in denen sie sind, nie wer ein Exemplar besitzt. Jede Person kann den genauen Inhalt herunterladen, seine Wurzel neu berechnen und die Signatur prüfen. Die Moderation wird aus demselben Grund nicht Fall für Fall veröffentlicht: In einer kleinen Community würde das auf Personen zeigen.",
+        },
       ],
     },
     {
@@ -352,6 +360,10 @@ const EN: TechnicalDocument = {
         {
           kind: "p",
           text: "Moderation actions are recorded in an internal audit log that only the team can read. The application never edits it and prunes it according to AUDIT_RETENTION_DAYS. Each instance publishes an aggregate report at least once a year, without names or individual cases. It covers reports received and their outcome, measures applied, active suspensions, and appeals with their outcome and average response time. In a small community per-case detail would identify people, so the report stays at aggregate figures.",
+        },
+        {
+          kind: "p",
+          text: "Separately, each instance publishes signed snapshots of the public catalogue at `/api/transparency`: the works on offer and the cities where they are, never who owns a copy. Anyone can download the exact content, recompute its root and check the signature. Moderation is not published case by case for the same reason: in a small community it would point at people.",
         },
       ],
     },

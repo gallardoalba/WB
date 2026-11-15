@@ -4,6 +4,7 @@ import { ArrowDownUp, BookOpen, Compass, Heart, Plus, Users } from "lucide-react
 import type { SessionUser } from "@/lib/domain";
 import { regionName } from "@/lib/cities";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
+import { readBuildInfo, shortCommit } from "@/lib/build-info";
 import { getLocale } from "@/lib/i18n-server";
 import { localePath } from "@/lib/locale";
 import { translate } from "@/lib/i18n";
@@ -43,6 +44,9 @@ export async function SiteShell({
   // interactivas (menú de cuenta, tema, idioma), no la cabecera entera.
   const locale = await getLocale();
   const t = (text: string) => translate(locale, text);
+  // El commit en el pie es lo que permite contrastar esta instancia con GitHub
+  // sin abrir una herramienta: el mismo dato que sirve `/api/version`.
+  const build = readBuildInfo();
   // Los enlaces del armazón respetan el idioma de la URL: desde `/es/…` el pie
   // no debe devolver a la versión alemana, o Google ve las dos mezcladas.
   const href = (path: string) => {
@@ -128,6 +132,14 @@ export async function SiteShell({
               <Link href={href("/techdoc")}>{t("Documentación")}</Link>
               <MastodonLink />
             </nav>
+            {build.commit && build.commitUrl ? (
+              <span className="footer-build">
+                {t("Código desplegado")}{" "}
+                <a href={build.commitUrl} target="_blank" rel="noreferrer">
+                  {shortCommit(build.commit)}
+                </a>
+              </span>
+            ) : null}
             <span>
               <i className="footer-dot" /> {t("Comunidad abierta")} · {regionName(locale)}
             </span>

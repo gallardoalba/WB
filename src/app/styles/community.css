@@ -266,6 +266,13 @@
   background: var(--green);
 }
 
+/* Enlace al commit desplegado: mismo peso que el resto del pie, pero con
+   subrayado para que se vea que se puede abrir. */
+.footer-build a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 /* La cuenta es una página: los formularios se apilan con aire y sin el ancho
    completo, que en pantallas grandes cansa la vista. */
 .account-settings {

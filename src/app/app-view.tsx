@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { preload } from "react-dom";
 import WanderbibliothekApp from "@/components/wanderbibliothek-app";
 import { getSessionUser } from "@/lib/auth";
+import { readBuildInfo } from "@/lib/build-info";
 import { VIEWS, homeCatalogLanguage, type View } from "@/lib/domain";
 import { getLocale } from "@/lib/i18n-server";
 import { publicActivity, publicStats } from "@/lib/public-data";
@@ -122,12 +123,19 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
       ? rawNext
       : null;
 
+  // El commit desplegado viaja al pie del armazón de cliente. Se lee aquí, en
+  // el servidor, para que una instalación sin esa información diga `null` en
+  // vez de enseñar un valor inventado.
+  const build = readBuildInfo();
+
   return (
     <WanderbibliothekApp
       snapshot={snapshot}
       openAuth={raw.auth === "1"}
       openNotifications={raw.notifications === "1"}
       nextPath={nextPath}
+      buildCommit={build.commit}
+      buildCommitUrl={build.commitUrl}
     />
   );
 }

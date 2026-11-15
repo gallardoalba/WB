@@ -826,10 +826,156 @@ Notas:
 - El `HEALTHCHECK` (y el de compose) consulta `/api/health`: si el entorno está
   incompleto, el contenedor queda **unhealthy** y `docker compose logs` muestra
   las líneas `[env] ERROR …`.
-- Las releases se cambian con `docker compose build` + `up -d`: el volumen de
-datos sobrevive.
+- Las releases se cambian con `docker compose pull` + `up -d --no-build` si la
+  imagen está fijada por digest, o con `docker compose build` + `up -d` si se
+  construye en el servidor. El volumen de datos sobrevive en los dos casos.
 - El build de la imagen se valida en CI (job `imagen`), no hace falta compilarla
   en el servidor.
+
+## Verificar una release (software y contenido)
+
+Una instancia puede decir «ejecuto este código» de tres formas, de menos a más
+prueba. Las dos primeras ya están implementadas y no dependen de confiar en
+quien administra el servidor; la tercera es infraestructura y se explica al
+final para que nadie crea que está cubierta.
+
+### 1. Qué código dice estar sirviendo
+
+`GET /api/version` es público y devuelve, sin datos de nadie:
+
+```json
+{
+  "commit": "4e32f58…",
+  "commitUrl": "https://github.com/gallardoalba/WB/commit/4e32f58…",
+  "image": "sha256:…",
+  "builtAt": "2026-11-15T10:20:30.000Z",
+  "repository": "https://github.com/gallardoalba/WB",
+  "sourceUrl": "https://github.com/gallardoalba/WB/tree/4e32f58…"
+}
+```
+
+Si la instalación no sabe qué commit ejecuta, los campos valen `null`: no se
+inventa nada. El pie de página enseña el mismo commit cuando existe.
+
+- **systemd:** `deploy/deploy.sh` escribe `.build-info.json` en cada release con
+  el commit del clon y la hora del build.
+- **Docker:** el commit y la hora entran como *build args* y quedan dentro de la
+  imagen (`docker inspect` los muestra en `org.opencontainers.image.revision`).
+  El digest se publica si despliegas con `WANDERBIBLIOTHEK_IMAGE` fijada por
+  digest, porque es la referencia la que lo contiene.
+
+### 2. Que la imagen salió de este repositorio
+
+Cada etiqueta `v*` ejecuta `.github/workflows/release.yml`, que:
+
+- construye y publica en GHCR **por digest**;
+- adjunta provenance SLSA (`mode=max`) y un SBOM de la imagen;
+- firma con cosign en modo keyless, con la identidad del propio workflow;
+- publica una release con `sbom.cdx.json`, `SHA256SUMS`, `image-digest.txt` e
+  `image-reference.txt`.
+
+Para desplegar una release verificada, fija el digest en `.env` y no dejes que
+Compose construya:
+
+```bash
+# .env
+WANDERBIBLIOTHEK_IMAGE=ghcr.io/gallardoalba/wb@sha256:…
+
+./deploy/verify-release.sh      # lee WANDERBIBLIOTHEK_IMAGE
+docker compose pull
+docker compose up -d --no-build
+```
+
+`deploy/verify-release.sh` exige `cosign` y comprueba la firma contra este
+repositorio y este workflow; si está `slsa-verifier`, comprueba también la
+provenance. Rechaza una referencia sin digest: una etiqueta se puede mover y la
+firma no la seguiría.
+
+```bash
+cosign verify ghcr.io/gallardoalba/wb@<digest> \
+  --certificate-identity-regexp '^https://github\.com/gallardoalba/WB/\.github/workflows/release\.yml@refs/tags/.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+slsa-verifier verify-image ghcr.io/gallardoalba/wb@<digest> \
+  --source-uri github.com/gallardoalba/WB
+```
+La imagen no promete reproducibilidad bit a bit: Next, npm y las marcas de
+tiempo del sistema de archivos hacen que dos builds puedan diferir aunque el
+código sea el mismo. Lo que ata la imagen al código es la provenance SLSA: dice
+qué workflow, qué commit y qué pasos la produjeron, y la firma keyless dice que
+ese workflow es el de este repositorio. Para auditar el contenido, reconstruye
+desde ese commit con `docker build --build-arg APP_COMMIT_SHA=<sha>` y compara el
+comportamiento y los ficheros que te interesen; si necesitas igualdad byte a
+byte, ese es el siguiente paso (Nix o `rebuilderd`), no algo que hoy se afirme.
+
+### 3. Que el contenido público no se reescribe en silencio
+
+`/api/transparency` publica **instantáneas firmadas del catálogo público**. Cada
+una contiene:
+
+- `merkleRoot`: raíz de Merkle de todas las obras públicas;
+- `payloadHash`: SHA-256 del NDJSON exacto que se puede descargar;
+- `previousRoot`: raíz de la instantánea anterior (cadena);
+- `signature` y `publicKey`: firma Ed25519 en base64 y la clave con la que se
+  firmó (o `null` si la instancia no tiene clave).
+
+El contenido se descarga en `/api/transparency/export` (`application/x-ndjson`,
+una obra por línea) y **solo lleva lo que ya es público**: título, autoría,
+edición, categoría e idioma, número de ejemplares y ciudades. Nunca quién tiene
+cada ejemplar, ni correos, ni identificadores de personas. Por eso puede servirse
+sin sesión sin recortar nada.
+
+El cron de mantenimiento crea una instantánea al día. Para firmarlas, genera una
+clave Ed25519 (PKCS#8 en base64, que es lo que acepta la variable) y ponla en el
+entorno del servicio:
+
+```bash
+node -e "const{generateKeyPairSync}=require('crypto');process.stdout.write(generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'der'}).toString('base64'))" > /tmp/wb-transparency.key
+# TRANSPARENCY_SIGNING_KEY=$(cat /tmp/wb-transparency.key)   → edita /etc/wanderbibliothek/env
+sudo systemctl restart wanderbibliothek
+rm /tmp/wb-transparency.key
+npm run transparency:snapshot       # o espera al cron
+```
+
+Verificar desde fuera, sin la base ni el código del servidor:
+
+```bash
+npm run transparency:verify -- --url https://tu-dominio
+```
+
+El verificador descarga la instantánea y su NDJSON, recalcula hash y raíz,
+comprueba la firma y que la cadena de raíces no tenga eslabones rotos. Si eres un
+testigo externo, guarda la raíz que viste y pásala con `--snapshot <id> --pin
+<raíz>`: si la instancia reescribe esa instantánea, la comprobación falla. Sin
+firma, el verificador sale con error: una instantánea sin clave sirve para
+comparar contenido, no como prueba criptográfica.
+
+Qué garantiza: que un cambio en lo publicado deja rastro y que una instantánea
+pasada no se puede sustituir por otra sin romper la firma o la cadena. Qué no
+garantiza: que el proceso que responde sea exactamente esa imagen. Eso solo lo
+da la attestation por hardware (siguiente apartado).
+
+### 4. Prueba criptográfica del proceso (no implementada)
+
+Si el modelo de amenaza incluye a quien administra el servidor o al proveedor de
+la máquina, firmar imágenes no basta: hay que medir el arranque y el sistema de
+ficheros, y publicar una prueba que se pueda verificar fuera.
+
+- **TPM 2.0 + arranque medido + IMA/dm-verity**, con un servidor de attestation
+  como [Keylime](https://keylime.dev/). El host publica un *quote* firmado por el
+  TPM con las PCR; el verificador compara contra el estado esperado. Cubre
+  kernel, initramfs e integridad de ficheros, no la configuración de la base.
+- **Computación confidencial**: AMD SEV-SNP o Intel TDX (Azure/GCP Confidential
+  VM) o AWS Nitro Enclaves. Proyectos como
+  [Constellation](https://constellation.edgeless.systems/) montan Kubernetes
+  verificable con `constellation verify`. Aquí la confianza se traslada al
+  fabricante de la CPU, no desaparece.
+
+Ninguna de las dos está integrada en este repositorio y no se pueden activar
+desde la aplicación: dependen del host, del hipervisor y, en la práctica, de un
+segundo canal para publicar el *quote*. Mientras no existan, la transparencia de
+Wanderbibliothek es **detectable, no imposible**: código abierto, imagen firmada,
+commit publicado e instantáneas firmadas del contenido.
 
 ## 12. Privacidad y retención de datos
 

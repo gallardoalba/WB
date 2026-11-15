@@ -1,0 +1,439 @@
+/**
+ * Transparencia del catálogo público.
+ *
+ * La instancia publica periódicamente una **instantánea firmada** del catálogo
+ * público: una línea JSON canónica por obra (título, autoría, ediciones y
+ * ciudades con ejemplares), su hash, la raíz de un árbol de Merkle y la firma
+ * Ed25519 del conjunto. Cualquiera puede descargar la instantánea, recalcular
+ * esos valores y comprobar que la firma es de esta instancia.
+ *
+ * Qué garantiza y qué no:
+ *
+ * - Detecta que el contenido público cambió **sin dejar rastro**: si alguien
+ *   reescribe una instantánea publicada, la firma o la raíz dejan de cuadrar.
+ * - No prueba qué código se ejecuta en el servidor. Eso lo cubren la imagen
+ *   firmada de la release y `/api/version`.
+ * - No incluye nada de personas: el origen es `listPublicWorks()`, que ya
+ *   publica la obra y cifras agregadas, nunca quién tiene cada ejemplar. Por
+ *   eso la instantánea se puede servir sin sesión y sin recortar nada.
+ */
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  randomUUID,
+  sign,
+  verify,
+  type KeyObject,
+} from "node:crypto";
+import { gunzipSync, gzipSync } from "node:zlib";
+
+import { getDb, type Db } from "./db";
+import { listPublicWorks } from "./repo";
+
+/** Cabecera del mensaje firmado: si cambia el formato, sube la versión. */
+const MESSAGE_VERSION = "wanderbibliothek-transparency-v1";
+/** Días que se conserva el contenido descargable de cada instantánea. */
+export const PAYLOAD_RETENTION_DAYS = 400;
+
+export type TransparencySnapshot = {
+  id: string;
+  createdAt: string;
+  itemCount: number;
+  merkleRoot: string;
+  payloadHash: string;
+  /** Raíz de la instantánea anterior: enlaza unas con otras. */
+  previousRoot: string | null;
+  /** Firma Ed25519 en base64, o `null` si la instancia no tiene clave. */
+  signature: string | null;
+  /** Clave pública Ed25519 (SPKI en base64) con la que se firmó. */
+  publicKey: string | null;
+  signer: string | null;
+};
+
+type SnapshotRow = {
+  id: string;
+  created_at: string;
+  item_count: number;
+  merkle_root: string;
+  payload_hash: string;
+  previous_root: string | null;
+  signature: string | null;
+  public_key: string | null;
+  signer: string | null;
+};
+
+export type TransparencyKey = { privateKey: KeyObject; publicKey: string };
+
+function sha256(data: string | Buffer): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+/**
+ * JSON con las claves ordenadas y sin espacios.
+ *
+ * `JSON.stringify` respeta el orden de inserción: dos objetos iguales podrían
+ * producir bytes distintos y romper la comparación de hashes. Aquí el orden es
+ * el alfabético, así que la misma instantánea siempre se serializa igual.
+ */
+export function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`);
+    return `{${entries.join(",")}}`;
+  }
+  const json = JSON.stringify(value);
+  return json === undefined ? "null" : json;
+}
+
+function leafHash(line: string): string {
+  return sha256(`leaf:${line}`);
+}
+
+function nodeHash(left: string, right: string): string {
+  return sha256(`node:${left}${right}`);
+}
+
+/**
+ * Raíz de Merkle de las líneas, en el orden recibido.
+ *
+ * Los nodos impares se promueven tal cual al siguiente nivel (el criterio de
+ * Bitcoin): el verificador externo tiene que usar exactamente la misma regla.
+ */
+export function merkleRoot(lines: string[]): string {
+  if (lines.length === 0) return sha256("");
+  let level = lines.map(leafHash);
+  while (level.length > 1) {
+    const next: string[] = [];
+    for (let index = 0; index < level.length; index += 2) {
+      const left = level[index]!;
+      const right = level[index + 1];
+      next.push(right === undefined ? left : nodeHash(left, right));
+    }
+    level = next;
+  }
+  return level[0]!;
+}
+
+/**
+ * Líneas canónicas del catálogo público.
+ *
+ * Se ordenan por su propio texto: el orden de `listPublicWorks` depende de
+ * cuántos ejemplares hay y cambiaría la raíz por un motivo que no es un cambio
+ * de contenido. Se recortan los campos que no aportan (portada, que apunta a un
+ * tercero) y se quedan los que describen la obra y su disponibilidad.
+ */
+export function catalogLines(): string[] {
+  return listPublicWorks()
+    .map((work) =>
+      stableJson({
+        id: work.id,
+        title: work.title,
+        author: work.author,
+        category: work.category,
+        language: work.language,
+        isbn: work.isbn,
+        publisher: work.publisher,
+        year: work.year,
+        series: work.series,
+        pages: work.pages,
+        copies: work.copies,
+        cities: work.cities,
+      }),
+    )
+    .sort();
+}
+
+/** Texto NDJSON que se firma y se descarga; acaba en salto de línea. */
+export function payloadOf(lines: string[]): string {
+  return lines.length === 0 ? "" : `${lines.join("\n")}\n`;
+}
+
+export function payloadHash(payload: string): string {
+  return sha256(payload);
+}
+
+/** Cuerpo exacto que firma Ed25519: una línea por campo, sin ambigüedad. */
+export function snapshotMessage(
+  snapshot: Pick<
+    TransparencySnapshot,
+    "id" | "createdAt" | "itemCount" | "merkleRoot" | "payloadHash" | "previousRoot"
+  >,
+): string {
+  return [
+    MESSAGE_VERSION,
+    snapshot.id,
+    snapshot.createdAt,
+    String(snapshot.itemCount),
+    snapshot.merkleRoot,
+    snapshot.payloadHash,
+    snapshot.previousRoot ?? "",
+  ].join("\n");
+}
+
+/**
+ * Clave de firma de la instancia.
+ *
+ * Acepta PEM o PKCS#8 en base64. Si falta o no es Ed25519 se devuelve `null`:
+ * la instancia sigue publicando instantáneas, pero avisa de que no están
+ * firmadas. Nunca se inventa una clave efímera: una firma que cambia en cada
+ * arranque no serviría para nada.
+ */
+export function signingKey(raw: string | undefined = process.env.TRANSPARENCY_SIGNING_KEY): TransparencyKey | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  try {
+    const privateKey = value.includes("BEGIN")
+      ? createPrivateKey(value)
+      : createPrivateKey({
+          key: Buffer.from(value, "base64"),
+          format: "der",
+          type: "pkcs8",
+        });
+    if (privateKey.asymmetricKeyType !== "ed25519") return null;
+    const spki = createPublicKey(privateKey).export({ format: "der", type: "spki" });
+    return { privateKey, publicKey: Buffer.from(spki).toString("base64") };
+  } catch {
+    return null;
+  }
+}
+
+export function verifySignature(snapshot: TransparencySnapshot): boolean {
+  if (!snapshot.signature || !snapshot.publicKey) return false;
+  try {
+    const key = createPublicKey({
+      key: Buffer.from(snapshot.publicKey, "base64"),
+      format: "der",
+      type: "spki",
+    });
+    return verify(
+      null,
+      Buffer.from(snapshotMessage(snapshot)),
+      key,
+      Buffer.from(snapshot.signature, "base64"),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function toSnapshot(row: SnapshotRow): TransparencySnapshot {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    itemCount: row.item_count,
+    merkleRoot: row.merkle_root,
+    payloadHash: row.payload_hash,
+    previousRoot: row.previous_root,
+    signature: row.signature,
+    publicKey: row.public_key,
+    signer: row.signer,
+  };
+}
+
+const SELECT_COLUMNS = `id, created_at, item_count, merkle_root, payload_hash,
+  previous_root, signature, public_key, signer`;
+
+export function latestSnapshot(db: Db = getDb()): TransparencySnapshot | null {
+  const row = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM transparency_snapshots
+        ORDER BY created_at DESC, id DESC LIMIT 1`,
+    )
+    .get() as SnapshotRow | undefined;
+  return row ? toSnapshot(row) : null;
+}
+
+export function listSnapshots(limit = 20, db: Db = getDb()): TransparencySnapshot[] {
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM transparency_snapshots
+        ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .all(Math.max(1, Math.min(200, limit))) as SnapshotRow[];
+  return rows.map(toSnapshot);
+}
+
+export type CreateSnapshotOptions = {
+  /** Para pruebas y para fijar la hora desde el cron. */
+  now?: string;
+  /** Clave de firma; `undefined` la toma del entorno, `null` no firma. */
+  key?: TransparencyKey | null;
+  /** Líneas ya construidas; sin esto se lee el catálogo público. */
+  lines?: string[];
+};
+
+/**
+ * Crea y guarda una instantánea. Devuelve la fila pública (sin el contenido).
+ *
+ * El contenido se guarda comprimido para que la descarga posterior sea la
+ * prueba exacta de lo que se firmó. Las instantáneas son inmutables: la API
+ * nunca las modifica y la única escritura posterior es borrar el contenido
+ * antiguo por retención, que no afecta a raíces ni firmas.
+ */
+export function createSnapshot(
+  db: Db = getDb(),
+  options: CreateSnapshotOptions = {},
+): TransparencySnapshot {
+  const createdAt = options.now ?? new Date().toISOString();
+  const lines = options.lines ?? catalogLines();
+  const payload = payloadOf(lines);
+  const previous = latestSnapshot(db);
+  const key = options.key === undefined ? signingKey() : options.key;
+
+  const snapshot: TransparencySnapshot = {
+    id: `snp_${randomUUID()}`,
+    createdAt,
+    itemCount: lines.length,
+    merkleRoot: merkleRoot(lines),
+    payloadHash: payloadHash(payload),
+    previousRoot: previous?.merkleRoot ?? null,
+    signature: null,
+    publicKey: key?.publicKey ?? null,
+    signer: key ? "ed25519" : null,
+  };
+
+  if (key) {
+    snapshot.signature = sign(
+      null,
+      Buffer.from(snapshotMessage(snapshot)),
+      key.privateKey,
+    ).toString("base64");
+  }
+
+  db.prepare(
+    `INSERT INTO transparency_snapshots
+       (id, created_at, item_count, merkle_root, payload_hash, previous_root,
+        payload, signature, public_key, signer)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    snapshot.id,
+    snapshot.createdAt,
+    snapshot.itemCount,
+    snapshot.merkleRoot,
+    snapshot.payloadHash,
+    snapshot.previousRoot,
+    gzipSync(Buffer.from(payload, "utf8")),
+    snapshot.signature,
+    snapshot.publicKey,
+    snapshot.signer,
+  );
+
+  prunePayloads(db, createdAt);
+  return snapshot;
+}
+
+/**
+ * Una instantánea al día como mucho: el cron pasa cada quince minutos y no
+ * tiene sentido firmar el mismo catálogo cuatro veces por hora.
+ */
+export function ensureDailySnapshot(
+  db: Db = getDb(),
+  options: CreateSnapshotOptions = {},
+): TransparencySnapshot | null {
+  const now = options.now ?? new Date().toISOString();
+  const latest = latestSnapshot(db);
+  if (latest && latest.createdAt.slice(0, 10) === now.slice(0, 10)) return null;
+  return createSnapshot(db, { ...options, now });
+}
+
+/** Contenido exacto de una instantánea, o `null` si no existe o ya se podó. */
+export function readPayload(
+  id: string,
+  db: Db = getDb(),
+): { snapshot: TransparencySnapshot; payload: string | null } | null {
+  const row = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS}, payload FROM transparency_snapshots WHERE id = ?`,
+    )
+    .get(id) as (SnapshotRow & { payload: Buffer | null }) | undefined;
+  if (!row) return null;
+  return {
+    snapshot: toSnapshot(row),
+    payload: row.payload ? gunzipSync(row.payload).toString("utf8") : null,
+  };
+}
+
+/**
+ * Borra el contenido descargable antiguo, no la instantánea.
+ *
+ * Pasado el plazo de retención, una copia del catálogo deja de ser útil y sí es
+ * un histórico innecesario. La raíz, el hash y la firma se conservan: la cadena
+ * sigue siendo verificable y nadie puede reescribir lo publicado.
+ */
+export function prunePayloads(
+  db: Db,
+  now: string,
+  retentionDays = PAYLOAD_RETENTION_DAYS,
+): number {
+  const cutoff = new Date(Date.parse(now) - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  return db
+    .prepare(
+      "UPDATE transparency_snapshots SET payload = NULL WHERE payload IS NOT NULL AND created_at < ?",
+    )
+    .run(cutoff).changes;
+}
+
+/**
+ * Comprueba que la lista (de más nueva a más antigua) no tiene eslabones
+ * rotos: la raíz anterior que declara cada instantánea tiene que ser la raíz de
+ * la siguiente. Así una instantánea intermedia no se puede sustituir por otra
+ * sin que la cadena deje de cuadrar.
+ */
+export function verifyChain(snapshots: TransparencySnapshot[]): SnapshotVerification {
+  const problems: string[] = [];
+  for (let index = 0; index + 1 < snapshots.length; index += 1) {
+    const newer = snapshots[index]!;
+    const older = snapshots[index + 1]!;
+    if (newer.previousRoot !== older.merkleRoot) {
+      problems.push(
+        `${newer.id} dice venir de ${newer.previousRoot ?? "nada"} y la anterior es ${older.merkleRoot}`,
+      );
+    }
+  }
+  return { ok: problems.length === 0, problems };
+}
+
+export type SnapshotVerification = { ok: boolean; problems: string[] };
+
+/**
+ * Comprueba una instantánea contra el contenido descargado.
+ *
+ * Es la misma lógica que ejecuta `scripts/verify-transparency.ts`, para que
+ * quien audite desde fuera no dependa de la ruta HTTP: con el JSON de la API y
+ * el NDJSON descargado basta.
+ */
+export function verifySnapshot(
+  snapshot: TransparencySnapshot,
+  payload: string | null,
+): SnapshotVerification {
+  const problems: string[] = [];
+  if (payload === null) {
+    problems.push("la instantánea ya no conserva el contenido descargable");
+    return { ok: false, problems };
+  }
+
+  if (payloadHash(payload) !== snapshot.payloadHash) {
+    problems.push("el hash del contenido no coincide con el publicado");
+  }
+
+  const lines = payload === "" ? [] : payload.replace(/\n$/, "").split("\n");
+  if (lines.length !== snapshot.itemCount) {
+    problems.push(
+      `el contenido tiene ${lines.length} obras y la instantánea anuncia ${snapshot.itemCount}`,
+    );
+  }
+  if (merkleRoot(lines) !== snapshot.merkleRoot) {
+    problems.push("la raíz de Merkle no coincide con el contenido");
+  }
+  if (!snapshot.signature || !snapshot.publicKey) {
+    problems.push("la instantánea no está firmada: esta instancia no publica una prueba criptográfica");
+  } else if (!verifySignature(snapshot)) {
+    problems.push("la firma Ed25519 no valida con la clave publicada");
+  }
+
+  return { ok: problems.length === 0, problems };
+}

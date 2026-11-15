@@ -34,7 +34,7 @@ export type TechnicalDocument = {
 };
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-14";
+const UPDATED = "2026-11-15";
 
 const ES: TechnicalDocument = {
   title: "Documentación técnica",
@@ -76,13 +76,13 @@ const ES: TechnicalDocument = {
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v53), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v54), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 773 pruebas unitarias y de integración (96 ficheros)",
+            "tests/                 799 pruebas unitarias y de integración (100 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -234,6 +234,32 @@ const ES: TechnicalDocument = {
       ],
     },
     {
+      id: "transparencia",
+      heading: "Transparencia",
+      blocks: [
+        {
+          kind: "p",
+          text: "`GET /api/version` publica el commit, el digest de la imagen y la hora del build con los que se construyó esta instancia, además de los enlaces al repositorio. Si el despliegue no los conoce, los campos valen `null`: no se inventa un commit. El pie de página enseña el mismo identificador cuando existe.",
+        },
+        {
+          kind: "p",
+          text: "Cada etiqueta `v*` se publica como imagen en GHCR fijada por digest, con provenance SLSA y SBOM, y firmada con cosign en modo keyless. `deploy/verify-release.sh` comprueba que la firma corresponde a este repositorio y a su workflow de release; desplegar por digest impide que una etiqueta móvil cambie la imagen verificada.",
+        },
+        {
+          kind: "p",
+          text: "El cron crea como mucho una instantánea al día del catálogo público: una línea JSON canónica por obra, su SHA-256, una raíz de Merkle y una firma Ed25519 si la instancia tiene `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lista las instantáneas y `/api/transparency/export` entrega el NDJSON exacto que se firmó. `npm run transparency:verify -- --url …` recalcula todo desde fuera y comprueba la cadena de raíces.",
+        },
+        {
+          kind: "list",
+          items: [
+            "Lo que garantiza: que un cambio en el contenido publicado deja rastro y que una instantánea pasada no se puede sustituir por otra sin romper la firma o la cadena.",
+            "Lo que no incluye: nada de personas. El contenido sale de `listPublicWorks()` —obra, ediciones, ejemplares por ciudad—, nunca de quién tiene cada ejemplar, y por eso se puede servir sin sesión.",
+            "Lo que no puede garantizar: sin attestation por hardware (TPM 2.0 con IMA y un verificador como Keylime, o una máquina confidencial con SEV-SNP/TDX) nada demuestra criptográficamente que el proceso que responde sea la imagen firmada. La manipulación es detectable, no imposible, y así se dice en la guía de despliegue.",
+          ],
+        },
+      ],
+    },
+    {
       id: "permisos",
       heading: "Permisos por recurso",
       blocks: [
@@ -289,6 +315,8 @@ const ES: TechnicalDocument = {
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Días que se conserva `admin_audit` (0 = para siempre)."],
             ["`LEGAL_*`", "sin definir", "Titular, dirección, contacto y datos opcionales de `/privacidad` y `/aviso-legal`."],
             ["`MASTODON_*`", "apagado", "Integración opcional con Mastodon; sin `MASTODON_TOKEN` está apagada."],
+            ["`TRANSPARENCY_SIGNING_KEY`", "sin definir", "Clave Ed25519 (PKCS#8 en base64 o PEM) que firma la instantánea diaria del catálogo. Sin ella se publican sin firma y así se indica."],
+            ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "sin definir", "Identidad del build que publica `/api/version`; la rellena el workflow de release o `deploy/deploy.sh`."],
           ],
         },
         {
@@ -303,7 +331,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 773 pruebas unitarias y de integración en 96 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 799 pruebas unitarias y de integración en 100 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -488,13 +516,13 @@ const DE: TechnicalDocument = {
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v53), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v54), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 773 Unit- und Integrationstests (96 Dateien)",
+            "tests/                 799 Unit- und Integrationstests (100 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -646,6 +674,32 @@ const DE: TechnicalDocument = {
       ],
     },
     {
+      id: "transparenz",
+      heading: "Transparenz",
+      blocks: [
+        {
+          kind: "p",
+          text: "`GET /api/version` veröffentlicht Commit, Image-Digest und Build-Zeit dieser Instanz sowie die Links zum Repository. Kennt ein Deployment sie nicht, sind die Felder `null`: Es wird kein Commit erfunden. Die Fußzeile zeigt dieselbe Kennung, wenn sie existiert.",
+        },
+        {
+          kind: "p",
+          text: "Jedes Tag `v*` wird als Image in GHCR mit festem Digest veröffentlicht, mit SLSA-Provenance und SBOM, signiert mit cosign im Keyless-Modus. `deploy/verify-release.sh` prüft, dass die Signatur zu diesem Repository und seinem Release-Workflow gehört; ein Deployment per Digest verhindert, dass ein bewegliches Tag das geprüfte Image austauscht.",
+        },
+        {
+          kind: "p",
+          text: "Der Cron erstellt höchstens eine Momentaufnahme des öffentlichen Katalogs pro Tag: eine kanonische JSON-Zeile pro Werk, ihren SHA-256, eine Merkle-Wurzel und eine Ed25519-Signatur, wenn die Instanz `TRANSPARENCY_SIGNING_KEY` hat. `/api/transparency` listet die Momentaufnahmen, `/api/transparency/export` liefert genau das signierte NDJSON. `npm run transparency:verify -- --url …` berechnet alles von außen neu und prüft die Kette der Wurzeln.",
+        },
+        {
+          kind: "list",
+          items: [
+            "Was es garantiert: Eine Änderung am veröffentlichten Inhalt hinterlässt eine Spur, und eine frühere Momentaufnahme lässt sich nicht durch eine andere ersetzen, ohne Signatur oder Kette zu brechen.",
+            "Was nicht enthalten ist: nichts über Personen. Der Inhalt kommt aus `listPublicWorks()` — Werk, Ausgaben, Exemplare pro Stadt —, nie daraus, wer ein Exemplar besitzt; deshalb ist er ohne Sitzung abrufbar.",
+            "Was es nicht garantieren kann: Ohne Hardware-Attestation (TPM 2.0 mit IMA und einem Prüfer wie Keylime oder eine vertrauliche VM mit SEV-SNP/TDX) beweist nichts kryptografisch, dass der antwortende Prozess das signierte Image ist. Manipulation ist erkennbar, nicht unmöglich; die Bereitstellungsanleitung sagt das ausdrücklich.",
+          ],
+        },
+      ],
+    },
+    {
       id: "berechtigungen",
       heading: "Berechtigungen pro Ressource",
       blocks: [
@@ -701,6 +755,8 @@ const DE: TechnicalDocument = {
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Tage, die `admin_audit` aufbewahrt wird (0 = dauerhaft)."],
             ["`LEGAL_*`", "nicht gesetzt", "Betreiber, Anschrift, Kontakt und optionale Angaben für `/privacidad` und `/aviso-legal`."],
             ["`MASTODON_*`", "aus", "Optionale Mastodon-Integration; ohne `MASTODON_TOKEN` aus."],
+            ["`TRANSPARENCY_SIGNING_KEY`", "nicht gesetzt", "Ed25519-Schlüssel (PKCS#8 in Base64 oder PEM), der die tägliche Katalog-Momentaufnahme signiert. Ohne ihn werden sie unsigniert veröffentlicht und als solche gekennzeichnet."],
+            ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "nicht gesetzt", "Build-Identität, die `/api/version` veröffentlicht; gefüllt vom Release-Workflow oder von `deploy/deploy.sh`."],
           ],
         },
         {
@@ -715,7 +771,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 773 Unit- und Integrationstests in 96 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 799 Unit- und Integrationstests in 100 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

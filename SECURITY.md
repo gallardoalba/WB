@@ -57,3 +57,9 @@ de escáneres automáticos sin impacto demostrado.
 - Activa la verificación en dos pasos en la cuenta de administración.
 - Mantén las copias de seguridad cifradas y **fuera** del servidor.
 - No publiques el fichero `.data/` ni el contenido de `/var/lib/wanderbibliothek`.
+- Despliega por **digest**, no por etiqueta, y comprueba la firma antes de
+  arrancar: `./deploy/verify-release.sh` (necesita `cosign`). `/api/version`
+  enseña el commit y el digest que están sirviendo.
+- Define `TRANSPARENCY_SIGNING_KEY` para que las instantáneas del catálogo
+  público vayan firmadas; sin clave se publican sin prueba criptográfica y así
+  lo dice `/api/transparency`.

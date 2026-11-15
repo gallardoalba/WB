@@ -1,0 +1,152 @@
+name: Release
+
+# Publica una imagen verificable cuando se empuja una etiqueta `v*`.
+#
+# Lo que sale de aquí es lo que hace comprobable el despliegue:
+#   - la imagen va a GHCR identificada por digest (no solo por etiqueta);
+#   - lleva provenance SLSA y un SBOM adjuntos, generados por el propio build;
+#   - cosign la firma en clave corta (keyless) con la identidad de este workflow;
+#   - la release adjunta el SBOM y las sumas para quien prefiera comparar a mano.
+#
+# Las acciones van fijadas por SHA, igual que en `ci.yml`: una etiqueta como
+# `@v4` es un puntero móvil. Dependabot (ecosistema `github-actions`) las mueve.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # crear la release y subir los adjuntos
+      packages: write # publicar la imagen en GHCR
+      id-token: write # firma keyless y attestations
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      # La etiqueta y `package.json` tienen que decir lo mismo: una release
+      # `v1.2.0` que se presenta como 1.1.0 rompe justo la comprobación que
+      # hace todo esto útil.
+      - name: Comprobar que la etiqueta coincide con la versión
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          test "v${version}" = "${GITHUB_REF_NAME}" || {
+            echo "La etiqueta ${GITHUB_REF_NAME} no coincide con package.json (v${version})." >&2
+            exit 1
+          }
+
+      # GHCR exige el nombre en minúsculas; `github.repository` conserva las
+      # mayúsculas del repositorio.
+      - name: Nombre de la imagen
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Fecha del build
+        id: stamp
+        run: echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+
+      - name: Construir y publicar
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_COMMIT_SHA=${{ github.sha }}
+            APP_BUILD_TIME=${{ steps.stamp.outputs.built }}
+            # La site key de Turnstile es pública y se incrusta en el bundle:
+            # sin ella, la imagen de release saldría sin captcha. Se define como
+            # variable del repositorio, no como secreto.
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          # `mode=max` incluye las dependencias y el contexto, no solo el
+          # resultado: es lo que permite reconstruir el porqué de la imagen.
+          provenance: mode=max
+          sbom: true
+
+      - name: Attestation de provenance (SLSA)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      - name: Firmar la imagen (keyless)
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      # Inventario de dependencias del código, aparte del SBOM de la imagen:
+      # sirve para responder «¿esta versión llevaba el paquete afectado?» sin
+      # arrancar el contenedor.
+      - name: Inventario de dependencias (SBOM)
+        run: |
+          npm ci
+          npm sbom --sbom-format=cyclonedx --omit=dev > sbom.cdx.json
+
+      - name: Sumas y digest
+        run: |
+          sha256sum sbom.cdx.json > SHA256SUMS
+          printf '%s\n' "${{ steps.build.outputs.digest }}" > image-digest.txt
+          printf '%s\n' "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}" > image-reference.txt
+
+      - name: Publicar la release con los adjuntos
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file - \
+            sbom.cdx.json SHA256SUMS image-digest.txt image-reference.txt <<'EOF'
+          Imagen publicada en GHCR y firmada con cosign (keyless).
+
+          Para comprobar que la imagen es la que construyó este repositorio:
+
+          ```bash
+          cosign verify ghcr.io/gallardoalba/wb@<digest> \
+            --certificate-identity-regexp 'https://github.com/gallardoalba/WB/.github/workflows/release.yml@refs/tags/.*' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+          slsa-verifier verify-image ghcr.io/gallardoalba/wb@<digest> \
+            --source-uri github.com/gallardoalba/WB
+          ```
+
+          El digest está en `image-digest.txt` y la instancia lo publica en
+          `/api/version`.
+          EOF
