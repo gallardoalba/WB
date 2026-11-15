@@ -40,15 +40,6 @@ Knowledge is not property each of us keeps, but a commons that grows when it cir
 
 None of these decisions is neutral. The platform is built so that knowledge circulates as a commons and so that the people who use it decide for themselves, not so that value is extracted from them.
 
-## How it is built
-
-The visible part is the smaller half. What defines the platform is what it does not do with other people's data.
-
-- **The public catalogue carries no names.** The work pages that search engines index carry the book and figures per city; who offers the copy does not appear.
-- **The server cannot read private messages.** The private key stays in the browser and the server only relays opaque envelopes, one per device. Account secrets such as the second factor are encrypted with a key that is not in the database.
-- **Accessibility.** Sufficient contrast, visible focus, generous touch targets, keyboard operation and screen-reader labels, also when less motion is asked for.
-- **Backups and continuity.** Encrypted backups every six hours and a rehearsed restore: the service can be rebuilt from scratch with the backup and the code.
-
 ## Run it yourself
 
 Requires Node.js 22 or newer.
