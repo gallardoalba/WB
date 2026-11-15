@@ -17,18 +17,18 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               73 handlers grouped by domain
+    api/               75 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v51), seed
+    db/                connection, base schema (v2), migrations (v3–v52), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 755 unit and integration tests (95 files)
+tests/                 765 unit and integration tests (96 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -61,15 +61,17 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/obra/[bookId]` | Canonical work: conversation about the title, copies and recommendations. |
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
 | `/cuenta` | Settings: profile, notifications, password, encryption, second factor, export and deletion. |
-| `/admin` | Community moderation; requires an active second factor. |
+| `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
 | `/privacidad`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
 | `/techdoc` | Technical documentation page (Spanish and German). |
 | `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
+| `/normas` | Governance, moderation, sanctions and appeals policy (public). |
+| `/apelar` | Appeal form opened from the sanction email; token-based, no session and not indexed. |
 | `/api/health` | Service and database status. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 73 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
+The API has 75 handlers under `src/app/api`. Almost all are declared with `route()` (`src/lib/route.ts`), which applies session, Zod body schema, quota with origin guard and `handleApiError()` in one place; `tests/route.test.ts` checks on the files that no route leaves errors untranslated.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -78,6 +80,7 @@ The API has 73 handlers under `src/app/api`. Almost all are declared with `route
 - `/api/clubs/*`: circle, members, moderators, invitations, attendance, transfer, forum, votes and join requests.
 - `/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messages, following and blocking.
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
+- `/api/account/appeals`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the review is done by a different team member.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
 - `/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.
@@ -91,7 +94,10 @@ The API has 73 handlers under `src/app/api`. Almost all are declared with `route
 - Search through FTS5 maintained by triggers: `listings_fts` for the catalogue and `books_fts` for works; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
 - `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. The city is picked from a list of German municipalities supplied by OpenStreetMap (`searchCities()`, through Photon, which does allow suggestions while typing; if it does not answer, the local catalogue is offered instead) and checked on save with `resolveCity()`, which asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
 
-Migrations are versioned with `PRAGMA user_version` (currently v51). A new installation starts from `SCHEMA_V2` and its indexes; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Only two steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key) and v44 (when an exchange closes, the receiver gets a copy of their own). The detail of every step lives in that file and in its git history.
+- `users.is_moderator` separates moderation from administration; `suspended_until` and `suspension_reason` make a suspension explainable and time-bound.
+- `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review; a partial unique index allows only one open appeal per sanction.
+
+Migrations are versioned with `PRAGMA user_version` (currently v52). A new installation starts from `SCHEMA_V2` and its indexes; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Three steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own) and v52 (moderation separated from administration, suspensions with reason and time limit, and appeals). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
@@ -113,13 +119,14 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 - Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (`web` and `android`); the sender stores one envelope per recipient key, so the browser and the app can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification.
 - What that encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.
 - 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted, and the database only stores its SHA-256.
-- Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation in production; secrets are stored encrypted.
+- Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation and administration in production; secrets are stored encrypted.
+- Sanctions carry a reason and a duration (1–365 days); the email includes a single-use 30-day appeal link. The person who imposed the sanction cannot review the appeal.
 - Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.
 - Every mutation goes through `guard()` (origin and quota), and `readJson()` requires `application/json` and truncates bodies over 64 KB.
 - CSP with nonce and `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and HSTS in production (`src/proxy.ts`).
 - Directory `0700` and database `0600`; `npm run db:backup` uses SQLite's `.backup()` API and encrypts with AES-256-GCM when `WANDERBIBLIOTHEK_BACKUP_KEY` is set.
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
-- Account tokens are single-use, hashed and expire; changing the password ends every session.
+- Account tokens are single-use, hashed and expire (24 hours for verification, 1 hour for password reset, 30 days for appeals); changing the password ends every session.
 - `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
 ## Permissions per resource
@@ -139,7 +146,9 @@ Signing in is not enough: every operation also checks that the resource belongs 
 | Moderate: reports, suspensions, removals | No | No | No | Yes, with 2FA in production |
 | Export or delete the account | No | No | Only its owner | No |
 
-`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy and exchange tests cover the remaining roles.
+Two roles share the team: a **moderator** (`is_moderator`) reviews reports and hides content; an **administrator** (`is_admin`) can also suspend accounts, appoint the team and resolve appeals. Sanctions require a reason and a duration, and an appeal can only be reviewed by someone other than the sanctioner. In production both roles require a second factor.
+
+`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy, exchange and governance tests cover the remaining roles.
 
 ## Environment variables
 
@@ -166,7 +175,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 755 unit and integration tests in 95 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 765 unit and integration tests in 96 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -185,8 +194,10 @@ npx playwright install chromium && npm run test:e2e
 
 - `npm run db:backup` uses SQLite's `.backup()` API, checks integrity, rotates backups, encrypts when a key is present and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while WAL is active.
 - `npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given as an argument), opens it read-only like the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.
-- `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
+- `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
+- `npm run moderator:create -- <address> 'password'` creates a moderation-only account (no suspensions); `npm run admin:create` keeps creating administrators.
+- `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
 - Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.
@@ -228,6 +239,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 
 - [`README.md`](README.md) — what the project is, its principles and how to run it.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment, quality commands, commit conventions and migration rules.
+- [`GOVERNANCE.md`](GOVERNANCE.md) — roles, moderation, sanctions and appeals.
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and self-hosting notes.
 - [`deploy/README.md`](deploy/README.md) — step-by-step deployment with systemd, nginx and TLS.
 - [`LICENSE`](LICENSE) — MIT.

@@ -15,6 +15,8 @@ type Props = {
   hiddenComments: HiddenCommentView[];
   hiddenClubs: HiddenClubView[];
   audit: AuditView[];
+  canSanction: boolean;
+  showAudit: boolean;
   pageSize: number;
   pagination: Record<"suspended" | "comments" | "clubs" | "audit", { page: number; total: number }>;
 };
@@ -78,6 +80,8 @@ export function AdminSanctions({
   hiddenComments,
   hiddenClubs,
   audit,
+  canSanction,
+  showAudit,
   pageSize,
   pagination,
 }: Props) {
@@ -143,6 +147,7 @@ export function AdminSanctions({
 
   return (
     <div className="admin-sections">
+      {canSanction && (
       <section>
         <h2 className="admin-title">{t("Cuentas suspendidas")}</h2>
         {feedback && (
@@ -169,6 +174,18 @@ export function AdminSanctions({
                     {person.suspendedAt ? ` · ${t("suspendida")} ${formatWhen(person.suspendedAt, locale)}` : ""}
                   </span>
                   <span>{person.email}</span>
+                  {person.suspendedUntil && (
+                    <span>
+                      {t("hasta el {date}", {
+                        date: formatWhen(person.suspendedUntil, locale),
+                      })}
+                    </span>
+                  )}
+                  {person.reason && (
+                    <span>
+                      {t("Motivo de la sanción")}: {person.reason}
+                    </span>
+                  )}
                 </div>
                 <div className="admin-actions">
                   <button
@@ -192,6 +209,7 @@ export function AdminSanctions({
           label={t("Paginación de cuentas suspendidas")}
         />
       </section>
+      )}
 
       <section>
         <h2 className="admin-title">
@@ -272,6 +290,7 @@ export function AdminSanctions({
         />
       </section>
 
+      {showAudit && (
       <section>
         <h2 className="admin-title">
           <History size={16} /> {t("Últimas acciones")}
@@ -298,6 +317,7 @@ export function AdminSanctions({
           label={t("Paginación de auditoría")}
         />
       </section>
+      )}
     </div>
   );
 }

@@ -600,6 +600,8 @@ export const adminActionSchema = z.object({
     "hide_club",
     "hide_club_post",
   ]),
+  reason: z.string().trim().max(300).optional(),
+  days: z.number().int().min(1).max(365).optional(),
 });
 
 export const localeSchema = z.object({
@@ -642,6 +644,10 @@ export const moderationSchema = z.object({
     error: "Ese tipo de contenido no existe.",
   }),
   targetId: z.string().min(1, "Falta el objetivo.").max(64, "Ese identificador no es válido."),
+  /** Motivo de la sanción: obligatorio al suspender, lo valida el repositorio. */
+  reason: z.string().trim().max(300).optional(),
+  /** Duración de la suspensión en días (1–365). */
+  days: z.number().int().min(1).max(365).optional(),
 });
 
 /**
@@ -674,4 +680,28 @@ export const pushUnsubscribeSchema = z.object({
     .string()
     .min(10, "El endpoint del navegador no es válido.")
     .max(2000, "El endpoint del navegador no es válido."),
+});
+
+/**
+ * Apelación de una sanción. El token llega por correo y es la única credencial:
+ * quien está suspendido no puede iniciar sesión, así que no hay sesión que
+ * exigir. El texto se limita para que no se convierta en un canal de abuso.
+ */
+export const appealSchema = z.object({
+  token: z.string().trim().length(64, "El enlace no es válido."),
+  message: z
+    .string()
+    .trim()
+    .min(20, "Cuenta qué ha pasado (al menos 20 caracteres).")
+    .max(2000, "La apelación es demasiado larga."),
+});
+
+/** Respuesta del equipo a una apelación. */
+export const appealResolutionSchema = z.object({
+  outcome: z.enum(["upheld", "rejected"], { error: "Esa decisión no existe." }),
+  resolution: z
+    .string()
+    .trim()
+    .min(10, "Explica brevemente la decisión.")
+    .max(2000, "La respuesta es demasiado larga."),
 });

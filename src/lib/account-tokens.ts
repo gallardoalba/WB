@@ -2,15 +2,18 @@ import { createHash, randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { ApiError } from "./errors";
 import { DEFAULT_LOCALE, normalizeLocale, type Locale } from "./locale";
-import { passwordResetMail, verificationMail } from "./mail-templates";
+import { passwordResetMail, suspensionMail, appealResolvedMail, verificationMail } from "./mail-templates";
 import { siteUrl } from "./site";
 import { enqueueMail } from "./outbox";
 
-export type TokenPurpose = "verify_email" | "reset_password";
+export type TokenPurpose = "verify_email" | "reset_password" | "appeal";
 
 const TTL_MINUTES: Record<TokenPurpose, number> = {
   verify_email: 60 * 24,
   reset_password: 60,
+  // Una persona suspendida puede necesitar días para decidir apelar; el enlace
+  // caduca con el tiempo suficiente para hacerlo sin dejarlo abierto siempre.
+  appeal: 60 * 24 * 30,
 };
 
 function hashToken(raw: string): string {
@@ -106,4 +109,46 @@ function accountLocale(userId: string): Locale {
 
 export function assertTokenShape(token: string): void {
   if (!/^[a-f0-9]{64}$/.test(token)) throw new ApiError(400, "El enlace no es válido.");
+}
+
+/**
+ * Comprueba un token sin consumirlo. La página de apelación lo usa para
+ * enseñar el formulario; el envío sí lo consume.
+ */
+export function peekAccountToken(raw: string, purpose: TokenPurpose): string | null {
+  const row = getDb()
+    .prepare(
+      `SELECT user_id FROM account_tokens
+        WHERE token_hash = ? AND purpose = ? AND used_at IS NULL
+          AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    )
+    .get(hashToken(raw), purpose) as { user_id: string } | undefined;
+  return row?.user_id ?? null;
+}
+
+/** Encola el aviso de suspensión con el enlace de apelación. */
+export function sendSuspensionEmail(
+  userId: string,
+  email: string,
+  reason: string,
+  until: string,
+): void {
+  const token = issueAccountToken(userId, "appeal");
+  const locale = accountLocale(userId);
+  const link = `${siteUrl()}/apelar?token=${token}&lang=${locale}`;
+  enqueueMail({
+    to: email,
+    ...suspensionMail(locale, { reason, until: until.slice(0, 10), link }),
+  });
+}
+
+/** Encola la respuesta a la apelación, en el idioma de la cuenta. */
+export function sendAppealResolvedEmail(
+  userId: string,
+  email: string,
+  upheld: boolean,
+  resolution: string,
+): void {
+  const locale = accountLocale(userId);
+  enqueueMail({ to: email, ...appealResolvedMail(locale, { upheld, resolution }) });
 }

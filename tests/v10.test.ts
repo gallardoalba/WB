@@ -156,6 +156,8 @@ test("un club de una cuenta suspendida deja de listarse", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_lucia",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   assert.equal(repo.listClubs({ viewerId: null, city: "Karlsruhe" }).clubs.some((c) => c.id === club.id), false);
   assert.equal(repo.getClub(club.id, null), null);

@@ -96,6 +96,7 @@ const STATIC_BODIES: Record<string, string> = {
   "Lo ha retirado el equipo de moderación tras una revisión.": "Das Moderationsteam hat es nach einer Prüfung entfernt.",
   "Se ha restablecido tras la revisión.": "Es wurde nach der Prüfung wiederhergestellt.",
   "Puedes volver a entrar y publicar ejemplares.": "Du kannst dich wieder anmelden und Exemplare einstellen.",
+  "Tu apelación se ha estimado y la suspensión se ha levantado.": "Deinem Einspruch wurde stattgegeben und die Sperre wurde aufgehoben.",
   "Verás sus novedades en la pestaña «Siguiendo» de la comunidad.": "Ihre Neuigkeiten erscheinen im Tab „Folgt“ der Gemeinschaft.",
   "El club ha elegido otra lectura en curso. Entra para verla.": "Der Club hat eine andere Lektüre gewählt. Öffne den Club, um sie zu sehen.",
   "Se ha activado una clave distinta en otro dispositivo. Revisa que seas tú.": "Auf einem anderen Gerät wurde ein anderer Schlüssel aktiviert. Prüfe, ob du das warst.",

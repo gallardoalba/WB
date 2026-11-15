@@ -68,3 +68,73 @@ export function passwordResetMail(locale: Locale, link: string): MailText {
       "Si no ves este mensaje en la bandeja de entrada, mira en la carpeta de spam.",
   };
 }
+
+/**
+ * Aviso de suspensión. Incluye el motivo, el plazo y el enlace de apelación:
+ * quien no puede entrar no debe quedarse sin saber por qué ni cómo recurrir.
+ */
+export function suspensionMail(
+  locale: Locale,
+  input: { reason: string; until: string; link: string },
+): MailText {
+  if (locale === "de") {
+    return {
+      subject: "Dein Konto bei Wanderbibliothek wurde gesperrt",
+      text:
+        `Dein Konto ist bis zum ${input.until} gesperrt.\n\n` +
+        `Grund: ${input.reason}\n\n` +
+        "Du kannst die Entscheidung über diesen Link anfechten (er gilt 30 Tage):\n" +
+        `${input.link}\n\n` +
+        "Wenn du die Sperre nicht nachvollziehen kannst, wende dich an das Moderations-Team der Instanz.",
+    };
+  }
+  if (locale === "en") {
+    return {
+      subject: "Your Wanderbibliothek account has been suspended",
+      text:
+        `Your account is suspended until ${input.until}.\n\n` +
+        `Reason: ${input.reason}\n\n` +
+        "You can appeal the decision through this link (valid for 30 days):\n" +
+        `${input.link}\n\n` +
+        "If you do not recognise this sanction, contact the instance's moderation team.",
+    };
+  }
+  return {
+    subject: "Tu cuenta de Wanderbibliothek está suspendida",
+    text:
+      `Tu cuenta está suspendida hasta el ${input.until}.\n\n` +
+      `Motivo: ${input.reason}\n\n` +
+      "Puedes apelar la decisión desde este enlace (vale 30 días):\n" +
+      `${input.link}\n\n` +
+      "Si no reconoces esta sanción, escribe al equipo de moderación de la instancia.",
+  };
+}
+
+/** Respuesta a una apelación: si se estima, la suspensión ya está levantada. */
+export function appealResolvedMail(
+  locale: Locale,
+  input: { upheld: boolean; resolution: string },
+): MailText {
+  if (locale === "de") {
+    return {
+      subject: "Antwort auf deinen Einspruch bei Wanderbibliothek",
+      text: input.upheld
+        ? `Dein Einspruch war erfolgreich: die Sperre wurde aufgehoben. Du kannst dich wieder anmelden.\n\n${input.resolution}`
+        : `Dein Einspruch wurde geprüft. Die Sperre bleibt bestehen.\n\n${input.resolution}`,
+    };
+  }
+  if (locale === "en") {
+    return {
+      subject: "Reply to your appeal at Wanderbibliothek",
+      text: input.upheld
+        ? `Your appeal was upheld and the suspension has been lifted. You can sign in again.\n\n${input.resolution}`
+        : `Your appeal has been reviewed. The suspension remains in place.\n\n${input.resolution}`,
+    };
+  }
+  return {
+    subject: "Respuesta a tu apelación en Wanderbibliothek",
+    text: input.upheld
+      ? `Tu apelación ha sido estimada y la suspensión se ha levantado. Ya puedes volver a entrar.\n\n${input.resolution}`
+      : `Tu apelación se ha revisado. La suspensión se mantiene.\n\n${input.resolution}`,
+  };
+}

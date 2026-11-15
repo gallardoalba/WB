@@ -65,7 +65,7 @@ test("no se puede solicitar ni guardar un ejemplar de una cuenta suspendida", ()
     details: "",
   });
   const report = repo.listReports().find((item) => item.targetId === "usr_diego");
-  repo.resolveReport("usr_admin", report!.id, "suspend_user");
+  repo.resolveReport("usr_admin", report!.id, "suspend_user", { reason: "Motivo de prueba", days: 30 });
 
   assert.throws(
     () => repo.createRequest("usr_ana", "lst_2", "Hola"),
@@ -91,6 +91,8 @@ test("las métricas públicas cuadran con lo que se puede ver", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_lucia",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   const after = repo.getStats().available;
   assert.equal(after, before - 1);
@@ -111,6 +113,8 @@ test("la media no cuenta reseñas de cuentas suspendidas", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_ana",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   const hidden = repo.getPublicProfile("usr_lucia", null);
   assert.equal(hidden?.ratingCount, 0);

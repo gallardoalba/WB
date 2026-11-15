@@ -35,6 +35,8 @@ test("solo el dueño cede el club y solo a un miembro activo", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_ana",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   assert.throws(() => repo.transferClub("usr_clara", club.id, "usr_ana"), isStatus(404));
   repo.moderateTarget("usr_admin", {

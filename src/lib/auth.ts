@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { ApiError } from "./errors";
 import type { SessionUser } from "./domain";
+import { canModerate } from "./permissions";
 import { getTotpState } from "./repo/totp";
 import { hashToken, userForToken } from "./session-store";
 
@@ -65,6 +66,19 @@ export async function requireAdmin(): Promise<SessionUser> {
   // segundo factor es obligatorio para moderar.
   if (process.env.NODE_ENV === "production" && !getTotpState(user.id).enabled) {
     throw new ApiError(403, "Activa la verificación en dos pasos para usar la administración.");
+  }
+  return user;
+}
+
+/**
+ * Moderación: denuncias y contenido. No incluye sancionar cuentas ni nombrar
+ * al equipo; eso sigue siendo de administración (`requireAdmin`).
+ */
+export async function requireModerator(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!canModerate(user)) throw new ApiError(403, "No tienes permisos de moderación.");
+  if (process.env.NODE_ENV === "production" && !getTotpState(user.id).enabled) {
+    throw new ApiError(403, "Activa la verificación en dos pasos para usar la moderación.");
   }
   return user;
 }

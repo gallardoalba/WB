@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getDb, type Db } from "../db";
 import { ApiError } from "../errors";
 import type { AdminReportView, ListingStatus } from "../domain";
+import { sendSuspensionEmail } from "../account-tokens";
 import { nowIso } from "./shared";
 import { getUserById } from "./users";
 import { notify } from "./notifications";
@@ -244,7 +245,8 @@ function applyModeration(
   action: ModerationAction,
   targetType: string,
   targetId: string,
-): void {
+  sanction: { reason?: string; days?: number } = {},
+): { reason: string; until: string } | void {
   if (action === "hide_club" || action === "restore_club") {
     if (targetType !== "club") throw new ApiError(409, "Esta acción solo vale para clubes.");
     const club = db
@@ -443,12 +445,33 @@ function applyModeration(
   }
 
   if (action === "suspend_user") {
+    // Una sanción sin motivo ni plazo no es una sanción: es una desaparición.
+    // El motivo se guarda y viaja en el correo; el plazo evita que una
+    // suspensión temporal se vuelva indefinida por olvido.
+    const reason = sanction.reason?.trim() ?? "";
+    if (reason.length < 5) {
+      throw new ApiError(400, "Explica el motivo de la suspensión (al menos 5 caracteres).");
+    }
+    const days = sanction.days;
+    if (!Number.isInteger(days) || (days as number) < 1 || (days as number) > 365) {
+      throw new ApiError(400, "Indica cuántos días dura la suspensión (entre 1 y 365).");
+    }
+    const until = new Date(Date.now() + (days as number) * 24 * 60 * 60 * 1000).toISOString();
     // El estado de los ejemplares no se toca: el catálogo ya oculta los de una
     // cuenta suspendida, así que la sanción es reversible.
-    db.prepare("UPDATE users SET is_suspended = 1 WHERE id = ?").run(targetId);
+    db.prepare(
+      `UPDATE users
+          SET is_suspended = 1, suspended_until = ?, suspension_reason = ?
+        WHERE id = ?`,
+    ).run(until, reason, targetId);
     db.prepare("DELETE FROM sessions WHERE user_id = ?").run(targetId);
+    return { reason, until };
   } else {
-    db.prepare("UPDATE users SET is_suspended = 0 WHERE id = ?").run(targetId);
+    db.prepare(
+      `UPDATE users
+          SET is_suspended = 0, suspended_until = NULL, suspension_reason = NULL
+        WHERE id = ?`,
+    ).run(targetId);
     notify({
       userId: targetId,
       type: "moderation",
@@ -478,16 +501,53 @@ export function moderateTarget(
     action: ModerationAction;
     targetType: "listing" | "user" | "comment" | "club" | "club_post";
     targetId: string;
+    /** Motivo y duración, obligatorios al suspender una cuenta. */
+    reason?: string;
+    days?: number;
   },
 ): void {
   const db = getDb();
-  db.transaction(() => {
-    applyModeration(db, input.action, input.targetType, input.targetId);
-    writeAudit(db, adminId, input.action, input.targetType, input.targetId, "acción directa");
+  const suspension = db.transaction(() => {
+    const applied = applyModeration(db, input.action, input.targetType, input.targetId, input);
+    writeAudit(
+      db,
+      adminId,
+      input.action,
+      input.targetType,
+      input.targetId,
+      sanctionDetails("acción directa", applied),
+    );
+    return applied;
   })();
+  if (suspension) sendSuspensionNotice(input.targetId, suspension);
 }
 
-export function resolveReport(adminId: string, reportId: string, action: AdminAction): void {
+/** Motivo y plazo van a la auditoría: la sanción tiene que poder explicarse. */
+function sanctionDetails(
+  base: string,
+  suspension: { reason: string; until: string } | void,
+): string {
+  return suspension
+    ? `${base} · motivo: ${suspension.reason} · hasta ${suspension.until.slice(0, 10)}`
+    : base;
+}
+
+/** El aviso sale después de confirmar la transacción, nunca antes. */
+function sendSuspensionNotice(userId: string, suspension: { reason: string; until: string }): void {
+  const row = getDb()
+    .prepare("SELECT email FROM users WHERE id = ?")
+    .get(userId) as { email: string } | undefined;
+  if (row?.email && !row.email.startsWith("deleted-")) {
+    sendSuspensionEmail(userId, row.email, suspension.reason, suspension.until);
+  }
+}
+
+export function resolveReport(
+  adminId: string,
+  reportId: string,
+  action: AdminAction,
+  sanction: { reason?: string; days?: number } = {},
+): void {
   const db = getDb();
   const report = db
     .prepare("SELECT id, target_type, target_id, status FROM reports WHERE id = ?")
@@ -497,7 +557,7 @@ export function resolveReport(adminId: string, reportId: string, action: AdminAc
 
   if (!report) throw new ApiError(404, "La denuncia no existe.");
 
-  db.transaction(() => {
+  const suspension = db.transaction(() => {
     // Se toma la denuncia de forma atómica: si otra persona la resolvió entre
     // la lectura y la escritura, esta acción no se aplica dos veces.
     const claimed = db
@@ -505,8 +565,9 @@ export function resolveReport(adminId: string, reportId: string, action: AdminAc
       .run(action === "dismiss" ? "dismissed" : "reviewed", reportId);
     if (claimed.changes !== 1) throw new ApiError(409, "La denuncia ya está resuelta.");
 
+    let applied: { reason: string; until: string } | void = undefined;
     if (action !== "dismiss") {
-      applyModeration(db, action, report.target_type, report.target_id);
+      applied = applyModeration(db, action, report.target_type, report.target_id, sanction);
     }
 
     writeAudit(
@@ -515,9 +576,11 @@ export function resolveReport(adminId: string, reportId: string, action: AdminAc
       action,
       report.target_type,
       report.target_id,
-      `denuncia ${reportId}`,
+      sanctionDetails(`denuncia ${reportId}`, applied),
     );
+    return applied;
   })();
+  if (suspension) sendSuspensionNotice(report.target_id, suspension);
 }
 
 export type SuspendedUserView = {
@@ -526,13 +589,16 @@ export type SuspendedUserView = {
   email: string;
   city: string;
   suspendedAt: string | null;
+  suspendedUntil: string | null;
+  reason: string;
 };
 
 /** Cuentas suspendidas por moderación (excluye las eliminadas por su dueño). */
 export function listSuspendedUsers(limit = 50, offset = 0): SuspendedUserView[] {
   const rows = getDb()
     .prepare(
-      `SELECT u.id, u.name, u.email, u.city,
+      `SELECT u.id, u.name, u.email, u.city, u.suspended_until,
+              u.suspension_reason,
               (SELECT a.created_at FROM admin_audit a
                 WHERE a.action = 'suspend_user' AND a.target_id = u.id
                 ORDER BY a.created_at DESC LIMIT 1) AS suspended_at
@@ -546,6 +612,8 @@ export function listSuspendedUsers(limit = 50, offset = 0): SuspendedUserView[] 
     name: string;
     email: string;
     city: string;
+    suspended_until: string | null;
+    suspension_reason: string | null;
     suspended_at: string | null;
   }[];
 
@@ -555,6 +623,8 @@ export function listSuspendedUsers(limit = 50, offset = 0): SuspendedUserView[] 
     email: row.email,
     city: row.city,
     suspendedAt: row.suspended_at,
+    suspendedUntil: row.suspended_until,
+    reason: row.suspension_reason ?? "",
   }));
 }
 

@@ -2,6 +2,7 @@
 
 import { Dialog } from "./dialog";
 import { useI18n } from "./i18n-provider";
+import type { ReactNode } from "react";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -12,6 +13,10 @@ type ConfirmDialogProps = {
   confirmLabel: string;
   cancelLabel?: string;
   pending?: boolean;
+  /** Campos adicionales de la confirmación (motivo, duración…). */
+  children?: ReactNode;
+  /** Deshabilita confirmar mientras los campos obligatorios no estén listos. */
+  confirmDisabled?: boolean;
 };
 
 /** Confirmación accesible para acciones destructivas (sustituye a window.confirm). */
@@ -24,6 +29,8 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   pending = false,
+  children,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const { t } = useI18n();
   return (
@@ -34,6 +41,7 @@ export function ConfirmDialog({
       description={description}
       overline={t("CONFIRMAR ACCIÓN")}
     >
+      {children}
       <div className="dialog-actions">
         <button type="button" className="secondary-button" onClick={onClose} disabled={pending}>
           {cancelLabel ?? t("Cancelar")}
@@ -42,7 +50,7 @@ export function ConfirmDialog({
           type="button"
           className="share-button danger"
           onClick={onConfirm}
-          disabled={pending}
+          disabled={pending || confirmDisabled}
         >
           {pending ? t("Un momento…") : confirmLabel}
         </button>

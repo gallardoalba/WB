@@ -82,6 +82,8 @@ test("el directorio filtra por ciudad, busca por nombre y excluye cuentas suspen
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_marcos",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   const afterSuspend = repo.listReaders({ viewerId: "usr_ana" });
   assert.equal(

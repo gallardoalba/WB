@@ -19,6 +19,7 @@ import { SCHEMA_VERSION } from "../src/lib/db/schema.ts";
 const EXPECTED_TABLES = [
   "account_tokens",
   "admin_audit",
+  "appeals",
   "auth_attempts",
   "availability_alerts",
   "blocks",
@@ -98,7 +99,8 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "ship_city",
     "ship_set_at",
   ],
-  users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at"],
+  users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at", "is_moderator", "suspended_until", "suspension_reason"],
+  appeals: ["user_id", "audit_id", "status", "message", "reviewer_id", "resolution"],
   messages: ["ciphertext", "iv", "encrypted", "key_id"],
   user_keys: ["user_id", "platform", "key_id", "public_jwk"],
   message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],

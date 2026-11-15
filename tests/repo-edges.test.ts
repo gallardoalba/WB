@@ -183,6 +183,8 @@ test("los contadores del panel cuentan lo mismo que sus listas", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: suspendida,
+    reason: "Motivo de prueba",
+    days: 30,
   });
   assert.equal(repo.countSuspendedUsers(), antes + 1);
   assert.equal(repo.listSuspendedUsers().some((user) => user.id === suspendida), true);

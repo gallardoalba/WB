@@ -1639,6 +1639,51 @@ function migrateToV51(db: Db) {
 }
 
 /**
+ * v52: gobernanza de la instancia.
+ *
+ * - `is_moderator` separa la moderación cotidiana de la administración: un
+ *   moderador revisa denuncias y oculta contenido, pero no suspende cuentas.
+ * - `suspended_until` y `suspension_reason` hacen que una suspensión tenga
+ *   plazo y motivo, en vez de ser indefinida y sin explicación.
+ * - `appeals` guarda la apelación de la persona sancionada y su revisión por
+ *   otra persona del equipo.
+ */
+function migrateToV52(db: Db) {
+  const columns = (table: string) =>
+    (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
+  const userColumns = columns("users");
+  if (!userColumns.includes("is_moderator")) {
+    db.exec("ALTER TABLE users ADD COLUMN is_moderator INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!userColumns.includes("suspended_until")) {
+    db.exec("ALTER TABLE users ADD COLUMN suspended_until TEXT");
+  }
+  if (!userColumns.includes("suspension_reason")) {
+    db.exec("ALTER TABLE users ADD COLUMN suspension_reason TEXT");
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS appeals (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      audit_id TEXT NOT NULL,
+      sanctioner_id TEXT,
+      sanction_reason TEXT NOT NULL DEFAULT '',
+      sanction_at TEXT,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      reviewer_id TEXT REFERENCES users(id),
+      resolution TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      resolved_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS appeals_status ON appeals(status, created_at);
+    CREATE INDEX IF NOT EXISTS appeals_user ON appeals(user_id, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS appeals_open ON appeals(audit_id) WHERE status = 'open';
+  `);
+  db.pragma("user_version = 52");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1774,6 +1819,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 49) migrateToV49(db);
   if (userVersion(db) < 50) migrateToV50(db);
   if (userVersion(db) < 51) migrateToV51(db);
+  if (userVersion(db) < 52) migrateToV52(db);
 
   backfillSearchKeys(db);
 }

@@ -267,6 +267,8 @@ test("los bloqueos y las cuentas suspendidas se aplican en la consulta", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_lucia",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   assert.equal(
     repo

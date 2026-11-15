@@ -127,6 +127,8 @@ test("una cuenta suspendida no deja valoraciones visibles", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_diego",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   assert.equal(
     repo.listReviews("usr_marcos").some((review) => review.authorId === "usr_diego"),

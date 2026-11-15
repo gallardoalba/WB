@@ -95,6 +95,7 @@ export const STATIC_BODIES_EN: Record<string, string> = {
   "Lo ha retirado el equipo de moderación tras una revisión.": "The moderation team removed it after a review.",
   "Se ha restablecido tras la revisión.": "It has been restored after the review.",
   "Puedes volver a entrar y publicar ejemplares.": "You can sign in again and list copies.",
+  "Tu apelación se ha estimado y la suspensión se ha levantado.": "Your appeal was upheld and the suspension has been lifted.",
   "Verás sus novedades en la pestaña «Siguiendo» de la comunidad.": "You will see their updates in the “Following” tab of the community.",
   "El club ha elegido otra lectura en curso. Entra para verla.": "The club has chosen another reading. Open the club to see it.",
   "Se ha activado una clave distinta en otro dispositivo. Revisa que seas tú.": "A different key was activated on another device. Check that it was you.",

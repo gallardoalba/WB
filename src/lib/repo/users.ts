@@ -32,7 +32,9 @@ type UserRow = {
   city: string;
   bio: string;
   is_admin: number;
+  is_moderator: number;
   is_suspended: number;
+  suspended_until: string | null;
   email_verified_at: string | null;
   email_notifications: number;
   locale: string;
@@ -50,7 +52,9 @@ function toSessionUser(row: UserRow): SessionUser {
     city: row.city,
     bio: row.bio,
     isAdmin: Boolean(row.is_admin),
+    isModerator: Boolean(row.is_moderator),
     isSuspended: Boolean(row.is_suspended),
+    suspendedUntil: row.suspended_until,
     emailVerified: Boolean(row.email_verified_at),
     emailNotifications: row.email_notifications !== 0,
     // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.
@@ -70,7 +74,7 @@ function oneOf<T extends string>(value: string, allowed: readonly T[], fallback:
 export function getUserById(id: string): SessionUser | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_suspended, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy FROM users WHERE id = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy FROM users WHERE id = ?",
     )
     .get(id) as UserRow | undefined;
   return row ? toSessionUser(row) : null;
@@ -81,7 +85,7 @@ export function getUserWithPassword(
 ): (SessionUser & { passwordHash: string }) | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_suspended, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, password_hash AS passwordHash FROM users WHERE email = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, password_hash AS passwordHash FROM users WHERE email = ?",
     )
     .get(email) as (UserRow & { passwordHash: string }) | undefined;
   if (!row) return null;
@@ -103,7 +107,9 @@ export function publicSessionUser(account: SessionUser & { passwordHash: string 
     city: account.city,
     bio: account.bio,
     isAdmin: account.isAdmin,
+    isModerator: account.isModerator,
     isSuspended: account.isSuspended,
+    suspendedUntil: account.suspendedUntil,
     emailVerified: account.emailVerified,
     emailNotifications: account.emailNotifications,
     locale: account.locale,
@@ -117,6 +123,37 @@ export function publicSessionUser(account: SessionUser & { passwordHash: string 
 /** Guarda el idioma elegido para que los correos salgan en el idioma correcto. */
 export function setUserLocale(userId: string, locale: Locale): void {
   getDb().prepare("UPDATE users SET locale = ? WHERE id = ?").run(locale, userId);
+}
+
+/** Quita una suspensión y limpia su motivo y su plazo. */
+export function liftSuspension(userId: string): void {
+  getDb()
+    .prepare(
+      `UPDATE users
+          SET is_suspended = 0, suspended_until = NULL, suspension_reason = NULL
+        WHERE id = ?`,
+    )
+    .run(userId);
+}
+
+/**
+ * Reactiva las cuentas cuya suspensión temporal ya ha vencido.
+ *
+ * Devuelve los ids para que quien llame pueda avisar. El cron lo hace cada
+ * quince minutos; el acceso también lo comprueba, porque una sanción no debe
+ * durar más de lo que dice por el simple hecho de que el cron no haya pasado.
+ */
+export function expireDueSuspensions(): string[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT id FROM users
+        WHERE is_suspended = 1 AND suspended_until IS NOT NULL
+          AND suspended_until <= strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    )
+    .all() as { id: string }[];
+  for (const row of rows) liftSuspension(row.id);
+  return rows.map((row) => row.id);
 }
 
 export function createUser(input: {

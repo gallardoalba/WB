@@ -29,6 +29,8 @@ test("el muro público no muestra actividad de dueños suspendidos", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_clara",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   const afterActivity = repo.listActivity(50);
   assert.equal(afterActivity.some((item) => item.actor === "Clara Montes"), false);
@@ -59,6 +61,8 @@ test("las cifras de la portada ignoran cuentas suspendidas", () => {
     action: "suspend_user",
     targetType: "user",
     targetId: "usr_clara",
+    reason: "Motivo de prueba",
+    days: 30,
   });
   const suspended = repo.getStats();
   // Ni el club ni los ejemplares de una cuenta suspendida cuentan.

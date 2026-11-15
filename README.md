@@ -64,6 +64,7 @@ The documentation is available both in the application at `/techdoc` and in the 
 
 - [`DOCUMENTATION.md`](DOCUMENTATION.md): architecture, routes, data model, security and operations.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): local environment, the checks a change has to pass, commit, migration and translation conventions.
+- [`GOVERNANCE.md`](GOVERNANCE.md): who decides what, how moderation and sanctions work, and how appeals are reviewed.
 - [`deploy/README.md`](deploy/README.md): production setup with systemd, nginx, TLS, backups and timers.
 
 Project updates are posted on Mastodon at [@wanderbibliothek@mastodon.social](https://mastodon.social/@wanderbibliothek).

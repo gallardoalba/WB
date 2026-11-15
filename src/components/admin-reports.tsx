@@ -37,13 +37,20 @@ const CONFIRM_TITLE: Partial<Record<Action, MessageKey>> = {
 
 const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
   hide_listing: "Dejará de aparecer en el catálogo y se cancelarán los intercambios aceptados.",
-  suspend_user: "La persona no podrá entrar ni publicar hasta que se reactive.",
+  suspend_user: "La persona no podrá entrar hasta que venza el plazo o se levante la sanción.",
   hide_comment: "Solo su autor podrá verlo.",
   hide_club: "Desaparecerá del directorio y del perfil de sus miembros.",
   hide_club_post: "Dejará de verse en el foro del club; solo su autor lo verá.",
 };
 
-export function AdminReports({ reports }: { reports: AdminReportView[] }) {
+export function AdminReports({
+  reports,
+  canSanction = true,
+}: {
+  reports: AdminReportView[];
+  /** La moderación no suspende cuentas: solo la administración. */
+  canSanction?: boolean;
+}) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -51,13 +58,21 @@ export function AdminReports({ reports }: { reports: AdminReportView[] }) {
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState<{ report: AdminReportView; action: Action } | null>(null);
   const [last, setLast] = useState<{ action: Action; targetType: string; targetId: string } | null>(null);
+  const [reason, setReason] = useState("");
+  const [days, setDays] = useState(30);
 
   async function act(reportId: string, action: Action, report?: AdminReportView) {
     setBusyId(reportId);
     setError("");
     setFeedback("");
     try {
-      await api(`/api/admin/reports/${reportId}`, { method: "POST", body: { action } });
+      await api(`/api/admin/reports/${reportId}`, {
+        method: "POST",
+        body:
+          action === "suspend_user"
+            ? { action, reason, days }
+            : { action },
+      });
       setFeedback(
         action === "dismiss" ? t("Denuncia descartada.") : t("Acción aplicada. Puedes deshacerla."),
       );
@@ -96,6 +111,10 @@ export function AdminReports({ reports }: { reports: AdminReportView[] }) {
   }
 
   function requestAction(report: AdminReportView, action: Action) {
+    if (action === "suspend_user") {
+      setReason("");
+      setDays(30);
+    }
     if (UNDO[action]) {
       setConfirming({ report, action });
     } else {
@@ -172,7 +191,7 @@ export function AdminReports({ reports }: { reports: AdminReportView[] }) {
                 <EyeOff size={14} /> {t("Retirar ejemplar")}
               </button>
             )}
-            {report.targetType === "user" && (
+            {report.targetType === "user" && canSanction && (
               <button
                 type="button"
                 className="secondary-button small danger"
@@ -232,7 +251,35 @@ export function AdminReports({ reports }: { reports: AdminReportView[] }) {
         )}
         confirmLabel={t("Confirmar")}
         pending={Boolean(confirming && busyId === confirming.report.id)}
-      />
+        confirmDisabled={confirming?.action === "suspend_user" && reason.trim().length < 5}
+      >
+        {confirming?.action === "suspend_user" && (
+          <div className="admin-sanction-fields">
+            <label htmlFor="sanction-reason">{t("Motivo de la suspensión")}</label>
+            <textarea
+              id="sanction-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              minLength={5}
+              maxLength={300}
+              rows={3}
+              required
+            />
+            <label htmlFor="sanction-days">{t("Duración")}</label>
+            <select
+              id="sanction-days"
+              value={days}
+              onChange={(event) => setDays(Number(event.target.value))}
+            >
+              <option value={1}>{t("1 día")}</option>
+              <option value={7}>{t("7 días")}</option>
+              <option value={30}>{t("30 días")}</option>
+              <option value={90}>{t("90 días")}</option>
+              <option value={365}>{t("Un año")}</option>
+            </select>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

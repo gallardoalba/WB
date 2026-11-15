@@ -220,7 +220,7 @@ test("una cuenta suspendida deja de exponer perfil y ejemplares", () => {
     .listReports()
     .find((item) => item.targetType === "user" && item.targetId === "usr_diego");
   assert.ok(report);
-  repo.resolveReport("usr_admin", report.id, "suspend_user");
+  repo.resolveReport("usr_admin", report.id, "suspend_user", { reason: "Motivo de prueba", days: 30 });
 
   assert.equal(repo.getPublicProfile("usr_diego", null), null);
   assert.equal(repo.getListing("lst_2", null), null);

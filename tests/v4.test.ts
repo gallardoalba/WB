@@ -72,7 +72,7 @@ test("suspender oculta sin destruir y reactivar devuelve el ejemplar", () => {
     .listReports()
     .find((item) => item.targetType === "user" && item.targetId === "usr_diego");
   assert.ok(report);
-  repo.resolveReport("usr_admin", report.id, "suspend_user");
+  repo.resolveReport("usr_admin", report.id, "suspend_user", { reason: "Motivo de prueba", days: 30 });
 
   assert.equal(repo.getPublicProfile("usr_diego", null), null);
   assert.equal(repo.getListing("lst_2", null), null);
@@ -148,7 +148,7 @@ test("las reseñas de cuentas suspendidas dejan de mostrarse", () => {
     details: "",
   });
   const report = repo.listReports().find((item) => item.targetId === "usr_ana");
-  repo.resolveReport("usr_admin", report!.id, "suspend_user");
+  repo.resolveReport("usr_admin", report!.id, "suspend_user", { reason: "Motivo de prueba", days: 30 });
   assert.equal(repo.listReviews("usr_lucia").length, 0);
 });
 

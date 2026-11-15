@@ -241,7 +241,7 @@ export function AccountMenu({
               )}
             </Link>
           )}
-          {user.isAdmin && (
+          {user.isAdmin || user.isModerator ? (
             <Link
               className="account-menu-item"
               role="menuitem"
@@ -250,7 +250,7 @@ export function AccountMenu({
             >
               <ShieldCheck size={15} /> {t("Moderación")}
             </Link>
-          )}
+          ) : null}
           <span className="account-menu-separator" />
           {error && (
             <p className="account-menu-error" role="alert">

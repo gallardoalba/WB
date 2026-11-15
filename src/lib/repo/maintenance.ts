@@ -2,6 +2,7 @@ import { dbMetrics, getDb, type DbMetrics } from "../db";
 import { pruneCoverCache } from "../covers";
 import { notifyUpcomingMeetings } from "./clubs";
 import { listingTitle, notify } from "./notifications";
+import { expireDueSuspensions } from "./users";
 
 let lastExpiryRun = Number.NEGATIVE_INFINITY;
 
@@ -68,6 +69,10 @@ export type MaintenanceReport = {
   audit: number;
   /** Denuncias ya resueltas que se han tirado (retención: un año). */
   resolvedReports: number;
+  /** Suspensiones temporales que han vencido y se han levantado. */
+  expiredSuspensions: number;
+  /** Apelaciones resueltas que se han tirado (retención: dos años). */
+  appeals: number;
   clubReminders: number;
   covers: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
@@ -126,6 +131,25 @@ export function runMaintenance(): MaintenanceReport {
     daysAgo(365),
   );
 
+  // Una suspensión temporal se levanta al vencer, sin esperar a que alguien se
+  // acuerde. El acceso también lo comprueba, por si el cron va con retraso.
+  // Las apelaciones resueltas guardan texto libre: mismo plazo que la
+  // auditoría (dos años) y nunca se tocan las abiertas.
+  const appeals = changes(
+    "DELETE FROM appeals WHERE status <> 'open' AND created_at < ?",
+    daysAgo(730),
+  );
+
+  const expiredSuspensions = expireDueSuspensions();
+  for (const userId of expiredSuspensions) {
+    notify({
+      userId,
+      type: "moderation",
+      title: "Tu cuenta vuelve a estar activa",
+      body: "Puedes volver a entrar y publicar ejemplares.",
+    });
+  }
+
   const clubReminders = notifyUpcomingMeetings();
   // Las portadas cacheadas se acumulan con cada ISBN visitado: se olvidan las
   // que nadie ha pedido en medio año.
@@ -154,6 +178,8 @@ export function runMaintenance(): MaintenanceReport {
     productEvents,
     audit,
     resolvedReports,
+    expiredSuspensions: expiredSuspensions.length,
+    appeals,
     clubReminders,
     covers,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.

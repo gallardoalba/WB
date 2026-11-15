@@ -186,7 +186,11 @@ export type SessionUser = {
   city: string;
   bio: string;
   isAdmin: boolean;
+  /** Puede revisar denuncias y ocultar contenido, pero no suspender cuentas. */
+  isModerator: boolean;
   isSuspended: boolean;
+  /** Fin de una suspensión temporal (ISO); `null` si no la hay o es indefinida. */
+  suspendedUntil: string | null;
   emailVerified: boolean;
   emailNotifications: boolean;
   /** Idioma preferido para la interfaz y los correos. */

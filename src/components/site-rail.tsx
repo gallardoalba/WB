@@ -93,14 +93,14 @@ export function SiteRail({
 
       {/* La administración tiene su propia entrada: sin ella, /admin se veía
           exactamente igual que la página de cuenta. */}
-      {user?.isAdmin && (
+      {user && (user.isAdmin || user.isModerator) ? (
         <nav className="primary-nav" aria-label={t("Administración")}>
           <Link className={itemClass(section === "admin")} href={href("/admin")}>
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>
         </nav>
-      )}
+      ) : null}
 
       <AccountMenu user={user} unreadNotifications={unreadNotifications} />
     </aside>

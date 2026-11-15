@@ -726,6 +726,19 @@ token, esas líneas salen con «-» y el informe sigue siendo válido. Las IPs d
 lista de exclusión (las que entran por SSH, o sea, quien lanza el informe) no
 cuentan como visitas; para dejar fuera tu móvil, añádelo con `WB_EXCLUIR`.
 
+## Continuidad y relevo
+
+Una instancia no debería depender de una sola persona. Antes de abrir el registro:
+
+- Crea al menos **dos cuentas de administración** (`npm run admin:create`). La segunda puede quedar inactiva, pero debe existir y tener el segundo factor configurado.
+- Para moderar sin administrar, crea una cuenta de moderación (`npm run moderator:create`): revisa denuncias y oculta contenido, pero no suspende cuentas.
+- Guarda **fuera del servidor** una copia cifrada de la base y de `APP_ENCRYPTION_KEY`; sin la clave, las copias no se pueden restaurar.
+- Documenta quién controla el dominio, el DNS, el proveedor del servidor, el correo y el repositorio.
+- Deja escrito el procedimiento de relevo: qué credenciales hay que transferir, dónde están las copias y cómo se comprueba una restauración (`npm run db:verify`).
+- Revisa una vez al año que la segunda persona puede entrar, restaurar una copia y publicar un cambio.
+
+Las normas de convivencia, la moderación y las apelaciones se publican en `/normas`; el documento de referencia está en [`GOVERNANCE.md`](../GOVERNANCE.md).
+
 ## 10. Límites conocidos
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no

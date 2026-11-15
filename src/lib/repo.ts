@@ -13,6 +13,7 @@
  */
 export * from "./repo/account";
 export * from "./repo/alerts";
+export * from "./repo/appeals";
 export * from "./repo/catalog";
 export * from "./repo/clubs";
 export * from "./repo/clubforum";
@@ -26,6 +27,7 @@ export * from "./repo/reading";
 export * from "./repo/journey";
 export * from "./repo/maintenance";
 export * from "./repo/moderation";
+export * from "./repo/moderation-report";
 export * from "./repo/notifications";
 export * from "./repo/requests";
 export * from "./repo/reviews";

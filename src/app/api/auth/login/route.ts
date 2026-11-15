@@ -9,6 +9,7 @@ import {
   getTotpState,
   getUserWithPassword,
   isAuthBlocked,
+  liftSuspension,
   publicSessionUser,
   recordAuthFailure,
   verifyUserTotp,
@@ -61,7 +62,20 @@ export async function POST(request: Request) {
       throw new ApiError(401, "Correo o contraseña incorrectos.");
     }
     if (account.isSuspended) {
-      throw new ApiError(403, "Tu cuenta está suspendida. Contacta con el equipo de moderación.");
+      // Una suspensión temporal que ya ha vencido no debe durar hasta que pase
+      // el cron: se levanta aquí, con la misma condición que usa el
+      // mantenimiento.
+      const until = account.suspendedUntil ? new Date(account.suspendedUntil).getTime() : null;
+      if (until !== null && Number.isFinite(until) && until <= Date.now()) {
+        liftSuspension(account.id);
+        account.isSuspended = false;
+        account.suspendedUntil = null;
+      } else {
+        throw new ApiError(
+          403,
+          "Tu cuenta está suspendida. Revisa el correo con la sanción o escribe al equipo de moderación.",
+        );
+      }
     }
 
     // Segundo factor: la contraseña ya es correcta, pero no se abre sesión

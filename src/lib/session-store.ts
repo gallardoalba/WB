@@ -83,7 +83,9 @@ type SessionRow = {
   city: string;
   bio: string;
   is_admin: number;
+  is_moderator: number;
   is_suspended: number;
+  suspended_until: string | null;
   email_verified_at: string | null;
   email_notifications: number;
   locale: string;
@@ -103,7 +105,8 @@ export function userForToken(token: string | undefined): SessionUser | null {
   const sessionId = hashToken(token);
   const row = db
     .prepare(
-      `SELECT u.id, u.name, u.email, u.city, u.bio, u.is_admin, u.is_suspended,
+      `SELECT u.id, u.name, u.email, u.city, u.bio, u.is_admin, u.is_moderator,
+              u.is_suspended, u.suspended_until,
               u.email_verified_at, u.email_notifications, u.locale,
               u.profile_visibility, u.city_precision, u.sign_as, u.dm_policy,
               s.id AS session_id, s.expires_at,
@@ -147,7 +150,9 @@ export function userForToken(token: string | undefined): SessionUser | null {
     city: row.city,
     bio: row.bio,
     isAdmin: Boolean(row.is_admin),
+    isModerator: Boolean(row.is_moderator),
     isSuspended: Boolean(row.is_suspended),
+    suspendedUntil: row.suspended_until,
     emailVerified: Boolean(row.email_verified_at),
     emailNotifications: row.email_notifications !== 0,
     // Sin idioma guardado (o con uno desconocido) la cuenta lee en alemán.

@@ -3,15 +3,18 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import { AdminAppeals } from "@/components/admin-appeals";
 import { AdminReports } from "@/components/admin-reports";
 import { AdminSanctions } from "@/components/admin-sanctions";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
+import { canModerate, canSanction } from "@/lib/permissions";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import {
   countAudit,
   countHiddenClubs,
+  countOpenAppeals,
   countHiddenComments,
   countOpenReports,
   countSuspendedUsers,
@@ -20,6 +23,7 @@ import {
   listAudit,
   listHiddenClubs,
   listHiddenComments,
+  listOpenAppeals,
   listReports,
   listSuspendedUsers,
 } from "@/lib/repo";
@@ -48,7 +52,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const user = await requirePageUser("/admin");
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
-  if (!user?.isAdmin) notFound();
+  if (!user || !canModerate(user)) notFound();
   // Moderar mueve cuentas y contenido de otras personas, así que en producción
   // exige segundo factor. Antes esto era un `notFound()`: el enlace «Moderación»
   // del menú de cuenta llevaba a «Esta página no existe», que parece un fallo.
@@ -57,10 +61,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
     return (
       <SiteShell user={user} section="admin" title={t("Moderación")}>
         <PageHeader
-          overline={t("SOLO ADMINISTRACIÓN")}
+          overline={t("EQUIPO DE MODERACIÓN")}
           title={t("Moderación de la comunidad")}
           description={t(
-            "Aquí se revisan las denuncias, se sancionan cuentas y se restablece el contenido oculto.",
+            "Aquí se revisan las denuncias, se modera el contenido y se atienden las apelaciones.",
           )}
         />
         {/* Estado bloqueado: se explica el paso que falta, no se disfraza de
@@ -110,26 +114,35 @@ export default async function AdminPage({ searchParams }: PageProps) {
     Number.parseInt(firstValue(raw.commentsPage) ?? "1", 10) || 1,
   );
   const clubsPage = Math.max(1, Number.parseInt(firstValue(raw.clubsPage) ?? "1", 10) || 1);
+  const appealsPage = Math.max(1, Number.parseInt(firstValue(raw.appealsPage) ?? "1", 10) || 1);
 
   const total = countOpenReports();
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const reports = listReports({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
-  const suspendedTotal = countSuspendedUsers();
-  const suspended = listSuspendedUsers(PAGE_SIZE, (suspendedPage - 1) * PAGE_SIZE);
+  // Solo se cargan los datos que ese rol puede ver: un moderador no recibe en
+  // el HTML ni en el payload de React la lista de cuentas suspendidas ni la
+  // auditoría completa.
+  const seesSanctions = canSanction(user);
+  const suspendedTotal = seesSanctions ? countSuspendedUsers() : 0;
+  const suspended = seesSanctions
+    ? listSuspendedUsers(PAGE_SIZE, (suspendedPage - 1) * PAGE_SIZE)
+    : [];
   const commentsTotal = countHiddenComments();
   const hiddenComments = listHiddenComments(PAGE_SIZE, (commentsPage - 1) * PAGE_SIZE);
   const clubsTotal = countHiddenClubs();
   const hiddenClubs = listHiddenClubs(PAGE_SIZE, (clubsPage - 1) * PAGE_SIZE);
-  const auditTotal = countAudit();
-  const audit = listAudit(PAGE_SIZE, (auditPage - 1) * PAGE_SIZE);
+  const auditTotal = user.isAdmin ? countAudit() : 0;
+  const audit = user.isAdmin ? listAudit(PAGE_SIZE, (auditPage - 1) * PAGE_SIZE) : [];
+  const appealsTotal = countOpenAppeals();
+  const appeals = listOpenAppeals(user.id, PAGE_SIZE, (appealsPage - 1) * PAGE_SIZE);
   const metrics = getCommunityMetrics();
 
   return (
     <SiteShell user={user} section="admin" title={t("Moderación")}>
       <PageHeader
-        overline={t("SOLO ADMINISTRACIÓN")}
+        overline={t("EQUIPO DE MODERACIÓN")}
         title={t("Denuncias abiertas")}
-        description={t("Revisa las denuncias, sanciona cuentas y restablece contenido oculto.")}
+        description={t("Revisa las denuncias, modera el contenido y atiende las apelaciones.")}
         aside={<span className="shelf-count">{t("{n} pendientes", { n: total })}</span>}
       />
 
@@ -186,7 +199,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
         </dl>
       </section>
 
-      <AdminReports reports={reports} />
+      <AdminReports reports={reports} canSanction={canSanction(user)} />
 
       {lastPage > 1 && (
         <nav className="pager" aria-label={t("Paginación de denuncias")}>
@@ -214,8 +227,17 @@ export default async function AdminPage({ searchParams }: PageProps) {
         </nav>
       )}
 
+      <AdminAppeals
+        appeals={appeals}
+        page={appealsPage}
+        total={appealsTotal}
+        pageSize={PAGE_SIZE}
+      />
+
       <AdminSanctions
         suspended={suspended}
+        canSanction={canSanction(user)}
+        showAudit={user.isAdmin}
         hiddenComments={hiddenComments}
         hiddenClubs={hiddenClubs}
         audit={audit}

@@ -150,14 +150,14 @@ export function AppSidebar({
       {/* La administración tiene la misma entrada que en las páginas internas:
           antes solo aparecía al abrir un libro o la ficha, porque esas vistas
           usan el otro armazón (SiteRail), y en el catálogo no estaba. */}
-      {user?.isAdmin && (
+      {user && (user.isAdmin || user.isModerator) ? (
         <nav className="primary-nav" aria-label={t("Administración")}>
           <Link className="nav-item" href="/admin">
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>
         </nav>
-      )}
+      ) : null}
 
       <AccountMenu
         user={user}

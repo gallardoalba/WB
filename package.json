@@ -32,6 +32,7 @@
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
     "db:verify": "node --import tsx scripts/verify-backup.ts",
     "admin:create": "node --import tsx scripts/create-admin.ts",
+    "moderator:create": "node --import tsx scripts/create-admin.ts --moderator",
     "admin:2fa-off": "node --import tsx scripts/disable-2fa.ts",
     "rotate:secrets": "node --import tsx scripts/rotate-secrets.ts",
     "legal:env": "node --import tsx scripts/legal-env.ts",
@@ -41,6 +42,7 @@
     "mastodon:test": "node --import tsx scripts/mastodon.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
     "informe:accesos": "bash deploy/informe-accesos.sh",
+    "informe:moderacion": "node --import tsx scripts/informe-moderacion.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "test:e2e": "playwright test",
     "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
