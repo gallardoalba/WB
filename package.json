@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad, mensajería cifrada de extremo a extremo y clubes de lectura.",
   "license": "MIT",
