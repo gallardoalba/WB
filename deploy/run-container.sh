@@ -27,12 +27,25 @@ RUN_UID="${WANDERBIBLIOTHEK_RUN_UID:-999}"
 RUN_GID="${WANDERBIBLIOTHEK_RUN_GID:-988}"
 PORT="${WANDERBIBLIOTHEK_PORT:-127.0.0.1:3000}"
 
+# Docker **no** interpreta las comillas del fichero de entorno: las deja
+# literales (`MAIL_FROM="Nombre <correo>"`), mientras que systemd sí las quita.
+# Eso rompía el arranque (`parseSender`) y habría publicado las comillas de
+# LEGAL_* en las páginas legales. Se reconstruye el env-file con los valores ya
+# parseados por systemd, es decir, los mismos que veía el proceso del host.
+ENV_RUN="${WANDERBIBLIOTHEK_RUN_ENV:-/run/wanderbibliothek/env}"
+install -d -m 700 "$(dirname "$ENV_RUN")"
+umask 077
+: > "$ENV_RUN"
+while IFS= read -r key; do
+  if [ -n "${!key+x}" ]; then printf '%s=%s\n' "$key" "${!key}" >> "$ENV_RUN"; fi
+done < <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /etc/wanderbibliothek/env 2>/dev/null)
+
 # Si un arranque anterior dejó el contenedor con el mismo nombre, se retira:
 # systemd ya paró el cliente y un choque de nombre impediría arrancar.
 "$DOCKER" rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
 exec "$DOCKER" run --rm --name "$CONTAINER" --init \
-  --env-file /etc/wanderbibliothek/env \
+  --env-file "$ENV_RUN" \
   -e WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db \
   -e WANDERBIBLIOTHEK_BACKUP_DIR=/backups \
   -e APP_IMAGE="$WANDERBIBLIOTHEK_IMAGE" \
