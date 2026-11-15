@@ -28,7 +28,7 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 
 **Non-profit and no market.** The project charges nothing, shows no advertising and sells no data. There is no premium tier and no paid placement: everything the platform offers is available to every account.
 
-**Books as commons.** A book need not remain a private possession once it has been read. It can continue travelling, reaching new readers along the way. The platform facilitates handovers, not ownership: passing a copy on is not about losing something, but about putting it back into circulation.
+**Books as commons.** A book need not remain a private possession once it has been read. It can continue travelling, reaching new readers along the way. The platform handles handovers, not ownership: passing a copy on does not lose it, it puts it back into circulation.
 
 **Self-organisation.** Communities and reading circles decide for themselves what to read, when to meet and how to organise, without centralised management.
 
