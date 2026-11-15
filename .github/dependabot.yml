@@ -41,3 +41,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 2
+    ignore:
+      # La imagen base va fijada por digest (Dockerfile) y un salto de versión
+      # mayor de Node cambia el ABI contra el que se compila better-sqlite3.
+      # Esos saltos se adoptan a propósito, con sus pruebas, no por una
+      # propuesta automática.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
