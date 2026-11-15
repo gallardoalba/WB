@@ -205,3 +205,119 @@ test("el informe de moderación da cifras agregadas y coherentes", () => {
   assert.equal(report.appeals.open, repo.countOpenAppeals());
   assert.ok(Array.isArray(report.actions));
 });
+
+test("el enlace de apelación vale una vez, para apelar y para nadie más", async () => {
+  clearSanctions();
+  const tokens = await import("../src/lib/account-tokens.ts");
+  const db = dbModule.getDb();
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_lucia",
+    reason: "Prueba del enlace",
+    days: 5,
+  });
+
+  const mail = db
+    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
+    .get("lucia@wanderbibliothek.test") as { body: string };
+  const enlace = mail.body.match(/\/apelar\?token=([a-f0-9]{64})/);
+  assert.ok(enlace, "el correo trae el enlace de apelación");
+  const token = enlace![1];
+
+  // Mirar el enlace desde la página no lo gasta: solo lo consume el envío.
+  assert.equal(tokens.peekAccountToken(token, "appeal"), "usr_lucia");
+  assert.equal(tokens.peekAccountToken(token, "appeal"), "usr_lucia");
+  assert.equal(tokens.consumeAccountToken(token, "reset_password"), null);
+  assert.equal(tokens.consumeAccountToken(token, "appeal"), "usr_lucia");
+  assert.equal(tokens.consumeAccountToken(token, "appeal"), null);
+});
+
+test("sin sanción activa no hay nada que apelar", () => {
+  clearSanctions();
+  assert.throws(() => repo.createAppeal("usr_lucia", "No procede."), /sanción activa/i);
+});
+
+test("una apelación rechazada mantiene la sanción y lo explica", () => {
+  clearSanctions();
+  const db = dbModule.getDb();
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_lucia",
+    reason: "Insultos en una lista",
+    days: 10,
+  });
+  const appealId = repo.createAppeal("usr_lucia", "Fue una discusión, no un insulto.");
+  repo.resolveAppeal("usr_admin2", appealId, "rejected", "Se mantiene: hubo insultos.");
+
+  assert.equal(user("usr_lucia")!.is_suspended, 1, "la sanción sigue en pie");
+  const audit = db
+    .prepare("SELECT 1 FROM admin_audit WHERE action = 'appeal_rejected' AND target_id = 'usr_lucia'")
+    .get();
+  assert.ok(audit, "el rechazo queda auditado");
+
+  const mail = db
+    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
+    .get("lucia@wanderbibliothek.test") as { body: string };
+  assert.match(mail.body, /suspensión se mantiene/i);
+});
+
+test("si la sanción ya venció, el rechazo no la resucita y el correo lo dice", () => {
+  clearSanctions();
+  const db = dbModule.getDb();
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_lucia",
+    reason: "Sanción corta",
+    days: 1,
+  });
+  const appealId = repo.createAppeal("usr_lucia", "Apelo antes de que venza.");
+  db.prepare(
+    "UPDATE users SET suspended_until = strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour') WHERE id = ?",
+  ).run("usr_lucia");
+  repo.expireDueSuspensions();
+
+  repo.resolveAppeal("usr_admin2", appealId, "rejected", "Se revisó tarde.");
+  assert.equal(user("usr_lucia")!.is_suspended, 0, "el rechazo no vuelve a suspender");
+
+  const mail = db
+    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
+    .get("lucia@wanderbibliothek.test") as { body: string };
+  assert.match(mail.body, /ya había terminado/i);
+});
+
+test("el mantenimiento borra apelaciones resueltas viejas y conserva las abiertas", () => {
+  clearSanctions();
+  const db = dbModule.getDb();
+  const vieja = (() => {
+    repo.moderateTarget("usr_admin", {
+      action: "suspend_user",
+      targetType: "user",
+      targetId: "usr_lucia",
+      reason: "Caso viejo",
+      days: 3,
+    });
+    const id = repo.createAppeal("usr_lucia", "Apelación antigua.");
+    repo.resolveAppeal("usr_admin2", id, "upheld", "Se estima.");
+    db.prepare("UPDATE appeals SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-800 days') WHERE id = ?").run(id);
+    return id;
+  })();
+
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_lucia",
+    reason: "Caso abierto",
+    days: 5,
+  });
+  const abierta = repo.createAppeal("usr_lucia", "Todavía sin revisar.");
+
+  repo.runMaintenance();
+
+  const viva = (id: string) =>
+    Boolean(db.prepare("SELECT 1 FROM appeals WHERE id = ?").get(id));
+  assert.equal(viva(vieja), false, "la resuelta de hace más de dos años se borra");
+  assert.equal(viva(abierta), true, "una apelación abierta no se toca");
+});
