@@ -50,6 +50,15 @@ Moderation actions are written to an internal audit log that only the team can r
 npm run informe:moderacion
 ```
 
+Separately, each instance publishes **signed snapshots of the public catalogue**
+at `/api/transparency`: the works on offer and the cities where they are, never
+who owns a copy. Anyone can download the exact NDJSON, recompute its Merkle root
+and check the Ed25519 signature. That is how content transparency is done without
+publishing individual moderation cases: the same small-community argument applies.
+What the snapshots do *not* prove is which process is running; that is covered by
+the signed release image and `/api/version`, and its limits are stated in
+`deploy/README.md`.
+
 ## Continuity
 
 An instance should not depend on a single person. The deployment guide recommends:

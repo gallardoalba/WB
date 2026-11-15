@@ -32,7 +32,7 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 
 **Self-organisation.** Communities and reading circles decide for themselves what to read and when to meet. Nobody manages them from above.
 
-**Transparency.** The source code is open and the documentation is public, so what happens to your data can be checked rather than taken on trust. The instance serving the site runs exactly this code, with nothing added.
+**Transparency.** The source code is open, the documentation is public and every release is published as a signed image with its commit. Each instance publishes the commit and image digest it runs, and signed snapshots of the public catalogue, so what happens can be checked rather than taken on trust.
 
 **Privacy.** Signing up asks for a name, a city and an email address; the password is stored only as a hash and the biography is optional. There is no third-party analytics and no tracking pixels: the project's own counters stay in the database and expire after 180 days. You can export your data as JSON or delete the account permanently.
 
@@ -57,6 +57,26 @@ The SQLite database is created automatically on first startup. In development mo
 For production deployments, you need at least `NEXT_PUBLIC_SITE_URL`, `APP_ENCRYPTION_KEY` and an email provider (`BREVO_API_KEY` + `MAIL_FROM`, or `MAIL_WEBHOOK_URL` for anything else). Without an encryption key, the application will not store secrets. The full guide is in [`deploy/README.md`](deploy/README.md).
 
 Create an admin account using `ADMIN_EMAIL` and `ADMIN_PASSWORD`, or run `npm run admin:create`.
+
+## Verifying a deployment
+
+An instance can show what it runs instead of asking for trust:
+
+- **`/api/version`** publishes the commit, image digest and build time, with links
+  to the exact source. If the deployment does not know them, the fields are `null`
+  rather than invented.
+- **Signed releases.** Every `v*` tag is built into a GHCR image pinned by digest,
+  with SLSA provenance and an SBOM, signed with cosign in keyless mode.
+  `deploy/verify-release.sh` checks the signature against this repository.
+- **Signed content.** `/api/transparency` publishes daily Ed25519-signed snapshots
+  of the public catalogue (Merkle root + payload hash). Anyone can download the
+  exact NDJSON and recompute it with `npm run transparency:verify -- --url …`.
+  It contains only what is already public: never who owns a copy.
+
+None of this proves by itself that the answering process is the signed image;
+without hardware attestation (TPM 2.0 or a confidential VM), tampering is
+**detectable**, not impossible. [`deploy/README.md`](deploy/README.md) explains
+what each layer covers and what is deliberately left out.
 
 ## Documentation and contributing
 

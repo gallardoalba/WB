@@ -6,6 +6,7 @@ import { processLikes, purgeSocialLikes } from "@/lib/mastodon-likes";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
+import { ensureDailySnapshot } from "@/lib/transparency";
 
 /**
  * Tareas periódicas para un cron externo:
@@ -55,6 +56,12 @@ export async function POST(request: Request) {
     const likes = await run("likes", () => processLikes());
     const purgedLikes = await run("purgedLikes", () => purgeSocialLikes());
     const maintenance = await run("maintenance", () => runMaintenance());
+    // Una instantánea firmada del catálogo público al día. Si ya hay una de
+    // hoy no se repite: el cron pasa cada quince minutos.
+    const transparency = await run(
+      "transparency",
+      () => ensureDailySnapshot()?.id ?? null,
+    );
     return json({
       // `ok` sigue siendo el estado del endpoint: si algo falló se ve en
       // `failed` y en el valor `null` de esa tarea, sin devolver un 500 que
@@ -67,6 +74,7 @@ export async function POST(request: Request) {
       purgedSocial,
       likes,
       purgedLikes,
+      transparency,
       ...maintenance,
     });
   } catch (error) {

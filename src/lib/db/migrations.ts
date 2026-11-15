@@ -1702,6 +1702,34 @@ function migrateToV53(db: Db) {
 }
 
 /**
+ * v54: instantáneas firmadas del catálogo público.
+ *
+ * No guarda nada de personas: una fila por instantánea con el hash del
+ * contenido, la raíz de Merkle y la firma. El contenido comprimido es lo que se
+ * descarga para verificar; se poda por retención y la fila se conserva para que
+ * la cadena de raíces no se rompa.
+ */
+function migrateToV54(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS transparency_snapshots (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      item_count INTEGER NOT NULL,
+      merkle_root TEXT NOT NULL,
+      payload_hash TEXT NOT NULL,
+      previous_root TEXT,
+      payload BLOB,
+      signature TEXT,
+      public_key TEXT,
+      signer TEXT
+    );
+    CREATE INDEX IF NOT EXISTS transparency_snapshots_created
+      ON transparency_snapshots(created_at DESC);
+  `);
+  db.pragma("user_version = 54");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1839,6 +1867,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 51) migrateToV51(db);
   if (userVersion(db) < 52) migrateToV52(db);
   if (userVersion(db) < 53) migrateToV53(db);
+  if (userVersion(db) < 54) migrateToV54(db);
 
   backfillSearchKeys(db);
 }

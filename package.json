@@ -43,6 +43,8 @@
     "smoke": "node --import tsx scripts/smoke.ts",
     "informe:accesos": "bash deploy/informe-accesos.sh",
     "informe:moderacion": "node --import tsx scripts/informe-moderacion.ts",
+    "transparency:snapshot": "node --import tsx scripts/transparency-snapshot.ts",
+    "transparency:verify": "node --import tsx scripts/verify-transparency.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "test:e2e": "playwright test",
     "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""

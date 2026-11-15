@@ -47,18 +47,18 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               76 handlers grouped by domain",
+            "    api/               79 handlers grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v53), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v54), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 773 unit and integration tests (96 files)",
+            "tests/                 799 unit and integration tests (100 files)",
             "e2e/                   browser tests with Playwright (8 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -120,7 +120,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 76 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
+          text: "The API has 79 handlers under `src/app/api`. Almost all of them are declared with `route()` (`src/lib/route.ts`), which applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place; `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON.",
         },
         {
           kind: "list",
@@ -208,6 +208,32 @@ export const EN: TechnicalDocument = {
       ],
     },
     {
+      id: "transparencia",
+      heading: "Transparency",
+      blocks: [
+        {
+          kind: "p",
+          text: "`GET /api/version` publishes the commit, image digest and build time this instance was built with, plus links to the repository. When a deployment does not know them, the fields are `null`: no commit is invented. The page footer shows the same identifier when it exists.",
+        },
+        {
+          kind: "p",
+          text: "Every `v*` tag is published as a GHCR image pinned by digest, with SLSA provenance and an SBOM, signed with cosign in keyless mode. `deploy/verify-release.sh` checks that the signature belongs to this repository and its release workflow; deploying by digest prevents a moving tag from swapping the verified image.",
+        },
+        {
+          kind: "p",
+          text: "The cron creates at most one snapshot of the public catalogue per day: one canonical JSON line per work, its SHA-256, a Merkle root and an Ed25519 signature when the instance has `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was signed. `npm run transparency:verify -- --url …` recomputes everything from outside and checks the chain of roots.",
+        },
+        {
+          kind: "list",
+          items: [
+            "What it guarantees: a change to published content leaves a trace, and a past snapshot cannot be replaced by another without breaking the signature or the chain.",
+            "What it does not include: anything about people. The payload comes from `listPublicWorks()` — work, editions, copies per city — never from who owns a copy, which is why it can be served without a session.",
+            "What it cannot guarantee: without hardware attestation (TPM 2.0 with IMA and a verifier such as Keylime, or a confidential VM with SEV-SNP/TDX) nothing cryptographically proves that the answering process is the signed image. Tampering is detectable, not impossible, and the deployment guide says so explicitly.",
+          ],
+        },
+      ],
+    },
+    {
       id: "permisos",
       heading: "Permissions per resource",
       blocks: [
@@ -263,6 +289,8 @@ export const EN: TechnicalDocument = {
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Days `admin_audit` is kept (0 = forever)."],
             ["`LEGAL_*`", "unset", "Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`."],
             ["`MASTODON_*`", "off", "Optional Mastodon integration; disabled without `MASTODON_TOKEN`."],
+            ["`TRANSPARENCY_SIGNING_KEY`", "unset", "Ed25519 key (PKCS#8 in base64 or PEM) that signs the daily catalogue snapshot. Without it, snapshots are published unsigned and marked as such."],
+            ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "unset", "Build identity published by `/api/version`; filled by the release workflow or `deploy/deploy.sh`."],
           ],
         },
         {
@@ -277,7 +305,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 773 unit and integration tests in 96 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 799 unit and integration tests in 100 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

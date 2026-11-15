@@ -244,6 +244,12 @@ else
   fi
   if sudo -u "$APP_USER" npm --prefix "$RELEASE_DIR" run build >/tmp/wb-bootstrap-build.log 2>&1; then
     ok "build terminado"
+    # Identidad de lo desplegado: `/api/version` y el pie de página la publican
+    # para que se pueda contrastar con el repositorio. Se escribe después del
+    # build y no se versiona (`.gitignore`).
+    printf '{"commit":"%s","builtAt":"%s"}\n' \
+      "$(git -C "$RELEASE_DIR" rev-parse HEAD)" \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$RELEASE_DIR/.build-info.json"
   else
     tail -30 /tmp/wb-bootstrap-build.log >&2
     fail "falló el build"
