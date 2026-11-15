@@ -12,15 +12,15 @@ Some books we keep for what they mean and for the deep mark they left on us. Pas
 
 Knowledge is not property each of us keeps, but a commons that grows when it circulates: a book in circulation produces readings, conversations and also disagreement. That is why the platform is meant for titles that matter, not for stock.
 
-## What the platform does
+## What the platform offers
 
-- **Publishing books.** List a copy with its condition and city. An ISBN fills in the bibliographic record from Open Library, Google Books or the DNB.
-- **Swapping.** Request, acceptance and a hand-over confirmed by both sides, so nobody can close an exchange alone; afterwards each can review the other. The copy that travelled stays as a record and the receiver gets a paused copy of their own.
-- **No addresses.** The platform never asks for an address, a postcode or a delivery method.
-- **Direct messages.** Each exchange opens a conversation encrypted end to end, and readers who follow each other can write privately.
-- **Reading circles.** A current read, meetings in person or online, an attendance list, a vote on the next book and a forum only members can read.
-- **Lists, directory, activity.** Public reading lists, a directory of readers you can sort by distance, and a stream of what is happening nearby.
-- **Self-hosted.** One small server with SQLite is enough. Mail and the Mastodon bot are optional; city lookups (Photon and Nominatim) also run on the server, so the browser never talks to them.
+- **Share books.** List a book you'd like to pass on, including its condition and city. Entering an ISBN automatically retrieves its bibliographic details from Open Library, Google Books or the German National Library (DNB).
+- **Exchange books.** Every exchange follows a simple, mutual process: one reader requests a book, the owner accepts, and both confirm the handover. Neither side can complete an exchange on their own. Once it's done, both readers can leave each other a review. The book that has changed hands remains in the platform's history, while the recipient's own copy is temporarily paused.
+- **No addresses, no shipping.** The platform never asks for postal addresses, postcodes or delivery details. Books are exchanged directly between readers.
+- **Private messages.** Every exchange comes with an end-to-end encrypted conversation. Readers who follow each other can also send private messages.
+- **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
+- **Lists, community and activity.** Create public reading lists, discover other readers through a directory you can sort by distance, and follow what's happening in your area.
+- **Self-hosted and lightweight.** The entire platform runs on a single small server using SQLite. Email and the Mastodon bot are optional. Location services (Photon and Nominatim) can also run on the same server, so the browser never needs to connect to them directly.
 
 ## Principles
 
