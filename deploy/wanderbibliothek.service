@@ -1,6 +1,6 @@
 [Unit]
 Description=Wanderbibliothek (wanderbibliothek)
-Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+Documentation=https://github.com/gallardoalba/WB/blob/main/deploy/README.md
 After=network-online.target
 Wants=network-online.target
 # Si el entorno está incompleto el proceso arranca y responde 500 (no muere),

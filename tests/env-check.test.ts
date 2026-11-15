@@ -150,6 +150,29 @@ test("una clave de copias mal escrita se detecta al arrancar, no a las 03:20", (
   assert.deepEqual(checkEnv(complete({ WANDERBIBLIOTHEK_BACKUP_KEY: KEY_B64 })), []);
 });
 
+test("la imagen puede validar la clave en el host sin exponerla al proceso web", () => {
+  const image = `ghcr.io/gallardoalba/wb@sha256:${"a".repeat(64)}`;
+  const hostValidated = complete({
+    WANDERBIBLIOTHEK_BACKUP_KEY: undefined,
+    WANDERBIBLIOTHEK_BACKUP_KEY_CONFIGURED: "1",
+    WANDERBIBLIOTHEK_BACKUP_HOOK: undefined,
+    WANDERBIBLIOTHEK_BACKUP_OFFSITE: "1",
+    APP_IMAGE: image,
+  });
+  assert.deepEqual(checkEnv(hostValidated), []);
+
+  const invalidKey = checkEnv({
+    ...hostValidated,
+    WANDERBIBLIOTHEK_BACKUP_KEY: "secreto-corto",
+  }).find((issue) => issue.key === "WANDERBIBLIOTHEK_BACKUP_KEY");
+  assert.equal(invalidKey?.severity, "error");
+
+  const missingDigest = checkEnv({ ...hostValidated, APP_IMAGE: "wanderbibliothek:latest" }).find(
+    (issue) => issue.key === "WANDERBIBLIOTHEK_BACKUP_KEY",
+  );
+  assert.equal(missingDigest?.severity, "error");
+});
+
 test("ADMIN_EMAIL y ADMIN_PASSWORD se exigen juntas", () => {
   const issue = checkEnv(complete({ ADMIN_EMAIL: "admin@example.com" })).find(
     (item) => item.key === "ADMIN_PASSWORD",

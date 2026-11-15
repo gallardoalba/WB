@@ -152,6 +152,7 @@ async function main() {
   }
 
   console.log(`Copia creada en ${finalFile} (integridad OK, se conservan ${keep})`);
+  console.log(`WANDERBIBLIOTHEK_BACKUP_RESULT=${path.basename(finalFile)}`);
 }
 
 void main();

@@ -28,6 +28,20 @@ sudo /srv/wanderbibliothek/current/deploy/deploy.sh
   versión anterior. Acepta `--ref` (etiqueta o commit), `--rollback`, `--keep N`
   y `--dry-run`.
 
+### Elegir el modo de despliegue
+
+| Modo | Qué ejecuta | Actualización | Uso recomendado |
+|---|---|---|---|
+| **Imagen firmada** | El digest inmutable de GHCR; backup y assets públicos salen de esa misma imagen. El watchdog se instala en una ruta fija del host. | `wanderbibliothek-deploy-image --ref <versión>` | Recomendado para que terceros puedan contrastar el artefacto con GitHub. |
+| **Código** | La release bajo `current`; el backup usa su script y la aplicación Node del host. | `current/deploy/deploy.sh` | Alternativa para hosts sin Docker o para desarrollo. |
+
+`deploy.sh` se conserva como alternativa deliberada, no como camino de
+actualización de la instancia por imagen. Una vez instalado el desacople descrito
+en el apartado 11, systemd, nginx y las tareas programadas del modo imagen no
+necesitan `current`. Esto hace coherentes el digest anunciado, los assets
+servidos y el código de la copia; no es una atestación del host y una persona
+con acceso root todavía puede cambiar Docker, systemd o nginx.
+
 Los dos aceptan `--dry-run` y explican cada paso con `OK/AVISO/FALLO`. Lo que
 ninguno puede adivinar —correo, Impressum, cuenta de administración— queda
 listado al final de la ejecución. Los apartados siguientes son la versión manual
@@ -352,6 +366,9 @@ sudo cp deploy/wanderbibliothek.service deploy/wanderbibliothek-maintenance.serv
         deploy/wanderbibliothek-maintenance.timer deploy/wanderbibliothek-backup.service \
         deploy/wanderbibliothek-backup.timer deploy/wanderbibliothek-watchdog.service \
         deploy/wanderbibliothek-watchdog.timer /etc/systemd/system/
+sudo install -m 755 deploy/run-backup-container.sh /usr/local/sbin/wanderbibliothek-backup
+sudo install -m 755 deploy/watchdog.sh /usr/local/sbin/wanderbibliothek-watchdog
+sudo install -Dm644 deploy/backup-key.sh /usr/local/lib/wanderbibliothek/backup-key.sh
 # Endurecimiento: ProtectSystem=strict, topes de memoria y la caché de Next
 # escribible (`ReadWritePaths`), que es donde `sharp` guarda las tallas.
 sudo install -Dm644 deploy/wanderbibliothek-hardening.conf \
@@ -583,7 +600,17 @@ apareció el bucle de redirecciones de `/api/requests`.
   abre como SQLite**: una copia que no se puede restaurar no es una copia.
 - `WANDERBIBLIOTHEK_BACKUP_HOOK` permite lo contrario, enviarlas desde el
   servidor (`rsync`, `rclone`, S3); `env-check` avisa si no hay ni gancho ni
-  copia externa.
+  copia externa. En modo imagen, el backup se ejecuta con el digest del
+  contenedor activo (y falla si no coincide con `image.env`), sin red y como el
+  UID no privilegiado de la app. La web no recibe la clave de copias ni el
+  comando del hook: el envoltorio valida la clave en el host y pasa solo un
+  indicador no secreto al proceso web. El hook se ejecuta después en el host,
+  también como ese UID y con un entorno limpio (ruta, HOME y `BACKUP_FILE`), para
+  no filtrar a herramientas externas las claves de la app ni meter herramientas
+  de terceros en la imagen. Si el proveedor requiere credenciales, guárdalas en
+  la configuración del usuario de la app, fuera de
+  `/etc/wanderbibliothek/env`. En modo código, el mismo wrapper ejecuta la
+  release de `current`.
 - **Ensayo de restauración**: `npm run db:verify` descifra la copia más reciente
   (o la que se le pase), la abre en solo lectura como lo haría la aplicación,
   ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del
@@ -637,6 +664,10 @@ hasta el primer byte, el disco, la memoria, las horas desde la última copia, lo
 días de certificado y el estado. El journal dice qué pasó en el último cuarto de
 hora; el CSV permite mirar la semana (`awk -F, '$8 != "ok"' …`) cuando alguien
 cuenta que «ayer iba lento».
+
+El servicio invoca `/usr/local/sbin/wanderbibliothek-watchdog`, no una ruta del
+checkout, por lo que su código queda fijado al instalarlo y se actualiza junto
+con las unidades.
 
 Con `WATCHDOG_PING_URL` (por ejemplo un *check* de healthchecks.io) cada pasada
 hace un `GET` a esa URL y, cuando algo falla, a `<URL>/fail`: el aviso llega por
@@ -1007,11 +1038,12 @@ curl -fsSL https://github.com/sigstore/cosign/releases/latest/download/cosign-li
 
 La imagen es pública: no hace falta `docker login` para descargarla.
 
-### Instalación de la unidad
+### Instalación inicial de la unidad
 
 ```bash
 # 1. Envoltorio que arranca el contenedor con los montajes del host.
 sudo install -m 755 deploy/run-container.sh /usr/local/sbin/wanderbibliothek-container
+sudo install -Dm644 deploy/backup-key.sh /usr/local/lib/wanderbibliothek/backup-key.sh
 
 # 2. Unidad de systemd (sustituye a la del servicio de código).
 sudo cp -a /etc/systemd/system/wanderbibliothek.service \
@@ -1046,6 +1078,42 @@ docker inspect --format '{{.Config.Labels}}' \
   "$(sed -n 's/^WANDERBIBLIOTHEK_IMAGE=//p' /etc/wanderbibliothek/image.env)"
 ```
 
+### Desacoplar las operaciones de `current`
+
+En una instalación ya existente, primero publica y despliega `v1.0.3` o una
+versión posterior: la imagen debe incluir el marcador que permite al wrapper
+identificar la copia creada. Después, desde el checkout, ejecuta:
+
+```bash
+sudo wanderbibliothek-deploy-image --ref 1.0.3
+```
+
+Y después:
+
+```bash
+sudo deploy/install-image-operations.sh
+```
+
+El instalador solo trabaja si detecta que systemd ya ejecuta el modo imagen.
+Guarda copias fechadas de las unidades, el hardening y el vhost de nginx;
+reemplaza las rutas de assets de `current` por el proxy al contenedor, instala
+backup/watchdog en `/usr/local/sbin`, reinicia el servicio, comprueba health y
+habilita los temporizadores. Si nginx no valida, restaura el vhost; si falla el
+reinicio o la comprobación de salud, restaura el vhost, las unidades y los
+wrappers anteriores e intenta reiniciar el servicio. No borra el checkout ni
+desactiva `deploy.sh`.
+
+Prueba explícita de la copia en el modo imagen:
+
+```bash
+sudo systemctl start wanderbibliothek-backup.service
+sudo journalctl -u wanderbibliothek-backup.service -n 40 --no-pager
+```
+
+La copia y las portadas se generan con el código de la imagen en ejecución. La
+base cifrada, los ficheros de backup y el watchdog siguen en el host; la clave
+no se publica ni se copia al almacenamiento externo junto con los datos.
+
 ### Actualizar y volver atrás
 
 ```bash
@@ -1056,28 +1124,29 @@ sudo deploy/deploy-image.sh --rollback      # vuelve a la anterior
 sudo wanderbibliothek-deploy-image --ref 1.0.2
 ```
 
-El rollback real de la aplicación es cambiar el digest; el enlace
-`/srv/wanderbibliothek/current` ya solo se usa para los scripts de operación
-(copias, administración) y la documentación.
+El rollback real de la aplicación es cambiar el digest. Tras instalar el
+desacople, `current` ya no es una dependencia de los servicios web, backup,
+watchdog, nginx ni sus unidades; puede conservarse para las herramientas
+administrativas y como alternativa explícita de despliegue por código.
 
 ### Lo que no cambia
 
 - **Base y portadas**: siguen en `/var/lib/wanderbibliothek`, montadas en
   `/data`. El contenedor corre con el UID/GID del usuario `wanderbibliothek`
-  del host para que los ficheros conserven el dueño y las copias sigan
-  funcionando.
-- **Copias**: `wanderbibliothek-backup.service` ejecuta el script del host
-  contra la misma base; no hay que tocar el timer. (Si prefieres que la copia
-  salga de la imagen, sustituye el `ExecStart` por un `docker run --rm` con los
-  mismos montajes.)
-- **nginx, TLS, watchdog y uptime**: el contenedor publica en
-  `127.0.0.1:3000`, igual que el proceso anterior.
+  del host para que los ficheros conserven el dueño.
+- **Copias**: el contenedor de una sola ejecución usa el mismo digest que el
+  contenedor web activo; los datos y la clave permanecen bajo control del host.
+- **nginx y TLS**: nginx mantiene el TLS y proxyfica HTML y assets a
+  `127.0.0.1:3000`. Las tareas de mantenimiento y watchdog siguen siendo
+  servicios de host.
 
 ### Volver al despliegue por código
 
 ```bash
 sudo cp -a /etc/systemd/system/wanderbibliothek.service.source \
   /etc/systemd/system/wanderbibliothek.service
+sudo install -m 644 deploy/wanderbibliothek-hardening.conf \
+  /etc/systemd/system/wanderbibliothek.service.d/hardening.conf
 sudo systemctl daemon-reload
 sudo systemctl restart wanderbibliothek
 ```

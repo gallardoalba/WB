@@ -10,7 +10,7 @@
 set -uo pipefail
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3000/api/health}"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/wanderbibliothek}"
+BACKUP_DIR="${BACKUP_DIR:-${WANDERBIBLIOTHEK_HOST_BACKUPS:-${WANDERBIBLIOTHEK_BACKUP_DIR:-/var/backups/wanderbibliothek}}}"
 MAX_BACKUP_AGE_H="${MAX_BACKUP_AGE_H:-12}"
 MAX_DISK_PCT="${MAX_DISK_PCT:-85}"
 MIN_CERT_DAYS="${MIN_CERT_DAYS:-14}"

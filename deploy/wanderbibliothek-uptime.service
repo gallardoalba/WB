@@ -1,6 +1,6 @@
 [Unit]
 Description=Wanderbibliothek · ¿responde el sitio? (comprobación desde fuera)
-Documentation=file:%h/Desktop/wanderbibliothek/deploy/README.md
+Documentation=https://github.com/gallardoalba/WB/blob/main/deploy/README.md
 After=network-online.target
 Wants=network-online.target
 

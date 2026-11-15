@@ -10,8 +10,8 @@
 #
 # El servicio arranca `docker run` con la imagen de
 # `/etc/wanderbibliothek/image.env`; el digest queda publicado en
-# `/api/version`. Los datos siguen en el host (`/var/lib/wanderbibliothek`),
-# así que las copias y los scripts de operación no cambian de sitio.
+# `/api/version`. La copia se ejecuta desde la misma imagen; el watchdog del
+# host se instala en `/usr/local/sbin` y no depende del checkout `current`.
 
 [Unit]
 Description=Wanderbibliothek (imagen firmada)

@@ -1,6 +1,6 @@
 [Unit]
 Description=Wanderbibliothek · mantenimiento (caducidades, purgas, correo)
-Documentation=file:/srv/wanderbibliothek/current/deploy/README.md
+Documentation=https://github.com/gallardoalba/WB/blob/main/deploy/README.md
 After=wanderbibliothek.service
 
 [Service]

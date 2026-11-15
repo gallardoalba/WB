@@ -16,6 +16,8 @@
 #   WANDERBIBLIOTHEK_HOST_CACHE   caché de Next (escribible por ese usuario)
 set -euo pipefail
 
+fail() { printf 'FALLO: %s\n' "$*" >&2; exit 1; }
+
 : "${WANDERBIBLIOTHEK_IMAGE:?falta WANDERBIBLIOTHEK_IMAGE (ver /etc/wanderbibliothek/image.env)}"
 
 DOCKER="${DOCKER_BIN:-/usr/bin/docker}"
@@ -26,6 +28,18 @@ CACHE_DIR="${WANDERBIBLIOTHEK_HOST_CACHE:-$DATA_DIR/next-cache}"
 RUN_UID="${WANDERBIBLIOTHEK_RUN_UID:-999}"
 RUN_GID="${WANDERBIBLIOTHEK_RUN_GID:-988}"
 PORT="${WANDERBIBLIOTHEK_PORT:-127.0.0.1:3000}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_KEY_LIBRARY=/usr/local/lib/wanderbibliothek/backup-key.sh
+if [ ! -r "$BACKUP_KEY_LIBRARY" ]; then BACKUP_KEY_LIBRARY="$SCRIPT_DIR/backup-key.sh"; fi
+[ -r "$BACKUP_KEY_LIBRARY" ] || fail "falta el validador de clave de copia"
+. "$BACKUP_KEY_LIBRARY"
+
+BACKUP_KEY_CONFIGURED=0
+if validate_backup_key "${WANDERBIBLIOTHEK_BACKUP_KEY:-}"; then
+  BACKUP_KEY_CONFIGURED=1
+elif [ "${WANDERBIBLIOTHEK_SKIP_ENV_CHECK:-}" != "1" ]; then
+  fail "falta una clave de copia válida; no se inicia la aplicación"
+fi
 
 # Docker **no** interpreta las comillas del fichero de entorno: las deja
 # literales (`MAIL_FROM="Nombre <correo>"`), mientras que systemd sí las quita.
@@ -36,9 +50,21 @@ ENV_RUN="${WANDERBIBLIOTHEK_RUN_ENV:-/run/wanderbibliothek/env}"
 install -d -m 700 "$(dirname "$ENV_RUN")"
 umask 077
 : > "$ENV_RUN"
+chmod 600 "$ENV_RUN"
 while IFS= read -r key; do
+  case "$key" in
+    WANDERBIBLIOTHEK_BACKUP_KEY|WANDERBIBLIOTHEK_BACKUP_HOOK|WANDERBIBLIOTHEK_BACKUP_KEY_CONFIGURED|WANDERBIBLIOTHEK_BACKUP_OFFSITE)
+      continue
+      ;;
+  esac
   if [ -n "${!key+x}" ]; then printf '%s=%s\n' "$key" "${!key}" >> "$ENV_RUN"; fi
 done < <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' /etc/wanderbibliothek/env 2>/dev/null)
+if [ "$BACKUP_KEY_CONFIGURED" -eq 1 ]; then
+  printf 'WANDERBIBLIOTHEK_BACKUP_KEY_CONFIGURED=1\n' >> "$ENV_RUN"
+fi
+BACKUP_OFFSITE="${WANDERBIBLIOTHEK_BACKUP_OFFSITE:-}"
+if [ -n "${WANDERBIBLIOTHEK_BACKUP_HOOK:-}" ]; then BACKUP_OFFSITE=1; fi
+printf 'WANDERBIBLIOTHEK_BACKUP_OFFSITE=%s\n' "$BACKUP_OFFSITE" >> "$ENV_RUN"
 
 # Si un arranque anterior dejó el contenedor con el mismo nombre, se retira:
 # systemd ya paró el cliente y un choque de nombre impediría arrancar.
