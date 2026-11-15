@@ -139,7 +139,7 @@ const ES: TechnicalDocument = {
             ["`/normas`", "Gobernanza, moderación, sanciones y apelaciones."],
             ["`/apelar`", "Formulario de apelación desde el enlace del correo de sanción."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra, las listas públicas y las páginas informativas **en los tres idiomas** (con `xhtml:link`), e IndexNow avisa a Bing —y con él a DuckDuckGo y Ecosia— cuando se publica un libro."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra, las listas públicas y las páginas informativas **en los tres idiomas** (con `xhtml:link`), e IndexNow avisa a Bing, y con él a DuckDuckGo y Ecosia, cuando se publica un libro."],
           ],
         },
         {
@@ -156,7 +156,7 @@ const ES: TechnicalDocument = {
             "`/api/clubs/*`: club, miembros, moderadores, invitaciones, asistencia, cesión, foro, votaciones y solicitudes de entrada.",
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: listas, mensajería directa cifrada, seguimiento y bloqueos.",
             "`/api/account/*`: perfil, idioma, contraseña, claves de cifrado, TOTP, exportación y borrado.",
-            "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: apelaciones con token de un solo uso; el enlace se puede pedir de nuevo con el correo de la cuenta y la revisión la hace otra persona, del equipo o —con su nombre registrado— de otra instancia.",
+            "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: apelaciones con token de un solo uso; el enlace se puede pedir de nuevo con el correo de la cuenta y la revisión la hace otra persona, del equipo o, con su nombre registrado, de otra instancia.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: denuncias, moderación, comentarios y avisos.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: portadas cacheadas y ficha bibliográfica (DNB y Open Library).",
             "`/api/cities?q=`: sugerencias de municipio para el selector de ciudad (OpenStreetMap por Photon), sin sesión porque la ciudad se elige ya en el registro.",
@@ -239,7 +239,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "La autenticación no basta: cada operación comprueba además que el recurso sea de quien la pide, y lo hace **dentro de la consulta** (`owner_id = ?` o «alguna de las dos partes»), no en un `if` del componente. Por eso un identificador ajeno responde `404` —«no existe»— y no `403`: un 403 confirmaría que existe algo con ese id.",
+          text: "La autenticación no basta: cada operación comprueba además que el recurso sea de quien la pide, y lo hace **dentro de la consulta** (`owner_id = ?` o «alguna de las dos partes»), no en un `if` del componente. Por eso un identificador ajeno responde `404` («no existe») y no `403`: un 403 confirmaría que existe algo con ese id.",
         },
         {
           kind: "table",
@@ -293,7 +293,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La plantilla canónica es `deploy/env.example`: ahí están todas —las de este cuadro y las de detalle (bot, copias, datos de demostración, cuota de Google Books, primer administrador)— comentadas con su valor por defecto.",
+          text: "La plantilla canónica es `deploy/env.example`: ahí están todas, las de este cuadro y las de detalle (bot, copias, datos de demostración, cuota de Google Books, primer administrador), comentadas con su valor por defecto.",
         },
       ],
     },
@@ -529,7 +529,7 @@ const DE: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Inhalt"],
           rows: [
-            ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher **in der Sprache der Oberfläche** (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht — der steht in `/descubrir` —, und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
+            ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher **in der Sprache der Oberfläche** (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht (der steht in `/descubrir`), und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
             ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`: die URL, die indexiert wird."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
@@ -551,7 +551,7 @@ const DE: TechnicalDocument = {
             ["`/normas`", "Governance, Moderation, Sanktionen und Einsprüche."],
             ["`/apelar`", "Einspruchsformular über den Link in der Sanktions-E-Mail."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten, öffentliche Listen und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing — und damit DuckDuckGo und Ecosia —, sobald ein Buch eingestellt wird."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten, öffentliche Listen und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing, und damit DuckDuckGo und Ecosia, sobald ein Buch eingestellt wird."],
           ],
         },
         {
@@ -568,7 +568,7 @@ const DE: TechnicalDocument = {
             "`/api/clubs/*`: Club, Mitglieder, Moderator:innen, Einladungen, Teilnahme, Übergabe, Forum, Abstimmungen und Beitrittsanfragen.",
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: Listen, verschlüsselte Direktnachrichten, Folgen und Blockieren.",
             "`/api/account/*`: Profil, Sprache, Passwort, Verschlüsselungsschlüssel, TOTP, Export und Löschung.",
-            "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: Einsprüche mit Einmal-Token; der Link lässt sich mit der E-Mail des Kontos neu anfordern, und geprüft wird von einer anderen Person — aus dem Team oder, mit Namen protokolliert, aus einer anderen Instanz.",
+            "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: Einsprüche mit Einmal-Token; der Link lässt sich mit der E-Mail des Kontos neu anfordern, und geprüft wird von einer anderen Person, aus dem Team oder, mit Namen protokolliert, aus einer anderen Instanz.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: Meldungen, Moderation, Kommentare und Hinweise.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: zwischengespeicherte Cover und bibliografische Daten (DNB und Open Library).",
             "`/api/cities?q=`: Ortsvorschläge für die Stadtauswahl (OpenStreetMap über Photon), ohne Sitzung, weil die Stadt schon bei der Registrierung gewählt wird.",
@@ -651,7 +651,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Anmeldung allein genügt nicht: jede Operation prüft zusätzlich, ob die Ressource der anfragenden Person gehört, und zwar **innerhalb der Abfrage** (`owner_id = ?` oder «eine der beiden Seiten»), nicht in einem `if` der Komponente. Deshalb antwortet eine fremde Kennung mit `404` — «existiert nicht» — und nicht mit `403`: ein 403 würde bestätigen, dass es etwas mit dieser Kennung gibt.",
+          text: "Anmeldung allein genügt nicht: jede Operation prüft zusätzlich, ob die Ressource der anfragenden Person gehört, und zwar **innerhalb der Abfrage** (`owner_id = ?` oder «eine der beiden Seiten»), nicht in einem `if` der Komponente. Deshalb antwortet eine fremde Kennung mit `404` («existiert nicht») und nicht mit `403`: ein 403 würde bestätigen, dass es etwas mit dieser Kennung gibt.",
         },
         {
           kind: "table",
@@ -705,7 +705,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die verbindliche Vorlage ist `deploy/env.example`: dort stehen alle — die aus dieser Tabelle und die Detailvariablen (Bot, Sicherungen, Demodaten, Google-Books-Kontingent, erster Administrator) — kommentiert mit ihrem Standardwert.",
+          text: "Die verbindliche Vorlage ist `deploy/env.example`: dort stehen alle, die aus dieser Tabelle und die Detailvariablen (Bot, Sicherungen, Demodaten, Google-Books-Kontingent, erster Administrator), kommentiert mit ihrem Standardwert.",
         },
       ],
     },

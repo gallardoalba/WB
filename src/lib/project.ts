@@ -303,7 +303,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Barrierefreiheit",
-              text: "ausreichender Kontrast, sichtbarer Fokus, großzügig bemessene Berührungsflächen, Bedienung per Tastatur und Beschriftungen für Screenreader — auch wenn weniger Bewegung gewünscht ist.",
+              text: "ausreichender Kontrast, sichtbarer Fokus, großzügig bemessene Berührungsflächen, Bedienung per Tastatur und Beschriftungen für Screenreader, auch wenn weniger Bewegung gewünscht ist.",
             },
             {
               label: "Deutsch, Spanisch und Englisch",
@@ -464,7 +464,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Accessibility",
-              text: "sufficient contrast, visible focus, generous touch targets, keyboard operation and screen-reader labels — also when less motion is asked for.",
+              text: "sufficient contrast, visible focus, generous touch targets, keyboard operation and screen-reader labels, including when less motion is asked for.",
             },
             {
               label: "German, Spanish and English",

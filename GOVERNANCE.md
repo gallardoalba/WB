@@ -26,7 +26,7 @@ An administrator may also moderate, but moderation does not imply administration
 
 Moderation protects people. Discomfort or disagreement is not grounds for a sanction, and neither is a harsh review or an awkward conversation.
 
-- **Proportionality.** Apply the least restrictive measure that solves the problem. Escalate only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record.
+- **Proportionality.** Apply the least restrictive measure that solves the problem. Escalate only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm, such as threats, published personal data or sustained harassment, justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record.
 - **Who decides.** Moderation investigates and proposes; an administrator decides and applies a suspension. When one person holds both roles, the decision is taken under the administrator role and recorded as such.
 - **What it contains.** The rule that was broken, the conduct behind it and how the case reached the team (a report or a proactive review), in the language of the account.
 - **Time limit.** Suspensions last from 1 to 365 days and are lifted automatically when they expire. There is no indefinite suspension in the application.
@@ -36,7 +36,7 @@ Moderation protects people. Discomfort or disagreement is not grounds for a sanc
 
 1. An administrator suspends an account with a reason and a duration.
 2. The person receives an email in the language of their account with the reason, the end date and a personal appeal link valid for 30 days.
-3. The appeal is submitted from `/apelar` without signing in — a suspended account cannot log in — and may include any information the person considers relevant. If the link is lost or expires, a new one can be requested from the same page with the account email.
+3. The appeal is submitted from `/apelar` without signing in, because a suspended account cannot log in, and may include any information the person considers relevant. If the link is lost or expires, a new one can be requested from the same page with the account email.
 4. **Someone with no part in the original decision and no conflict of interest** reviews it, and the answer arrives within 14 days. Where the instance has nobody available, an external reviewer may do it and their name is recorded. The reviewer may lift the suspension or uphold it; the application does not allow shortening it.
 5. If upheld, the account is reactivated and the person is notified. If rejected, the reply explains why. Both outcomes are recorded in the audit log.
 

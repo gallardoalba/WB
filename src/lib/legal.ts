@@ -129,7 +129,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           body: [
             "E-Mail-Anbieter: In diesem Dienst Brevo (Sendinblue SAS, Paris), der die Daten weisungsgebunden und innerhalb der EU verarbeitet; erhält Adresse und Inhalt der Benachrichtigungs-E-Mail, niemals den Inhalt verschlüsselter Nachrichten.",
             "Buchcover: Die Bilder werden über unseren Server geladen und zwischengespeichert; die Open Library (Internet Archive) sieht dabei die IP des Servers und die ISBN, nicht die IP der Besucherin oder des Besuchers.",
-            "Weitere Buchdaten: zur Vervollständigung der bibliografischen Angaben fragt der Server die Deutsche Nationalbibliothek (services.dnb.de) und, als Ausweichquelle für Cover, Google Books (Google Ireland Ltd.) — beide erhalten nur die ISBN und die IP des Servers.",
+            "Weitere Buchdaten: zur Vervollständigung der bibliografischen Angaben fragt der Server die Deutsche Nationalbibliothek (services.dnb.de) und, als Ausweichquelle für Cover, Google Books (Google Ireland Ltd.); beide erhalten nur die ISBN und die IP des Servers.",
             "Ortsnamen: während des Tippens fragt der Server die Ortsliste bei Photon (Komoot GmbH) ab, einer Suche über die Daten von OpenStreetMap; anschließend gleicht er den gewählten Namen mit Nominatim (OpenStreetMap Foundation) ab, um Tippfehler zu erkennen. Übertragen wird nur der eingetippte Text bzw. der Ortsname, keine IP-Adresse der Besucherin oder des Besuchers.",
             "Cloudflare Turnstile: nur wenn aktiviert, beim Registrieren.",
             "Hosting: der Anbieter, bei dem dieser Dienst läuft.",
@@ -278,7 +278,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Oposición a los correos de aviso: en cualquier momento desde la cuenta.",
           "Reclamación: ante la autoridad de protección de datos de tu estado federado.",
           "Limitación del tratamiento: mientras se resuelve una oposición o un borrado, puedes pedir que se limite el tratamiento escribiendo a la dirección de contacto de arriba.",
-          "Retirada del consentimiento: si diste tu consentimiento para algo —por ejemplo, los correos de aviso— puedes retirarlo en cualquier momento sin dar motivos, desde la cuenta o por correo; la licitud del tratamiento anterior no queda afectada.",
+          "Retirada del consentimiento: si diste tu consentimiento para algo, por ejemplo los correos de aviso, puedes retirarlo en cualquier momento sin dar motivos, desde la cuenta o por correo; la licitud del tratamiento anterior no queda afectada.",
         ],
       },
       {

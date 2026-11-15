@@ -21,7 +21,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las normas de conducta de cada instancia —qué no se admite y qué medida corresponde a cada caso— deben ser públicas y estar visibles antes de registrarse. Este documento describe el procedimiento; no las sustituye.",
+          text: "Las normas de conducta de cada instancia, es decir, qué no se admite y qué medida corresponde a cada caso, deben ser públicas y estar visibles antes de registrarse. Este documento describe el procedimiento; no las sustituye.",
         },
         {
           kind: "p",
@@ -69,7 +69,7 @@ const ES: TechnicalDocument = {
           items: [
             {
               label: "Proporcionalidad",
-              text: "se aplica la medida menos restrictiva que resuelve el problema. Solo se sube de nivel cuando la anterior no ha funcionado: primero una corrección, después ocultar el contenido y al final suspender la cuenta. Un daño grave o en curso —amenazas, datos personales publicados, acoso sostenido— justifica actuar de inmediato. La reincidencia pesa en la decisión y la auditoría guarda el historial.",
+              text: "se aplica la medida menos restrictiva que resuelve el problema. Solo se sube de nivel cuando la anterior no ha funcionado: primero una corrección, después ocultar el contenido y al final suspender la cuenta. Un daño grave o en curso, como amenazas, datos personales publicados o acoso sostenido, justifica actuar de inmediato. La reincidencia pesa en la decisión y la auditoría guarda el historial.",
             },
             {
               label: "Quién decide",
@@ -101,7 +101,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La apelación se envía desde esta página sin iniciar sesión —una cuenta suspendida no puede entrar— y admite cualquier información que la persona considere relevante. Si el enlace se pierde o caduca, puede pedir otro desde esta misma página con el correo de la cuenta.",
+          text: "La apelación se envía desde esta página sin iniciar sesión, porque una cuenta suspendida no puede entrar, y admite cualquier información que la persona considere relevante. Si el enlace se pierde o caduca, puede pedir otro desde esta misma página con el correo de la cuenta.",
         },
         {
           kind: "p",
@@ -164,7 +164,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die Verhaltensregeln jeder Instanz — was nicht geduldet wird und welche Maßnahme zu welchem Fall gehört — müssen öffentlich und vor der Registrierung sichtbar sein. Dieses Dokument beschreibt das Verfahren; es ersetzt sie nicht.",
+          text: "Die Verhaltensregeln jeder Instanz, also was nicht geduldet wird und welche Maßnahme zu welchem Fall gehört, müssen öffentlich und vor der Registrierung sichtbar sein. Dieses Dokument beschreibt das Verfahren; es ersetzt sie nicht.",
         },
         {
           kind: "p",
@@ -198,7 +198,7 @@ const DE: TechnicalDocument = {
         {
           kind: "terms",
           items: [
-            { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst. Erst wenn sie nicht wirkt, wird gesteigert: zuerst eine Korrektur, dann das Verbergen des Inhalts, zuletzt die Sperre des Kontos. Bei schwerem oder andauerndem Schaden — Drohungen, veröffentlichte persönliche Daten, anhaltende Belästigung — ist sofortiges Handeln gerechtfertigt. Wiederholtes Verhalten zählt bei der Entscheidung, und das Protokoll hält den Verlauf fest." },
+            { label: "Verhältnismäßigkeit", text: "die mildeste Maßnahme, die das Problem löst. Erst wenn sie nicht wirkt, wird gesteigert: zuerst eine Korrektur, dann das Verbergen des Inhalts, zuletzt die Sperre des Kontos. Bei schwerem oder andauerndem Schaden, etwa Drohungen, veröffentlichten persönlichen Daten oder anhaltender Belästigung, ist sofortiges Handeln gerechtfertigt. Wiederholtes Verhalten zählt bei der Entscheidung, und das Protokoll hält den Verlauf fest." },
             { label: "Wer entscheidet", text: "die Moderation untersucht und schlägt vor; die Verwaltung entscheidet und verhängt die Sperre. Vereint eine Person beide Rollen, wird die Entscheidung als Verwaltung getroffen und so protokolliert." },
             { label: "Inhalt des Hinweises", text: "er nennt die verletzte Regel, das Verhalten dahinter und wie der Fall zum Team kam (durch eine Meldung oder durch eigene Prüfung), in der Sprache des Kontos." },
             { label: "Frist", text: "Sperren haben eine konkrete Dauer von einem Tag bis zu einem Jahr und enden automatisch." },
@@ -217,7 +217,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Der Einspruch wird auf dieser Seite ohne Anmeldung eingereicht — ein gesperrtes Konto kann sich nicht anmelden — und kann jede Information enthalten, die die Person für relevant hält. Geht der Link verloren oder läuft er ab, lässt sich auf derselben Seite mit der E-Mail des Kontos ein neuer anfordern.",
+          text: "Der Einspruch wird auf dieser Seite ohne Anmeldung eingereicht, weil ein gesperrtes Konto sich nicht anmelden kann, und kann jede Information enthalten, die die Person für relevant hält. Geht der Link verloren oder läuft er ab, lässt sich auf derselben Seite mit der E-Mail des Kontos ein neuer anfordern.",
         },
         {
           kind: "p",
@@ -280,7 +280,7 @@ const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The rules of conduct of each instance — what is not admitted and which measure corresponds to each case — must be public and visible before registering. This document describes the procedure; it does not replace those rules.",
+          text: "The rules of conduct of each instance, that is, what is not admitted and which measure corresponds to each case, must be public and visible before registering. This document describes the procedure; it does not replace those rules.",
         },
         {
           kind: "p",
@@ -314,7 +314,7 @@ const EN: TechnicalDocument = {
         {
           kind: "terms",
           items: [
-            { label: "Proportionality", text: "the least restrictive measure that solves the problem. Escalate only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm — threats, publishing personal data, sustained harassment — justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record." },
+            { label: "Proportionality", text: "the least restrictive measure that solves the problem. Escalate only when a lesser measure has not worked: a correction first, then hiding the content, then a suspension. Serious or ongoing harm, such as threats, published personal data or sustained harassment, justifies acting immediately. Repeated conduct weighs in the decision, and the audit log keeps the record." },
             { label: "Who decides", text: "moderation investigates and proposes; administration decides and applies a suspension. When one person holds both roles, the decision is taken under the administration role and recorded as such." },
             { label: "What it contains", text: "the rule that was broken, the conduct behind it and how the case reached the team (a report or a proactive review), in the language of the account." },
             { label: "Time limit", text: "suspensions have a specific duration, from one day to one year, and end automatically." },
@@ -333,7 +333,7 @@ const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The appeal is submitted from this page without signing in — a suspended account cannot log in — and may include any information the person considers relevant. If the link is lost or expires, a new one can be requested from the same page with the account email.",
+          text: "The appeal is submitted from this page without signing in, because a suspended account cannot log in, and may include any information the person considers relevant. If the link is lost or expires, a new one can be requested from the same page with the account email.",
         },
         {
           kind: "p",

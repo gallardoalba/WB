@@ -93,7 +93,7 @@ export const EN: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Content"],
           rows: [
-            ["`/`", "Public home page: full-width header, four figures and a row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter — that lives in `/descubrir` — and falls back to the whole catalogue when there is nothing in that language."],
+            ["`/`", "Public home page: full-width header, four figures and a row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter (that lives in `/descubrir`) and falls back to the whole catalogue when there is nothing in that language."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public page for the work with JSON-LD `Book`/`Offer`: the URL that gets indexed."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
@@ -115,7 +115,7 @@ export const EN: TechnicalDocument = {
             ["`/normas`", "Governance, moderation, sanctions and appeals."],
             ["`/apelar`", "Appeal form opened from the sanction email."],
             ["`/api/health`", "Status of the service and of the database."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed."],
+            ["`/sitemap.xml`, `/robots.txt`", "Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing, and through it DuckDuckGo and Ecosia, whenever a book is listed."],
           ],
         },
         {
@@ -132,7 +132,7 @@ export const EN: TechnicalDocument = {
             "`/api/clubs/*`: club, members, moderators, invitations, attendance, transfer, forum, votes and join requests.",
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messaging, following and blocking.",
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
-            "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.",
+            "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person, from the team or, with their name recorded, from another instance.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
           ],
@@ -213,7 +213,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Signing in is not enough: every operation also checks that the resource belongs to the person asking for it, and does so **inside the query** (`owner_id = ?` or “either of the two parties”), not in an `if` in the component. That is why a foreign id answers `404` — “it does not exist” — rather than `403`: a 403 would confirm that something with that id exists.",
+          text: "Signing in is not enough: every operation also checks that the resource belongs to the person asking for it, and does so **inside the query** (`owner_id = ?` or “either of the two parties”), not in an `if` in the component. That is why a foreign id answers `404` (“it does not exist”) rather than `403`: a 403 would confirm that something with that id exists.",
         },
         {
           kind: "table",
@@ -267,7 +267,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The canonical template is `deploy/env.example`: every variable — the ones in this table and the detail ones (bot, backups, demo data, Google Books quota, first administrator) — is there, commented, with its default value.",
+          text: "The canonical template is `deploy/env.example`: every variable, the ones in this table and the detail ones (bot, backups, demo data, Google Books quota, first administrator), is there, commented, with its default value.",
         },
       ],
     },

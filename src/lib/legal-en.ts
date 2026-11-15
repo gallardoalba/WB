@@ -104,7 +104,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
           "Objection to notification emails: at any time from the account.",
           "Complaint: to the data protection supervisory authority of your federal state.",
           "Restriction of processing: while an objection or an erasure is being examined, you may ask for processing to be restricted by writing to the contact address above.",
-          "Withdrawal of consent: where you gave consent to something — for example notification emails — you may withdraw it at any time without giving reasons, from the account or by email; the lawfulness of the processing carried out beforehand is not affected.",
+          "Withdrawal of consent: where you gave consent to something, for example notification emails, you may withdraw it at any time without giving reasons, from the account or by email; the lawfulness of the processing carried out beforehand is not affected.",
         ],
       },
       {
