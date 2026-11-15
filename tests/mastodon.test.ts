@@ -30,6 +30,27 @@ function clearQueue(): void {
   dbModule.getDb().prepare("DELETE FROM social_outbox").run();
 }
 
+/** Deja en la cola un aviso que el perfil ya publicó, como haría `processSocialOutbox`. */
+function insertSentPost(bookId: string, externalId: string, sentAt: Date): void {
+  dbModule
+    .getDb()
+    .prepare(
+      `INSERT INTO social_outbox
+         (id, network, subject, body, status, attempts, next_attempt_at, created_at,
+          external_id, external_url, sent_at)
+       VALUES (?, 'mastodon', ?, 'texto', 'sent', 1, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      `soc_${externalId}`,
+      bookId,
+      sentAt.toISOString(),
+      sentAt.toISOString(),
+      externalId,
+      `https://mastodon.social/@wanderbibliothek/${externalId}`,
+      sentAt.toISOString(),
+    );
+}
+
 /**
  * Instante en el que el aviso de esa fila ya puede salir: un minuto después
  * del minuto sorteado para ese id.
@@ -291,6 +312,126 @@ test("un aviso pendiente se publica con el token y la clave de idempotencia", as
   assert.equal(row.status, "sent");
   assert.equal(row.external_id, "110");
   assert.match(row.external_url, /@wanderbibliothek\/110/);
+});
+
+test("no encadena dos avisos del bot: espera a que el perfil publique otra cosa", async () => {
+  clearQueue();
+  const ahora = new Date("2026-11-11T12:00:00Z");
+  // El aviso anterior salió otro día, así que el tope diario no es lo que frena
+  // este: lo frena que la última entrada del perfil también es del bot.
+  insertSentPost("bok_anterior", "500", new Date("2026-11-08T12:00:00Z"));
+  const aviso = mastodon.enqueuePost({
+    bookId: "bok_encadena",
+    text: "texto",
+    nextAttemptAt: ahora,
+    now: ahora,
+  })!;
+  const { impl, calls } = fakeFetch((url) => {
+    if (url.endsWith("/api/v1/accounts/verify_credentials")) return jsonResponse({ id: "acc_bot" });
+    if (url.includes("/api/v1/accounts/acc_bot/statuses")) return jsonResponse([{ id: "500" }]);
+    return jsonResponse({ id: "600", url: "https://mastodon.social/@wanderbibliothek/600" });
+  });
+
+  const result = await mastodon.processSocialOutbox({
+    limit: 5,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
+
+  assert.deepEqual(result, { sent: 0, failed: 0, skipped: true });
+  assert.equal(calls.filter((call) => call.url.endsWith("/api/v1/statuses")).length, 0);
+  const fila = dbModule
+    .getDb()
+    .prepare("SELECT status FROM social_outbox WHERE id = ?")
+    .get(aviso) as { status: string };
+  assert.equal(fila.status, "pending", "el aviso sigue esperando, no se pierde");
+});
+
+test("publica cuando la última entrada del perfil no es del bot", async () => {
+  clearQueue();
+  const ahora = new Date("2026-11-11T12:00:00Z");
+  insertSentPost("bok_anterior_2", "500", new Date("2026-11-08T12:00:00Z"));
+  const aviso = mastodon.enqueuePost({
+    bookId: "bok_tras_otro",
+    text: "texto",
+    nextAttemptAt: ahora,
+    now: ahora,
+  })!;
+  const { impl, calls } = fakeFetch((url) => {
+    if (url.endsWith("/api/v1/accounts/verify_credentials")) return jsonResponse({ id: "acc_bot" });
+    if (url.includes("/api/v1/accounts/acc_bot/statuses")) return jsonResponse([{ id: "700" }]);
+    return jsonResponse({ id: "600", url: "https://mastodon.social/@wanderbibliothek/600" });
+  });
+
+  const result = await mastodon.processSocialOutbox({
+    limit: 5,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
+
+  assert.equal(result.sent, 1);
+  assert.equal(calls.filter((call) => call.url.endsWith("/api/v1/statuses")).length, 1);
+});
+
+test("si no se puede leer el perfil, el aviso espera en vez de arriesgar", async () => {
+  clearQueue();
+  const ahora = new Date("2026-11-11T12:00:00Z");
+  insertSentPost("bok_anterior_3", "500", new Date("2026-11-08T12:00:00Z"));
+  const aviso = mastodon.enqueuePost({
+    bookId: "bok_sin_perfil",
+    text: "texto",
+    nextAttemptAt: ahora,
+    now: ahora,
+  })!;
+  const { impl, calls } = fakeFetch((url) => {
+    if (url.endsWith("/api/v1/accounts/verify_credentials")) {
+      return jsonResponse({ error: "This action is outside the authorized scopes" }, 403);
+    }
+    return jsonResponse({ id: "600", url: "https://mastodon.social/@wanderbibliothek/600" });
+  });
+
+  const result = await mastodon.processSocialOutbox({
+    limit: 5,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
+
+  assert.deepEqual(result, { sent: 0, failed: 0, skipped: true });
+  assert.equal(calls.filter((call) => call.url.endsWith("/api/v1/statuses")).length, 0);
+});
+
+test("la vía manual no consulta el perfil y publica igual", async () => {
+  clearQueue();
+  const ahora = new Date("2026-11-11T12:00:00Z");
+  insertSentPost("bok_anterior_4", "500", new Date("2026-11-08T12:00:00Z"));
+  const aviso = mastodon.enqueuePost({
+    bookId: "bok_manual",
+    text: "texto",
+    nextAttemptAt: ahora,
+    now: ahora,
+  })!;
+  const { impl, calls } = fakeFetch(() =>
+    jsonResponse({ id: "600", url: "https://mastodon.social/@wanderbibliothek/600" }),
+  );
+
+  const result = await mastodon.processSocialOutbox({
+    limit: 1,
+    only: aviso,
+    force: true,
+    config: CONFIG,
+    fetchImpl: impl,
+    now: despuesDelTurno(aviso),
+  });
+
+  assert.equal(result.sent, 1);
+  assert.equal(
+    calls.some((call) => call.url.includes("verify_credentials")),
+    false,
+    "el envío manual no pregunta por el perfil",
+  );
 });
 
 test("si la obra cambia antes de publicarse, el aviso sale con los datos nuevos", async () => {
@@ -1081,7 +1222,19 @@ test("el cron no publica dos libros el mismo día, y la hora se sortea", async (
   // sale a las 09:00 en punto: cada fila tiene su minuto al azar dentro de la
   // ventana, estable durante el día.
   clearQueue();
-  const { impl, calls } = fakeFetch(() => jsonResponse({ id: "1" }));
+  let publicados = 0;
+  // Lo último que hay en el perfil. Entre un día y otro la cuenta publica otra
+  // cosa, que es lo que permite al bot volver a anunciar.
+  let ultimaEntrada = "700";
+  const { impl, calls } = fakeFetch((url) => {
+    if (url.endsWith("/api/v1/accounts/verify_credentials")) return jsonResponse({ id: "acc_bot" });
+    if (url.includes("/api/v1/accounts/acc_bot/statuses")) {
+      return jsonResponse([{ id: ultimaEntrada }]);
+    }
+    publicados += 1;
+    ultimaEntrada = String(publicados);
+    return jsonResponse({ id: String(publicados) });
+  });
   const estados = () => calls.filter((call) => call.url.endsWith("/api/v1/statuses")).length;
   const manana = new Date("2026-11-09T08:00:00Z"); // 09:00 en Berlín, abre la ventana
   const id1 = mastodon.enqueuePost({
@@ -1131,7 +1284,9 @@ test("el cron no publica dos libros el mismo día, y la hora se sortea", async (
   assert.equal(estados(), 1, "no se publica nada más ese día");
 
   // Al día siguiente sí: se prueba al final de la ventana, cuando ya pasó
-  // cualquier minuto sorteado.
+  // cualquier minuto sorteado. Entre medias la cuenta publicó otra cosa, así
+  // que el bot no encadena dos entradas propias.
+  ultimaEntrada = "700";
   const inicioManana = mastodon.inicioDeVentana(new Date(momento.getTime() + 24 * 60 * 60 * 1000));
   const finManana = new Date(inicioManana.getTime() + 11 * 60 * 60 * 1000 - 60_000); // 19:59
   const tercera = await mastodon.processSocialOutbox({

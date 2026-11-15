@@ -131,7 +131,7 @@ export const EN: TechnicalDocument = {
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messaging, following and blocking.",
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries the Mastodon outbox, purges old rows and, with `MASTODON_LIKES=on`, gives a few well-spaced favourites to book posts.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries the Mastodon outbox (one work a day, and only when the account's last post is not the bot's own), purges old rows and, with `MASTODON_LIKES=on`, gives a few well-spaced favourites to book posts.",
           ],
         },
       ],

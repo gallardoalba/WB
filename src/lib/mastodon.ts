@@ -18,6 +18,9 @@
  * - **Un post por obra, no por ejemplar.** Si tres personas ponen el mismo
  *   libro, el perfil no repite el aviso: la tabla tiene una clave única por red
  *   y obra y el segundo `INSERT` se descarta.
+ * - **Nunca dos avisos seguidos.** Antes de publicar se mira la última entrada
+ *   del perfil: si también es del bot, el aviso espera a que la cuenta publique
+ *   otra cosa. Así el perfil no encadena avisos automáticos.
  * - **Nada de datos personales.** Título, autoría, portada y enlace. Ni ciudad,
  *   ni nombre de quien publica: la ciudad está en la ficha y quien quiera verla
  *   entra.
@@ -53,6 +56,8 @@ export type { Lead, PostInput } from "./mastodon-post";
 export const SOCIAL_NETWORK = "mastodon";
 /** Minutos que una fila puede estar «en envío» antes de darla por abandonada. */
 const CLAIM_SECONDS = 5 * 60;
+/** Tiempo máximo de cada consulta de lectura del perfil antes de publicar. */
+const PROFILE_TIMEOUT_MS = 8_000;
 
 /** Intentos antes de dar un post por perdido. */
 const MAX_ATTEMPTS = 5;
@@ -497,8 +502,8 @@ export const SOCIAL_GAP_MAX_MS = 24 * 60 * 60 * 1000;
  *
  * Existe para poder hacer una prueba real desde la web sin esperar el turno:
  * con `0` no hay espera, cada obra se anuncia en el acto y el tope de un aviso
- * al día queda desactivado. Un valor raro se ignora en vez de dejar la cola
- * parada.
+ * al día y la pausa entre avisos del bot quedan desactivados. Un valor raro se
+ * ignora en vez de dejar la cola parada.
  */
 function bandaSeparacion(): [number, number] {
   const porDefecto: [number, number] = [
@@ -575,7 +580,71 @@ function yaPublicadoHoy(ahora: Date): boolean {
   return dayKey(enviado) === dayKey(ahora);
 }
 
-/** `MASTODON_GAP_MINUTES=0` es la prueba real: sin espera y sin tope diario. */
+/** ¿Hay algún aviso enviado con su id de Mastodon, para poder compararlo? */
+function hayAvisosEnviados(): boolean {
+  return Boolean(
+    getDb()
+      .prepare(
+        `SELECT 1 FROM social_outbox
+          WHERE network = ? AND status = 'sent' AND external_id IS NOT NULL
+          LIMIT 1`,
+      )
+      .get(SOCIAL_NETWORK),
+  );
+}
+
+/**
+ * ¿La última entrada del perfil es también un aviso del bot?
+ *
+ * La cuenta puede llevar otras cosas además del bot (posts a mano, boosts). Si
+ * lo último que hay es un aviso de libro, el bot espera: no encadena dos
+ * entradas propias y deja que la cuenta publique otra cosa primero.
+ *
+ * Devuelve `true` si es del bot, `false` si hay otro contenido y `null` si no
+ * se pudo comprobar (sin red, token sin `read:accounts`, instancia caída). Ante
+ * la duda no se publica: el cron volverá a preguntar en la pasada siguiente.
+ */
+async function ultimaEntradaEsDelBot(
+  config: MastodonConfig,
+  fetchImpl: typeof fetch,
+): Promise<boolean | null> {
+  // Sin ningún aviso enviado no hay nada que comparar: se ahorra la consulta.
+  if (!hayAvisosEnviados()) return false;
+  try {
+    const yo = await fetchImpl(`${config.instance}/api/v1/accounts/verify_credentials`, {
+      headers: { authorization: `Bearer ${config.token}` },
+      signal: AbortSignal.timeout(PROFILE_TIMEOUT_MS),
+    });
+    if (!yo.ok) return null;
+    const cuenta = (await yo.json().catch(() => null)) as { id?: string } | null;
+    if (!cuenta?.id) return null;
+    const respuesta = await fetchImpl(
+      `${config.instance}/api/v1/accounts/${encodeURIComponent(cuenta.id)}/statuses?limit=1`,
+      {
+        headers: { authorization: `Bearer ${config.token}` },
+        signal: AbortSignal.timeout(PROFILE_TIMEOUT_MS),
+      },
+    );
+    if (!respuesta.ok) return null;
+    const estados = (await respuesta.json().catch(() => null)) as { id?: string }[] | null;
+    if (!Array.isArray(estados)) return null;
+    const ultimo = estados[0]?.id;
+    if (!ultimo) return false;
+    return Boolean(
+      getDb()
+        .prepare(
+          `SELECT 1 FROM social_outbox
+            WHERE network = ? AND external_id = ?
+            LIMIT 1`,
+        )
+        .get(SOCIAL_NETWORK, String(ultimo)),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** `MASTODON_GAP_MINUTES=0` es la prueba real: sin espera, sin tope diario ni pausa entre avisos. */
 function sinEspera(): boolean {
   const [, max] = bandaSeparacion();
   return max === 0;
@@ -800,11 +869,9 @@ export async function processSocialOutbox(
     return { sent: 0, failed: 0, skipped: true };
   }
   const db = getDb();
-  // La hora del aviso se sortea cada día dentro de la ventana: si a la fila que
-  // toca le ha caído más tarde, el cron espera en vez de publicar a las 09:00 en
-  // punto. La vía manual (`only`) y la prueba con `MASTODON_GAP_MINUTES=0` no
-  // esperan. Se mira la fila más antigua vencida, que es la que saldría.
-  if (!force && !options.only && !sinEspera()) {
+  if (!force && !sinEspera()) {
+    // La fila más antigua vencida es la que saldría. Si no hay ninguna, no hay
+    // nada que consultar ni que publicar.
     const siguiente = db
       .prepare(
         `SELECT id FROM social_outbox
@@ -812,7 +879,18 @@ export async function processSocialOutbox(
           ORDER BY next_attempt_at ASC, created_at ASC LIMIT 1`,
       )
       .get(SOCIAL_NETWORK, ahora.toISOString()) as { id: string } | undefined;
-    if (siguiente && momentoDelAviso(siguiente.id, ahora) > ahora) {
+    if (!siguiente) return { sent: 0, failed: 0, skipped: true };
+    // No dos avisos del bot seguidos: si la última entrada del perfil también
+    // es suya, se espera a que la cuenta publique otra cosa. Ante la duda (la
+    // instancia no contesta, al token le falta un permiso) tampoco se publica.
+    if ((await ultimaEntradaEsDelBot(config, fetchImpl)) !== false) {
+      return { sent: 0, failed: 0, skipped: true };
+    }
+    // La hora del aviso se sortea cada día dentro de la ventana: si a la fila
+    // que toca le ha caído más tarde, el cron espera en vez de publicar a las
+    // 09:00 en punto. La vía manual (`only`) y la prueba con
+    // `MASTODON_GAP_MINUTES=0` no esperan.
+    if (!options.only && momentoDelAviso(siguiente.id, ahora) > ahora) {
       return { sent: 0, failed: 0, skipped: true };
     }
   }
