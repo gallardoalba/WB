@@ -62,5 +62,8 @@ exec "$DOCKER" run --rm --name "$CONTAINER" --init \
   --memory 1500m \
   --memory-swap 1500m \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --log-driver json-file \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   --stop-timeout 30 \
   "$WANDERBIBLIOTHEK_IMAGE"
