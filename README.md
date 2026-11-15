@@ -19,24 +19,24 @@ Knowledge grows when books circulate. Every copy passed on brings readings, conv
 - **No addresses, no shipping.** The platform never asks for postal addresses, postcodes or delivery details. Books are exchanged directly between readers.
 - **Private messages.** Every exchange comes with an end-to-end encrypted conversation. Readers who follow each other can also send private messages.
 - **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
-- **Lists, community and activity.** Create public reading lists, discover other readers through a directory you can sort by distance, and follow what's happening in your area.
+- **Lists and nearby readers.** Start public reading lists and browse a directory of readers by distance. Your home page shows what is happening around you.
 - **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
 
 ## Principles
 
 **Reciprocity.** Nobody has to give something back. Anyone can request any book, and whoever has it is free to give it away or exchange it. Every contribution helps keep books in circulation and knowledge within reach of more people; there is no currency, no balance and no points.
 
-**Non-profit and no market.** The project charges nothing, shows no advertising and sells no data. There is no premium tier and no paid placement: everything the platform offers is available to every account.
+**Non-profit and no market.** The project charges nothing and shows no advertising. It does not sell data. There is no premium tier and no paid placement: everything the platform offers is available to every account.
 
 **Books as commons.** Once you have read a book, it can travel on to someone else. The platform handles handovers, not ownership: passing a copy on does not lose it, it puts it back into circulation.
 
-**Self-organisation.** Communities and reading circles decide for themselves what to read, when to meet and how to organise, without centralised management.
+**Self-organisation.** Communities and reading circles decide for themselves what to read and when to meet. Nobody manages them from above.
 
 **Transparency.** The source code is open and the documentation is public, so what happens to your data can be checked rather than taken on trust. The instance serving the site runs exactly this code, with nothing added.
 
 **Privacy.** Signing up asks for a name, a city and an email address; the password is stored only as a hash and the biography is optional. There is no third-party analytics and no tracking pixels: the project's own counters stay in the database and expire after 180 days. You can export your data as JSON or delete the account permanently.
 
-**Autonomy.** No dependence on a corporate platform, proprietary account or payment provider. Anyone can run their own instance.
+**Autonomy.** No dependence on a corporate platform or a payment provider. Anyone can run their own instance.
 
 None of these decisions is neutral. The platform is built so that knowledge circulates as a commons and so that the people who use it decide for themselves, not so that value is extracted from them.
 
@@ -60,7 +60,7 @@ Create an admin account using `ADMIN_EMAIL` and `ADMIN_PASSWORD`, or run `npm ru
 
 ## Documentation and contributing
 
-The documentation is available both in the application at `/techdoc` and in the repository. The project page at [wanderbibliothek.org/projekt](https://wanderbibliothek.org/projekt) explains what it is, why it exists and which decisions stand behind how it is built.
+The documentation is available both in the application at `/techdoc` and in the repository. The project page at [wanderbibliothek.org/projekt](https://wanderbibliothek.org/projekt) explains what it is and why it exists.
 
 - [`DOCUMENTATION.md`](DOCUMENTATION.md) covers architecture, routes, the data model, security and operations.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) explains the local environment, the checks a change has to pass, and the commit, migration and translation conventions.
