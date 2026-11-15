@@ -172,6 +172,15 @@ if [ "$DO_ROLLBACK" -eq 1 ]; then
 fi
 
 # ── Paso 1: comprobaciones ────────────────────────────────────────────────
+# Una instancia que ya ejecuta la imagen firmada no se actualiza con este
+# script: `systemctl restart` arrancaría el contenedor con la imagen anterior
+# mientras `current` cambia por detrás. Mezclar los dos modos deja el servidor
+# en un estado que no corresponde a ninguno.
+if [ -f /etc/wanderbibliothek/image.env ] && \
+   grep -q "wanderbibliothek-container" /etc/systemd/system/wanderbibliothek.service 2>/dev/null; then
+  fail "esta instancia se despliega por imagen firmada: usa deploy/deploy-image.sh (o wanderbibliothek-deploy-image)"
+  exit 1
+fi
 if [ "$DRY_RUN" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
   printf 'Hay que ejecutarlo como root:  sudo %s\n' "$0" >&2
   exit 1
