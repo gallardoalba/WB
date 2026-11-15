@@ -15,7 +15,7 @@
 # sistema sin que cambie nada en este repositorio. Dependabot (ecosistema
 # `docker`) propone el digest nuevo; actualizarlo es un cambio visible en el
 # diff y en la imagen firmada de la release.
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS deps
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS deps
 WORKDIR /app
 
 # `better-sqlite3` se compila con node-gyp al instalarlo (no trae binarios para
@@ -28,7 +28,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # --- 2. Build ---------------------------------------------------------------
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS builder
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -46,7 +46,7 @@ COPY . .
 RUN npm run build
 
 # --- 3. Runtime -------------------------------------------------------------
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS runner
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS runner
 WORKDIR /app
 
 # Identidad del build dentro de la imagen. `/api/version` y el pie de página la
