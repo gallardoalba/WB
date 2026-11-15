@@ -560,14 +560,17 @@ export const tokenSchema = z.object({
   token: z.string().trim().min(20, "El enlace no es válido."),
 });
 
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .max(254, "El correo es demasiado largo.")
-    .refine((value) => z.email().safeParse(value).success, "Introduce un correo válido."),
-});
+const accountEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254, "El correo es demasiado largo.")
+  .refine((value) => z.email().safeParse(value).success, "Introduce un correo válido.");
+
+export const forgotPasswordSchema = z.object({ email: accountEmail });
+
+/** Pedir otro enlace de apelación cuando el primero se ha perdido. */
+export const appealLinkSchema = z.object({ email: accountEmail });
 
 export const resetPasswordSchema = z.object({
   token: z.string().trim().min(20, "El enlace no es válido."),
@@ -704,4 +707,7 @@ export const appealResolutionSchema = z.object({
     .trim()
     .min(10, "Explica brevemente la decisión.")
     .max(2000, "La respuesta es demasiado larga."),
+  // Nombre de quien revisó, cuando la instancia no tiene a nadie del equipo
+  // libre de conflicto y acude a otra instancia o a una persona de confianza.
+  externalReviewer: z.string().trim().max(120, "El nombre es demasiado largo.").optional(),
 });

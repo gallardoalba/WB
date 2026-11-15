@@ -22,6 +22,9 @@ export type AppealView = {
   createdAt: string;
   resolvedAt: string | null;
   reviewerName: string | null;
+  /** "staff" si la revisó el equipo, "external" si fue una tercera persona. */
+  reviewedByKind: "staff" | "external";
+  reviewedByName: string | null;
   /** Falso si quien mira fue quien impuso la sanción: no puede revisarla. */
   canReview: boolean;
 };
@@ -96,6 +99,8 @@ function toAppealView(
     created_at: string;
     resolved_at: string | null;
     reviewer_name: string | null;
+    reviewed_by_kind: "staff" | "external";
+    reviewed_by_name: string | null;
   },
   viewerId: string,
 ): AppealView {
@@ -112,6 +117,8 @@ function toAppealView(
     createdAt: row.created_at,
     resolvedAt: row.resolved_at,
     reviewerName: row.reviewer_name,
+    reviewedByKind: row.reviewed_by_kind,
+    reviewedByName: row.reviewed_by_name,
     canReview: row.sanctioner_id !== viewerId,
   };
 }
@@ -120,6 +127,7 @@ const SELECT_APPEALS = `
   SELECT a.id, a.user_id, u.name AS user_name, u.email AS user_email,
          a.sanctioner_id, a.sanction_reason, a.sanction_at, a.message,
          a.status, a.resolution, a.created_at, a.resolved_at,
+         a.reviewed_by_kind, a.reviewed_by_name,
          r.name AS reviewer_name
     FROM appeals a
     JOIN users u ON u.id = a.user_id
@@ -131,6 +139,13 @@ export function listOpenAppeals(viewerId: string, limit = 25, offset = 0): Appea
     .prepare(`${SELECT_APPEALS} WHERE a.status = 'open' ORDER BY a.created_at ASC LIMIT ? OFFSET ?`)
     .all(limit, offset) as Parameters<typeof toAppealView>[0][];
   return rows.map((row) => toAppealView(row, viewerId));
+}
+
+/** ¿Tiene ya una apelación abierta? Evita duplicar enlaces y expedientes. */
+export function hasOpenAppeal(userId: string): boolean {
+  return Boolean(
+    getDb().prepare("SELECT 1 FROM appeals WHERE user_id = ? AND status = 'open'").get(userId),
+  );
 }
 
 export function countOpenAppeals(): number {
@@ -157,7 +172,14 @@ export function resolveAppeal(
   appealId: string,
   outcome: "upheld" | "rejected",
   resolution: string,
+  externalReviewer?: string,
 ): void {
+  // Quien registra es siempre del equipo; el nombre es de la persona que
+  // revisó de verdad cuando la instancia no tiene con quién hacerlo dentro.
+  const external = externalReviewer?.trim() || null;
+  if (external !== null && external.length < 2) {
+    throw new ApiError(400, "Escribe quién revisó la apelación.");
+  }
   const db = getDb();
   const appeal = db
     .prepare(
@@ -176,10 +198,19 @@ export function resolveAppeal(
     const claimed = db
       .prepare(
         `UPDATE appeals
-            SET status = ?, reviewer_id = ?, resolution = ?, resolved_at = ?
+            SET status = ?, reviewer_id = ?, resolution = ?, resolved_at = ?,
+                reviewed_by_kind = ?, reviewed_by_name = ?
           WHERE id = ? AND status = 'open'`,
       )
-      .run(outcome, reviewerId, resolution.trim(), nowIso(), appealId);
+      .run(
+        outcome,
+        reviewerId,
+        resolution.trim(),
+        nowIso(),
+        external ? "external" : "staff",
+        external,
+        appealId,
+      );
     if (claimed.changes !== 1) throw new ApiError(409, "La apelación ya está resuelta.");
 
     if (outcome === "upheld") {
@@ -198,7 +229,9 @@ export function resolveAppeal(
       `appeal_${outcome}`,
       "user",
       appeal.user_id,
-      `apelación ${appealId} · ${resolution.trim().slice(0, 200)}`,
+      `apelación ${appealId} · ${resolution.trim().slice(0, 200)}${
+        external ? ` · revisión externa: ${external.slice(0, 120)}` : ""
+      }`,
     );
   })();
 

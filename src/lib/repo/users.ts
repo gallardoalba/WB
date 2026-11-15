@@ -137,6 +137,25 @@ export function liftSuspension(userId: string): void {
 }
 
 /**
+ * Cuenta suspendida por su correo, para reenviar el enlace de apelación cuando
+ * el primero se pierde. No devuelve nada si no hay sanción vigente.
+ */
+export function suspendedAccountByEmail(
+  email: string,
+): { id: string; email: string; reason: string; until: string } | null {
+  const row = getDb()
+    .prepare(
+      `SELECT id, email, COALESCE(suspension_reason, '') AS reason,
+              suspended_until AS until
+         FROM users
+        WHERE email = ? AND is_suspended = 1 AND suspended_until IS NOT NULL
+          AND email NOT LIKE 'deleted-%'`,
+    )
+    .get(email) as { id: string; email: string; reason: string; until: string } | undefined;
+  return row ?? null;
+}
+
+/**
  * Reactiva las cuentas cuya suspensión temporal ya ha vencido.
  *
  * Devuelve los ids para que quien llame pueda avisar. El cron lo hace cada

@@ -36,8 +36,8 @@ Moderation protects people; it does not punish discomfort or disagreement. Criti
 
 1. An administrator suspends an account with a reason and a duration.
 2. The person receives an email in the language of their account with the reason, the end date and a personal appeal link valid for 30 days.
-3. The appeal is submitted from `/apelar` without signing in — a suspended account cannot log in — and may include any information the person considers relevant.
-4. **Another member of the team** reviews it, free of any involvement in the original decision and of conflicts of interest, and answers within 14 days. The reviewer may lift the suspension or uphold it; the application does not allow shortening it. An instance with a single moderator must arrange that review with another member of the team, another instance or a trusted third party, who receives only the information needed and is bound to confidentiality, before a member of the team records the outcome.
+3. The appeal is submitted from `/apelar` without signing in — a suspended account cannot log in — and may include any information the person considers relevant. If the link is lost or expires, a new one can be requested from the same page with the account email.
+4. **Someone with no part in the original decision and no conflict of interest** reviews it and answers within 14 days; where the instance has nobody available, an external reviewer may do it and their name is recorded. The reviewer may lift the suspension or uphold it; the application does not allow shortening it.
 5. If upheld, the account is reactivated and the person is notified. If rejected, the reply explains why. Both outcomes are recorded in the audit log.
 
 One appeal may be open at a time per sanction; a rejection does not prevent a later one if the person obtains a new link. Resolved appeals are deleted after 730 days — enough to judge repeated conduct and to answer a later complaint — and moderation actions are kept for `AUDIT_RETENTION_DAYS` (730 by default).

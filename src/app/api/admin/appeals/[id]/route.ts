@@ -19,8 +19,10 @@ export async function POST(
       limit: 120,
       windowMs: 60 * 60 * 1000,
     });
-    const { outcome, resolution } = appealResolutionSchema.parse(await readJson(request));
-    resolveAppeal(moderator.id, id, outcome, resolution);
+    const { outcome, resolution, externalReviewer } = appealResolutionSchema.parse(
+      await readJson(request),
+    );
+    resolveAppeal(moderator.id, id, outcome, resolution, externalReviewer);
     // Al estimar una apelación la cuenta vuelve al catálogo público.
     invalidatePublicData();
     return json({ ok: true });

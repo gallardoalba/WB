@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppealForm } from "@/components/appeal-form";
+import { AppealLinkForm } from "@/components/appeal-link-form";
 import { peekAccountToken } from "@/lib/account-tokens";
 import { appealTexts } from "@/lib/appeal-text";
 import { getLocale } from "@/lib/i18n-server";
@@ -35,6 +36,7 @@ export default async function Page({ searchParams }: PageProps) {
         <div className="empty-state">
           <h1>{texts.invalidTitle}</h1>
           <p>{texts.invalidBody}</p>
+          <AppealLinkForm texts={texts} />
           <Link className="secondary-button small" href="/">
             {texts.back}
           </Link>

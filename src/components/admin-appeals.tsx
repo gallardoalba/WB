@@ -50,6 +50,7 @@ function AppealReview({ appeal }: { appeal: AppealView }) {
   const { t } = useI18n();
   const router = useRouter();
   const [resolution, setResolution] = useState("");
+  const [external, setExternal] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
@@ -60,7 +61,11 @@ function AppealReview({ appeal }: { appeal: AppealView }) {
     try {
       await api(`/api/admin/appeals/${appeal.id}`, {
         method: "POST",
-        body: { outcome, resolution },
+        body: {
+          outcome,
+          resolution,
+          externalReviewer: external.trim() ? external.trim() : undefined,
+        },
       });
       setFeedback(t("Apelación resuelta."));
       router.refresh();
@@ -92,6 +97,16 @@ function AppealReview({ appeal }: { appeal: AppealView }) {
         minLength={10}
         maxLength={2000}
         rows={2}
+      />
+      <label htmlFor={`appeal-external-${appeal.id}`} className="sr-only">
+        {t("Quién revisó, si fue una persona externa")}
+      </label>
+      <input
+        id={`appeal-external-${appeal.id}`}
+        value={external}
+        onChange={(event) => setExternal(event.target.value)}
+        placeholder={t("Quién revisó, si fue una persona externa")}
+        maxLength={120}
       />
       <button
         type="button"

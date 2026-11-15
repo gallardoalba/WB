@@ -1357,6 +1357,7 @@ export const DE = {
   "Cómo se gobierna una instancia de Wanderbibliothek, cómo se modera, cómo se sanciona y cómo se apela una sanción.": "Wie eine Wanderbibliothek-Instanz geführt wird, wie moderiert und sanktioniert wird und wie Einspruch eingelegt werden kann.",
   "Apelación estimada": "Einspruch stattgegeben",
   "Apelación rechazada": "Einspruch abgelehnt",
+  "Quién revisó, si fue una persona externa": "Wer geprüft hat, falls eine externe Person",
 } satisfies Dictionary;
 
 /**
@@ -2688,6 +2689,7 @@ export const EN = {
   "Cómo se gobierna una instancia de Wanderbibliothek, cómo se modera, cómo se sanciona y cómo se apela una sanción.": "How a Wanderbibliothek instance is governed, how moderation and sanctions work, and how an appeal can be made.",
   "Apelación estimada": "Appeal upheld",
   "Apelación rechazada": "Appeal rejected",
+  "Quién revisó, si fue una persona externa": "Who reviewed it, if an external person",
 } satisfies Dictionary;
 
 /** Textos con traducción alemana (las claves del diccionario). */

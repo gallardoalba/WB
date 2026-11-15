@@ -1684,6 +1684,24 @@ function migrateToV52(db: Db) {
 }
 
 /**
+ * v53: una apelación puede revisarla alguien ajeno al equipo (otra instancia,
+ * una persona de confianza). Se guarda con qué carácter se revisó para que la
+ * auditoría no atribuya a la plantilla una decisión que no tomó.
+ */
+function migrateToV53(db: Db) {
+  const columns = (db.pragma("table_info(appeals)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("reviewed_by_kind")) {
+    db.exec("ALTER TABLE appeals ADD COLUMN reviewed_by_kind TEXT NOT NULL DEFAULT 'staff'");
+  }
+  if (!columns.includes("reviewed_by_name")) {
+    db.exec("ALTER TABLE appeals ADD COLUMN reviewed_by_name TEXT");
+  }
+  db.pragma("user_version = 53");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1820,6 +1838,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 50) migrateToV50(db);
   if (userVersion(db) < 51) migrateToV51(db);
   if (userVersion(db) < 52) migrateToV52(db);
+  if (userVersion(db) < 53) migrateToV53(db);
 
   backfillSearchKeys(db);
 }

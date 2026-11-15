@@ -101,11 +101,11 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La apelación se envía desde esta página sin iniciar sesión —una cuenta suspendida no puede entrar— y admite cualquier información que la persona considere relevante.",
+          text: "La apelación se envía desde esta página sin iniciar sesión —una cuenta suspendida no puede entrar— y admite cualquier información que la persona considere relevante. Si el enlace se pierde o caduca, puede pedir otro desde esta misma página con el correo de la cuenta.",
         },
         {
           kind: "p",
-          text: "La revisa otra persona del equipo, sin participación en la decisión original y sin conflicto de interés, y responde en un plazo máximo de 14 días. Puede levantar la suspensión o mantenerla; la aplicación no permite acortarla. Si la instancia tiene una sola persona moderadora, debe acordar esa revisión con otra persona del equipo, otra instancia o una tercera persona de confianza —que recibe solo la información necesaria y queda obligada a la confidencialidad— antes de que alguien del equipo registre el resultado.",
+          text: "La revisa alguien sin participación en la decisión original y sin conflicto de interés, y responde en un plazo máximo de 14 días; si la instancia no tiene a nadie disponible, puede hacerlo una persona externa y su nombre queda registrado. Puede levantar la suspensión o mantenerla; la aplicación no permite acortarla.",
         },
         {
           kind: "p",
@@ -217,11 +217,11 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Der Einspruch wird auf dieser Seite ohne Anmeldung eingereicht — ein gesperrtes Konto kann sich nicht anmelden — und kann jede Information enthalten, die die Person für relevant hält.",
+          text: "Der Einspruch wird auf dieser Seite ohne Anmeldung eingereicht — ein gesperrtes Konto kann sich nicht anmelden — und kann jede Information enthalten, die die Person für relevant hält. Geht der Link verloren oder läuft er ab, lässt sich auf derselben Seite mit der E-Mail des Kontos ein neuer anfordern.",
         },
         {
           kind: "p",
-          text: "Über ihn entscheidet eine andere Person im Team, die am ursprünglichen Entscheid nicht beteiligt war und keinen Interessenkonflikt hat, und antwortet innerhalb von 14 Tagen. Sie kann die Sperre aufheben oder bestätigen; die Anwendung erlaubt keine Verkürzung. Hat eine Instanz nur eine moderierende Person, muss sie diese Prüfung mit einer weiteren Person im Team, einer anderen Instanz oder einer Vertrauensperson absprechen — die nur die nötigen Informationen erhält und zur Vertraulichkeit verpflichtet ist —, bevor jemand aus dem Team das Ergebnis festhält.",
+          text: "Geprüft wird von jemandem ohne Beteiligung am ursprünglichen Entscheid und ohne Interessenkonflikt, mit Antwort innerhalb von 14 Tagen; hat die Instanz niemanden frei, kann das eine externe Person übernehmen, deren Name protokolliert wird. Sie kann die Sperre aufheben oder bestätigen; die Anwendung erlaubt keine Verkürzung.",
         },
         {
           kind: "p",
@@ -333,11 +333,11 @@ const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The appeal is submitted from this page without signing in — a suspended account cannot log in — and may include any information the person considers relevant.",
+          text: "The appeal is submitted from this page without signing in — a suspended account cannot log in — and may include any information the person considers relevant. If the link is lost or expires, a new one can be requested from the same page with the account email.",
         },
         {
           kind: "p",
-          text: "Another member of the team reviews it, free of any involvement in the original decision and of conflicts of interest, and answers within 14 days. The reviewer may lift the suspension or uphold it; the application does not allow shortening it. An instance with a single moderator must arrange that review with another member of the team, another instance or a trusted third party — who receives only the information needed and is bound to confidentiality — before a member of the team records the outcome.",
+          text: "Someone with no part in the original decision and no conflict of interest reviews it and answers within 14 days; where the instance has nobody available, an external reviewer may do it and their name is recorded. The reviewer may lift the suspension or uphold it; the application does not allow shortening it.",
         },
         {
           kind: "p",

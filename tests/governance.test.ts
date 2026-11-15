@@ -321,3 +321,117 @@ test("el mantenimiento borra apelaciones resueltas viejas y conserva las abierta
   assert.equal(viva(vieja), false, "la resuelta de hace más de dos años se borra");
   assert.equal(viva(abierta), true, "una apelación abierta no se toca");
 });
+
+test("pedir un enlace nuevo reenvía la sanción si el primero se perdió", async () => {
+  clearSanctions();
+  const db = dbModule.getDb();
+  const { POST } = await import("../src/app/api/account/appeal-link/route.ts");
+  const tokens = await import("../src/lib/account-tokens.ts");
+
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_lucia",
+    reason: "Enlace perdido",
+    days: 5,
+  });
+  db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run("lucia@wanderbibliothek.test");
+
+  const response = await POST(
+    new Request("http://localhost:3100/api/account/appeal-link", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3100" },
+      body: JSON.stringify({ email: "lucia@wanderbibliothek.test" }),
+    }),
+  );
+  assert.equal(response.status, 200);
+
+  const mail = db
+    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
+    .get("lucia@wanderbibliothek.test") as { body: string } | undefined;
+  assert.ok(mail, "se reenvía el correo con el enlace");
+  const token = mail!.body.match(/\/apelar\?token=([a-f0-9]{64})/)![1];
+  assert.equal(tokens.consumeAccountToken(token, "appeal"), "usr_lucia");
+});
+
+test("pedir un enlace no revela nada ni duplica una apelación abierta", async () => {
+  clearSanctions();
+  const db = dbModule.getDb();
+  const { POST } = await import("../src/app/api/account/appeal-link/route.ts");
+  const pedir = (email: string) =>
+    POST(
+      new Request("http://localhost:3100/api/account/appeal-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3100" },
+        body: JSON.stringify({ email }),
+      }),
+    );
+  const mails = (email: string) =>
+    (db.prepare("SELECT COUNT(*) AS count FROM mail_outbox WHERE to_email = ?").get(email) as {
+      count: number;
+    }).count;
+
+  // Cuenta corriente: misma respuesta y ningún correo.
+  db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run("ana@wanderbibliothek.test");
+  assert.equal((await pedir("ana@wanderbibliothek.test")).status, 200);
+  assert.equal(mails("ana@wanderbibliothek.test"), 0);
+
+  // Con apelación ya abierta tampoco se manda otro enlace.
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_diego",
+    reason: "Apelación en curso",
+    days: 4,
+  });
+  repo.createAppeal("usr_diego", "Ya he apelado esta sanción.");
+  db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run("diego@wanderbibliothek.test");
+  assert.equal((await pedir("diego@wanderbibliothek.test")).status, 200);
+  assert.equal(mails("diego@wanderbibliothek.test"), 0);
+  assert.equal(repo.hasOpenAppeal("usr_diego"), true);
+});
+
+test("una revisión externa queda registrada con su nombre y no la firma el equipo", () => {
+  clearSanctions();
+  const db = dbModule.getDb();
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_lucia",
+    reason: "Caso para revisión externa",
+    days: 8,
+  });
+  const appealId = repo.createAppeal("usr_lucia", "Pido una segunda mirada.");
+
+  assert.throws(
+    () => repo.resolveAppeal("usr_admin2", appealId, "rejected", "Sin nombre.", "X"),
+    /quién revisó/i,
+  );
+  assert.throws(
+    () =>
+      repo.resolveAppeal("usr_admin", appealId, "rejected", "Intento propio.", "Otra instancia"),
+    /otra persona/i,
+  );
+
+  repo.resolveAppeal(
+    "usr_admin2",
+    appealId,
+    "rejected",
+    "Se mantiene tras revisión externa.",
+    "Asamblea de la instancia vecina",
+  );
+
+  const row = db
+    .prepare("SELECT reviewed_by_kind, reviewed_by_name, reviewer_id FROM appeals WHERE id = ?")
+    .get(appealId) as { reviewed_by_kind: string; reviewed_by_name: string; reviewer_id: string };
+  assert.equal(row.reviewed_by_kind, "external");
+  assert.equal(row.reviewed_by_name, "Asamblea de la instancia vecina");
+  assert.equal(row.reviewer_id, "usr_admin2", "quien registra es del equipo");
+
+  const audit = db
+    .prepare(
+      "SELECT details FROM admin_audit WHERE action = 'appeal_rejected' AND target_id = 'usr_lucia' ORDER BY created_at DESC LIMIT 1",
+    )
+    .get() as { details: string };
+  assert.match(audit.details, /revisión externa: Asamblea de la instancia vecina/);
+});
