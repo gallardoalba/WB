@@ -40,7 +40,7 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Hay libros que se conservan por lo que significan y no por lo que ocupan en la estantería. Ponerlos a circular es compartir lo que uno ha aprendido con ellos y entender la biblioteca como un bien común, no como una colección privada.",
+          text: "Hay libros que conservamos por lo que significan y por la profunda huella que dejaron en nosotros. Ponerlos a circular es compartir lo que uno ha aprendido con ellos y entender la biblioteca como un bien común, no como una colección privada.",
         },
         {
           kind: "p",
@@ -196,7 +196,7 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Manche Bücher behält man wegen ihrer Bedeutung, nicht wegen des Platzes, den sie im Regal einnehmen. Sie weiterzugeben heißt, das mit anderen zu teilen, was man mit ihnen gelernt hat, und die Bibliothek als Gemeingut zu verstehen, nicht als private Sammlung.",
+          text: "Manche Bücher bewahren wir wegen ihrer Bedeutung und wegen der tiefen Spuren, die sie in uns hinterlassen haben. Sie weiterzugeben heißt, das mit anderen zu teilen, was man mit ihnen gelernt hat, und die Bibliothek als Gemeingut zu verstehen, nicht als private Sammlung.",
         },
         {
           kind: "p",
@@ -352,7 +352,7 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Some books are kept for what they mean, not for the space they take on a shelf. Passing them on is a way of sharing what one has learned with them and of understanding the library as a commons rather than a private collection.",
+          text: "Some books we keep for what they mean and for the deep mark they left on us. Passing them on is a way of sharing what one has learned with them and of understanding the library as a commons rather than a private collection.",
         },
         {
           kind: "p",
