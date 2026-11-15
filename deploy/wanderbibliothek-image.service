@@ -30,6 +30,10 @@ Type=simple
 # el usuario del host con el que corre el contenedor.
 EnvironmentFile=/etc/wanderbibliothek/env
 EnvironmentFile=/etc/wanderbibliothek/image.env
+# `/run/wanderbibliothek` es donde el envoltorio deja el entorno ya parseado
+# para Docker (600 root, tmpfs). systemd lo crea y lo borra al parar.
+RuntimeDirectory=wanderbibliothek
+RuntimeDirectoryMode=0700
 ExecStart=/usr/local/sbin/wanderbibliothek-container
 # `-` porque el contenedor puede haberse caído ya: no es un fallo del stop.
 ExecStop=-/usr/bin/docker stop --time 30 wanderbibliothek
