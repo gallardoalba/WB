@@ -1245,21 +1245,37 @@ test("el cron no publica dos libros el mismo día, y la hora se sortea", async (
   })!;
   mastodon.enqueuePost({ bookId: "bok_uno_al_dia_2", text: "dos", nextAttemptAt: manana, now: manana });
 
-  const momento = mastodon.momentoDelAviso(id1, manana);
+  // La fila que el cron va a mirar es la más antigua vencida; se toma de la
+  // base y no se supone, para que el minuto sorteado sea el suyo aunque dos
+  // inserciones caigan en el mismo milisegundo.
+  const elegida = (
+    dbModule
+      .getDb()
+      .prepare(
+        `SELECT id FROM social_outbox
+          WHERE network = 'mastodon' AND status = 'pending' AND next_attempt_at <= ?
+          ORDER BY next_attempt_at ASC, created_at ASC, rowid ASC LIMIT 1`,
+      )
+      .get(manana.toISOString()) as { id: string }
+  ).id;
+  assert.ok(id1, "la primera fila se encoló");
+  const momento = mastodon.momentoDelAviso(elegida, manana);
   assert.ok(
     momento.getTime() >= mastodon.inicioDeVentana(manana).getTime(),
     "el minuto sorteado está dentro de la ventana",
   );
   assert.ok(momento.getTime() < new Date("2026-11-09T19:00:00Z").getTime(), "y antes de las 20:00");
 
-  // Antes de su minuto no se publica, aunque la ventana esté abierta.
-  const temprano = await mastodon.processSocialOutbox({
-    limit: 50,
-    config: CONFIG,
-    fetchImpl: impl,
-    now: manana,
-  });
+  // Antes de su minuto no se publica, aunque la ventana esté abierta. Solo se
+  // comprueba si el minuto sorteado cae más tarde: con el minuto 0 la fila ya
+  // toca a las 09:00 y la pasada publicaría, que es justo lo que se mide abajo.
   if (momento.getTime() > manana.getTime()) {
+    const temprano = await mastodon.processSocialOutbox({
+      limit: 50,
+      config: CONFIG,
+      fetchImpl: impl,
+      now: manana,
+    });
     assert.deepEqual(temprano, { sent: 0, failed: 0, skipped: true }, "todavía no es su minuto");
     assert.equal(estados(), 0);
   }
