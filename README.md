@@ -66,14 +66,6 @@ The same documentation is in the application, at `/techdoc`, and in the reposito
 
 New works are announced on Mastodon at [@wanderbibliothek@mastodon.social](https://mastodon.social/@wanderbibliothek).
 
-Bug reports, suggestions and pull requests are welcome.
-
-Lint, type checking, 755 unit and integration tests (95 files), 53 browser tests, a production build and an image build run on every push in CI; `npm audit --omit=dev` currently reports no open issues.
-
-## Security
-
-Please report vulnerabilities through **Security → Report a vulnerability** in the repository (GitHub's private advisory, not a public issue). Scope, response times and self-hosting notes are in [`SECURITY.md`](SECURITY.md).
-
 ## License and credits
 
 The code is released under the **MIT license**. Third-party material (the cover photograph, the typeface used on covers) keeps its own license and is credited in [`NOTICE`](NOTICE).
