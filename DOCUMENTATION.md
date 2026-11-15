@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 754 unit and integration tests (95 files)
+tests/                 755 unit and integration tests (95 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -47,7 +47,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=â€
 
 | Route | Content |
 | --- | --- |
-| `/` | Public home page: hero, four figures and a single row of books. |
+| `/` | Public home page: hero, four figures and a single row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the filter itself lives in `/descubrir`, and the home page falls back to the whole catalogue when there is nothing in that language. |
 | `/descubrir` | Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a copy requires an account. |
 | `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; the URL search engines index. (`/buecher` redirects here to `/descubrir`.) |
 | `/ofrecer` | Publish a copy; the ISBN fills in the bibliographic record. |
@@ -166,7 +166,7 @@ The canonical template is `deploy/env.example`: every variable â€” the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 754 unit and integration tests in 95 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 755 unit and integration tests in 95 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

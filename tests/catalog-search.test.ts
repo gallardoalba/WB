@@ -351,3 +351,46 @@ test("la portada enseña una muestra al azar y no los últimos ejemplares", () =
   const conocidos = new Set(porFecha.items.map((listing) => listing.id));
   assert.ok(barajada.every((id) => conocidos.has(id)));
 });
+
+test("la portada arranca en el idioma de la interfaz", async () => {
+  // La portada no enseña el filtro de idioma: el valor de partida lo pone el
+  // idioma de la web, para que quien lee en alemán no aterrice en un estante de
+  // libros en castellano. En el catálogo la barra sí lo enseña y lo cambia.
+  const { homeCatalogLanguage } = await import("../src/lib/domain.ts");
+  assert.equal(homeCatalogLanguage("de", null), "Alemán");
+  assert.equal(homeCatalogLanguage("es", undefined), "Español");
+  assert.equal(homeCatalogLanguage("en", ""), "Inglés");
+  // Una elección en la URL manda, también «Todos» y también un valor raro.
+  assert.equal(homeCatalogLanguage("de", "Todos"), null);
+  assert.equal(homeCatalogLanguage("de", "Español"), null);
+  assert.equal(homeCatalogLanguage("de", "Klingon"), null);
+
+  const user = nuevaCuenta("Idiomas", "idiomas@example.test");
+  for (const [title, language] of [
+    ["Idioma uno", "Alemán"],
+    ["Idioma dos", "Español"],
+  ] as const) {
+    repo.createListing(user.id, {
+      title,
+      author: "Autora",
+      category: "Ficción",
+      condition: "Buen estado",
+      isbn: null,
+      language,
+      city: "Leipzig",
+      tags: [],
+    });
+  }
+
+  const alemanes = repo.catalogPage(null, catalogParams({ q: "idioma", language: "Alemán" }));
+  assert.deepEqual(
+    alemanes.items.map((listing) => listing.language),
+    ["Alemán"],
+    "el filtro deja fuera el libro en castellano",
+  );
+  assert.equal(
+    repo.catalogPage(null, catalogParams({ q: "idioma" })).total,
+    2,
+    "sin filtro la portada enseña la mezcla",
+  );
+});

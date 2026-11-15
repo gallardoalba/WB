@@ -58,7 +58,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 754 unit and integration tests (95 files)",
+            "tests/                 755 unit and integration tests (95 files)",
             "e2e/                   browser tests with Playwright (8 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -93,7 +93,7 @@ export const EN: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Content"],
           rows: [
-            ["`/`", "Public home page: full-width header, four figures and a row of books."],
+            ["`/`", "Public home page: full-width header, four figures and a row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter — that lives in `/descubrir` — and falls back to the whole catalogue when there is nothing in that language."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public page for the work with JSON-LD `Book`/`Offer`: the URL that gets indexed."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
@@ -274,7 +274,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 754 unit and integration tests in 95 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 755 unit and integration tests in 95 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",

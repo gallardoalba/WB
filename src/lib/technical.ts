@@ -82,7 +82,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 754 pruebas unitarias y de integración (95 ficheros)",
+            "tests/                 755 pruebas unitarias y de integración (95 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -117,7 +117,7 @@ const ES: TechnicalDocument = {
           kind: "table",
           head: ["Ruta", "Contenido"],
           rows: [
-            ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros."],
+            ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros **en el idioma de la interfaz** (`BOOK_LANGUAGE_BY_LOCALE`); la portada no enseña el filtro, que sí está en `/descubrir`, y si no hay libros en ese idioma enseña el catálogo entero."],
             ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
             ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`: la URL que se indexa."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
@@ -300,7 +300,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 754 pruebas unitarias y de integración en 95 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 755 pruebas unitarias y de integración en 95 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -491,7 +491,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 754 Unit- und Integrationstests (95 Dateien)",
+            "tests/                 755 Unit- und Integrationstests (95 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -526,7 +526,7 @@ const DE: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Inhalt"],
           rows: [
-            ["`/`", "Öffentliche Startseite: Kopfbereich über die volle Breite, vier Kennzahlen und eine Reihe Bücher."],
+            ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher **in der Sprache der Oberfläche** (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht — der steht in `/descubrir` —, und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
             ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`: die URL, die indexiert wird."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
@@ -709,7 +709,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 754 Unit- und Integrationstests in 95 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 755 Unit- und Integrationstests in 95 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

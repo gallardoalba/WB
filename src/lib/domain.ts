@@ -30,6 +30,34 @@ export type BookLanguage = (typeof BOOK_LANGUAGES)[number];
 /** Opciones del filtro: «Todos» significa no filtrar. */
 export const CATALOG_LANGUAGES = ["Todos", ...BOOK_LANGUAGES] as const;
 
+/**
+ * Idioma de los libros que toca enseñar en cada idioma de la interfaz.
+ *
+ * Los valores de `BOOK_LANGUAGES` van en castellano porque así se guardan en
+ * `books.language`; este mapa es el puente desde el idioma de la web.
+ */
+export const BOOK_LANGUAGE_BY_LOCALE: Record<Locale, BookLanguage> = {
+  de: "Alemán",
+  es: "Español",
+  en: "Inglés",
+};
+
+/**
+ * Idioma con el que arranca la portada, o `null` si la URL ya trae uno.
+ *
+ * La portada no enseña el filtro de idioma (la barra de filtros es del
+ * catálogo), así que el valor de partida lo pone el idioma de la web: quien lee
+ * en alemán abre la portada y ve los libros en alemán. Cualquier valor en la
+ * URL manda, también «Todos» y también uno inválido (que el esquema reduce a
+ * «Todos»): si el visitante ya eligió, no se le cambia la elección.
+ */
+export function homeCatalogLanguage(
+  locale: Locale,
+  requested: string | null | undefined,
+): BookLanguage | null {
+  return (requested ?? "").trim() ? null : BOOK_LANGUAGE_BY_LOCALE[locale];
+}
+
 /** Estados de lectura por obra; null significa que no se ha marcado. */
 export const READING_STATES = ["reading", "read"] as const;
 export type ReadingStatus = (typeof READING_STATES)[number];

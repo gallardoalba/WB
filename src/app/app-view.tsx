@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { preload } from "react-dom";
 import WanderbibliothekApp from "@/components/wanderbibliothek-app";
 import { getSessionUser } from "@/lib/auth";
-import { VIEWS, type View } from "@/lib/domain";
+import { VIEWS, homeCatalogLanguage, type View } from "@/lib/domain";
+import { getLocale } from "@/lib/i18n-server";
 import { publicActivity, publicStats } from "@/lib/public-data";
 import { expireStaleRequestsThrottled, getSnapshot } from "@/lib/repo";
 import { catalogParamsSchema } from "@/lib/validation";
@@ -28,9 +29,14 @@ type RawParams = Record<string, string | string[] | undefined>;
 const isView = (value: unknown): value is View =>
   typeof value === "string" && (VIEWS as readonly string[]).includes(value);
 
+/** Un parámetro de la URL que puede venir repetido (`?language=a&language=b`). */
+const primerValor = (value: string | string[] | undefined): string | null =>
+  typeof value === "string" ? value : (value?.[0] ?? null);
+
 export async function renderAppView(routeView: View, raw: RawParams, path: string) {
   // La ruta manda; en la portada se acepta `?view=x` por compatibilidad.
   const view: View = routeView === "home" && isView(raw.view) ? raw.view : routeView;
+  const locale = await getLocale();
 
   const parsed = catalogParamsSchema.safeParse(raw);
   const params = parsed.success ? parsed.data : catalogParamsSchema.parse({});
@@ -64,11 +70,26 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
   // La portada pide **doce** tarjetas: el estante enseña entre tres y cinco a
   // la vez y las flechas avanzan una pantalla, así que hacen falta varias
   // "páginas" de libros. Antes se pedían quince y once se ocultaban.
-  const snapshot = getSnapshot(
+  const base = {
+    ...params,
+    shuffle: view === "home",
+    pageSize: view === "home" ? 12 : params.pageSize,
+  };
+  // La portada arranca en el idioma de la interfaz (ver `homeCatalogLanguage`):
+  // el alemán ve libros en alemán aunque no toque el filtro. El catálogo
+  // (`/descubrir`) sigue completo, que es donde el filtro de idioma se ve y se
+  // cambia.
+  const idiomaDeLaPortada = view === "home" ? homeCatalogLanguage(locale, primerValor(raw.language)) : null;
+  let snapshot = getSnapshot(
     user,
-    { ...params, shuffle: view === "home", pageSize: view === "home" ? 12 : params.pageSize },
+    idiomaDeLaPortada ? { ...base, language: idiomaDeLaPortada } : base,
     { stats, activity },
   );
+  // Un catálogo joven puede no tener nada en ese idioma todavía: una portada
+  // vacía diría que no hay libros, así que en ese caso se enseña la mezcla.
+  if (idiomaDeLaPortada && snapshot.total === 0) {
+    snapshot = getSnapshot(user, base, { stats, activity });
+  }
 
   // La portada del primer ejemplar es el LCP de la portada y del catálogo (lo
   // señala el propio Next al medir). Declararla aquí hace que el navegador la
