@@ -265,7 +265,10 @@ test("un registro de otra versión o incompleto no se usa", async () => {
 /* ------------------------------------------------------------------ */
 
 /** Par "heredado" guardado en el registro antiguo, sin cuenta asociada. */
-async function seedLegacy(databases: Map<string, FakeDatabase>) {
+async function seedLegacy(
+  databases: Map<string, FakeDatabase>,
+  { withKeyId = true } = {},
+) {
   const par = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
     "deriveBits",
   ])) as CryptoKeyPair;
@@ -273,9 +276,12 @@ async function seedLegacy(databases: Map<string, FakeDatabase>) {
   const keyId = await e2e.keyIdFromJwk(publicJwk);
   const base = databases.get(E2E_DB) ?? new FakeDatabase();
   base.createObjectStore(E2E_STORE);
-  base.stores
-    .get(E2E_STORE)!
-    .entries.set(E2E_LEGACY, { version: 1, publicJwk, keyId, privateKey: par.privateKey });
+  base.stores.get(E2E_STORE)!.entries.set(E2E_LEGACY, {
+    version: 1,
+    publicJwk,
+    privateKey: par.privateKey,
+    ...(withKeyId ? { keyId } : {}),
+  });
   databases.set(E2E_DB, base);
   return keyId;
 }
@@ -287,6 +293,16 @@ test("la identidad heredada se adopta para la cuenta cuya clave publicada es esa
     const identity = await e2e.ensureIdentity("usr_ana", { publishedKeyId: keyId });
     assert.equal(identity.keyId, keyId, "se conserva el historial de quien ya cifraba");
     assert.equal(stored(databases, recordFor("usr_ana"))?.keyId, keyId);
+  });
+});
+
+test("una identidad heredada anterior a la v16 se adopta calculando su huella", async () => {
+  await withFakeIndexedDb(async (databases) => {
+    // Sin `keyId`: el registro es de antes de que existiera la huella.
+    const keyId = await seedLegacy(databases, { withKeyId: false });
+
+    const identity = await e2e.ensureIdentity("usr_ana", { publishedKeyId: keyId });
+    assert.equal(identity.keyId, keyId, "no se pierde el historial por no tener huella");
   });
 });
 

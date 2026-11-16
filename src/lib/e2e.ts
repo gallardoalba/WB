@@ -192,7 +192,11 @@ async function adoptLegacyIdentity(
 ): Promise<Identity | null> {
   if (!publishedKeyId) return null;
   const legacy = await readRecord<Identity>(LEGACY_RECORD_KEY);
-  if (!isUsable(legacy) || legacy.keyId !== publishedKeyId) return null;
+  if (!isUsable(legacy)) return null;
+  // Identidades anteriores a la v16 no traían huella: se calcula para poder
+  // compararla sin adoptar a ciegas.
+  if (!legacy.keyId) legacy.keyId = await keyIdFromJwk(legacy.publicJwk);
+  if (legacy.keyId !== publishedKeyId) return null;
   await writeRecord(recordKeyFor(userId), legacy);
   await writeRecord(LEGACY_RECORD_KEY, { version: 1, migratedTo: userId });
   return legacy;
