@@ -202,6 +202,9 @@ test("eliminar la cuenta anonimiza el usuario y retira sus libros", () => {
   const user = repo.getUserById("usr_marcos");
   assert.equal(user?.name, "Cuenta eliminada");
   assert.equal(user?.isSuspended, true);
+  // La ciudad no es un dato necesario para el historial que se conserva y,
+  // junto con las fechas, ayuda a reidentificar a quien se dio de baja.
+  assert.equal(user?.city, "", "la ciudad debe irse con la cuenta");
   // Se mira con sesión: sin ella los ids vienen enmascarados y la aserción
   // pasaría por el motivo equivocado.
   const listings = repo.catalogPage("usr_ana", params({ q: "" }));

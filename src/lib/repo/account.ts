@@ -23,9 +23,12 @@ export function deleteAccount(userId: string): void {
       // Los enlaces pendientes contienen tokens y el correo de la persona.
       db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run(account.email);
     }
+    // La ciudad no sobrevive a la baja: junto con las fechas del historial que
+    // sí se conserva, identifica a la persona en un pueblo. El nombre y el
+    // correo ya no dicen quién era, pero «Stuttgart, marzo y abril» sí.
     db.prepare(
       `UPDATE users
-          SET name = 'Cuenta eliminada', email = ?, bio = '', is_suspended = 1,
+          SET name = 'Cuenta eliminada', email = ?, bio = '', city = '', is_suspended = 1,
               password_hash = ?, public_key = NULL, public_key_id = NULL,
               totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL
         WHERE id = ?`,
