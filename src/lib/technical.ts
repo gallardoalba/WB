@@ -144,7 +144,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 79 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo lo usan una cuarta parte: el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
+          text: "La API tiene 79 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 20 de los 108 métodos exportados (13 de los 79 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
         },
         {
           kind: "list",
@@ -584,7 +584,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 79 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur ein Viertel davon ab: der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
+          text: "Die API besteht aus 79 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 20 der 108 exportierten Methoden ab (13 der 79 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
         },
         {
           kind: "list",

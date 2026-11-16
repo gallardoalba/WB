@@ -120,7 +120,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers only a quarter of them; the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
+          text: "The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 20 of the 108 exported methods (13 of the 79 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
         },
         {
           kind: "list",

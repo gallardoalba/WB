@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers about a quarter of them; the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
+The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 20 of the 108 exported methods (13 of the 79 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
