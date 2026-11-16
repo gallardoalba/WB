@@ -88,3 +88,23 @@ test("el texto plano heredado se devuelve tal cual", () => {
   assert.equal(box.decryptSecret("123456"), "123456");
   assert.equal(box.decryptSecret(""), "");
 });
+
+test("en producción un secreto sin cifrar es un error de configuración", () => {
+  // `NODE_ENV` está marcado como de solo lectura en los tipos de Node.
+  const env = process.env as Record<string, string | undefined>;
+  const previo = env.NODE_ENV;
+  env.NODE_ENV = "production";
+  try {
+    // Un valor en claro en la base no se usa a escondidas: se ve y se migra.
+    assert.throws(() => box.decryptSecret("123456"), /sin cifrar/);
+    assert.throws(() => box.decryptSecret("123456", "totp:usr_1"), /sin cifrar/);
+
+    // Con la bandera explícita (entornos de desarrollo) se sigue aceptando.
+    process.env.WANDERBIBLIOTHEK_ALLOW_PLAINTEXT = "1";
+    assert.equal(box.decryptSecret("123456"), "123456");
+  } finally {
+    delete process.env.WANDERBIBLIOTHEK_ALLOW_PLAINTEXT;
+    if (previo === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = previo;
+  }
+});

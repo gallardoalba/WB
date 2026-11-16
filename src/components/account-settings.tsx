@@ -86,15 +86,13 @@ export function AccountSettings({
     let cancelled = false;
     void (async () => {
       try {
-        const [stored, identity] = await Promise.all([
-          api<StoredKeys>("/api/account/keys"),
-          ensureIdentity(),
-        ]);
-        if (cancelled) return;
-        setLocalKeyId(identity.keyId);
+        const stored = await api<StoredKeys>("/api/account/keys");
         // Este bloque es la ranura web: la app móvil tiene la suya y no se
         // toca desde aquí.
         const web = stored.keys?.find((key) => key.platform === "web") ?? null;
+        const identity = await ensureIdentity(user.id, { publishedKeyId: web?.keyId ?? null });
+        if (cancelled) return;
+        setLocalKeyId(identity.keyId);
         if (web) {
           setKeys(stored);
           return;
@@ -120,7 +118,7 @@ export function AccountSettings({
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [t, user.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +195,9 @@ export function AccountSettings({
     setKeyMsg("");
     setKeyError("");
     try {
-      const identity = await ensureIdentity();
+      const publishedKeyId =
+        keys?.keys?.find((key) => key.platform === "web")?.keyId ?? null;
+      const identity = await ensureIdentity(user.id, { publishedKeyId });
       const body: Record<string, unknown> = { ...identity.publicJwk, platform: "web" };
       // Añadir la ranura a una cuenta que ya cifra pide la contraseña igual que
       // rotarla: si no, una sesión abierta bastaría para instalar otra clave.

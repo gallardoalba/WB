@@ -208,15 +208,15 @@ export function ExchangeDialog({
         keyChanged: false,
       };
     }
-    const identity = await ensureIdentity();
-    me.keyId = identity.keyId;
-    me.publicJwk = identity.publicJwk;
-
     // La ranura web es la de este navegador. Si está vacía se publica gratis;
     // si tiene otra clave, este navegador necesita la contraseña desde «Mi
     // cuenta» y nunca se sustituye en silencio.
     const serverKeys = me.keys ?? [];
     const webSlot = serverKeys.find((key) => key.platform === "web") ?? null;
+    const identity = await ensureIdentity(me.id, { publishedKeyId: webSlot?.keyId ?? null });
+    me.keyId = identity.keyId;
+    me.publicJwk = identity.publicJwk;
+
     let ownKeyReady = webSlot?.keyId === identity.keyId;
     if (!webSlot) {
       try {

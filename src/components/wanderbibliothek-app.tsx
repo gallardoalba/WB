@@ -285,14 +285,18 @@ export default function WanderbibliothekApp({
     keysPublished.current = user.id;
     void (async () => {
       try {
-        const identity = await ensureIdentity();
         const stored = await api<{
           keys: { platform: string; keyId: string }[];
         }>("/api/account/keys");
+        // La identidad se busca por cuenta (`user.id`) y, si la cuenta es de
+        // antes de la v55, solo se hereda el par del navegador cuando la clave
+        // publicada coincide: así dos cuentas en el mismo navegador no acaban
+        // compartiendo identidad.
+        const web = stored.keys?.find((key) => key.platform === "web") ?? null;
+        const identity = await ensureIdentity(user.id, { publishedKeyId: web?.keyId ?? null });
         // Solo se publica la **primera** clave de la ranura web. Sustituir una
         // existente exige la contraseña y se hace desde el perfil, nunca en
         // silencio al entrar. La app móvil publica su propia ranura.
-        const web = stored.keys?.find((key) => key.platform === "web") ?? null;
         if (!web) {
           await api("/api/account/keys", {
             method: "PUT",

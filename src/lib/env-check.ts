@@ -157,6 +157,13 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
         "TRUSTED_PROXY_HOPS",
         "No es un entero ≥ 1: se usarán 1 salto, así que con un CDN delante la IP del cliente sería la del CDN y todas sus visitas compartirían cuota.",
       );
+    } else if (hops > 10) {
+      // `trustedProxyHops()` recorta a 10 en silencio; aquí se dice, porque con
+      // más saltos la IP elegida no es la del cliente y la cuota se reparte mal.
+      warn(
+        "TRUSTED_PROXY_HOPS",
+        "Es mayor que 10, el máximo que se aplica: se usarán 10 saltos. Revisa la cadena de proxies o quedará una IP equivocada.",
+      );
     }
   }
 

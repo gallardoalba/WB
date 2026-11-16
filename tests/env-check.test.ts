@@ -253,3 +253,13 @@ test("un TRUSTED_PROXY_HOPS que no es un entero positivo se avisa", () => {
   // Un valor razonable no genera nada.
   assert.deepEqual(checkEnv(complete({ TRUSTED_PROXY_HOPS: "2" })), []);
 });
+
+test("un TRUSTED_PROXY_HOPS por encima del máximo se avisa en vez de recortarse en silencio", () => {
+  const issue = checkEnv(complete({ TRUSTED_PROXY_HOPS: "12" })).find(
+    (item) => item.key === "TRUSTED_PROXY_HOPS",
+  );
+  assert.equal(issue?.severity, "warn");
+  assert.match(issue!.message, /máximo/);
+  // El límite (10) sí vale.
+  assert.deepEqual(checkEnv(complete({ TRUSTED_PROXY_HOPS: "10" })), []);
+});
