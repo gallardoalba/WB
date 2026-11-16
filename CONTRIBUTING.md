@@ -1,38 +1,38 @@
-# Cómo contribuir
+# Contributing
 
-Gracias por el interés. Este documento resume lo necesario para que un cambio se
-pueda revisar y aceptar rápido.
+Thanks for your interest. This document sums up what a change needs so that it
+can be reviewed and merged quickly.
 
-## Entorno
+## Environment
 
-- Node.js **22** (hay `.nvmrc`).
-- `npm ci` (incluye devDependencies: el build necesita TypeScript y Tailwind).
-- `npm run dev` arranca en `http://localhost:3000` con **datos de demostración**
-  (cuentas `@wanderbibliothek.test`, contraseña `demo1234`). Para no sembrarlos,
+- Node.js **22** (there is a `.nvmrc`).
+- `npm ci` (includes devDependencies: the build needs TypeScript and Tailwind).
+- `npm run dev` starts at `http://localhost:3000` with **demo data** (accounts
+  `@wanderbibliothek.test`, password `demo1234`). To skip seeding them,
   `SEED_DEMO=0 npm run dev`.
 
-## Antes de abrir un pull request
+## Before opening a pull request
 
-Todo esto tiene que pasar; el CI ejecuta lo mismo:
+All of this has to pass; CI runs the same:
 
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 799 pruebas unitarias y de integración (100 ficheros)
+npm test            # 808 unit and integration tests (100 files)
 npm run build
-npm run test:e2e    # Playwright: 53 casos en 8 ficheros; la primera vez:
+npm run test:e2e    # Playwright: 53 cases in 8 files; first time:
                     # npx playwright install chromium
 ```
 
-`npm run test:e2e` levanta su propio servidor en `localhost:3100`. Si ya tienes
-`npm run dev` en marcha, usa `PLAYWRIGHT_BASE_URL=http://localhost:3000
-npm run test:e2e` (Next no permite dos instancias de desarrollo en el mismo
-directorio).
+`npm run test:e2e` starts its own server on `localhost:3100`. If you already have
+`npm run dev` running, use `PLAYWRIGHT_BASE_URL=http://localhost:3000
+npm run test:e2e` (Next does not allow two development instances in the same
+directory).
 
-## Convenciones del proyecto
+## Project conventions
 
-- **Commits** en español, con una primera línea que diga *qué* cambia y un cuerpo
-  breve con el *porqué* y la validación ejecutada. Ejemplo:
+- **Commits** in Spanish, with a first line that says *what* changes and a short
+  body with the *why* and the validation you ran. Example:
 
   ```
   Avisa al aceptar si el ejemplar ya no está disponible
@@ -40,46 +40,46 @@ directorio).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 799 pruebas unitarias y de integración (100 ficheros),
+  Validado: tsc, eslint, 808 pruebas unitarias y de integración (100 ficheros),
   build y 53/53 E2E.
   ```
 
-- **Idioma de la interfaz**: los textos se escriben en español y los diccionarios
-  alemán e inglés de `src/lib/i18n.ts` usan ese texto como clave. El idioma lo
-  decide la cookie del selector y, sin ella, el navegador (`Accept-Language`);
-  `DEFAULT_LOCALE` (`src/lib/locale.ts`, alemán) es el último recurso.
-  `tests/i18n.test.ts` falla si una cadena usada con `t()` no tiene traducción
-  alemana o si el inglés no cubre las mismas claves: añade siempre las entradas
-  alemana e inglesa. Si el texto depende de un mapa de etiquetas, tipa el mapa
-  con `MessageKey` (`satisfies Record<…, MessageKey>`) para que el compilador lo
-  detecte.
-- **Base de datos**: cualquier cambio de esquema es una migración nueva en
-  `src/lib/db/migrations.ts` (`SCHEMA_VERSION` + `migrateToVNN`) y un test que la
-  ejercite. Nunca se edita una migración ya publicada.
-- **Fechas**: no leas el reloj en el render; usa `strftime('%Y-%m-%dT%H:%M:%fZ','now')`
-  de SQLite (Next trata `Date.now()` como valor inestable al prerenderizar).
-- **Seguridad por defecto**: toda mutación de `src/app/api` pasa por `guard()`
-  (origen + cuota) o justifica su excepción; `tests/contracts.test.ts` lo
-  comprueba. El cuerpo se lee con `readJson()` (exige `application/json` y corta
-  en 64 KB) y los errores se devuelven con `handleApiError()`.
-- **Estilos**: tokens de `src/app/styles/tokens.css`; nada de colores literales en
-  los componentes, porque el modo oscuro comparte el mismo marcado.
-- **Accesibilidad**: los controles nuevos deben ser operables con teclado y con
-  nombre accesible; hay pruebas de teclado en `e2e/app.spec.ts`.
+- **UI language**: strings are written in Spanish, and the German and English
+  dictionaries in `src/lib/i18n.ts` use that text as the key. The language is
+  decided by the selector cookie and, without it, by the browser
+  (`Accept-Language`); `DEFAULT_LOCALE` (`src/lib/locale.ts`, German) is the last
+  resort. `tests/i18n.test.ts` fails if a string used with `t()` has no German
+  translation or if English does not cover the same keys: always add the German
+  and English entries. If the text depends on a label map, type the map with
+  `MessageKey` (`satisfies Record<…, MessageKey>`) so the compiler catches it.
+- **Database**: any schema change is a new migration in
+  `src/lib/db/migrations.ts` (`SCHEMA_VERSION` + `migrateToVNN`) plus a test that
+  exercises it. A migration that has already been published is never edited.
+- **Dates**: do not read the clock during render; use SQLite's
+  `strftime('%Y-%m-%dT%H:%M:%fZ','now')` (Next treats `Date.now()` as an unstable
+  value when prerendering).
+- **Secure by default**: every mutation in `src/app/api` goes through `guard()`
+  (origin + quota) or justifies its exception; `tests/route.test.ts` checks it.
+  The body is read with `readJson()` (requires `application/json` and cuts at
+  64 KB) and errors are returned with `handleApiError()`.
+- **Styles**: tokens from `src/app/styles/tokens.css`; no literal colours in
+  components, because dark mode shares the same markup.
+- **Accessibility**: new controls must be operable with the keyboard and have an
+  accessible name; there are keyboard tests in `e2e/app.spec.ts`.
 
-## Qué no incluir en un PR
+## What not to include in a PR
 
-- Ficheros de `.data/`, bases de datos, copias, `.env` reales, capturas con datos
-  personales o tokens.
-- Cambios de dependencias sin justificación (el CI audita `npm audit --omit=dev`).
-- Borrar el bloque `overrides` de `package.json` sin comprobarlo antes: sube un
-  único `minimatch` (el de `@typescript-eslint/typescript-estree`) a la versión
-  corregida y es lo que mantiene `npm audit` en cero sin bajar de Next 16. Se
-  puede retirar en cuanto `typescript-eslint` dependa de un `minimatch` corregido.
-- Refactorizaciones amplias mezcladas con arreglos funcionales: mejor PRs
-  pequeños.
+- Files under `.data/`, databases, backups, real `.env` files, screenshots with
+  personal data, or tokens.
+- Dependency changes without a reason (CI audits with `npm audit --omit=dev`).
+- Removing the `overrides` block from `package.json` without checking first: it
+  pins a single `minimatch` (the one under
+  `@typescript-eslint/typescript-estree`) to the fixed version, and that is what
+  keeps `npm audit` at zero without dropping below Next 16. It can go once
+  `typescript-eslint` depends on a fixed `minimatch`.
+- Broad refactors mixed with functional fixes: smaller PRs are better.
 
-## Despliegue
+## Deployment
 
-No hace falta para contribuir; si te interesa, la guía está en
-[`deploy/README.md`](deploy/README.md) (systemd + nginx) y en el `Dockerfile`.
+Not needed to contribute; if you are interested, the guide is in
+[`deploy/README.md`](deploy/README.md) (systemd + nginx) and the `Dockerfile`.

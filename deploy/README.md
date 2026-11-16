@@ -507,9 +507,9 @@ sudo journalctl -u wanderbibliothek -f          # busca líneas [env]
 curl -fsS https://biblioteca.example.com/api/health
 ```
 
-La primera petición crea la base y aplica las 28 migraciones, así que puede
-tardar unos segundos: hazla tú con el `curl` en lugar de dejarla al primer
-visitante.
+La primera petición crea la base y aplica las 52 migraciones (de la v3 a la
+v54), así que puede tardar unos segundos: hazla tú con el `curl` en lugar de
+dejarla al primer visitante.
 
 Si el entorno está incompleto, el servicio **arranca pero responde 500** y deja
 el motivo en el log (`[env] ERROR …`). Es deliberado: se ve en `systemctl status`
@@ -1283,6 +1283,12 @@ npm run rotate:secrets
 
 Si el informe lista valores que no se pueden descifrar, **no retires la clave
 antigua**: significa que falta otra anterior en `APP_ENCRYPTION_OLD_KEYS`.
+
+El mismo comando cifra los secretos que hayan quedado **en claro** (bases de
+desarrollo restauradas en el servidor). En producción un valor sin cifrar ya no
+se lee: `decryptSecret` falla a propósito, así que el aviso llega antes de que
+alguien use una cuenta con el TOTP en claro. Ejecuta el `--dry-run` después de
+una restauración y, si aparece alguno, la rotación sin `--dry-run`.
 
 ## Sustituir una web que ya vive en el servidor
 

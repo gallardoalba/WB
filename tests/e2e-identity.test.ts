@@ -92,7 +92,8 @@ class FakeDatabase {
 
 const E2E_DB = "wanderbibliothek-e2e";
 const E2E_STORE = "identity";
-const E2E_RECORD = "identity-v1";
+/** Registro de las versiones anteriores: una identidad por navegador. */
+const E2E_LEGACY = "identity-v1";
 
 /** Instala el doble y lo retira al terminar, pase lo que pase. */
 async function withFakeIndexedDb<T>(
@@ -119,24 +120,27 @@ async function withFakeIndexedDb<T>(
   }
 }
 
-/** El registro guardado en el doble, si lo hay. */
-function storedIdentity(databases: Map<string, FakeDatabase>) {
-  return databases.get(E2E_DB)?.stores.get(E2E_STORE)?.entries.get(E2E_RECORD) as
-    | e2e.Identity
-    | undefined;
+/** Un registro guardado en el doble, si lo hay. */
+function stored<T = e2e.Identity>(databases: Map<string, FakeDatabase>, key: string): T | undefined {
+  return databases.get(E2E_DB)?.stores.get(E2E_STORE)?.entries.get(key) as T | undefined;
 }
+
+const recordFor = (userId: string) => `identity-v2:${userId}`;
 
 /* ------------------------------------------------------------------ */
 
 test("sin IndexedDB el cifrado se declara no disponible y no hay identidad", async () => {
   assert.equal(e2e.isEncryptionSupported(), false, "Node no trae IndexedDB");
-  assert.equal(await e2e.loadIdentity(), null);
-  await assert.rejects(e2e.ensureIdentity(), /no permite el cifrado de extremo a extremo/);
+  assert.equal(await e2e.loadIdentity("usr_ana"), null);
+  await assert.rejects(
+    e2e.ensureIdentity("usr_ana"),
+    /no permite el cifrado de extremo a extremo/,
+  );
 });
 
 test("la identidad nueva publica solo la clave pública y guarda una privada que no se puede exportar", async () => {
   await withFakeIndexedDb(async (databases) => {
-    const identity = await e2e.ensureIdentity();
+    const identity = await e2e.ensureIdentity("usr_ana");
 
     assert.equal(identity.version, 1);
     assert.equal(identity.keyId, await e2e.keyIdFromJwk(identity.publicJwk));
@@ -151,14 +155,29 @@ test("la identidad nueva publica solo la clave pública y guarda una privada que
       "la clave privada no debe poder exportarse",
     );
 
-    const guardada = storedIdentity(databases);
-    assert.equal(guardada?.keyId, identity.keyId, "la identidad se guarda en el navegador");
+    const guardada = stored(databases, recordFor("usr_ana"));
+    assert.equal(guardada?.keyId, identity.keyId, "la identidad se guarda por cuenta");
+  });
+});
+
+test("dos cuentas en el mismo navegador no comparten identidad", async () => {
+  await withFakeIndexedDb(async (databases) => {
+    const ana = await e2e.ensureIdentity("usr_ana");
+    const bruno = await e2e.ensureIdentity("usr_bruno");
+
+    assert.notEqual(bruno.keyId, ana.keyId, "cada cuenta debe tener su propio par");
+    assert.notEqual(bruno.publicJwk.x, ana.publicJwk.x);
+    assert.equal(stored(databases, recordFor("usr_ana"))?.keyId, ana.keyId);
+    assert.equal(stored(databases, recordFor("usr_bruno"))?.keyId, bruno.keyId);
+    // Volver a pedirla devuelve la de cada una, no la última creada.
+    assert.equal((await e2e.ensureIdentity("usr_ana")).keyId, ana.keyId);
+    assert.equal((await e2e.ensureIdentity("usr_bruno")).keyId, bruno.keyId);
   });
 });
 
 test("dos navegadores se entienden con la clave privada no extraíble", async () => {
   await withFakeIndexedDb(async () => {
-    const ana = await e2e.ensureIdentity();
+    const ana = await e2e.ensureIdentity("usr_ana");
 
     // El otro extremo, como en el navegador de la otra persona.
     const par = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
@@ -181,11 +200,14 @@ test("dos navegadores se entienden con la clave privada no extraíble", async ()
 
 test("al volver al navegador se reutiliza la identidad guardada, no se crea otra", async () => {
   await withFakeIndexedDb(async () => {
-    const primera = await e2e.ensureIdentity();
-    const segunda = await e2e.ensureIdentity();
+    const primera = await e2e.ensureIdentity("usr_ana");
+    const segunda = await e2e.ensureIdentity("usr_ana");
     assert.equal(segunda.keyId, primera.keyId);
     assert.equal(segunda.publicJwk.x, primera.publicJwk.x);
-    assert.equal(await e2e.loadIdentity().then((identidad) => identidad?.keyId), primera.keyId);
+    assert.equal(
+      await e2e.loadIdentity("usr_ana").then((identidad) => identidad?.keyId),
+      primera.keyId,
+    );
   });
 });
 
@@ -200,14 +222,14 @@ test("una identidad creada antes de la v16 estrena huella y se vuelve a guardar"
     base.createObjectStore(E2E_STORE);
     base.stores
       .get(E2E_STORE)!
-      .entries.set(E2E_RECORD, { version: 1, publicJwk, privateKey: par.privateKey });
+      .entries.set(recordFor("usr_ana"), { version: 1, publicJwk, privateKey: par.privateKey });
     databases.set(E2E_DB, base);
 
-    const identidad = await e2e.loadIdentity();
+    const identidad = await e2e.loadIdentity("usr_ana");
     assert.equal(identidad?.keyId, await e2e.keyIdFromJwk(publicJwk));
 
     // La huella calculada se escribe de vuelta, no se recalcula en cada carga.
-    assert.equal(storedIdentity(databases)?.keyId, identidad?.keyId);
+    assert.equal(stored(databases, recordFor("usr_ana"))?.keyId, identidad?.keyId);
   });
 });
 
@@ -222,18 +244,94 @@ test("un registro de otra versión o incompleto no se usa", async () => {
     await withFakeIndexedDb(async (databases) => {
       const base = new FakeDatabase();
       base.createObjectStore(E2E_STORE);
-      base.stores.get(E2E_STORE)!.entries.set(E2E_RECORD, caso);
+      base.stores.get(E2E_STORE)!.entries.set(recordFor("usr_ana"), caso);
       databases.set(E2E_DB, base);
 
       assert.equal(
-        await e2e.loadIdentity(),
+        await e2e.loadIdentity("usr_ana"),
         null,
         `el registro ${JSON.stringify(Object.keys(caso))} no debe darse por bueno`,
       );
       // Y con un registro inservible se genera una identidad nueva.
-      const nueva = await e2e.ensureIdentity();
+      const nueva = await e2e.ensureIdentity("usr_ana");
       assert.equal(nueva.version, 1);
       assert.match(nueva.keyId, /^[A-Za-z0-9_-]{43}$/);
     });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* Identidad heredada (una por navegador, de antes de la v55)          */
+/* ------------------------------------------------------------------ */
+
+/** Par "heredado" guardado en el registro antiguo, sin cuenta asociada. */
+async function seedLegacy(
+  databases: Map<string, FakeDatabase>,
+  { withKeyId = true } = {},
+) {
+  const par = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
+    "deriveBits",
+  ])) as CryptoKeyPair;
+  const publicJwk = await crypto.subtle.exportKey("jwk", par.publicKey);
+  const keyId = await e2e.keyIdFromJwk(publicJwk);
+  const base = databases.get(E2E_DB) ?? new FakeDatabase();
+  base.createObjectStore(E2E_STORE);
+  base.stores.get(E2E_STORE)!.entries.set(E2E_LEGACY, {
+    version: 1,
+    publicJwk,
+    privateKey: par.privateKey,
+    ...(withKeyId ? { keyId } : {}),
+  });
+  databases.set(E2E_DB, base);
+  return keyId;
+}
+
+test("la identidad heredada se adopta para la cuenta cuya clave publicada es esa", async () => {
+  await withFakeIndexedDb(async (databases) => {
+    const keyId = await seedLegacy(databases);
+
+    const identity = await e2e.ensureIdentity("usr_ana", { publishedKeyId: keyId });
+    assert.equal(identity.keyId, keyId, "se conserva el historial de quien ya cifraba");
+    assert.equal(stored(databases, recordFor("usr_ana"))?.keyId, keyId);
+  });
+});
+
+test("una identidad heredada anterior a la v16 se adopta calculando su huella", async () => {
+  await withFakeIndexedDb(async (databases) => {
+    // Sin `keyId`: el registro es de antes de que existiera la huella.
+    const keyId = await seedLegacy(databases, { withKeyId: false });
+
+    const identity = await e2e.ensureIdentity("usr_ana", { publishedKeyId: keyId });
+    assert.equal(identity.keyId, keyId, "no se pierde el historial por no tener huella");
+  });
+});
+
+test("una identidad heredada ya adoptada no la hereda la segunda cuenta", async () => {
+  await withFakeIndexedDb(async (databases) => {
+    const keyId = await seedLegacy(databases);
+
+    const ana = await e2e.ensureIdentity("usr_ana", { publishedKeyId: keyId });
+    // El navegador se compartió antes de la v55: la cuenta B tenía publicada la
+    // misma clave, pero el registro ya está consumido y no puede heredarlo.
+    const bruno = await e2e.ensureIdentity("usr_bruno", { publishedKeyId: keyId });
+
+    assert.equal(ana.keyId, keyId);
+    assert.notEqual(bruno.keyId, keyId, "la segunda cuenta no hereda la clave de la primera");
+    assert.equal(stored(databases, recordFor("usr_bruno"))?.keyId, bruno.keyId);
+  });
+});
+
+test("sin prueba de que la identidad heredada sea de la cuenta, no se adopta", async () => {
+  await withFakeIndexedDb(async (databases) => {
+    await seedLegacy(databases);
+
+    // La cuenta no tiene clave publicada (o tiene otra): no hay forma de saber
+    // de quién es el registro, así que se genera una identidad propia.
+    const sinClave = await e2e.ensureIdentity("usr_ana");
+    assert.notEqual(stored(databases, E2E_LEGACY)?.keyId, sinClave.keyId);
+    assert.equal(stored(databases, recordFor("usr_ana"))?.keyId, sinClave.keyId);
+
+    const otra = await e2e.ensureIdentity("usr_bruno", { publishedKeyId: "otra-clave" });
+    assert.notEqual(otra.keyId, stored(databases, E2E_LEGACY)?.keyId);
+  });
 });

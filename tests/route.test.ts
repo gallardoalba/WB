@@ -228,6 +228,19 @@ test("ninguna ruta se queda sin traducir los errores a JSON", () => {
   assert.deepEqual(missing, [], `rutas sin manejo de errores: ${missing.join(", ")}`);
 });
 
+test("quien cambia lo que se ve en los agregados públicos invalida la caché", () => {
+  // `publicActivity` cachea el nombre de quien publica y `publicStats` los
+  // recuentos: editar el perfil o borrar la cuenta tiene que invalidar el tag.
+  const obligatorias = [
+    "src/app/api/account/profile/route.ts",
+    "src/app/api/account/delete/route.ts",
+  ];
+  const missing = obligatorias.filter(
+    (file) => !/invalidatePublicData\(/.test(readFileSync(file, "utf8")),
+  );
+  assert.deepEqual(missing, [], `sin invalidar «public-data»: ${missing.join(", ")}`);
+});
+
 test("las rutas que escriben no aceptan peticiones de otro origen", () => {
   const offenders = ROUTES.filter((file) => {
     const source = readFileSync(file, "utf8");

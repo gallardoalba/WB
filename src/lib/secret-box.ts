@@ -118,7 +118,15 @@ export function encryptSecret(plain: string, context = ""): string {
 export function decryptSecret(value: string, context = ""): string {
   if (value.startsWith(V2)) return decryptV2(value, context);
   if (value.startsWith(V1)) return decryptV1(value);
-  // Texto plano heredado (bases de desarrollo creadas sin clave).
+  // Texto plano heredado (bases de desarrollo creadas sin clave). Fuera de
+  // desarrollo no se acepta: si la base trae un secreto sin cifrar, es un
+  // fallo de configuración que hay que ver, no un valor que se pueda usar.
+  if (process.env.NODE_ENV === "production" && !allowPlaintext()) {
+    throw new ApiError(
+      500,
+      "Hay un secreto guardado sin cifrar. Cífralo con `npm run rotate:secrets` antes de usarlo en producción.",
+    );
+  }
   return value;
 }
 

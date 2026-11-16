@@ -1,8 +1,9 @@
 /**
- * Vuelve a cifrar con la clave activa todo lo que quedó con una clave anterior
- * (o con el formato heredado `enc:v1:`).
+ * Vuelve a cifrar con la clave activa todo lo que quedó con una clave anterior,
+ * con el formato heredado `enc:v1:` o en **claro** (bases de desarrollo).
  *
- * Sirve para completar una rotación:
+ * Sirve para completar una rotación y para cerrar la compatibilidad con texto
+ * plano, que en producción ya no se lee:
  *
  *   # 1. La clave nueva va en APP_ENCRYPTION_KEY y la vieja en OLD_KEYS
  *   APP_ENCRYPTION_KEY=<nueva> APP_ENCRYPTION_OLD_KEYS=<vieja> \
@@ -35,7 +36,9 @@ const CAMPOS_ENVIO = [
 ] as const;
 
 function necesitaRotar(valor: string | null): boolean {
-  if (!valor || !isEncrypted(valor)) return false;
+  if (!valor) return false;
+  // Texto plano heredado: no hay nada que descifrar, pero sí que cifrar.
+  if (!isEncrypted(valor)) return true;
   const id = activeKeyId();
   // `enc:v1:` nunca lleva id: hay que volver a cifrarlo con el formato actual.
   return !valor.startsWith(`enc:v2:${id}:`);
@@ -61,15 +64,21 @@ function rotar(
 ): void {
   pendientes += 1;
   let claro: string;
-  try {
-    claro = decryptSecret(valor, context);
-  } catch {
-    // Puede ser un valor anterior al AAD: se prueba sin contexto.
+  if (!isEncrypted(valor)) {
+    // Texto plano heredado: se cifra tal cual, sin pasar por `decryptSecret`
+    // (en producción lo rechaza a propósito).
+    claro = valor;
+  } else {
     try {
-      claro = decryptSecret(valor);
-    } catch (error) {
-      errores.push(`${etiqueta}: ${(error as Error).message}`);
-      return;
+      claro = decryptSecret(valor, context);
+    } catch {
+      // Puede ser un valor anterior al AAD: se prueba sin contexto.
+      try {
+        claro = decryptSecret(valor);
+      } catch (error) {
+        errores.push(`${etiqueta}: ${(error as Error).message}`);
+        return;
+      }
     }
   }
   if (dryRun) {

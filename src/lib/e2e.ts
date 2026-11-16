@@ -3,9 +3,10 @@
  *
  * Diseño (deliberadamente simple y auditable):
  *
- * 1. Cada navegador genera un par ECDH P-256 la primera vez que inicia sesión.
- *    La clave privada se guarda como `CryptoKey` **no extraíble** en IndexedDB:
- *    ni el JavaScript de la página puede exportarla ni el servidor la recibe.
+ * 1. Cada **cuenta** genera, en cada navegador, su par ECDH P-256 la primera
+ *    vez que inicia sesión. La clave privada se guarda como `CryptoKey` **no
+ *    extraíble** en IndexedDB, en un registro por cuenta: ni el JavaScript de
+ *    la página puede exportarla ni el servidor la recibe.
  * 2. La clave pública se publica en la cuenta (`PUT /api/account/keys`).
  * 3. Para cada conversación se deriva una clave AES-GCM-256 con
  *    ECDH + HKDF-SHA256 usando el identificador de la solicitud como `info`.
@@ -19,8 +20,24 @@
 
 const DB_NAME = "wanderbibliothek-e2e";
 const STORE = "identity";
-const RECORD_KEY = "identity-v1";
+/**
+ * Registro de las versiones anteriores: **una** identidad por navegador, sin
+ * cuenta. Se conserva solo para adoptarla una vez (ver `adoptLegacyIdentity`).
+ */
+const LEGACY_RECORD_KEY = "identity-v1";
 const HKDF_SALT = "wanderbibliothek:v1";
+
+/**
+ * Clave del registro de una cuenta.
+ *
+ * Indexar por navegador y no por cuenta hacía que dos cuentas que usaran el
+ * mismo navegador compartieran el par de claves: la segunda publicaba la clave
+ * pública de la primera y el aislamiento criptográfico se perdía.
+ */
+function recordKeyFor(userId: string): string {
+  if (!userId) throw new Error("La identidad de cifrado necesita la cuenta.");
+  return `identity-v2:${userId}`;
+}
 
 export type Identity = {
   version: 1;
@@ -139,30 +156,74 @@ export function directAad(
   return `wanderbibliothek:v1|${conversationId}|sender:${senderId}|key:${keyId}`;
 }
 
-/** Identidad guardada en este navegador, si existe. */
-export async function loadIdentity(): Promise<Identity | null> {
+/** Identidad guardada en este navegador para esa cuenta, si existe. */
+export async function loadIdentity(userId: string): Promise<Identity | null> {
   if (!isEncryptionSupported()) return null;
-  const stored = await readRecord<Identity>(RECORD_KEY);
-  if (!stored || stored.version !== 1 || !stored.privateKey || !stored.publicJwk) return null;
+  const stored = await readRecord<Identity>(recordKeyFor(userId));
+  if (!isUsable(stored)) return null;
   // Identidades creadas antes de la v16 no tenían huella: se calcula una vez.
   if (!stored.keyId) {
     stored.keyId = await keyIdFromJwk(stored.publicJwk);
-    await writeRecord(RECORD_KEY, stored);
+    await writeRecord(recordKeyFor(userId), stored);
   }
   return stored;
 }
 
-/** Recupera la identidad o crea una nueva (solo la primera vez). */
-export async function ensureIdentity(): Promise<Identity> {
+/** Registro con lo mínimo para usarse: versión, clave privada y pública. */
+function isUsable(stored: Identity | null): stored is Identity {
+  return Boolean(stored && stored.version === 1 && stored.privateKey && stored.publicJwk);
+}
+
+/**
+ * Adopta la identidad heredada (una por navegador) para una cuenta concreta.
+ *
+ * Solo se adopta si la clave publicada de la cuenta es **esa misma** clave: es
+ * la prueba de que el par se creó para ella. Al adoptarla, el registro heredado
+ * queda marcado, así que la segunda cuenta que use el navegador no puede
+ * heredarlo: genera una identidad propia y se le pedirá la contraseña para
+ * publicarla, que es lo correcto.
+ *
+ * No se borra nada antes de que la copia esté escrita: perder la clave privada
+ * es perder el historial cifrado.
+ */
+async function adoptLegacyIdentity(
+  userId: string,
+  publishedKeyId: string | null | undefined,
+): Promise<Identity | null> {
+  if (!publishedKeyId) return null;
+  const legacy = await readRecord<Identity>(LEGACY_RECORD_KEY);
+  if (!isUsable(legacy)) return null;
+  // Identidades anteriores a la v16 no traían huella: se calcula para poder
+  // compararla sin adoptar a ciegas.
+  if (!legacy.keyId) legacy.keyId = await keyIdFromJwk(legacy.publicJwk);
+  if (legacy.keyId !== publishedKeyId) return null;
+  await writeRecord(recordKeyFor(userId), legacy);
+  await writeRecord(LEGACY_RECORD_KEY, { version: 1, migratedTo: userId });
+  return legacy;
+}
+
+/**
+ * Recupera la identidad de la cuenta o crea una nueva.
+ *
+ * `publishedKeyId` es la clave web que la cuenta tiene publicada en el servidor
+ * (o `null` si todavía no tiene ninguna): sin ese dato no se adopta la
+ * identidad heredada, porque no habría forma de saber de quién es.
+ */
+export async function ensureIdentity(
+  userId: string,
+  options: { publishedKeyId?: string | null } = {},
+): Promise<Identity> {
   if (!isEncryptionSupported()) {
     throw new Error(
       "Tu navegador no permite el cifrado de extremo a extremo. Prueba con un navegador actualizado.",
     );
   }
-  const existing = await loadIdentity();
+  const existing = await loadIdentity(userId);
   if (existing) return existing;
+  const adopted = await adoptLegacyIdentity(userId, options.publishedKeyId);
+  if (adopted) return adopted;
   const identity = await generateIdentity();
-  await writeRecord(RECORD_KEY, identity);
+  await writeRecord(recordKeyFor(userId), identity);
   return identity;
 }
 

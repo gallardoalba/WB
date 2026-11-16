@@ -78,9 +78,11 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       keyChanged: false,
     };
   }
-  const identity = await ensureIdentity();
   const serverKeys = payload.me.keys ?? [];
   const webSlot = serverKeys.find((key) => key.platform === "web") ?? null;
+  const identity = await ensureIdentity(payload.me.id, {
+    publishedKeyId: webSlot?.keyId ?? null,
+  });
   if (!webSlot && mayPublish) {
     // Primera clave del navegador: se publica sola (TOFU). Si la cuenta ya
     // cifra desde otro dispositivo, el servidor pide la contraseña (428) y no
