@@ -306,7 +306,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 828 unit and integration tests in 105 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 54 browser tests with Playwright, which starts its own server on port 3100; the WebCrypto and IndexedDB smoke also runs in Firefox and WebKit.",
+          text: "`npm test` runs 828 unit and integration tests in 105 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 54 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",

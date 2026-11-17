@@ -48,7 +48,8 @@
     "transparency:verify": "node --import tsx scripts/verify-transparency.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "bench:migrate": "node --import tsx scripts/bench-migrations.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:smoke": "playwright test --project=firefox-smoke --project=webkit-smoke",
     "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
   },
   "engines": {

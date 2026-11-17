@@ -332,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 828 pruebas unitarias y de integración en 105 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 54 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100; el humo de WebCrypto e IndexedDB se ejecuta además en Firefox y WebKit.",
+          text: "`npm test` ejecuta 828 pruebas unitarias y de integración en 105 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 54 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -772,7 +772,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 828 Unit- und Integrationstests in 105 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 54 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten; der WebCrypto-/IndexedDB-Smoke läuft zusätzlich in Firefox und WebKit.",
+          text: "`npm test` führt 828 Unit- und Integrationstests in 105 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 54 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",

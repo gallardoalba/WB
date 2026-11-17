@@ -110,7 +110,7 @@ jobs:
         run: npx playwright install --with-deps firefox webkit
 
       - name: Humo de cifrado en Firefox y WebKit
-        run: npx playwright test --project=firefox-smoke --project=webkit-smoke
+        run: npm run test:e2e:smoke
 
   imagen:
     # Mantiene el Dockerfile vivo: si deja de construir, se ve aquí.

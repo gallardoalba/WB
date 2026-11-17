@@ -20,8 +20,10 @@ npm run typecheck   # next typegen + tsc
 npm run lint
 npm test            # 828 unit and integration tests (105 files)
 npm run build
-npm run test:e2e    # Playwright: 54 cases in 9 files; first time:
+npm run test:e2e    # Playwright: 54 cases in 9 files (Chromium); first time:
                     # npx playwright install chromium
+npm run test:e2e:smoke  # WebCrypto/IndexedDB en Firefox y WebKit
+                    # npx playwright install firefox webkit
 ```
 
 `npm run test:e2e` starts its own server on `localhost:3100`. If you already have
