@@ -382,6 +382,8 @@ sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer 
   wanderbibliothek-verify.timer
 
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
+# Caché de imágenes del proxy (portadas): nginx la necesita creada y escribible.
+sudo install -d -o www-data -g www-data -m 700 /var/cache/nginx/wb_images
 # Bloqueo de rastreadores de IA por User-Agent (contexto `http`).
 sudo install -m 644 deploy/nginx-ai.conf /etc/nginx/conf.d/wanderbibliothek-ai.conf
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
@@ -431,6 +433,19 @@ sola:
   separa por commit para que los navegadores no reutilicen errores 404 de una
   versión previa. Por eso la aplicación va con `compress: false` en
   `next.config.ts`: comprimir en los dos sitios solo gastaba CPU.
+- **Caché de imágenes en el borde** (`proxy_cache`, zona `wb_images`). Las
+  portadas —lo más pesado que sirve la aplicación— y sus versiones reducidas de
+  `/_next/image` se guardan en `/var/cache/nginx/wb_images` (1 GB como mucho, un
+  mes sin tocarse) y las sirve nginx sin llegar a Node. La clave es la URL, que
+  lleva la versión de la portada (`?v=…`): sustituir una imagen es una clave
+  nueva, así que no hay nada que invalidar a mano. `/_next/image` negocia WebP o
+  AVIF con `Accept` y responde `Vary: Accept`; como la caché de nginx no mira
+  `Vary`, el formato entra en la clave (`$wb_image_format`, tres valores como
+  mucho) para no servir a un navegador el WebP guardado para otro. Solo se
+  cachean `GET`/`HEAD`: subir o borrar una portada (`PUT`/`DELETE`) sigue
+  llegando a la aplicación. Para ver qué hace, mira la cabecera
+  `X-Cache-Status` (`HIT`, `MISS`, `STALE`, `UPDATING`); para vaciarla,
+  `sudo rm -rf /var/cache/nginx/wb_images/*` y recarga.
 - **HTTP/3** (`listen 443 quic` + `Alt-Svc`) con el módulo `http_v3_module` de
   Debian. Hay que abrir UDP: `sudo ufw allow 443/udp`. Si el navegador no lo
   negocia, sigue por HTTP/2 sin cambiar nada.
@@ -716,6 +731,7 @@ systemctl --user daemon-reload && systemctl --user enable --now wanderbibliothek
 | `/api/cron/maintenance` responde 403 al llamarlo desde fuera | Correcto: nginx solo lo deja entrar desde loopback |
 | Los mensajes nuevos no aparecen solos | nginx con buffering en `/api/requests/` |
 | Al pedir un libro, la app dice «el servidor responde con una redirección» y la web «No hay conexión con el servidor» | El vhost todavía tiene `location /api/requests/ {` (con barra). nginx manda `/api/requests` a `/api/requests/`, Next lo devuelve a `/api/requests` y el 301/308 se muerde la cola. Se ve con `curl -sI https://tu-dominio/api/requests \| grep -i location`. Arreglo (una línea, sin tocar el resto del fichero, que es de certbot): `sudo sed -i 's\|location /api/requests/ {\|location ^~ /api/requests {\|' /etc/nginx/sites-available/wanderbibliothek && sudo nginx -t && sudo systemctl reload nginx`. `deploy.sh` lo corrige solo en el siguiente despliegue |
+| Una portada nueva tarda en verse | Caché del proxy: la URL correcta lleva `?v=…` (la genera la app al subir). Si `curl -sI` de la imagen devuelve `X-Cache-Status: HIT` con la imagen vieja, se subió sin versión: vacía `/var/cache/nginx/wb_images` |
 | Subir una portada responde **413** | `client_max_body_size` de nginx (128 KB globales, pensados para JSON). La ruta `/api/cover/` necesita su propio `location` con 8 MB; el registro del proxy lo dice: `error.log` → `client intended to send too large body`. Sin eso la imagen ni llega a la aplicación |
 | El disco crece y la base no baja | Normal: SQLite no compacta al borrar; el mantenimiento hace `PRAGMA optimize` y `wal_checkpoint(TRUNCATE)` |
 | No hay copias en `/var/backups/wanderbibliothek` | Mira `journalctl -u wanderbibliothek-backup`; si el log habla de `tsx`, la release se instaló sin dependencias de producción o falta el `WorkingDirectory` |

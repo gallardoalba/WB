@@ -59,7 +59,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 859 unit and integration tests (109 files)",
+            "tests/                 863 unit and integration tests (110 files)",
             "e2e/                   browser tests with Playwright (9 spec files + Firefox/WebKit smoke)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -135,7 +135,7 @@ export const EN: TechnicalDocument = {
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person, from the team or, with their name recorded, from another instance.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic record (DNB and Open Library). The cover is streamed from disk as it is read —no copy in memory—, and a 304 does not open the image; the browser also asks `/_next/image` for the reduced WebP version, so a 220 px card does not download the 1600 px JPEG. The URL carries a version (`?v=…`): replacing the cover changes it, and no cache serves the old one.",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic record (DNB and Open Library). The cover is streamed from disk as it is read —no copy in memory—, and a 304 does not open the image; the browser also asks `/_next/image` for the reduced WebP version, so a 220 px card does not download the 1600 px JPEG. The URL carries a version (`?v=…`): replacing the cover changes it, and no cache serves the old one. The nginx vhost also caches these images at the edge (`proxy_cache`), so Node stops sending cover bytes on repeat visits.",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
           ],
         },
       ],
@@ -306,7 +306,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 859 unit and integration tests in 109 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
+          text: "`npm test` runs 863 unit and integration tests in 110 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",
@@ -396,6 +396,7 @@ export const EN: TechnicalDocument = {
             "Colours come from tokens (`src/app/styles/tokens.css`): outside that file there are no literals, so the light and the dark mode share the same markup.",
             "Four breakpoints (480, 768, 1120 and 1400/1800 px), a spacing scale from 4 to 48 px and controls at 40 px, 44 on mobile.",
             "Dialogs with trapped focus, closing on `Escape` and focus restoration; a “Skip to content” link, `aria-current` in the navigation, filters with `aria-pressed` and errors with `role=\"alert\"`.",
+            "What is not visible on load does not travel in the initial bundle: the sign-in dialog, the exchange dialog (crypto and QR), the publishing form, notifications and the community and exchanges views are fetched with `next/dynamic` when they open. Browser crypto is imported when the key is published, not at startup. Beware of `dynamic` for something always mounted: without `loading`, its download suspends the whole tree and the page takes long to respond (covered by `e2e/app.spec.ts` through the heart button’s focus).",
             "Minimum AA contrast, type from 12 px, 44 px touch targets on mobile and `prefers-reduced-motion` respected: the animations (in `styles/motion.css`) only move `opacity` and `transform`, and switch off entirely with that setting.",
             "The interface is trilingual: the switcher wins, storing the `wanderbibliothek-locale` cookie and, if there is a session, the account preference for notifications and mail; without a preference the browser language (`Accept-Language`) decides, and German if none of the three matches.",
           ],

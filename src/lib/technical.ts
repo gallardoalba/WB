@@ -83,7 +83,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 859 pruebas unitarias y de integración (109 ficheros)",
+            "tests/                 863 pruebas unitarias y de integración (110 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -159,7 +159,7 @@ const ES: TechnicalDocument = {
             "`/api/account/*`: perfil, idioma, contraseña, claves de cifrado, TOTP, exportación y borrado.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: apelaciones con token de un solo uso; el enlace se puede pedir de nuevo con el correo de la cuenta y la revisión la hace otra persona, del equipo o, con su nombre registrado, de otra instancia.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: denuncias, moderación, comentarios y avisos.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: portadas y ficha bibliográfica (DNB y Open Library). La portada se envía desde disco en cuanto se lee —sin copiarla a memoria— y un 304 que no abre la imagen; el navegador pide además la versión reducida y en WebP a `/_next/image`, así que una tarjeta de 220 px no descarga el JPG de 1600 px. La URL lleva una versión (`?v=…`): al sustituir la portada cambia, y ninguna caché enseña la anterior.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: portadas y ficha bibliográfica (DNB y Open Library). La portada se envía desde disco en cuanto se lee —sin copiarla a memoria— y un 304 que no abre la imagen; el navegador pide además la versión reducida y en WebP a `/_next/image`, así que una tarjeta de 220 px no descarga el JPG de 1600 px. La URL lleva una versión (`?v=…`): al sustituir la portada cambia, y ninguna caché enseña la anterior. El vhost de nginx cachea además esas imágenes en el borde (`proxy_cache`), así que Node no envía bytes de portada en las visitas repetidas.",
             "`/api/cities?q=`: sugerencias de municipio para el selector de ciudad (OpenStreetMap por Photon), sin sesión porque la ciudad se elige ya en el registro.",
             "`/api/cron/maintenance`: tareas programadas, con `MAINTENANCE_TOKEN`: reintenta los envíos pendientes y purga lo viejo.",
           ],
@@ -332,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 859 pruebas unitarias y de integración en 109 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta 863 pruebas unitarias y de integración en 110 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -422,6 +422,7 @@ const ES: TechnicalDocument = {
             "Los colores salen de tokens (`src/app/styles/tokens.css`): fuera de ese fichero no hay literales, así que el modo claro y el oscuro comparten el mismo marcado.",
             "Cuatro breakpoints (480, 768, 1120 y 1400/1800 px), escala de espacio de 4 a 48 px y controles de 40 px, 44 en móvil.",
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
+            "Lo que no se ve al cargar no viaja en el paquete inicial: el diálogo de acceso, el de intercambio (criptografía y QR), el formulario de publicación, las notificaciones y las vistas de comunidad e intercambios se descargan con `next/dynamic` cuando se abren. La criptografía del navegador se importa al publicar la clave, no al arrancar. Ojo con `dynamic` en algo que se monta siempre: sin `loading`, su descarga suspende el árbol entero y la página tarda en responder (lo cubre `e2e/app.spec.ts` con el foco del corazón).",
             "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado: las animaciones (en `styles/motion.css`) solo mueven `opacity` y `transform`, y se apagan enteras con esa preferencia.",
             "La interfaz es trilingüe y cada idioma tiene su propia URL: el alemán es el de por defecto y va sin prefijo (`/werk/x`), mientras que el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios para que los buscadores los indexen por separado. Dentro de una URL con prefijo manda el prefijo; si no lo hay manda el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo; sin preferencia se usa el idioma del navegador (`Accept-Language`) y, si no hay ninguno de los tres, el alemán.",
           ],
@@ -523,7 +524,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 859 Unit- und Integrationstests (109 Dateien)",
+            "tests/                 863 Unit- und Integrationstests (110 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -599,7 +600,7 @@ const DE: TechnicalDocument = {
             "`/api/account/*`: Profil, Sprache, Passwort, Verschlüsselungsschlüssel, TOTP, Export und Löschung.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: Einsprüche mit Einmal-Token; der Link lässt sich mit der E-Mail des Kontos neu anfordern, und geprüft wird von einer anderen Person, aus dem Team oder, mit Namen protokolliert, aus einer anderen Instanz.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: Meldungen, Moderation, Kommentare und Hinweise.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: Cover und bibliografische Daten (DNB und Open Library). Das Cover wird beim Lesen von der Platte gestreamt —ohne es in den Speicher zu kopieren—, und ein 304 öffnet das Bild nicht; der Browser holt zusätzlich die verkleinerte WebP-Fassung über `/_next/image`, sodass eine 220-Pixel-Karte nicht das 1600-Pixel-JPG lädt. Die URL trägt eine Version (`?v=…`): wird das Cover ersetzt, ändert sie sich und kein Cache zeigt das alte.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: Cover und bibliografische Daten (DNB und Open Library). Das Cover wird beim Lesen von der Platte gestreamt —ohne es in den Speicher zu kopieren—, und ein 304 öffnet das Bild nicht; der Browser holt zusätzlich die verkleinerte WebP-Fassung über `/_next/image`, sodass eine 220-Pixel-Karte nicht das 1600-Pixel-JPG lädt. Die URL trägt eine Version (`?v=…`): wird das Cover ersetzt, ändert sie sich und kein Cache zeigt das alte. Der nginx-Vhost legt diese Bilder zusätzlich am Rand ab (`proxy_cache`), sodass Node bei wiederholten Besuchen keine Cover-Bytes mehr sendet.",
             "`/api/cities?q=`: Ortsvorschläge für die Stadtauswahl (OpenStreetMap über Photon), ohne Sitzung, weil die Stadt schon bei der Registrierung gewählt wird.",
             "`/api/cron/maintenance`: geplante Aufgaben mit `MAINTENANCE_TOKEN`: wiederholt ausstehende Zustellungen und räumt Altes auf.",
           ],
@@ -772,7 +773,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 859 Unit- und Integrationstests in 109 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt 863 Unit- und Integrationstests in 110 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",
@@ -862,6 +863,7 @@ const DE: TechnicalDocument = {
             "Farben kommen aus Tokens (`src/app/styles/tokens.css`): außerhalb dieser Datei gibt es keine Literale, deshalb teilen helles und dunkles Thema dasselbe Markup.",
             "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
+            "Was beim Laden nicht zu sehen ist, reist nicht im Startpaket: Anmeldedialog, Tauschdialog (Kryptografie und QR), Veröffentlichungsformular, Benachrichtigungen sowie Community- und Tauschansicht kommen per `next/dynamic`, wenn sie geöffnet werden. Die Browser-Kryptografie wird beim Veröffentlichen des Schlüssels geladen, nicht beim Start. Vorsicht bei `dynamic` für etwas, das immer eingebunden ist: ohne `loading` suspensiert sein Laden den ganzen Baum und die Seite reagiert spät (abgedeckt von `e2e/app.spec.ts` über den Fokus des Herzens).",
             "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert: die Animationen (in `styles/motion.css`) bewegen nur `opacity` und `transform` und entfallen mit dieser Einstellung ganz.",
             "Die Oberfläche ist dreisprachig und jede Sprache hat ihre eigene URL: Deutsch ist die Vorgabe und bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/…`, jeweils mit eigenem `hreflang` und Canonical, damit Suchmaschinen sie getrennt indexieren. Innerhalb einer URL mit Präfix gilt das Präfix; sonst gilt der Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert; ohne Vorliebe entscheidet die Sprache des Browsers (`Accept-Language`) und, wenn keine der drei passt, Deutsch.",
           ],
