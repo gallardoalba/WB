@@ -18,10 +18,12 @@ All of this has to pass; CI runs the same:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 808 unit and integration tests (100 files)
+npm test            # 869 unit and integration tests (111 files)
 npm run build
-npm run test:e2e    # Playwright: 53 cases in 8 files; first time:
+npm run test:e2e    # Playwright: 54 cases in 9 files (Chromium); first time:
                     # npx playwright install chromium
+npm run test:e2e:smoke  # WebCrypto/IndexedDB en Firefox y WebKit
+                    # npx playwright install firefox webkit
 ```
 
 `npm run test:e2e` starts its own server on `localhost:3100`. If you already have
@@ -40,8 +42,8 @@ directory).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 808 pruebas unitarias y de integración (100 ficheros),
-  build y 53/53 E2E.
+  Validado: tsc, eslint, 869 pruebas unitarias y de integración (111 ficheros),
+  build y 54/54 E2E (Chromium) y el humo en Firefox/WebKit.
   ```
 
 - **UI language**: strings are written in Spanish, and the German and English
@@ -71,7 +73,7 @@ directory).
 
 - Files under `.data/`, databases, backups, real `.env` files, screenshots with
   personal data, or tokens.
-- Dependency changes without a reason (CI audits with `npm audit --omit=dev`).
+- Dependency changes without a reason (CI audits runtime dependencies with `npm audit --omit=dev` and development ones with `npm run audit:dev`, which blocks only what has a non-breaking fix).
 - Removing the `overrides` block from `package.json` without checking first: it
   pins a single `minimatch` (the one under
   `@typescript-eslint/typescript-estree`) to the fixed version, and that is what

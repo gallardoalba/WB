@@ -33,8 +33,14 @@ export async function GET(
     const initial = requestMessageStamp(requestId, user.id);
     // Una pestaña necesita un flujo; el resto serían consultas a la base sin
     // utilidad. Se limita lo simultáneo, no solo las aperturas por hora.
-    if (!acquireStream(user.id)) {
-      throw new ApiError(429, "Tienes demasiadas conversaciones abiertas. Cierra alguna pestaña.");
+    const slot = acquireStream(user.id);
+    if (slot !== "ok") {
+      throw new ApiError(
+        slot === "global" ? 503 : 429,
+        slot === "global"
+          ? "La instancia está al límite de conexiones en vivo. Reinténtalo en unos segundos."
+          : "Tienes demasiadas conversaciones abiertas. Cierra alguna pestaña.",
+      );
     }
     let released = false;
     const release = () => {

@@ -749,3 +749,92 @@
   grid-row: auto;
   margin-top: 0;
 }
+
+/* Procedencia en la lista de datos: el icono evita que parezca una fila más
+   de texto y la frase se lee como una insignia. */
+.provenance-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green-strong);
+}
+
+/* Recorrido de la copia. Es una línea de tiempo vertical: se lee igual en
+   móvil y en escritorio, y no necesita teselas ni servicios de mapas. */
+.book-journey {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.book-journey-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.book-journey-head p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.journey-route {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.journey-route li {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 6px 0 6px 20px;
+  border-left: 2px solid var(--line);
+}
+
+/* La última parada ya no tiene tramo debajo: el hilo termina en su punto. */
+.journey-route li:last-child {
+  border-left-color: transparent;
+}
+
+.journey-dot {
+  position: absolute;
+  top: 11px;
+  left: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.journey-route li:last-child .journey-dot {
+  box-shadow: 0 0 0 3px var(--green-pale);
+}
+
+.journey-where {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.journey-when {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.book-journey-note {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted-2);
+  font-size: var(--text-xs);
+}

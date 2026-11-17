@@ -18,6 +18,8 @@ export {
   userForToken,
 } from "./session-store";
 
+// `b2p` es el nombre heredado del proyecto anterior. No se renombra: cambiar el
+// nombre de la cookie cerraría la sesión de todo el mundo sin ganar seguridad.
 const BASE_COOKIE = "b2p_session";
 const HOST_COOKIE = "__Host-b2p_session";
 

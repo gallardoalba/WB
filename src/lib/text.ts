@@ -101,6 +101,24 @@ export function formatWhen(
   return DATE_FORMATTERS[locale].format(date);
 }
 
+const MONTH_FORMATTERS = {
+  es: new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric", timeZone: "UTC" }),
+  de: new Intl.DateTimeFormat("de-DE", { month: "short", year: "numeric", timeZone: "UTC" }),
+  en: new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }),
+} as const;
+
+/**
+ * Mes y año de una fecha `YYYY-MM`.
+ *
+ * El recorrido de un ejemplar no enseña el día: con el mes basta para leer el
+ * viaje y evita cruzar la fecha exacta con otros datos.
+ */
+export function formatMonth(month: string, locale: Locale = DEFAULT_LOCALE): string {
+  const date = new Date(`${month}-01T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "";
+  return MONTH_FORMATTERS[locale].format(date);
+}
+
 export function formatDistance(
   distanceKm: number | null,
   locale: Locale = DEFAULT_LOCALE,

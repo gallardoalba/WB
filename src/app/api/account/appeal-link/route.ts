@@ -4,7 +4,7 @@ import { sendSuspensionEmail } from "@/lib/account-tokens";
 import { processOutbox } from "@/lib/outbox";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { hasOpenAppeal, suspendedAccountByEmail } from "@/lib/repo";
-import { guard, hit } from "@/lib/throttle";
+import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { appealLinkSchema } from "@/lib/validation";
 
 /**
@@ -21,6 +21,9 @@ export async function POST(request: Request) {
       limit: 1000,
       windowMs: 60 * 60 * 1000,
     });
+    if (hasClientIp()) {
+      hit({ bucket: "account:appeal-link:ip", key: clientKey(request), limit: 10, windowMs: 60 * 60 * 1000 });
+    }
     const { email } = appealLinkSchema.parse(await readJson(request));
     const emailKey = createHash("sha256").update(email).digest("hex");
     hit({ bucket: "account:appeal-link:email", key: emailKey, limit: 3, windowMs: 60 * 60 * 1000 });

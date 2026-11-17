@@ -4,7 +4,7 @@ import { sendPasswordResetEmail } from "@/lib/account-tokens";
 import { processOutbox } from "@/lib/outbox";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { getUserWithPassword } from "@/lib/repo";
-import { guard, hit } from "@/lib/throttle";
+import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { forgotPasswordSchema } from "@/lib/validation";
 
 /**
@@ -21,6 +21,9 @@ export async function POST(request: Request) {
       limit: 2000,
       windowMs: 60 * 60 * 1000,
     });
+    if (hasClientIp()) {
+      hit({ bucket: "auth:forgot:ip", key: clientKey(request), limit: 10, windowMs: 60 * 60 * 1000 });
+    }
     const { email } = forgotPasswordSchema.parse(await readJson(request));
     const emailKey = createHash("sha256").update(email).digest("hex");
     hit({ bucket: "auth:forgot:email", key: emailKey, limit: 3, windowMs: 60 * 60 * 1000 });

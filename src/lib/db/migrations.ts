@@ -1730,6 +1730,37 @@ function migrateToV54(db: Db) {
 }
 
 /**
+ * v55: los avisos que esperan en la cola pierden las referencias temporales.
+ *
+ * El bot decía «ab heute» aunque el libro llevara días en el catálogo. Los
+ * textos pendientes se recomponen con la voz nueva; los enviados no se tocan.
+ */
+function migrateToV55(db: Db) {
+  refreshQueuedPosts(db);
+  db.pragma("user_version = 55");
+}
+
+/**
+ * v56: el viaje del ejemplar.
+ *
+ * `listings.from_listing_id` guarda de dónde vino cada copia desde la v44, pero
+ * hasta ahora nadie lo enseñaba: la ficha solo contaba el anuncio actual. Con
+ * la columna `show_journey` quien tiene el libro decide si su recorrido se
+ * cuenta en la ficha. Se activa por defecto porque el historial es agregado
+ * (ciudades y meses, nunca nombres) y es el argumento del proyecto: los libros
+ * circulan. Quien lo apague verá su copia como una más, sin recorrido público.
+ */
+function migrateToV56(db: Db) {
+  const columns = (db.pragma("table_info(users)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("show_journey")) {
+    db.exec("ALTER TABLE users ADD COLUMN show_journey INTEGER NOT NULL DEFAULT 1");
+  }
+  db.pragma("user_version = 56");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1868,6 +1899,8 @@ export function migrate(db: Db) {
   if (userVersion(db) < 52) migrateToV52(db);
   if (userVersion(db) < 53) migrateToV53(db);
   if (userVersion(db) < 54) migrateToV54(db);
+  if (userVersion(db) < 55) migrateToV55(db);
+  if (userVersion(db) < 56) migrateToV56(db);
 
   backfillSearchKeys(db);
 }

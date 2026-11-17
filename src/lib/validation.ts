@@ -62,6 +62,38 @@ const joinPolicyField = z
   .optional()
   .default("open");
 
+/** Variantes sin `default`: un PATCH parcial no debe vaciar lo que no envía. */
+const meetsAtOptionalField = z
+  .string()
+  .trim()
+  .max(40, "La fecha del encuentro no es válida.")
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value === "") return value;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+  });
+
+const meetsPlaceOptionalField = z
+  .string()
+  .trim()
+  .max(120, "El sitio del encuentro no puede superar 120 caracteres.")
+  .optional();
+
+const meetsLinkOptionalField = z
+  .string()
+  .trim()
+  .max(300, "El enlace no puede superar 300 caracteres.")
+  .optional()
+  .refine(
+    (value) => value === undefined || value === "" || /^https?:\/\//i.test(value),
+    "El enlace debe empezar por http:// o https://.",
+  );
+
+const joinPolicyOptionalField = z
+  .enum(["open", "approval"], { error: "Elige cómo se entra al club." })
+  .optional();
+
 const trimmed = (min: number, max: number, label: string) =>
   z
     .string()
@@ -343,14 +375,13 @@ export const clubUpdateSchema = z.object({
     .string()
     .trim()
     .max(280, "La descripción no puede superar 280 caracteres.")
-    .optional()
-    .default(""),
-  meetsOn: z.string().trim().max(80, "El día de encuentro es demasiado largo.").optional().default(""),
-  meetsAt: meetsAtField,
-  meetsPlace: meetsPlaceField,
-  meetsLink: meetsLinkField,
+    .optional(),
+  meetsOn: z.string().trim().max(80, "El día de encuentro es demasiado largo.").optional(),
+  meetsAt: meetsAtOptionalField,
+  meetsPlace: meetsPlaceOptionalField,
+  meetsLink: meetsLinkOptionalField,
   bookId: z.string().min(1, "Falta el libro del club.").nullable().optional(),
-  joinPolicy: joinPolicyField,
+  joinPolicy: joinPolicyOptionalField,
   // Sin `default(0)`: un PATCH parcial no debe reiniciar el progreso del club.
   progress: z.coerce
     .number()
@@ -362,8 +393,7 @@ export const clubUpdateSchema = z.object({
     .string()
     .trim()
     .max(80, "La nota de progreso no puede superar 80 caracteres.")
-    .optional()
-    .default(""),
+    .optional(),
 });
 
 /**
@@ -625,6 +655,11 @@ export const privacySchema = z.object({
   dmPolicy: z.enum(["mutual", "exchanged"], {
     error: "Esa opción de mensajes no existe.",
   }),
+  /**
+   * Contar el recorrido de los ejemplares. Opcional para no resetear la
+   * preferencia desde clientes que todavía no la conocen.
+   */
+  showJourney: z.boolean().optional(),
 });
 
 export const moderationSchema = z.object({
@@ -653,6 +688,35 @@ export const moderationSchema = z.object({
   days: z.number().int().min(1).max(365).optional(),
 });
 
+/** Hosts de los servicios Web Push que usan los navegadores conocidos. */
+const PUSH_ENDPOINT_HOSTS = [
+  "fcm.googleapis.com",
+  "android.googleapis.com",
+  "updates.push.services.mozilla.com",
+  "push.services.mozilla.com",
+  "web.push.apple.com",
+];
+
+/**
+ * El endpoint lo elige el navegador, pero llega por la API: si se acepta
+ * cualquier https, el servidor se convierte en un proxy para peticiones POST a
+ * hosts internos (SSRF). Solo se admiten los servicios push estándar.
+ */
+export function isAllowedPushEndpoint(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return false;
+  if (url.port && url.port !== "443") return false;
+  const host = url.hostname.toLowerCase();
+  return (
+    PUSH_ENDPOINT_HOSTS.includes(host) || host.endsWith(".notify.windows.com")
+  );
+}
+
 /**
  * Suscripción a los avisos del navegador (Web Push).
  *
@@ -665,7 +729,7 @@ export const pushSubscriptionSchema = z.object({
     .string()
     .min(10, "El endpoint del navegador no es válido.")
     .max(2000, "El endpoint del navegador no es válido.")
-    .startsWith("https://", "El endpoint del navegador no es válido."),
+    .refine(isAllowedPushEndpoint, "El endpoint del navegador no es válido."),
   keys: z.object({
     p256dh: z
       .string()

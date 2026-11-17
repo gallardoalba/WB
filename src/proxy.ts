@@ -179,7 +179,10 @@ export function proxy(request: NextRequest) {
   // el `Referer` y acabaría en el registro. En el resto basta el valor normal.
   // Se mira la ruta interna: con `/es/verificar` el prefijo sobraba.
   const rutaInterna = usaPrefijo ? prefijo.path : request.nextUrl.pathname;
-  const unaSolaVez = rutaInterna === "/verificar" || rutaInterna === "/restablecer";
+  const unaSolaVez =
+    rutaInterna === "/verificar" ||
+    rutaInterna === "/restablecer" ||
+    rutaInterna === "/apelar";
   response.headers.set(
     "Referrer-Policy",
     unaSolaVez ? "no-referrer" : "strict-origin-when-cross-origin",

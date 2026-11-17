@@ -155,6 +155,27 @@ test("el esquema rechaza endpoints que no son https y claves vacías", () => {
     }).success,
     false,
   );
+  // El endpoint llega del cliente: aceptar cualquier https convertiría al
+  // servidor en un proxy SSRF hacia hosts internos.
+  for (const endpoint of [
+    "https://127.0.0.1/push",
+    "https://10.0.0.5:8443/push",
+    "https://evil.example.org/push",
+    "https://fcm.googleapis.com:8443/push",
+  ]) {
+    assert.equal(
+      validation.pushSubscriptionSchema.safeParse({ ...bueno, endpoint }).success,
+      false,
+      endpoint,
+    );
+  }
+  assert.equal(
+    validation.pushSubscriptionSchema.safeParse({
+      ...bueno,
+      endpoint: "https://wns2-par02p.notify.windows.com/w/?token=abc",
+    }).success,
+    true,
+  );
   assert.equal(
     validation.pushSubscriptionSchema.safeParse({
       endpoint: bueno.endpoint,

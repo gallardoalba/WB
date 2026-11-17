@@ -25,9 +25,9 @@ import { ApiError } from "./errors";
  * El tope de memoria lo pone `MAX_COVER_PIXELS`, que es el que manda en las
  * imágenes cuadradas o apaisadas.
  */
-export const MAX_COVER_SIDE = 8_000;
-/** Tope de píxeles: 16 Mpx son 64 MB en RGBA, lo máximo razonable aquí. */
-export const MAX_COVER_PIXELS = 16_000_000;
+export const MAX_COVER_SIDE = 6_000;
+/** Tope de píxeles: 8 Mpx son 32 MB en RGBA; el decodificado es síncrono. */
+export const MAX_COVER_PIXELS = 8_000_000;
 /** Calidad del JPG resultante: 85 es el punto habitual entre peso y detalle. */
 const QUALITY = 85;
 

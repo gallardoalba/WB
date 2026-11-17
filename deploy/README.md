@@ -365,8 +365,10 @@ sudo npm ... run mastodon:test -- --gustos
 sudo cp deploy/wanderbibliothek.service deploy/wanderbibliothek-maintenance.service \
         deploy/wanderbibliothek-maintenance.timer deploy/wanderbibliothek-backup.service \
         deploy/wanderbibliothek-backup.timer deploy/wanderbibliothek-watchdog.service \
-        deploy/wanderbibliothek-watchdog.timer /etc/systemd/system/
+        deploy/wanderbibliothek-watchdog.timer deploy/wanderbibliothek-verify.service \
+        deploy/wanderbibliothek-verify.timer /etc/systemd/system/
 sudo install -m 755 deploy/run-backup-container.sh /usr/local/sbin/wanderbibliothek-backup
+sudo install -m 755 deploy/run-verify-backup.sh /usr/local/sbin/wanderbibliothek-verify
 sudo install -m 755 deploy/watchdog.sh /usr/local/sbin/wanderbibliothek-watchdog
 sudo install -Dm644 deploy/backup-key.sh /usr/local/lib/wanderbibliothek/backup-key.sh
 # Endurecimiento: ProtectSystem=strict, topes de memoria y la caché de Next
@@ -376,9 +378,12 @@ sudo install -Dm644 deploy/wanderbibliothek-hardening.conf \
 sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current
 sudo systemctl daemon-reload
 sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer \
-  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer
+  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer \
+  wanderbibliothek-verify.timer
 
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
+# Caché de imágenes del proxy (portadas): nginx la necesita creada y escribible.
+sudo install -d -o www-data -g www-data -m 700 /var/cache/nginx/wb_images
 # Bloqueo de rastreadores de IA por User-Agent (contexto `http`).
 sudo install -m 644 deploy/nginx-ai.conf /etc/nginx/conf.d/wanderbibliothek-ai.conf
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
@@ -428,6 +433,19 @@ sola:
   separa por commit para que los navegadores no reutilicen errores 404 de una
   versión previa. Por eso la aplicación va con `compress: false` en
   `next.config.ts`: comprimir en los dos sitios solo gastaba CPU.
+- **Caché de imágenes en el borde** (`proxy_cache`, zona `wb_images`). Las
+  portadas —lo más pesado que sirve la aplicación— y sus versiones reducidas de
+  `/_next/image` se guardan en `/var/cache/nginx/wb_images` (1 GB como mucho, un
+  mes sin tocarse) y las sirve nginx sin llegar a Node. La clave es la URL, que
+  lleva la versión de la portada (`?v=…`): sustituir una imagen es una clave
+  nueva, así que no hay nada que invalidar a mano. `/_next/image` negocia WebP o
+  AVIF con `Accept` y responde `Vary: Accept`; como la caché de nginx no mira
+  `Vary`, el formato entra en la clave (`$wb_image_format`, tres valores como
+  mucho) para no servir a un navegador el WebP guardado para otro. Solo se
+  cachean `GET`/`HEAD`: subir o borrar una portada (`PUT`/`DELETE`) sigue
+  llegando a la aplicación. Para ver qué hace, mira la cabecera
+  `X-Cache-Status` (`HIT`, `MISS`, `STALE`, `UPDATING`); para vaciarla,
+  `sudo rm -rf /var/cache/nginx/wb_images/*` y recarga.
 - **HTTP/3** (`listen 443 quic` + `Alt-Svc`) con el módulo `http_v3_module` de
   Debian. Hay que abrir UDP: `sudo ufw allow 443/udp`. Si el navegador no lo
   negocia, sigue por HTTP/2 sin cambiar nada.
@@ -571,6 +589,10 @@ apareció el bucle de redirecciones de `/api/requests`.
 - **Cada 6 horas** (`wanderbibliothek-backup.timer`, a las 00:20, 06:20, 12:20 y
   18:20; antes era diaria, pero la base ocupa ~2 MB y el RPO baja de 24 h a 6 h),
   con `integrity_check` y rotación de 14 copias.
+- **Cada domingo a las 05:10**, `wanderbibliothek-verify.timer` descifra la copia
+  más reciente y la abre entera con el mismo código que sirve la web. Si la
+  restauración no es posible, la unidad falla y el motivo queda en
+  `journalctl -u wanderbibliothek-verify`.
 - Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
   se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
   sirven. Sin clave la copia quedaría en claro con correos y hashes dentro, así
@@ -709,6 +731,7 @@ systemctl --user daemon-reload && systemctl --user enable --now wanderbibliothek
 | `/api/cron/maintenance` responde 403 al llamarlo desde fuera | Correcto: nginx solo lo deja entrar desde loopback |
 | Los mensajes nuevos no aparecen solos | nginx con buffering en `/api/requests/` |
 | Al pedir un libro, la app dice «el servidor responde con una redirección» y la web «No hay conexión con el servidor» | El vhost todavía tiene `location /api/requests/ {` (con barra). nginx manda `/api/requests` a `/api/requests/`, Next lo devuelve a `/api/requests` y el 301/308 se muerde la cola. Se ve con `curl -sI https://tu-dominio/api/requests \| grep -i location`. Arreglo (una línea, sin tocar el resto del fichero, que es de certbot): `sudo sed -i 's\|location /api/requests/ {\|location ^~ /api/requests {\|' /etc/nginx/sites-available/wanderbibliothek && sudo nginx -t && sudo systemctl reload nginx`. `deploy.sh` lo corrige solo en el siguiente despliegue |
+| Una portada nueva tarda en verse | Caché del proxy: la URL correcta lleva `?v=…` (la genera la app al subir). Si `curl -sI` de la imagen devuelve `X-Cache-Status: HIT` con la imagen vieja, se subió sin versión: vacía `/var/cache/nginx/wb_images` |
 | Subir una portada responde **413** | `client_max_body_size` de nginx (128 KB globales, pensados para JSON). La ruta `/api/cover/` necesita su propio `location` con 8 MB; el registro del proxy lo dice: `error.log` → `client intended to send too large body`. Sin eso la imagen ni llega a la aplicación |
 | El disco crece y la base no baja | Normal: SQLite no compacta al borrar; el mantenimiento hace `PRAGMA optimize` y `wal_checkpoint(TRUNCATE)` |
 | No hay copias en `/var/backups/wanderbibliothek` | Mira `journalctl -u wanderbibliothek-backup`; si el log habla de `tsx`, la release se instaló sin dependencias de producción o falta el `WorkingDirectory` |
@@ -777,6 +800,10 @@ Las normas de convivencia, la moderación y las apelaciones se publican en `/nor
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no
   admiten varias réplicas. Escalar exige PostgreSQL y Redis/pubsub.
+- **Cada actualización reinicia el proceso.** No hay azul/verde: el servicio se
+  para, arranca la imagen o release nueva y se comprueba `/api/health`; si falla,
+  se vuelve a la anterior. Son unos segundos sin servicio, y no hay alta
+  disponibilidad: dos réplicas exigen PostgreSQL y Redis/pubsub.
 - **Los scripts de operación necesitan `tsx`**, que está en `dependencies` a
   propósito (no es una devDependency): así funcionan también con
   `npm ci --omit=dev` y dentro de la imagen.
@@ -981,8 +1008,10 @@ npm run transparency:verify -- --url https://tu-dominio
 
 El verificador descarga la instantánea y su NDJSON, recalcula hash y raíz,
 comprueba la firma y que la cadena de raíces no tenga eslabones rotos. Si eres un
-testigo externo, guarda la raíz que viste y pásala con `--snapshot <id> --pin
-<raíz>`: si la instancia reescribe esa instantánea, la comprobación falla. Sin
+testigo externo, guarda la huella de la clave y la raíz que viste y pásalas con
+`--snapshot <id> --key-fingerprint <sha256> --pin <raíz>`: si la instancia
+reescribe esa instantánea o empieza a firmar con otra clave, la comprobación
+falla. Sin
 firma, el verificador sale con error: una instantánea sin clave sirve para
 comparar contenido, no como prueba criptográfica.
 

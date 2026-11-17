@@ -83,8 +83,8 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         heading: "6. Visibility of the data",
         body: [
           "The profile (name, city, biography, books) is visible to signed-in users: this is what the community lives on.",
-          "You can choose who sees your profile (the whole community, only people you follow, or nobody), whether your city is shown, whether you sign reviews and comments with your name or as a community member, and who may message you directly. The exact city is still shown in an accepted exchange, since without it you cannot meet.",
-          "The home page and the catalogue can be browsed without an account, but without signing in each copy shows only the book details and the city: never who offers it, their note or the exact date.",
+          "You can choose who sees your profile (the whole community, only people you follow, or nobody), whether your city is shown, whether the journey of your copies is told (cities and months, never people), whether you sign reviews and comments with your name or as a community member, and who may message you directly. The exact city is still shown in an accepted exchange, since without it you cannot meet.",
+          "The home page and the catalogue can be browsed without an account. Without signing in, each copy shows only the book details and the city: never who offers it, their note or the exact date. When signed in, the record can tell the copy's journey: cities and months, never people.",
           "Search engines may not index the catalogue or the profiles (robots.txt).",
         ],
       },

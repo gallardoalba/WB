@@ -12,6 +12,7 @@
  */
 
 import { REPOSITORY } from "./brand";
+import { SCHEMA_VERSION } from "./db/schema";
 import type { Locale } from "./i18n";
 import { EN } from "./technical-en";
 
@@ -71,19 +72,19 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               79 rutas agrupadas por dominio",
+            "    api/               80 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v54), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v56), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 808 pruebas unitarias y de integración (100 ficheros)",
-            "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
+            "tests/                 869 pruebas unitarias y de integración (111 ficheros)",
+            "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
         },
@@ -144,7 +145,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 79 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 20 de los 108 métodos exportados (13 de los 79 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
+          text: "La API tiene 80 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 21 de los 109 métodos exportados (14 de los 80 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
         },
         {
           kind: "list",
@@ -158,7 +159,7 @@ const ES: TechnicalDocument = {
             "`/api/account/*`: perfil, idioma, contraseña, claves de cifrado, TOTP, exportación y borrado.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: apelaciones con token de un solo uso; el enlace se puede pedir de nuevo con el correo de la cuenta y la revisión la hace otra persona, del equipo o, con su nombre registrado, de otra instancia.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: denuncias, moderación, comentarios y avisos.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: portadas cacheadas y ficha bibliográfica (DNB y Open Library).",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: portadas y ficha bibliográfica (DNB y Open Library). La portada se envía desde disco en cuanto se lee —sin copiarla a memoria— y un 304 que no abre la imagen; el navegador pide además la versión reducida y en WebP a `/_next/image`, así que una tarjeta de 220 px no descarga el JPG de 1600 px. La URL lleva una versión (`?v=…`): al sustituir la portada cambia, y ninguna caché enseña la anterior. El vhost de nginx cachea además esas imágenes en el borde (`proxy_cache`), así que Node no envía bytes de portada en las visitas repetidas.",
             "`/api/cities?q=`: sugerencias de municipio para el selector de ciudad (OpenStreetMap por Photon), sin sesión porque la ciudad se elige ya en el registro.",
             "`/api/cron/maintenance`: tareas programadas, con `MAINTENANCE_TOKEN`: reintenta los envíos pendientes y purga lo viejo.",
           ],
@@ -181,7 +182,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v53). Una instalación nueva nace con `SCHEMA_V2` y sus índices; las existentes suben por la escalera de `src/lib/db/migrations.ts`, que conserva los datos. Del historial importan cuatro pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones) y la v53 (quién revisó una apelación y si vino de fuera del equipo). El detalle de cada paso está en ese fichero y en su historial de git.",
+          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan seis pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público) y la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla). El detalle de cada paso está en ese fichero y en su historial de git.`,
         },
         {
           kind: "p",
@@ -226,7 +227,7 @@ const ES: TechnicalDocument = {
             "Directorio `0700` y base `0600`; `npm run db:backup` usa la API `.backup()` de SQLite y cifra con AES-256-GCM si existe `WANDERBIBLIOTHEK_BACKUP_KEY`.",
             "Registro con honeypot, tiempo mínimo y Cloudflare Turnstile opcional; mensaje genérico para no revelar correos registrados.",
             "Tokens de cuenta de un solo uso, hasheados y con caducidad; cambiar la contraseña revoca todas las sesiones.",
-            "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje (sin ellos no se podría descifrar nada fuera de la aplicación), y borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo y sus conversaciones directas, y conserva el historial de intercambio sin romper los hilos ajenos.",
+            "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje (sin ellos no se podría descifrar nada fuera de la aplicación), y borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo, sus conversaciones directas, sus reseñas, sus mensajes de foro y sus votos, likes y asistencias, y conserva el historial de intercambio sin romper los hilos ajenos.",
             "Un mensaje cifrado se rechaza si falta el sobre de algún dispositivo activo del destinatario: el que se quedara fuera no podría leerlo y el fallo aparecería días después.",
             "Lo que este cifrado **no** cubre, dicho sin adornos: cada mensaje se cifra con la clave de identidad de su ranura, **sin secreto hacia delante** (no hay ratchet), y no hay recuperación. Quien obtenga a la vez la base y la clave privada de un dispositivo puede leer lo que ese dispositivo recibió; perder el dispositivo o los datos del navegador es perder ese historial. Cambiarlo exige versionar el protocolo y los dos clientes, no un parche.",
           ],
@@ -247,7 +248,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "El cron crea como mucho una instantánea al día del catálogo público: una línea JSON canónica por obra, su SHA-256, una raíz de Merkle y una firma Ed25519 si la instancia tiene `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lista las instantáneas y `/api/transparency/export` entrega el NDJSON exacto que se firmó. `npm run transparency:verify -- --url …` recalcula todo desde fuera y comprueba la cadena de raíces.",
+          text: "El cron crea como mucho una instantánea al día del catálogo público: una línea JSON canónica por obra, su SHA-256, una raíz de Merkle y una firma Ed25519 si la instancia tiene `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lista las instantáneas y `/api/transparency/export` entrega el NDJSON exacto que se firmó. `npm run transparency:verify -- --url …` recalcula todo desde fuera, comprueba la cadena de raíces y permite fijar la huella de la clave pública (`--key-fingerprint`) además de la raíz (`--pin`).",
         },
         {
           kind: "list",
@@ -331,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 808 pruebas unitarias y de integración en 100 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 869 pruebas unitarias y de integración en 111 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -367,7 +368,7 @@ const ES: TechnicalDocument = {
             "`npm run db:verify` es el ensayo de restauración: descifra la copia más reciente (o la que se le pase), la abre en solo lectura como lo haría la aplicación, ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del esquema y cuenta las tablas principales. Sale con error si la copia no se puede restaurar.",
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año), las apelaciones resueltas (2 años) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
-            "Cada respuesta lleva `x-request-id` y `x-response-time`, y cada petición deja una línea `[req] {…}` en el registro. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "Las rutas envueltas por `route()` dejan una línea `[req] {…}` y la cabecera `x-response-time`; nginx registra **todas las peticiones a la aplicación** con el mismo `x-request-id`, que también vuelve al cliente. Las rutas escritas a mano aún no emiten esa línea: la migración pendiente las va cubriendo. En `/api/metrics` (solo administración) hay un resumen de latencia p50/p95/p99 de esas rutas, memoria, flujos en vivo y tamaño de la base y del WAL. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor y el bus de avisos vive en memoria. Escalar exige PostgreSQL y Redis/pubsub.",
             "Techo medido con `npm run bench:sqlite`: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
@@ -421,6 +422,7 @@ const ES: TechnicalDocument = {
             "Los colores salen de tokens (`src/app/styles/tokens.css`): fuera de ese fichero no hay literales, así que el modo claro y el oscuro comparten el mismo marcado.",
             "Cuatro breakpoints (480, 768, 1120 y 1400/1800 px), escala de espacio de 4 a 48 px y controles de 40 px, 44 en móvil.",
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
+            "Lo que no se ve al cargar no viaja en el paquete inicial: el diálogo de acceso, el de intercambio (criptografía y QR), el formulario de publicación, las notificaciones y las vistas de comunidad e intercambios se descargan con `next/dynamic` cuando se abren. La criptografía del navegador se importa al publicar la clave, no al arrancar. Ojo con `dynamic` en algo que se monta siempre: sin `loading`, su descarga suspende el árbol entero y la página tarda en responder (lo cubre `e2e/app.spec.ts` con el foco del corazón).",
             "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado: las animaciones (en `styles/motion.css`) solo mueven `opacity` y `transform`, y se apagan enteras con esa preferencia.",
             "La interfaz es trilingüe y cada idioma tiene su propia URL: el alemán es el de por defecto y va sin prefijo (`/werk/x`), mientras que el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios para que los buscadores los indexen por separado. Dentro de una URL con prefijo manda el prefijo; si no lo hay manda el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo; sin preferencia se usa el idioma del navegador (`Accept-Language`) y, si no hay ninguno de los tres, el alemán.",
           ],
@@ -467,7 +469,7 @@ const ES: TechnicalDocument = {
             {
               label: "NOTICE",
               href: `${REPOSITORY}/blob/main/NOTICE`,
-              note: "Atribuciones de la fotografía de portada y de la tipografía.",
+              note: "Atribuciones de la fotografía de portada y de los componentes de terceros.",
             },
           ],
         },
@@ -511,19 +513,19 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               79 Routen, nach Domäne gruppiert",
+            "    api/               80 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v54), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v56), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 808 Unit- und Integrationstests (100 Dateien)",
-            "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
+            "tests/                 869 Unit- und Integrationstests (111 Dateien)",
+            "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
         },
@@ -584,7 +586,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 79 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 20 der 108 exportierten Methoden ab (13 der 79 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
+          text: "Die API besteht aus 80 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 21 der 109 exportierten Methoden ab (14 der 80 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
         },
         {
           kind: "list",
@@ -598,7 +600,7 @@ const DE: TechnicalDocument = {
             "`/api/account/*`: Profil, Sprache, Passwort, Verschlüsselungsschlüssel, TOTP, Export und Löschung.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: Einsprüche mit Einmal-Token; der Link lässt sich mit der E-Mail des Kontos neu anfordern, und geprüft wird von einer anderen Person, aus dem Team oder, mit Namen protokolliert, aus einer anderen Instanz.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: Meldungen, Moderation, Kommentare und Hinweise.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: zwischengespeicherte Cover und bibliografische Daten (DNB und Open Library).",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: Cover und bibliografische Daten (DNB und Open Library). Das Cover wird beim Lesen von der Platte gestreamt —ohne es in den Speicher zu kopieren—, und ein 304 öffnet das Bild nicht; der Browser holt zusätzlich die verkleinerte WebP-Fassung über `/_next/image`, sodass eine 220-Pixel-Karte nicht das 1600-Pixel-JPG lädt. Die URL trägt eine Version (`?v=…`): wird das Cover ersetzt, ändert sie sich und kein Cache zeigt das alte. Der nginx-Vhost legt diese Bilder zusätzlich am Rand ab (`proxy_cache`), sodass Node bei wiederholten Besuchen keine Cover-Bytes mehr sendet.",
             "`/api/cities?q=`: Ortsvorschläge für die Stadtauswahl (OpenStreetMap über Photon), ohne Sitzung, weil die Stadt schon bei der Registrierung gewählt wird.",
             "`/api/cron/maintenance`: geplante Aufgaben mit `MAINTENANCE_TOKEN`: wiederholt ausstehende Zustellungen und räumt Altes auf.",
           ],
@@ -621,7 +623,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v53). Eine neue Installation startet mit `SCHEMA_V2` und seinen Indizes; bestehende steigen über die Leiter in `src/lib/db/migrations.ts` auf, die die Daten erhält. Für den heutigen Code zählen vier Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche) und die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.",
+          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen sechs Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs) und die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
         },
         {
           kind: "p",
@@ -666,7 +668,7 @@ const DE: TechnicalDocument = {
             "Verzeichnis `0700` und Datenbank `0600`; `npm run db:backup` nutzt die `.backup()`-API von SQLite und verschlüsselt mit AES-256-GCM, wenn `WANDERBIBLIOTHEK_BACKUP_KEY` gesetzt ist.",
             "Registrierung mit Honeypot, Mindestzeit und optionalem Cloudflare Turnstile; die Antwort ist allgemein gehalten, um keine Adressen zu verraten.",
             "Konto-Tokens sind einmalig, gehasht und befristet; ein Passwortwechsel beendet alle Sitzungen.",
-            "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht (ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln); das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel und die Direktgespräche und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
+            "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht (ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln); das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel, die Direktgespräche, die Rezensionen, die Forumsbeiträge sowie Stimmen, Likes und Teilnahmen und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
             "Eine verschlüsselte Nachricht wird abgelehnt, wenn der Umschlag für ein aktives Gerät der anderen Person fehlt: Das übergangene Gerät könnte sie nicht lesen, und der Fehler würde erst Tage später auffallen.",
             "Was diese Verschlüsselung **nicht** abdeckt, ohne Beschönigung: Jede Nachricht wird mit dem Identitätsschlüssel ihrer Slot verschlüsselt, **ohne Forward Secrecy** (kein Ratchet), und es gibt keine Wiederherstellung. Wer gleichzeitig die Datenbank und den privaten Schlüssel eines Geräts erlangt, kann lesen, was dieses Gerät empfangen hat; ein verlorenes Gerät oder gelöschte Browserdaten bedeuten verlorene Historie. Das zu ändern verlangt eine versionierte Änderung des Protokolls und beider Clients, keinen Patch.",
           ],
@@ -687,7 +689,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Der Cron erstellt höchstens eine Momentaufnahme des öffentlichen Katalogs pro Tag: eine kanonische JSON-Zeile pro Werk, ihren SHA-256, eine Merkle-Wurzel und eine Ed25519-Signatur, wenn die Instanz `TRANSPARENCY_SIGNING_KEY` hat. `/api/transparency` listet die Momentaufnahmen, `/api/transparency/export` liefert genau das signierte NDJSON. `npm run transparency:verify -- --url …` berechnet alles von außen neu und prüft die Kette der Wurzeln.",
+          text: "Der Cron erstellt höchstens eine Momentaufnahme des öffentlichen Katalogs pro Tag: eine kanonische JSON-Zeile pro Werk, ihren SHA-256, eine Merkle-Wurzel und eine Ed25519-Signatur, wenn die Instanz `TRANSPARENCY_SIGNING_KEY` hat. `/api/transparency` listet die Momentaufnahmen, `/api/transparency/export` liefert genau das signierte NDJSON. `npm run transparency:verify -- --url …` berechnet alles von außen neu, prüft die Kette der Wurzeln und erlaubt neben der Wurzel (`--pin`) auch den Fingerabdruck des öffentlichen Schlüssels (`--key-fingerprint`) zu fixieren.",
         },
         {
           kind: "list",
@@ -771,7 +773,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 808 Unit- und Integrationstests in 100 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 869 Unit- und Integrationstests in 111 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",
@@ -807,7 +809,7 @@ const DE: TechnicalDocument = {
             "`npm run db:verify` ist die Wiederherstellungsprobe: entschlüsselt die neueste Sicherung (oder die übergebene), öffnet sie schreibgeschützt wie die Anwendung, führt `integrity_check` und `foreign_key_check` aus, prüft die Schemaversion und zählt die wichtigsten Tabellen. Bricht mit Fehler ab, wenn die Sicherung sich nicht wiederherstellen lässt.",
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr), entschiedene Einsprüche (2 Jahre) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
-            "Jede Antwort trägt `x-request-id` und `x-response-time`, und jede Anfrage hinterlässt eine Zeile `[req] {…}` im Log. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "Von `route()` umschlossene Routen hinterlassen eine `[req] {…}`-Zeile und die Kopfzeile `x-response-time`; nginx protokolliert **jede Anfrage an die Anwendung** mit derselben `x-request-id`, die auch an den Client zurückgeht. Handgeschriebene Routen erzeugen diese Zeile noch nicht: die ausstehende Migration deckt sie nach und nach ab. `/api/metrics` (nur Administration) liefert p50/p95/p99-Latenz dieser Routen, Speicher, offene Streams sowie Größe von Datenbank und WAL. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, und der Hinweis-Bus liegt im Speicher. Skalierung verlangt PostgreSQL und Redis/Pubsub.",
             "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
@@ -861,6 +863,7 @@ const DE: TechnicalDocument = {
             "Farben kommen aus Tokens (`src/app/styles/tokens.css`): außerhalb dieser Datei gibt es keine Literale, deshalb teilen helles und dunkles Thema dasselbe Markup.",
             "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
+            "Was beim Laden nicht zu sehen ist, reist nicht im Startpaket: Anmeldedialog, Tauschdialog (Kryptografie und QR), Veröffentlichungsformular, Benachrichtigungen sowie Community- und Tauschansicht kommen per `next/dynamic`, wenn sie geöffnet werden. Die Browser-Kryptografie wird beim Veröffentlichen des Schlüssels geladen, nicht beim Start. Vorsicht bei `dynamic` für etwas, das immer eingebunden ist: ohne `loading` suspensiert sein Laden den ganzen Baum und die Seite reagiert spät (abgedeckt von `e2e/app.spec.ts` über den Fokus des Herzens).",
             "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert: die Animationen (in `styles/motion.css`) bewegen nur `opacity` und `transform` und entfallen mit dieser Einstellung ganz.",
             "Die Oberfläche ist dreisprachig und jede Sprache hat ihre eigene URL: Deutsch ist die Vorgabe und bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/…`, jeweils mit eigenem `hreflang` und Canonical, damit Suchmaschinen sie getrennt indexieren. Innerhalb einer URL mit Präfix gilt das Präfix; sonst gilt der Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert; ohne Vorliebe entscheidet die Sprache des Browsers (`Accept-Language`) und, wenn keine der drei passt, Deutsch.",
           ],
@@ -907,7 +910,7 @@ const DE: TechnicalDocument = {
             {
               label: "NOTICE",
               href: `${REPOSITORY}/blob/main/NOTICE`,
-              note: "Herkunftsnachweise für das Titelbild und die Schrift der Cover.",
+              note: "Herkunftsnachweise für das Titelbild und die Komponenten von Drittanbietern.",
             },
           ],
         },

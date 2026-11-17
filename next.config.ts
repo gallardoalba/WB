@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
   outputHashSalt: process.env.APP_COMMIT_SHA ?? "",
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    /**
+     * El optimizador rechaza por defecto las rutas locales con parámetros
+     * (`400 Bad Request`), y las portadas llevan versión: `?v=…` es lo que hace
+     * que una imagen sustituida no se quede pegada en la caché del navegador.
+     * El patrón no abre nada de fuera: `/_next/image` solo puede pedir rutas de
+     * este mismo servidor.
+     */
+    localPatterns: [{ pathname: "/**" }],
+  },
   /**
    * Compilador de React: memoiza solo los componentes y hooks que lo
    * necesitan (Next lo aplica archivo a archivo con una pasada de SWC), así que

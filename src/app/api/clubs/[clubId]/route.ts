@@ -32,9 +32,14 @@ export async function GET(request: Request, { params }: Context) {
     const posts = club.isMember
       ? listClubPosts(club.id, { id: user.id, isAdmin: user.isAdmin })
       : null;
+    // La lista de miembros no sale del club: la página ya la ocultaba y la API
+    // tampoco debe entregarla a quien no pertenece a él.
+    const canSeeMembers = club.isMember || club.isMine || club.isModerator;
     return json({
       club,
-      members: listClubMembers(club.id, { page: 1, pageSize: 24 }),
+      members: canSeeMembers
+        ? listClubMembers(club.id, { page: 1, pageSize: 24, viewerId: user.id })
+        : { members: [], total: 0, hasMore: false },
       posts,
       poll: club.isMember ? getActiveClubPoll(club.id, user.id) : null,
       requests:
@@ -56,7 +61,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ cl
       description: input.description,
       meetsOn: input.meetsOn,
       meetsAt: input.meetsAt,
-      bookId: input.bookId ?? null,
+      meetsPlace: input.meetsPlace,
+      meetsLink: input.meetsLink,
+      bookId: input.bookId,
       joinPolicy: input.joinPolicy,
       progress: input.progress,
       progressNote: input.progressNote,

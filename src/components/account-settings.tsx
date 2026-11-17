@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Download, Lock, LogOut, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { ensureIdentity } from "@/lib/e2e";
+import { localePath } from "@/lib/locale";
 import type { RequestView, SessionUser } from "@/lib/domain";
 import { formatWhen } from "@/lib/text";
 import { CityField } from "./city-field";
@@ -52,6 +53,7 @@ export function AccountSettings({
     cityPrecision: user.cityPrecision,
     signAs: user.signAs,
     dmPolicy: user.dmPolicy,
+    showJourney: user.showJourney,
   });
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [privacyMsg, setPrivacyMsg] = useState("");
@@ -845,6 +847,21 @@ export function AccountSettings({
               <option value="community">{t("Como una persona de la comunidad")}</option>
             </select>
 
+            <label className="checkbox-row" htmlFor="privacy-journey">
+              <input
+                id="privacy-journey"
+                type="checkbox"
+                checked={privacy.showJourney}
+                onChange={(event) =>
+                  setPrivacy({ ...privacy, showJourney: event.target.checked })
+                }
+              />
+              <span>{t("Contar el viaje de mis ejemplares")}</span>
+            </label>
+            <p className="form-note">
+              {t("En la ficha, quien tiene sesión ve las ciudades y los meses por los que ha pasado el libro, nunca las personas. Si lo apagas, el recorrido no se enseña.")}
+            </p>
+
             <label htmlFor="privacy-dm">{t("Quién puede escribirme")}</label>
             <select
               id="privacy-dm"
@@ -866,6 +883,18 @@ export function AccountSettings({
               {privacyBusy ? t("Guardando…") : t("Guardar privacidad")}
             </button>
           </form>
+        </details>
+      </div>
+
+      <div className="account-box">
+        <details>
+          <summary>{t("Primeros pasos")}</summary>
+          <p className="form-note">
+            {t("El tour de bienvenida se ofrece a las cuentas que aún no han publicado ni pedido nada. Puedes volver a verlo cuando quieras.")}
+          </p>
+          <a className="secondary-button small" href={`${localePath(locale, "/")}?tour=1`}>
+            {t("Ver el tour otra vez")}
+          </a>
         </details>
       </div>
 

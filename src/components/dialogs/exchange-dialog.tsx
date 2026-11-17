@@ -18,6 +18,7 @@ import {
   ensureIdentity,
   isEncryptionSupported,
   messageAad,
+  safetyNumber,
   type RecipientKey,
 } from "@/lib/e2e";
 import { allowedTargets } from "@/lib/request-flow";
@@ -58,6 +59,8 @@ type Conversation = {
   peer: PublicKeyView;
   /** La huella guardada de la otra persona no coincide con la actual. */
   keyChanged: boolean;
+  /** Huella de seguridad de las dos cuentas, para comparar por otro canal. */
+  safety: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -206,6 +209,7 @@ export function ExchangeDialog({
         me,
         peer,
         keyChanged: false,
+        safety: null,
       };
     }
     // La ranura web es la de este navegador. Si está vacía se publica gratis;
@@ -233,6 +237,11 @@ export function ExchangeDialog({
     // TOFU por dispositivo: la primera huella de cada ranura se recuerda; si
     // cambia, se avisa. Añadir la ranura del móvil no es un cambio.
     const keyChanged = checkPeerKeys(peer.id, peerKeys);
+    const safety = await safetyNumber([
+      ...(me.keys ?? []).map((key) => key.publicJwk),
+      identity.publicJwk,
+      ...peerKeys.map((key) => key.publicJwk),
+    ]);
     const decoded = await decodePayload(payload.messages, identity, peerKeys, conversationId);
     return {
       peerKeys,
@@ -244,6 +253,7 @@ export function ExchangeDialog({
       me,
       peer,
       keyChanged,
+      safety,
     };
   }
 
@@ -271,6 +281,7 @@ export function ExchangeDialog({
           me: data.keys.me,
           peer: data.keys.peer,
           keyChanged: false,
+          safety: null,
         };
         try {
           prepared = await prepareConversation(data, requestId);
@@ -334,6 +345,7 @@ export function ExchangeDialog({
             me: thread.me,
             peer: thread.peer,
             keyChanged: thread.keyChanged,
+            safety: thread.safety,
           }
         : {
             peerKeys: [],
@@ -345,6 +357,7 @@ export function ExchangeDialog({
             me: data.keys.me,
             peer: data.keys.peer,
             keyChanged: false,
+            safety: null,
           };
       const decoded = { ...prepared.decoded };
       if (prepared.privateKey && prepared.myKeyId) {
@@ -647,6 +660,19 @@ export function ExchangeDialog({
         {thread?.peer.name ?? t("la otra persona")}:{" "}
         <strong>{t(shortFingerprint(thread?.peer.keyId ?? null))}</strong>
       </p>
+
+      {thread?.safety && (
+        <details className="safety-number">
+          <summary>{t("Huella de seguridad")}</summary>
+          <p>
+            {t(
+              "Compárala con {name} por otro canal. Si cambia, alguien puede haberse interpuesto.",
+              { name: thread?.peer.name ?? t("la otra persona") },
+            )}
+          </p>
+          <code>{thread.safety}</code>
+        </details>
+      )}
 
       <details className="exchange-help">
         <summary>{t("¿Cómo funciona el cifrado?")}</summary>

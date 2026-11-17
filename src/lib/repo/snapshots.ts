@@ -1,5 +1,12 @@
 import { getDb } from "../db";
-import type { ActivityView, AppSnapshot, ListingView, SessionUser, StatsView } from "../domain";
+import type {
+  ActivityView,
+  AppSnapshot,
+  ListingView,
+  OnboardingProgress,
+  SessionUser,
+  StatsView,
+} from "../domain";
 import { listAvailabilityAlerts } from "./alerts";
 import { PAGE_SIZE, catalogPage, shelfListings, type CatalogPageParams } from "./catalog";
 import { listClubs } from "./clubs";
@@ -61,6 +68,14 @@ export function getSnapshot(
       ? listPublicReadingLists({ viewerId, q: communityQuery, pageSize: 3 })
       : null;
 
+  const myPublished = user
+    ? (
+        getDb()
+          .prepare("SELECT COUNT(*) AS count FROM listings WHERE owner_id = ? AND status <> 'removed'")
+          .get(user.id) as { count: number }
+      ).count
+    : 0;
+
   const following = Boolean(user && params.feed === "following");
   const activity = !isCommunity
     ? []
@@ -110,13 +125,48 @@ export function getSnapshot(
     notifications: user ? listNotifications(user.id) : [],
     unreadNotifications: user ? countUnreadNotifications(user.id) : 0,
     unreadMessages: user ? countUnreadMessages(user.id) : 0,
-    myPublished: user
-      ? (
-          getDb()
-            .prepare("SELECT COUNT(*) AS count FROM listings WHERE owner_id = ? AND status <> 'removed'")
-            .get(user.id) as { count: number }
-        ).count
-      : 0,
+    myPublished,
     availabilityAlerts: user ? listAvailabilityAlerts(user.id) : [],
+    // Solo la portada pinta la lista de primeros pasos; el resto de vistas no
+    // paga la consulta extra.
+    onboarding:
+      user && params.view === "home" ? onboardingProgress(user, myPublished) : NO_ONBOARDING,
+  };
+}
+
+const NO_ONBOARDING: OnboardingProgress = {
+  profile: false,
+  published: false,
+  requested: false,
+  following: false,
+};
+
+/**
+ * Qué le falta a una cuenta para arrancar.
+ *
+ * Se pregunta a la base y no al cliente: el recorrido de la persona (perfil,
+ * publicaciones, solicitudes y seguimiento) es lo que decide qué se tacha, y
+ * así da igual el dispositivo desde el que entre.
+ */
+function onboardingProgress(
+  user: SessionUser,
+  published: number,
+): OnboardingProgress {
+  // El perfil y las publicaciones ya se conocen: solo faltan dos EXISTS, ambos
+  // con índice por la primera columna.
+  const row = getDb()
+    .prepare(
+      `SELECT
+         EXISTS(SELECT 1 FROM requests WHERE requester_id = @userId) AS requested,
+         EXISTS(SELECT 1 FROM follows WHERE follower_id = @userId) AS following`,
+    )
+    .get({ userId: user.id }) as
+    | { requested: number; following: number }
+    | undefined;
+  return {
+    profile: user.bio.trim() !== "",
+    published: published > 0,
+    requested: Boolean(row?.requested),
+    following: Boolean(row?.following),
   };
 }

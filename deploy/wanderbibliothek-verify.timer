@@ -1,0 +1,14 @@
+[Unit]
+Description=Wanderbibliothek · ensayo semanal de restauración
+
+[Timer]
+# La copia se hace cada 6 horas; el domingo por la mañana se comprueba que la
+# última se descifra, se abre y se lee entera. Un fallo queda en el journal y
+# en el estado del temporizador.
+OnCalendar=Sun 05:10:00
+RandomizedDelaySec=20m
+Persistent=true
+Unit=wanderbibliothek-verify.service
+
+[Install]
+WantedBy=timers.target

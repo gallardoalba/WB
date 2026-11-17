@@ -230,14 +230,24 @@ test("los enlaces de un solo uso van en la query, y ni el registro ni el Referer
 
 test("un flujo en vivo por pestaña: se cortan las conexiones simultáneas de más", async () => {
   const live = await import("../src/lib/live.ts");
-  assert.equal(live.acquireStream("usr_ana"), true);
-  assert.equal(live.acquireStream("usr_ana"), true);
-  assert.equal(live.acquireStream("usr_ana"), true);
-  assert.equal(live.acquireStream("usr_ana"), false, "la cuarta no se admite");
+  assert.equal(live.acquireStream("usr_ana"), "ok");
+  assert.equal(live.acquireStream("usr_ana"), "ok");
+  assert.equal(live.acquireStream("usr_ana"), "ok");
+  assert.equal(live.acquireStream("usr_ana"), "user", "la cuarta no se admite");
   // Otra cuenta no se ve afectada.
-  assert.equal(live.acquireStream("usr_clara"), true);
+  assert.equal(live.acquireStream("usr_clara"), "ok");
   live.releaseStream("usr_ana");
-  assert.equal(live.acquireStream("usr_ana"), true, "al cerrar una pestaña se libera");
+  assert.equal(live.acquireStream("usr_ana"), "ok", "al cerrar una pestaña se libera");
   for (let index = 0; index < 4; index += 1) live.releaseStream("usr_ana");
-  assert.equal(live.acquireStream("usr_ana"), true, "liberar de más no deja el contador negativo");
+  assert.equal(live.acquireStream("usr_ana"), "ok", "liberar de más no deja el contador negativo");
+});
+
+test("las páginas con token de un solo uso no filtran la URL por Referer", () => {
+  const proxy = source("src/proxy.ts");
+  for (const route of ["/verificar", "/restablecer", "/apelar"]) {
+    assert.ok(
+      proxy.includes(`rutaInterna === "${route}"`),
+      `${route} debe quedar fuera del Referer`,
+    );
+  }
 });

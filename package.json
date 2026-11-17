@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad, mensajería cifrada de extremo a extremo y clubes de lectura.",
   "license": "MIT",
@@ -28,6 +28,7 @@
     "test": "node --enable-source-maps --import tsx --test \"tests/*.test.ts\"",
     "typecheck": "next typegen && tsc --noEmit",
     "db:reset": "rm -f .data/wanderbibliothek.db .data/wanderbibliothek.db-wal .data/wanderbibliothek.db-shm",
+    "db:schema-snapshot": "node --import tsx scripts/schema-snapshot.ts",
     "db:backup": "node --import tsx scripts/backup.ts",
     "db:decrypt": "node --import tsx scripts/decrypt-backup.ts",
     "db:verify": "node --import tsx scripts/verify-backup.ts",
@@ -46,8 +47,11 @@
     "transparency:snapshot": "node --import tsx scripts/transparency-snapshot.ts",
     "transparency:verify": "node --import tsx scripts/verify-transparency.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
-    "test:e2e": "playwright test",
-    "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
+    "bench:migrate": "node --import tsx scripts/bench-migrations.ts",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:smoke": "playwright test --project=firefox-smoke --project=webkit-smoke",
+    "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\"",
+    "audit:dev": "node --import tsx scripts/audit-dev.ts"
   },
   "engines": {
     "node": ">=22"
@@ -78,6 +82,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "fast-check": "^4.10.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

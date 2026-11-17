@@ -1,0 +1,24 @@
+[Unit]
+Description=Wanderbibliothek · ensayo de restauración de la copia más reciente
+Documentation=https://github.com/gallardoalba/WB/blob/main/deploy/README.md
+After=wanderbibliothek.service docker.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/wanderbibliothek/env
+EnvironmentFile=-/etc/wanderbibliothek/image.env
+RuntimeDirectory=wanderbibliothek-verify
+RuntimeDirectoryMode=0700
+ExecStart=/usr/local/sbin/wanderbibliothek-verify
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=30min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/run/wanderbibliothek-verify /var/backups/wanderbibliothek

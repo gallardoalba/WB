@@ -35,6 +35,8 @@ type PostRow = {
   author_id: string;
   author_name: string;
   author_city: string;
+  author_city_precision: string;
+  author_sign_as: string;
   likes: number;
   liked: number;
 };
@@ -86,6 +88,7 @@ const POST_FILTER = `
 const POST_SELECT = `
   SELECT p.id, p.club_id, p.parent_id, p.body, p.status, p.created_at, p.author_id,
          u.name AS author_name, u.city AS author_city,
+         u.city_precision AS author_city_precision, u.sign_as AS author_sign_as,
          (SELECT COUNT(*) FROM club_post_likes pl WHERE pl.post_id = p.id) AS likes,
          CASE WHEN EXISTS (
            SELECT 1 FROM club_post_likes pl
@@ -97,6 +100,8 @@ const POST_SELECT = `
 
 function toPostView(row: PostRow, viewerId: string, canModerate: boolean): ClubPostView {
   const deleted = row.status === "deleted";
+  const isMine = row.author_id === viewerId;
+  const anonymous = row.author_sign_as === "community" && !isMine;
   return {
     id: row.id,
     // Un mensaje borrado conserva el hueco del hilo, nunca el texto.
@@ -104,10 +109,16 @@ function toPostView(row: PostRow, viewerId: string, canModerate: boolean): ClubP
     deleted,
     hidden: row.status === "hidden",
     createdAt: row.created_at,
-    author: { id: row.author_id, name: row.author_name, city: row.author_city },
+    authorAnonymous: anonymous,
+    author: {
+      id: anonymous ? "" : row.author_id,
+      name: anonymous ? "" : row.author_name,
+      city:
+        row.author_city_precision === "hidden" && !isMine ? "" : row.author_city,
+    },
     likes: row.likes,
     likedByMe: Boolean(row.liked) && Boolean(viewerId),
-    isMine: row.author_id === viewerId,
+    isMine,
     canDelete: !deleted && (row.author_id === viewerId || canModerate),
     replies: [],
   };
@@ -291,14 +302,14 @@ export function createClubPost(input: {
     parent = row;
   }
 
+  const authorRow = db
+    .prepare("SELECT name, sign_as FROM users WHERE id = ?")
+    .get(input.authorId) as { name: string; sign_as: string } | undefined;
+  // La firma comunitaria también vale en los avisos de respuesta: si no, el
+  // nombre real viajaría en la notificación de un mensaje anónimo.
   const authorName =
     input.authorName ??
-    ((
-      db.prepare("SELECT name FROM users WHERE id = ?").get(input.authorId) as
-        | { name: string }
-        | undefined
-    )?.name ??
-      "Alguien");
+    (authorRow?.sign_as === "community" ? "Comunidad" : (authorRow?.name ?? "Alguien"));
 
   const id = `cpost_${randomUUID()}`;
   db.transaction(() => {

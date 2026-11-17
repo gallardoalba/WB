@@ -220,11 +220,13 @@ test("ninguna ruta se queda sin traducir los errores a JSON", () => {
   // `/api/health` responde a las sondas del despliegue, no a la aplicación:
   // su contrato es el código de estado, no un cuerpo de error.
   const exceptions = new Set(["src/app/api/health/route.ts"]);
-  const missing = ROUTES.filter(
-    (file) =>
-      !exceptions.has(file) &&
-      !/handleApiError|route[<(]/.test(readFileSync(file, "utf8")),
-  );
+  const missing = ROUTES.filter((file) => {
+    if (exceptions.has(file)) return false;
+    // Los `import` no cuentan: buscar la cadena tal cual daba por buena una ruta
+    // que importaba `handleApiError` y no lo llamaba.
+    const source = readFileSync(file, "utf8").replace(/^import\s+[\s\S]*?;\s*$/gm, "");
+    return !/handleApiError\s*\(|=\s*route[<(]/.test(source);
+  });
   assert.deepEqual(missing, [], `rutas sin manejo de errores: ${missing.join(", ")}`);
 });
 
@@ -297,4 +299,26 @@ test("una respuesta con cabeceras inmutables no rompe el envoltorio", async () =
   }));
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "http://localhost:3100/entrar");
+});
+
+test("mode hit no exime una mutación de la guardia de origen", async () => {
+  let called = false;
+  const handler = route(
+    {
+      auth: "none",
+      limit: { bucket: "prueba:hit-post", limit: 10, windowMs: 60_000, mode: "hit" },
+    },
+    () => {
+      called = true;
+      return Response.json({ ok: true });
+    },
+  );
+  const response = await handler(
+    new Request("http://localhost:3100/api/prueba", {
+      method: "POST",
+      headers: { origin: "https://evil.example" },
+    }),
+  );
+  assert.equal(called, false);
+  assert.equal(response.status, 403);
 });

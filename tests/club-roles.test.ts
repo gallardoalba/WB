@@ -246,3 +246,58 @@ test("quien lleva el club ve los mensajes denunciados y la denuncia se cierra al
     .get(post.id) as { status: string } | undefined;
   assert.equal(status?.status, "resolved");
 });
+
+test("el lugar y el enlace del encuentro solo salen para quien está en el club", () => {
+  const clubId = makeClub(["usr_ana"]);
+  repo.updateClub("usr_clara", clubId, {
+    name: repo.getClub(clubId, "usr_clara")!.name,
+    description: "Leemos y hablamos",
+    meetsOn: "Último martes, 19:00",
+    meetsAt: "2030-06-04T19:00:00.000Z",
+    meetsPlace: "Cafetería del museo",
+    meetsLink: "https://meet.example.com/club",
+    bookId: null,
+  });
+
+  const member = repo.getClub(clubId, "usr_ana");
+  assert.equal(member?.meetsPlace, "Cafetería del museo");
+  assert.equal(member?.meetsLink, "https://meet.example.com/club");
+
+  const outsider = repo.getClub(clubId, "usr_marcos");
+  assert.equal(outsider?.meetsPlace, "");
+  assert.equal(outsider?.meetsLink, "");
+  assert.equal(outsider?.hasMeetsLink, true, "el cliente necesita saber que hay enlace sin verlo");
+});
+
+test("un PATCH parcial del club conserva lo que no se envía", async () => {
+  const { clubUpdateSchema } = await import("../src/lib/validation.ts");
+  const parsed = clubUpdateSchema.parse({ name: "Solo nombre" });
+  assert.equal(parsed.description, undefined);
+  assert.equal(parsed.meetsOn, undefined);
+  assert.equal(parsed.meetsAt, undefined);
+  assert.equal(parsed.meetsPlace, undefined);
+  assert.equal(parsed.meetsLink, undefined);
+  assert.equal(parsed.joinPolicy, undefined);
+  assert.equal(parsed.progressNote, undefined);
+
+  const clubId = makeClub();
+  const original = repo.getClub(clubId, "usr_clara")!;
+  repo.updateClub("usr_clara", clubId, {
+    name: original.name,
+    description: "Descripción que debe sobrevivir",
+    meetsOn: "Último martes, 19:00",
+    meetsAt: "2030-06-04T19:00:00.000Z",
+    meetsPlace: "Sala 2",
+    meetsLink: "https://meet.example.com/parcial",
+    bookId: null,
+  });
+
+  // Solo cambia el nombre: el resto de campos no se reinicia.
+  repo.updateClub("usr_clara", clubId, { name: `${original.name} bis` });
+  const after = repo.getClub(clubId, "usr_clara")!;
+  assert.equal(after.description, "Descripción que debe sobrevivir");
+  assert.equal(after.meetsOn, "Último martes, 19:00");
+  assert.equal(after.meetsPlace, "Sala 2");
+  assert.equal(after.meetsLink, "https://meet.example.com/parcial");
+  assert.equal(after.book?.id ?? null, null);
+});

@@ -16,6 +16,19 @@ const ORIGIN_ONLY = new Map([
 /** Rutas autenticadas por token, sin cookies: no hay CSRF posible. */
 const TOKEN_ONLY = new Set(["cron/maintenance/route.ts"]);
 
+/**
+ * Handlers que aún no pasan por `route()`. Solo puede bajar: una ruta nueva que
+ * se escriba a mano rompe la prueba, y envolver una existente deja margen para
+ * bajar el tope. Completa la migración sin exigir un cambio de golpe.
+ */
+const MANUAL_HANDLERS = 88;
+
+/**
+ * Ficheros con handlers a mano que tampoco llaman a `recordRequest()`. Solo
+ * puede bajar: una ruta nueva sin `route()` ni registro rompe la prueba.
+ */
+const UNLOGGED_ROUTE_FILES = 66;
+
 function routeFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -62,6 +75,37 @@ test("las rutas que leen cuerpo exigen JSON a través de readJson()", () => {
     }
   }
   assert.deepEqual(offenders, [], `Rutas que parsean el cuerpo a mano: ${offenders.join(", ")}`);
+});
+
+test("la migración a route() no retrocede", () => {
+  let manual = 0;
+  for (const file of routeFiles(API_DIR)) {
+    const source = readFileSync(file, "utf8");
+    const handlers = source.match(/^export (?:const|async function) (?:GET|POST|PUT|PATCH|DELETE)\b/gm);
+    const wrapped = source.match(/^export const (?:GET|POST|PUT|PATCH|DELETE) = route[<(]/gm);
+    manual += (handlers?.length ?? 0) - (wrapped?.length ?? 0);
+  }
+  assert.ok(
+    manual <= MANUAL_HANDLERS,
+    `Quedan ${manual} handlers fuera de route() (tope ${MANUAL_HANDLERS}): una ruta nueva debe usar el envoltorio; si has envuelto alguna, baja el tope`,
+  );
+});
+
+test("ninguna ruta nueva se queda sin registro de petición", () => {
+  // `route()` ya llama a `recordRequest()`. Las que siguen a mano deben
+  // hacerlo ellas; hasta completar la migración, el tope es lo que impide que
+  // la deuda crezca.
+  const handlers = /^export (?:const|async function) (?:GET|POST|PUT|PATCH|DELETE)\b/m;
+  const wrapped = /^export const (?:GET|POST|PUT|PATCH|DELETE) = route[<(]/m;
+  const unlogged = routeFiles(API_DIR).filter((file) => {
+    const source = readFileSync(file, "utf8");
+    if (!handlers.test(source) || wrapped.test(source)) return false;
+    return !source.includes("recordRequest(");
+  });
+  assert.ok(
+    unlogged.length <= UNLOGGED_ROUTE_FILES,
+    `Hay ${unlogged.length} ficheros sin route() ni recordRequest() (tope ${UNLOGGED_ROUTE_FILES}): ${unlogged.join(", ")}`,
+  );
 });
 
 test("las rutas que leen la URL pública se renderizan por petición", () => {
@@ -185,12 +229,14 @@ test("las cifras de la documentación no se contradicen", () => {
 
   const handlers = routeFiles(API_DIR).length;
   for (const { file, texto } of fuentes) {
-    const citados = new Set([...texto.matchAll(/\b(\d{2,3}) handlers\b/g)].map((match) => match[1]!));
+    const citados = new Set(
+      [...texto.matchAll(/\b(\d{2,3}) (?:handlers|route files)\b/g)].map((match) => match[1]!),
+    );
     if (citados.size === 0) continue;
     assert.deepEqual(
       [...citados],
       [String(handlers)],
-      `${file} cita ${[...citados].join("/")} handlers y en src/app/api hay ${handlers}`,
+      `${file} cita ${[...citados].join("/")} handlers/route files y en src/app/api hay ${handlers}`,
     );
   }
 });
@@ -238,4 +284,14 @@ test("toda variable de entorno que lee el código está en la plantilla", () => 
     [],
     `Variables sin documentar en deploy/env.example: ${faltan.join(", ")}`,
   );
+});
+
+test("la edición del club no pierde el lugar ni el enlace del encuentro", () => {
+  const source = readFileSync(
+    path.join(process.cwd(), "src", "app", "api", "clubs", "[clubId]", "route.ts"),
+    "utf8",
+  );
+  assert.match(source, /meetsPlace: input\.meetsPlace/);
+  assert.match(source, /meetsLink: input\.meetsLink/);
+  assert.doesNotMatch(source, /bookId: input\.bookId \?\? null/);
 });

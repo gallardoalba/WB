@@ -315,7 +315,7 @@ export function createBookComment(input: {
       notify({
         userId: parent.author_id,
         type: "comment",
-        title: `${author.name} respondió a tu comentario`,
+        title: `${author.signAs === "community" ? "Comunidad" : author.name} respondió a tu comentario`,
         body: `«${book.title}»: ${commentExcerpt(input.body)}`,
         bookId: book.id,
         link: `/obra/${book.id}#c-${id}`,

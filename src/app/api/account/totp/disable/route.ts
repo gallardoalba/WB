@@ -1,5 +1,5 @@
 import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { destroyUserSessions, requireUser } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { verifyPassword } from "@/lib/password";
 import { disableTotp, getTotpState, getUserWithPassword, verifyUserTotp } from "@/lib/repo";
@@ -26,6 +26,9 @@ export async function POST(request: Request) {
     }
 
     disableTotp(user.id);
+    // Al cambiar el segundo factor se cierran las demás sesiones: si el cambio
+    // no era de la persona, no debe quedarse dentro con la sesión anterior.
+    destroyUserSessions(user.id);
     return json({ enabled: false, pending: false });
   } catch (error) {
     return handleApiError(error);

@@ -50,10 +50,12 @@ export function BookCover({
       alt={t("Portada de {title}", { title })}
       fill
       sizes={sizes}
-      unoptimized
       priority={priority}
       // La portada la sirve la propia aplicación (`/api/cover/book/<id>`), que
-      // la lee del disco: el navegador no habla con ningún tercero.
+      // la lee del disco: el navegador no habla con ningún tercero. Se deja que
+      // el optimizador de Next la reduzca al hueco y la convierta a WebP: antes
+      // se enviaba el JPG entero (1600 px, hasta 4 MB) para una tarjeta de
+      // 220 px, y con varias visitas eso era el grueso de la carga.
       referrerPolicy="no-referrer"
       className="cover-image"
       // Si el 404 llega antes de que React enganche `onError` (la imagen viene

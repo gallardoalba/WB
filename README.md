@@ -21,6 +21,7 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 - **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
 - **Lists and nearby readers.** Start public reading lists and browse a directory of readers by distance. Your home page shows what is happening around you.
 - **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
+- **German scope today.** The city catalogue and geocoding cover Germany (`CITIES`, `src/lib/city-search.ts`, `src/lib/geocode.ts`). The interface is available in Spanish, German and English, but an instance outside Germany must add its own municipalities to `CITIES` and change the country filter in those two modules before city selection and distance filters work.
 
 ## Principles
 
@@ -70,7 +71,9 @@ An instance can show what it runs instead of asking for trust:
   `deploy/verify-release.sh` checks the signature against this repository.
 - **Signed content.** `/api/transparency` publishes daily Ed25519-signed snapshots
   of the public catalogue (Merkle root + payload hash). Anyone can download the
-  exact NDJSON and recompute it with `npm run transparency:verify -- --url …`.
+  exact NDJSON and recompute it with `npm run transparency:verify -- --url …`;
+  `--key-fingerprint` and `--pin` let an external witness fix the signing key and
+  the Merkle root between checks.
   It contains only what is already public: never who owns a copy.
 
 None of this proves by itself that the answering process is the signed image;

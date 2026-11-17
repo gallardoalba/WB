@@ -20,6 +20,7 @@ import {
   encryptForRecipients,
   ensureIdentity,
   isEncryptionSupported,
+  safetyNumber,
   type RecipientKey,
 } from "@/lib/e2e";
 import { formatWhen } from "@/lib/text";
@@ -47,6 +48,8 @@ type Prepared = {
   texts: Record<string, string>;
   /** Este navegador no tiene publicada su clave en la ranura web. */
   keyChanged: boolean;
+  /** Huella que las dos partes pueden comparar por otro canal. */
+  safety: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -76,6 +79,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       peerKeys,
       texts: {},
       keyChanged: false,
+      safety: null,
     };
   }
   const serverKeys = payload.me.keys ?? [];
@@ -100,6 +104,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
         peerKeys,
         texts: {},
         keyChanged: true,
+        safety: null,
       };
     }
     return fetchThread(peerId, false);
@@ -114,9 +119,15 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       peerKeys,
       texts: {},
       keyChanged: true,
+      safety: null,
     };
   }
   const conversationId = directConversationId(payload.me.id, payload.peer.id);
+  const meKeys = (payload.me.keys ?? []).map((key) => key.publicJwk);
+  const safety = await safetyNumber([
+    ...(meKeys.length > 0 ? meKeys : [identity.publicJwk]),
+    ...peerKeys.map((key) => key.publicJwk),
+  ]);
   const texts: Record<string, string> = {};
   await Promise.all(
     payload.messages.map(async (message) => {
@@ -140,6 +151,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
     peerKeys,
     texts,
     keyChanged: false,
+    safety,
   };
 }
 
@@ -172,6 +184,7 @@ export function DirectMessageDialog({
   const [sending, startTransition] = useTransition();
   const [hasKey, setHasKey] = useState(false);
   const [keyChanged, setKeyChanged] = useState(false);
+  const [safety, setSafety] = useState<string | null>(null);
   const privateKeyRef = useRef<CryptoKey | null>(null);
   const myKeyIdRef = useRef<string | null>(null);
   const peerKeysRef = useRef<RecipientKey[]>([]);
@@ -187,6 +200,7 @@ export function DirectMessageDialog({
           peerKeysRef.current = prepared.peerKeys;
           setHasKey(Boolean(prepared.privateKey && prepared.peerKeys.length > 0));
           setKeyChanged(prepared.keyChanged);
+          setSafety(prepared.safety);
           setTexts(prepared.texts);
           if (prepared.payload.messages.length > 0) {
             await api(`/api/direct/${peerId}/read`, { method: "POST" }).catch(() => undefined);
@@ -371,6 +385,19 @@ export function DirectMessageDialog({
               <Lock size={13} aria-hidden /> {t("Cifrado de extremo a extremo · Huella de")}{" "}
               {peerName}: <strong>{t(shortFingerprint(thread.peer.keyId))}</strong>
             </p>
+
+            {safety && (
+              <details className="safety-number">
+                <summary>{t("Huella de seguridad")}</summary>
+                <p>
+                  {t(
+                    "Compárala con {name} por otro canal. Si cambia, alguien puede haberse interpuesto.",
+                    { name: peerName },
+                  )}
+                </p>
+                <code>{safety}</code>
+              </details>
+            )}
           </>
         )}
       </div>

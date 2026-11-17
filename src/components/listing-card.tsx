@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, MapPin, Route } from "lucide-react";
 import { BookCover } from "./book-cover";
 import type { ListingView } from "@/lib/domain";
 import { STATUS_RIBBON } from "@/lib/listing-status";
@@ -14,6 +14,7 @@ export function ListingCard({
   actions,
   href,
   headingLevel = 3,
+  priority = false,
 }: {
   listing: ListingView;
   actions?: ReactNode;
@@ -28,6 +29,12 @@ export function ListingCard({
    * portada cuelgan de un `h2` oculto («La estantería») y siguen en `h3`.
    */
   headingLevel?: 2 | 3;
+  /**
+   * La portada de la primera tarjeta es el LCP del catálogo: se pide sin
+   * diferir y con la precarga que genera `next/image`, que ya apunta a la
+   * versión reducida.
+   */
+  priority?: boolean;
 }) {
   const { t } = useI18n();
   const Heading = headingLevel === 2 ? "h2" : "h3";
@@ -50,9 +57,24 @@ export function ListingCard({
             id={listing.id}
             title={listing.title}
             coverUrl={listing.coverUrl}
+            priority={priority}
           />
         </Link>
         <span className="condition-tag">{t(listing.condition)}</span>
+        {/* Procedencia: la copia llegó por un intercambio de la plataforma.
+            Es la insignia del proyecto, así que se ve también en el catálogo. */}
+        {listing.travelled && (
+          <span
+            className="travelled-tag"
+            title={t("Este libro ya viajó por Wanderbibliothek")}
+          >
+            <Route size={12} aria-hidden="true" />
+            {/* «Viajó» se basta para quien ve la tarjeta; quien usa lector de
+                pantalla recibe la frase completa. */}
+            <span aria-hidden="true">{t("Viajó")}</span>
+            <span className="sr-only">{t("Este libro ya viajó por Wanderbibliothek")}</span>
+          </span>
+        )}
         {actions}
         {listing.status !== "available" && (
           <span className="status-ribbon">

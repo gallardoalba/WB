@@ -10,6 +10,7 @@
  */
 
 import { REPOSITORY } from "./brand";
+import { SCHEMA_VERSION } from "./db/schema";
 import type { TechnicalDocument } from "./technical";
 
 export const EN: TechnicalDocument = {
@@ -47,19 +48,19 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               79 handlers grouped by domain",
+            "    api/               80 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v54), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v56), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 808 unit and integration tests (100 files)",
-            "e2e/                   browser tests with Playwright (8 spec files)",
+            "tests/                 869 unit and integration tests (111 files)",
+            "e2e/                   browser tests with Playwright (9 spec files + Firefox/WebKit smoke)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
         },
@@ -120,7 +121,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 20 of the 108 exported methods (13 of the 79 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
+          text: "The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 21 of the 109 exported methods (14 of the 80 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
         },
         {
           kind: "list",
@@ -134,7 +135,7 @@ export const EN: TechnicalDocument = {
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person, from the team or, with their name recorded, from another instance.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic record (DNB and Open Library).",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic record (DNB and Open Library). The cover is streamed from disk as it is read —no copy in memory—, and a 304 does not open the image; the browser also asks `/_next/image` for the reduced WebP version, so a 220 px card does not download the 1600 px JPEG. The URL carries a version (`?v=…`): replacing the cover changes it, and no cache serves the old one. The nginx vhost also caches these images at the edge (`proxy_cache`), so Node stops sending cover bytes on repeat visits.",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
           ],
         },
       ],
@@ -155,7 +156,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v53). A new installation starts from `SCHEMA_V2` and its indexes; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Four steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals) and v53 (who reviewed an appeal and whether they came from outside the team). The detail of every step lives in that file and in its git history.",
+          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Six steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue) and v56 (the copy's journey: copies inherit their provenance and the page can tell it). The detail of every step lives in that file and in its git history.`,
         },
         {
           kind: "p",
@@ -200,7 +201,7 @@ export const EN: TechnicalDocument = {
             "Directory `0700` and database `0600`; `npm run db:backup` uses the `.backup()` API of SQLite and encrypts with AES-256-GCM if `WANDERBIBLIOTHEK_BACKUP_KEY` is present.",
             "Registration with a honeypot, a minimum elapsed time and optional Cloudflare Turnstile; a generic message so that registered email addresses are not revealed.",
             "Single-use account tokens, hashed and with an expiry; changing the password revokes every session.",
-            "`GET /api/account/export` delivers all data as JSON, **envelopes included** (without them nothing could be decrypted outside the app); deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without breaking other people's threads.",
+            "`GET /api/account/export` delivers all data as JSON, **envelopes included** (without them nothing could be decrypted outside the app); deleting the account anonymises the profile, withdraws its copies, deletes its device keys, direct conversations, reviews and club forum messages, and clears votes, likes and attendance; it keeps the exchange history without breaking other people's threads.",
             "An encrypted message is rejected when the envelope for one of the recipient's active devices is missing: that device could not read it and the failure would only show up days later.",
             "What this encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.",
           ],
@@ -221,7 +222,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The cron creates at most one snapshot of the public catalogue per day: one canonical JSON line per work, its SHA-256, a Merkle root and an Ed25519 signature when the instance has `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was signed. `npm run transparency:verify -- --url …` recomputes everything from outside and checks the chain of roots.",
+          text: "The cron creates at most one snapshot of the public catalogue per day: one canonical JSON line per work, its SHA-256, a Merkle root and an Ed25519 signature when the instance has `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was signed. `npm run transparency:verify -- --url …` recomputes everything from outside, checks the chain of roots and can pin the public-key fingerprint (`--key-fingerprint`) as well as the Merkle root (`--pin`).",
         },
         {
           kind: "list",
@@ -305,7 +306,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 808 unit and integration tests in 100 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 869 unit and integration tests in 111 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",
@@ -341,7 +342,7 @@ export const EN: TechnicalDocument = {
             "`npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given), opens it read-only as the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.",
             "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
-            "Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header; nginx logs **every application request** with the same `x-request-id`, which also returns to the client. Hand-written routes do not emit that line yet: the pending migration covers them. `/api/metrics` (administrators only) returns p50/p95/p99 latency for those routes, memory, live streams and database/WAL size. The `reference` returned by a 500 is the first 8 characters of that id.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.",
             "Ceiling measured with `npm run bench:sqlite`: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",
@@ -395,6 +396,7 @@ export const EN: TechnicalDocument = {
             "Colours come from tokens (`src/app/styles/tokens.css`): outside that file there are no literals, so the light and the dark mode share the same markup.",
             "Four breakpoints (480, 768, 1120 and 1400/1800 px), a spacing scale from 4 to 48 px and controls at 40 px, 44 on mobile.",
             "Dialogs with trapped focus, closing on `Escape` and focus restoration; a “Skip to content” link, `aria-current` in the navigation, filters with `aria-pressed` and errors with `role=\"alert\"`.",
+            "What is not visible on load does not travel in the initial bundle: the sign-in dialog, the exchange dialog (crypto and QR), the publishing form, notifications and the community and exchanges views are fetched with `next/dynamic` when they open. Browser crypto is imported when the key is published, not at startup. Beware of `dynamic` for something always mounted: without `loading`, its download suspends the whole tree and the page takes long to respond (covered by `e2e/app.spec.ts` through the heart button’s focus).",
             "Minimum AA contrast, type from 12 px, 44 px touch targets on mobile and `prefers-reduced-motion` respected: the animations (in `styles/motion.css`) only move `opacity` and `transform`, and switch off entirely with that setting.",
             "The interface is trilingual: the switcher wins, storing the `wanderbibliothek-locale` cookie and, if there is a session, the account preference for notifications and mail; without a preference the browser language (`Accept-Language`) decides, and German if none of the three matches.",
           ],
@@ -441,7 +443,7 @@ export const EN: TechnicalDocument = {
             {
               label: "NOTICE",
               href: `${REPOSITORY}/blob/main/NOTICE`,
-              note: "Attributions for the cover photograph and the typeface.",
+              note: "Attributions for the cover photograph and the third-party components.",
             },
           ],
         },

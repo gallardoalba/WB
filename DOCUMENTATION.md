@@ -17,19 +17,19 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               79 handlers grouped by domain
+    api/               80 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v54), seed
+    db/                connection, base schema (v2), migrations (v3–v56), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 808 unit and integration tests (100 files)
-e2e/                   53 browser tests with Playwright
+tests/                 869 unit and integration tests (111 files)
+e2e/                   56 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -57,10 +57,10 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/lectores` | Directory with search, city and sorting by distance or activity. |
 | `/clubes`, `/clubes/[clubId]` | Reading circles by city: requests, current read, vote, attendance and members-only forum. |
 | `/listas`, `/listas/[listId]` | Reading lists: readable without a session (the signature only appears if the owner allows it), editable only by their owner. |
-| `/libro/[id]` | Copy page with metadata and JSON-LD `Book`/`Offer`. |
+| `/libro/[id]` | Copy page with metadata, its journey (if it has changed hands) and JSON-LD `Book`/`Offer`. |
 | `/obra/[bookId]` | Canonical work: conversation about the title, copies and recommendations. |
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
-| `/cuenta` | Settings: profile, notifications, password, encryption, second factor, export and deletion. |
+| `/cuenta` | Settings: profile, notifications, password, encryption, second factor, journey visibility, welcome tour, export and deletion. |
 | `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
 | `/privacidad`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 20 of the 108 exported methods (13 of the 79 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
+The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 21 of the 109 exported methods (14 of the 80 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -84,7 +84,7 @@ The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
 - `/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
-- `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
+- `/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic records (DNB and Open Library). Covers are streamed from disk as they are read (`src/lib/cover-response.ts`, chunked, no buffer per visitor), and a conditional request is answered `304` from the `stat` alone, without opening the file; the browser requests the reduced WebP variant through `/_next/image`, so a 220 px card never downloads the 1600 px JPEG. Each URL carries a version (`?v=…`, set on upload), which is what keeps a replaced cover out of every cache.
 - `/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.
 - `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries, purges old rows and creates the daily signed catalogue snapshot.
 
@@ -98,8 +98,9 @@ The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 
 - `users.is_moderator` separates moderation from administration; `suspended_until` and `suspension_reason` make a suspension explainable and time-bound.
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
+- Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v54). A new installation starts from `SCHEMA_V2` and its indexes and runs the 52 steps up to v54; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Five steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own) v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer) and v54 (signed snapshots of the public catalogue). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v56). A new installation starts from `SCHEMA_V2` and its indexes and runs the 54 steps up to v56; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Six steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue) and v56 (the copy's journey: copies inherit their provenance and the copy page can tell it). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
@@ -130,8 +131,9 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 - CSP with nonce and `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and HSTS in production (`src/proxy.ts`).
 - Directory `0700` and database `0600`; `npm run db:backup` uses SQLite's `.backup()` API and encrypts with AES-256-GCM when `WANDERBIBLIOTHEK_BACKUP_KEY` is set.
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
+- Web Push subscriptions only accept endpoints from the standard browser push providers (`fcm.googleapis.com`, Mozilla, Apple and Windows Notification Service); an arbitrary HTTPS endpoint would turn the server into an SSRF proxy.
 - Account tokens are single-use, hashed and expire (24 hours for verification, 1 hour for password reset, 30 days for appeals); changing the password ends every session.
-- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
+- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, removes its reviews and club forum messages, and clears its likes, votes and attendance. It keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
 ## Transparency
 
@@ -200,6 +202,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `MAIL_WEBHOOK_URL` / `MAIL_WEBHOOK_TOKEN` | unset | Alternative to Brevo: receives `{to, subject, text}`; with both configured the webhook wins. |
 | `MAINTENANCE_TOKEN` | unset | Token for `POST /api/cron/maintenance`; without it the route answers 404. |
 | `TRUST_PROXY` | unset | `1` only behind your own proxy: allows `X-Forwarded-For`/`-Host` and enables per-IP quotas. |
+| `SSE_MAX_STREAMS` | `500` | Global cap on open live streams (SSE). Each account is already limited to 3; this protects file descriptors and SQLite timers on a single instance. |
 | `WANDERBIBLIOTHEK_BACKUP_KEY` / `WANDERBIBLIOTHEK_BACKUP_KEEP` | unset / `14` | Key of the encrypted backups and how many are kept when rotating. |
 | `ERROR_WEBHOOK_URL` / `ERROR_WEBHOOK_TOKEN` | unset | Receive 500s as JSON, already redacted. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. |
@@ -214,13 +217,13 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 808 unit and integration tests in 100 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 869 unit and integration tests in 111 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
 Every run publishes a **CycloneDX SBOM** (`npm sbom`) with the production dependencies, so an advisory can be traced back to a deployment. Tags (`v*`) go through `.github/workflows/release.yml`: GHCR image pinned by digest, SLSA provenance, image SBOM, cosign keyless signature and a release with `SHA256SUMS` and the image reference. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a key-like variable), locally and in CI, without any service; it does not replace reviewing the git history. Static analysis (CodeQL, `security-extended`) lives in `.github/workflows/codeql.yml` and is also scheduled weekly.
 
-CI also audits **development** dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.
+CI also audits **development** dependencies with `npm run audit:dev` (`scripts/audit-dev.ts`): ESLint, TypeScript and Playwright build what gets published. It applies the same rule as the image scan — a **high or critical advisory with a non-breaking fix fails the job**, because that can be resolved in the change itself; one with no published patch, or one whose only fix is a major bump, is reported in the job summary and does not block. A bare `npm audit` fails in both cases, which leaves the branch red for something the repository cannot fix. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.
 
 ```bash
 npm install
@@ -232,15 +235,17 @@ npx playwright install chromium && npm run test:e2e
 ## Operations
 
 - `npm run db:backup` uses SQLite's `.backup()` API, checks integrity, rotates backups, encrypts when a key is present and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while WAL is active.
-- `npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given as an argument), opens it read-only like the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.
+- `npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given as an argument), opens it read-only like the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored. The `wanderbibliothek-verify.timer` runs it every Sunday against the latest backup, so a copy that no longer restores shows up in the journal instead of on the day it is needed.
 - `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
 - `npm run moderator:create -- <address> 'password'` creates a moderation-only account (no suspensions); `npm run admin:create` keeps creating administrators.
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
-- `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--pin` makes an external witness fail if a published snapshot is rewritten.
-- Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
+- `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--key-fingerprint` pins the Ed25519 public key and `--pin` the Merkle root, so an external witness fails if a snapshot is rewritten or the instance starts signing with another key.
+- Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header. nginx logs every application request with the same `x-request-id` (also returned to the client), so a request can be correlated even when its handler is still written by hand.
+- `GET /api/metrics` (administrator only) returns uptime, memory, p50/p95/p99 latency of `route()`-wrapped handlers, error and request counters, open live streams and database/WAL size. It is JSON, not Prometheus, and contains no request data.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.
+- Updating restarts that single process: the deploy scripts take a backup, swap the release, restart and check `/api/health`, rolling back on failure. An update therefore means a few seconds of downtime, and there is no high availability.
 - Measured ceiling with `npm run bench:sqlite`: about 99 000 single writes/s, 250 000/s in a batch, 350 000 reads/s by primary key and 2 000/s for a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.
 
 Secrets are stored as `enc:v2:<key>:<flags>:<iv>.<tag>.<data>`. To change the key without losing anything:
@@ -273,6 +278,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - Four breakpoints (480, 768, 1120 and 1400/1800 px), spacing scale from 4 to 48 px and controls at 40 px, 44 px on mobile.
 - Dialogs with trapped focus, closing on `Escape` and focus restoration; a "Skip to content" link, `aria-current` in navigation, filters with `aria-pressed` and errors with `role="alert"`.
 - Minimum AA contrast, type from 12 px, 44 px touch targets on phones and `prefers-reduced-motion` respected.
+- First steps: the home page shows a dismissible checklist for signed-in accounts (complete the profile, publish a copy, request one, follow a reader) fed by the server, and a four-step welcome tour. The tour is offered on the home page to accounts that have neither published nor requested anything, and can be replayed from `/cuenta` with `/?tour=1`. Both marks live in `localStorage` (`wb-tour-seen`, `wb-checklist-off`), not in the account: they are interface hints, not profile data.
 - The interface is trilingual and every language has its own URL: German is the default and stays unprefixed (`/werk/x`), while Spanish and English are published under `/es/…` and `/en/…`, each with its own `hreflang` and canonical so search engines index them separately (the proxy rewrites the prefix away and passes the language in a header). Inside a prefixed URL the prefix wins; otherwise the switcher does, setting the `wanderbibliothek-locale` cookie and, with a session, the account preference used for notifications and mail. Without a preference the browser language (`Accept-Language`) decides; German is the last resort. Mail links carry `?lang=…` so the page they open speaks the language of the message.
 
 ## Further reading
@@ -283,4 +289,4 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and self-hosting notes.
 - [`deploy/README.md`](deploy/README.md) — step-by-step deployment with systemd, nginx and TLS.
 - [`LICENSE`](LICENSE) — MIT.
-- [`NOTICE`](NOTICE) — credits for the cover photograph and the typeface used on covers.
+- [`NOTICE`](NOTICE) — credits for the cover photograph and for the third-party components.

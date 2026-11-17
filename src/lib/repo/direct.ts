@@ -96,9 +96,9 @@ export function directThread(viewerId: string, peerId: string): DirectThreadView
   }
   const db = getDb();
   const peer = db
-    .prepare("SELECT id, name, city, is_suspended FROM users WHERE id = ?")
+    .prepare("SELECT id, name, city, city_precision, is_suspended FROM users WHERE id = ?")
     .get(peerId) as
-    | { id: string; name: string; city: string; is_suspended: number }
+    | { id: string; name: string; city: string; city_precision: string; is_suspended: number }
     | undefined;
   if (!peer || peer.is_suspended) throw new ApiError(404, "Esa cuenta no existe.");
 
@@ -133,7 +133,7 @@ export function directThread(viewerId: string, peerId: string): DirectThreadView
     peer: {
       id: peer.id,
       name: peer.name,
-      city: peer.city,
+      city: peer.city_precision === "hidden" ? "" : peer.city,
       keyId: peerWeb?.keyId ?? null,
       keyJwk: peerWeb?.jwk ?? null,
       keys: toPublicKeyEntries(peerKeys),

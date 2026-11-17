@@ -156,6 +156,40 @@ export function directAad(
   return `wanderbibliothek:v1|${conversationId}|sender:${senderId}|key:${keyId}`;
 }
 
+/** Parte pública de una clave, sin campos que no cambian la identidad. */
+function canonicalJwk(jwk: JsonWebKey): string {
+  return JSON.stringify({
+    kty: jwk.kty ?? "",
+    crv: jwk.crv ?? "",
+    x: jwk.x ?? "",
+    y: jwk.y ?? "",
+  });
+}
+
+/**
+ * Huella de seguridad de una conversación.
+ *
+ * Es el equivalente a los «safety numbers» de Signal: las dos personas ven el
+ * mismo número y lo comparan por otro canal. Sirve para lo que la clave pública
+ * por sí sola no cubre: que el **servidor** sustituya una clave al publicarla.
+ * Incluye todas las claves (la propia y las del otro lado), así que añadir un
+ * dispositivo cambia la huella.
+ */
+export async function safetyNumber(publicKeys: JsonWebKey[]): Promise<string> {
+  const keys = [...new Set(publicKeys.map(canonicalJwk))].sort();
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(keys.join("\n")),
+  );
+  // 30 caracteres hexadecimales (120 bits) en seis grupos, legibles en voz
+  // alta: el objetivo es comparar, no resistir una colisión de 2^60 intentos.
+  const hex = Array.from(new Uint8Array(digest).slice(0, 15))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
+  return hex.match(/.{5}/g)?.join(" ") ?? hex;
+}
+
 /** Identidad guardada en este navegador para esa cuenta, si existe. */
 export async function loadIdentity(userId: string): Promise<Identity | null> {
   if (!isEncryptionSupported()) return null;
@@ -342,14 +376,41 @@ type ThreadMessageLike = {
   envelopes?: MessageEnvelope[];
 };
 
+/** El JSON viene de la base: el tipo no basta para confiar en la forma. */
+function isEnvelope(value: unknown): value is MessageEnvelope {
+  if (typeof value !== "object" || value === null) return false;
+  const envelope = value as Record<string, unknown>;
+  return (
+    typeof envelope.keyId === "string" &&
+    typeof envelope.ciphertext === "string" &&
+    typeof envelope.iv === "string"
+  );
+}
+
 /**
  * Sobres de un mensaje: los guardados o, en mensajes anteriores a la v40, el
- * único sobre de `ciphertext`/`iv` (sin destinatario anotado).
+ * único sobre de `ciphertext`/`iv` (sin destinatario anotado). Un sobre
+ * incompleto se descarta en vez de llegar a WebCrypto.
  */
 export function envelopesOf(message: ThreadMessageLike): MessageEnvelope[] {
-  if (message.envelopes && message.envelopes.length > 0) return message.envelopes;
-  if (message.ciphertext && message.iv) {
-    return [{ keyId: message.keyId ?? "", ciphertext: message.ciphertext, iv: message.iv }];
+  // `envelopes` llega de JSON: puede ser cualquier cosa, no solo un array.
+  if (Array.isArray(message.envelopes)) {
+    const valid = message.envelopes.filter(isEnvelope);
+    if (valid.length > 0) return valid;
+  }
+  if (
+    typeof message.ciphertext === "string" &&
+    message.ciphertext &&
+    typeof message.iv === "string" &&
+    message.iv
+  ) {
+    return [
+      {
+        keyId: typeof message.keyId === "string" ? message.keyId : "",
+        ciphertext: message.ciphertext,
+        iv: message.iv,
+      },
+    ];
   }
   return [];
 }

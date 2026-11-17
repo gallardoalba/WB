@@ -118,6 +118,10 @@ function toClubView(row: ClubRow, viewerId: string | null): ClubView {
     : row.my_pending
       ? "pending"
       : "none";
+  // El lugar y el enlace del encuentro son información de dentro del club: la
+  // página ya los ocultaba, pero la API los devolvía a cualquiera. Se decide
+  // aquí, en el servidor, para que la app Android tampoco los reciba.
+  const canSeeMeeting = isMine || myStatus === "member" || Boolean(row.is_moderator);
   return {
     id: row.id,
     name: row.name,
@@ -125,8 +129,9 @@ function toClubView(row: ClubRow, viewerId: string | null): ClubView {
     description: row.description,
     meetsOn: row.meets_on,
     meetsAt: row.meets_at,
-    meetsPlace: row.meets_place,
-    meetsLink: row.meets_link,
+    meetsPlace: canSeeMeeting ? row.meets_place : "",
+    meetsLink: canSeeMeeting ? row.meets_link : "",
+    hasMeetsLink: Boolean(row.meets_link),
     createdAt: row.created_at,
     book:
       row.book_id && row.book_title
@@ -378,7 +383,7 @@ export type ClubMemberView = {
 /** Miembros activos de un club (sin cuentas suspendidas), paginados. */
 export function listClubMembers(
   clubId: string,
-  options: { page?: number; pageSize?: number } = {},
+  options: { page?: number; pageSize?: number; viewerId?: string } = {},
 ): { members: ClubMemberView[]; total: number; hasMore: boolean } {
   const db = getDb();
   const pageSize = Math.min(Math.max(options.pageSize ?? 24, 1), 100);
@@ -394,7 +399,7 @@ export function listClubMembers(
   ).value;
   const rows = db
     .prepare(
-      `SELECT u.id, u.name, u.city, m.joined_at, c.owner_id, m.role
+      `SELECT u.id, u.name, u.city, u.city_precision, m.joined_at, c.owner_id, m.role
        FROM club_members m
        JOIN users u ON u.id = m.user_id
        JOIN clubs c ON c.id = m.club_id
@@ -406,6 +411,7 @@ export function listClubMembers(
     id: string;
     name: string;
     city: string;
+    city_precision: string;
     joined_at: string;
     owner_id: string;
     role: string;
@@ -414,7 +420,7 @@ export function listClubMembers(
     members: rows.map((row) => ({
       id: row.id,
       name: row.name,
-      city: row.city,
+      city: row.city_precision === "hidden" && row.id !== options.viewerId ? "" : row.city,
       joinedAt: row.joined_at,
       isOwner: row.id === row.owner_id,
       isModerator: row.role === "moderator",
@@ -456,7 +462,7 @@ export function listClubRequests(clubId: string, viewerId: string): ClubRequestV
   }
   return db
     .prepare(
-      `SELECT u.id, u.name, u.city, m.joined_at
+      `SELECT u.id, u.name, u.city, u.city_precision, m.joined_at
        FROM club_members m
        JOIN users u ON u.id = m.user_id
        WHERE m.club_id = ? AND m.status = 'pending' AND u.is_suspended = 0
@@ -464,9 +470,19 @@ export function listClubRequests(clubId: string, viewerId: string): ClubRequestV
     )
     .all(clubId)
     .map((row) => {
-      const typed = row as { id: string; name: string; city: string; joined_at: string };
+      const typed = row as {
+        id: string;
+        name: string;
+        city: string;
+        city_precision: string;
+        joined_at: string;
+      };
       return {
-        user: { id: typed.id, name: typed.name, city: typed.city },
+        user: {
+          id: typed.id,
+          name: typed.name,
+          city: typed.city_precision === "hidden" ? "" : typed.city,
+        },
         createdAt: typed.joined_at,
       };
     });
@@ -478,12 +494,12 @@ export function updateClub(
   clubId: string,
   input: {
     name: string;
-    description: string;
-    meetsOn: string;
+    description?: string;
+    meetsOn?: string;
     meetsAt?: string;
     meetsPlace?: string;
     meetsLink?: string;
-    bookId: string | null;
+    bookId?: string | null;
     joinPolicy?: "open" | "approval";
     progress?: number;
     progressNote?: string;
@@ -492,7 +508,7 @@ export function updateClub(
   const db = getDb();
   const club = db
     .prepare(
-      "SELECT owner_id, city, book_id, meets_at, meets_on, meets_place, meets_link, progress FROM clubs WHERE id = ?",
+      "SELECT owner_id, city, book_id, meets_at, meets_on, meets_place, meets_link, description, join_policy, progress, progress_note FROM clubs WHERE id = ?",
     )
     .get(clubId) as
     | {
@@ -503,7 +519,10 @@ export function updateClub(
         meets_on: string;
         meets_place: string;
         meets_link: string;
+        description: string;
+        join_policy: string;
         progress: number;
+        progress_note: string;
       }
     | undefined;
   if (!club) throw new ApiError(404, "El club no existe.");
@@ -515,16 +534,21 @@ export function updateClub(
 
   assertClubNameFree(db, club.city, input.name, clubId);
 
+  const description = input.description ?? club.description;
+  const meetsOn = input.meetsOn ?? club.meets_on;
   const meetsAt = input.meetsAt ?? club.meets_at;
   const meetsPlace = input.meetsPlace ?? club.meets_place;
   const meetsLink = input.meetsLink ?? club.meets_link;
+  const bookId = input.bookId === undefined ? club.book_id : input.bookId;
+  const joinPolicy = input.joinPolicy ?? club.join_policy;
+  const progress = input.progress ?? club.progress;
+  const progressNote = input.progressNote ?? club.progress_note;
   const changedMeeting =
     meetsAt !== club.meets_at ||
-    input.meetsOn !== club.meets_on ||
+    meetsOn !== club.meets_on ||
     meetsPlace !== club.meets_place ||
     meetsLink !== club.meets_link;
-  const changedReading = (input.bookId ?? null) !== club.book_id;
-  const progress = input.progress ?? club.progress;
+  const changedReading = bookId !== club.book_id;
 
   db.prepare(
     `UPDATE clubs
@@ -534,15 +558,15 @@ export function updateClub(
       WHERE id = ?`,
   ).run(
     input.name,
-    input.description,
-    input.meetsOn,
+    description,
+    meetsOn,
     meetsAt,
     meetsPlace,
     meetsLink,
-    input.bookId,
-    input.joinPolicy ?? "open",
+    bookId,
+    joinPolicy,
     progress,
-    input.progressNote ?? "",
+    progressNote,
     clubId,
   );
 

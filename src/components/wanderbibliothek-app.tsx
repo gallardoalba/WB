@@ -36,6 +36,8 @@ import {
   X,
 } from "lucide-react";
 import { ListingCard } from "./listing-card";
+import { OnboardingChecklist } from "./onboarding-checklist";
+import { OnboardingTour } from "./onboarding-tour";
 import { EmptyState } from "./empty-state";
 import { AppSidebar } from "./app-sidebar";
 import { AccountMenu } from "./account-menu";
@@ -46,7 +48,6 @@ import { RepositoryLink } from "./repository-link";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { MastodonLink } from "./mastodon-link";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
-import { AuthDialog } from "./dialogs/auth-dialog";
 import { SiteSearch } from "./site-search";
 import { LinkHint } from "./link-hint";
 
@@ -73,6 +74,15 @@ const ExchangesList = dynamic(() =>
 );
 const ClubBoard = dynamic(() => import("./club-board").then((module) => module.ClubCreate));
 const ClubCard = dynamic(() => import("./club-card").then((module) => module.ClubCard));
+/**
+ * El diálogo de acceso no viaja en el paquete inicial: `LazyDialog` no lo monta
+ * hasta que alguien pulsa «Entrar», y entonces se descarga. Es el trozo más
+ * grande de los que se pintan en la primera pantalla y solo lo necesita quien
+ * va a usarlo.
+ */
+const AuthDialog = dynamic(() =>
+  import("./dialogs/auth-dialog").then((module) => module.AuthDialog),
+);
 import {
   CATALOG_LANGUAGES,
   CATEGORIES,
@@ -87,13 +97,28 @@ import {
   type View,
 } from "@/lib/domain";
 import { api } from "@/lib/client-api";
-import { ensureIdentity, isEncryptionSupported } from "@/lib/e2e";
 import { formatNumber } from "@/lib/text";
 import type { MessageKey } from "@/lib/i18n";
 import { regionName } from "@/lib/cities";
 import { localePath } from "@/lib/locale";
 import { formatWhen, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
+
+/**
+ * La criptografía del navegador, cargada a la primera.
+ *
+ * Se importa como valor en la primera sesión que abre una conversación, no al
+ * arrancar: son unos kilobytes que el catálogo no necesita. Si la descarga
+ * falla, se olvida la promesa para reintentarlo en la visita siguiente.
+ */
+let e2eModule: Promise<typeof import("@/lib/e2e")> | null = null;
+function loadE2e() {
+  e2eModule ??= import("@/lib/e2e").catch((error: unknown) => {
+    e2eModule = null;
+    throw error;
+  });
+  return e2eModule;
+}
 
 const ACTIVITY_COPY: Record<ActivityView["type"], MessageKey> = {
   published: "ha compartido",
@@ -166,7 +191,7 @@ export default function WanderbibliothekApp({
   buildCommit?: string | null;
   buildCommitUrl?: string | null;
 }) {
-  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
+  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
   /**
    * Entrada optimista: al iniciar sesión la cabecera pasa a «dentro» con la
    * respuesta del propio `POST /api/auth/login`, sin esperar a que termine el
@@ -285,6 +310,10 @@ export default function WanderbibliothekApp({
     keysPublished.current = user.id;
     void (async () => {
       try {
+        // La criptografía del navegador (y la identidad que publica la clave)
+        // se descarga aquí y no viaja en el paquete inicial: quien solo viene a
+        // mirar el catálogo no la necesita.
+        const { ensureIdentity } = await loadE2e();
         const stored = await api<{
           keys: { platform: string; keyId: string }[];
         }>("/api/account/keys");
@@ -309,6 +338,10 @@ export default function WanderbibliothekApp({
         // si de verdad falta la clave. Solo se avisa cuando el navegador no
         // puede cifrar, que sí se puede arreglar cambiando de navegador.
         keysPublished.current = null;
+        // Si ni siquiera se pudo descargar el módulo, el aviso no explica nada.
+        const { isEncryptionSupported } = await loadE2e().catch(() => ({
+          isEncryptionSupported: () => false,
+        }));
         if (!isEncryptionSupported()) {
           notify(t("No se pudo activar el cifrado de mensajes en este navegador."), "error");
         }
@@ -898,6 +931,11 @@ export default function WanderbibliothekApp({
             </section>
           )}
 
+          {/* Los primeros pasos van justo bajo el héroe: es la única vista que
+              abre quien acaba de registrarse y la tarjeta desaparece sola al
+              completar las cuatro tareas. */}
+          {view === "home" && user && <OnboardingChecklist progress={onboarding} />}
+
           {/* La portada no lleva titular: el héroe ya presenta la página y el
               h2 solo empujaba el estante hacia abajo. El nombre de la
               estantería vive ahora en «Descubrir». */}
@@ -1072,11 +1110,11 @@ export default function WanderbibliothekApp({
                   activity.map((item) => (
                   <article className="activity-item" key={item.id}>
                     <span className={`avatar activity-avatar tone-${toneForId(item.id)}`}>
-                      {initialsOf(item.actor)}
+                      {item.actor ? initialsOf(item.actor) : "·"}
                     </span>
                     <div className="activity-copy">
                       <p>
-                        <strong>{item.actor}</strong> {t(ACTIVITY_COPY[item.type] ?? item.type)}{" "}
+                        <strong>{item.actor || t("Comunidad")}</strong> {t(ACTIVITY_COPY[item.type] ?? item.type)}{" "}
                         <b>{item.title}</b>
                       </p>
                       <span>
@@ -1459,12 +1497,13 @@ export default function WanderbibliothekApp({
                     </div>
                   ))}
                 <div className={isPending ? "book-grid-content is-pending" : "book-grid-content"}>
-                {visibleListings.map((listing) => {
+                {visibleListings.map((listing, index) => {
                   const favorite = isFavorite(listing.id, listing.isFavorite);
                   return (
                     <ListingCard
                       key={listing.id}
                       listing={listing}
+                      priority={index === 0}
                       headingLevel={view === "home" ? 3 : 2}
                       // Sin sesión, la tarjeta lleva a la ficha pública de la
                       // obra: se puede ojear sin cuenta y trae el botón para
@@ -1805,6 +1844,22 @@ export default function WanderbibliothekApp({
             <X size={15} />
           </button>
         </div>
+      )}
+
+      {/* El tour solo se ofrece en la portada y a quien todavía no ha publicado
+          ni pedido nada; con `?tour=1` se reabre desde la cuenta. */}
+      {user && (
+        <OnboardingTour
+          autoStart={
+            // `sessionUser` es el valor del servidor: tras un acceso optimista
+            // llega con el refresco, y así no se abre el tour de una cuenta con
+            // recorrido solo porque el snapshot todavía sea el anónimo.
+            Boolean(sessionUser) &&
+            view === "home" &&
+            !onboarding.published &&
+            !onboarding.requested
+          }
+        />
       )}
 
       <LazyDialog open={authOpen && !user}>

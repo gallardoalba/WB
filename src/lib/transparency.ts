@@ -201,11 +201,14 @@ export function signingKey(raw: string | undefined = process.env.TRANSPARENCY_SI
   }
 }
 
-export function verifySignature(snapshot: TransparencySnapshot): boolean {
-  if (!snapshot.signature || !snapshot.publicKey) return false;
+export function verifySignature(
+  snapshot: TransparencySnapshot,
+  publicKey = snapshot.publicKey,
+): boolean {
+  if (!snapshot.signature || !publicKey) return false;
   try {
     const key = createPublicKey({
-      key: Buffer.from(snapshot.publicKey, "base64"),
+      key: Buffer.from(publicKey, "base64"),
       format: "der",
       type: "spki",
     });
@@ -217,6 +220,20 @@ export function verifySignature(snapshot: TransparencySnapshot): boolean {
     );
   } catch {
     return false;
+  }
+}
+
+/** Huella SHA-256 de la clave SPKI, para fijarla fuera de banda. */
+export function publicKeyFingerprint(publicKey: string): string | null {
+  try {
+    const der = createPublicKey({
+      key: Buffer.from(publicKey, "base64"),
+      format: "der",
+      type: "spki",
+    }).export({ format: "der", type: "spki" });
+    return createHash("sha256").update(der).digest("hex");
+  } catch {
+    return null;
   }
 }
 
@@ -409,6 +426,7 @@ export type SnapshotVerification = { ok: boolean; problems: string[] };
 export function verifySnapshot(
   snapshot: TransparencySnapshot,
   payload: string | null,
+  pinned: { publicKey?: string; keyFingerprint?: string } = {},
 ): SnapshotVerification {
   const problems: string[] = [];
   if (payload === null) {
@@ -431,8 +449,26 @@ export function verifySnapshot(
   }
   if (!snapshot.signature || !snapshot.publicKey) {
     problems.push("la instantánea no está firmada: esta instancia no publica una prueba criptográfica");
-  } else if (!verifySignature(snapshot)) {
-    problems.push("la firma Ed25519 no valida con la clave publicada");
+  } else {
+    const pinKey = pinned.publicKey?.trim() || null;
+    const pinFingerprint = pinned.keyFingerprint?.trim().toLowerCase() || null;
+    if (pinKey && snapshot.publicKey !== pinKey) {
+      problems.push("la clave pública de la instantánea no coincide con la clave fijada");
+    }
+    if (
+      pinFingerprint &&
+      publicKeyFingerprint(snapshot.publicKey) !== pinFingerprint
+    ) {
+      problems.push("la huella de la clave pública no coincide con la fijada");
+    }
+    // Si hay una clave fijada, la firma se comprueba contra ella; si no, contra
+    // la que trae la instantánea. La huella sola no basta para verificar.
+    const keyToUse = pinKey ?? snapshot.publicKey;
+    if (!pinKey || snapshot.publicKey === pinKey) {
+      if (!verifySignature(snapshot, keyToUse)) {
+        problems.push("la firma Ed25519 no valida con la clave publicada");
+      }
+    }
   }
 
   return { ok: problems.length === 0, problems };
