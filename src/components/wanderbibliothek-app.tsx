@@ -1466,12 +1466,13 @@ export default function WanderbibliothekApp({
                     </div>
                   ))}
                 <div className={isPending ? "book-grid-content is-pending" : "book-grid-content"}>
-                {visibleListings.map((listing) => {
+                {visibleListings.map((listing, index) => {
                   const favorite = isFavorite(listing.id, listing.isFavorite);
                   return (
                     <ListingCard
                       key={listing.id}
                       listing={listing}
+                      priority={index === 0}
                       headingLevel={view === "home" ? 3 : 2}
                       // Sin sesión, la tarjeta lleva a la ficha pública de la
                       // obra: se puede ojear sin cuenta y trae el botón para

@@ -1,6 +1,5 @@
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import { preload } from "react-dom";
 import WanderbibliothekApp from "@/components/wanderbibliothek-app";
 import { getSessionUser } from "@/lib/auth";
 import { readBuildInfo } from "@/lib/build-info";
@@ -92,15 +91,11 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
     snapshot = getSnapshot(user, base, { stats, activity });
   }
 
-  // La portada del primer ejemplar es el LCP de la portada y del catálogo (lo
-  // señala el propio Next al medir). Declararla aquí hace que el navegador la
-  // empiece a descargar mientras llega el HTML de las tarjetas, en vez de
-  // esperar a que el componente que la pinta se hidrate. Solo la primera: con
-  // quince, la precarga competiría consigo misma.
-  const primeraPortada = snapshot.listings[0]?.coverUrl;
-  if (primeraPortada) {
-    preload(primeraPortada, { as: "image", fetchPriority: "high" });
-  }
+  // La portada del primer ejemplar es el LCP del catálogo, pero la precarga la
+  // pone `next/image` desde la tarjeta (`priority`): así apunta a la versión
+  // reducida que el navegador va a pedir. Declararla aquí con la URL original
+  // descargaba el JPG entero —hasta 4 MB— para una imagen que luego no se
+  // usaba, porque el `<img>` pide `/_next/image`.
 
   // En desarrollo `after()` dispara un diagnóstico de Next; la caducidad queda
   // cubierta por el cron y las pruebas.

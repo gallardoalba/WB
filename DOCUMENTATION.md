@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 850 unit and integration tests (108 files)
+tests/                 859 unit and integration tests (109 files)
 e2e/                   56 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -84,7 +84,7 @@ The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
 - `/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
-- `/api/cover/*`, `/api/isbn/[isbn]`: cached covers and bibliographic records (DNB and Open Library).
+- `/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic records (DNB and Open Library). Covers are streamed from disk as they are read (`src/lib/cover-response.ts`, chunked, no buffer per visitor), and a conditional request is answered `304` from the `stat` alone, without opening the file; the browser requests the reduced WebP variant through `/_next/image`, so a 220 px card never downloads the 1600 px JPEG. Each URL carries a version (`?v=…`, set on upload), which is what keeps a replaced cover out of every cache.
 - `/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.
 - `/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries, purges old rows and creates the daily signed catalogue snapshot.
 
@@ -217,7 +217,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 850 unit and integration tests in 108 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 859 unit and integration tests in 109 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

@@ -14,6 +14,7 @@ export function ListingCard({
   actions,
   href,
   headingLevel = 3,
+  priority = false,
 }: {
   listing: ListingView;
   actions?: ReactNode;
@@ -28,6 +29,12 @@ export function ListingCard({
    * portada cuelgan de un `h2` oculto («La estantería») y siguen en `h3`.
    */
   headingLevel?: 2 | 3;
+  /**
+   * La portada de la primera tarjeta es el LCP del catálogo: se pide sin
+   * diferir y con la precarga que genera `next/image`, que ya apunta a la
+   * versión reducida.
+   */
+  priority?: boolean;
 }) {
   const { t } = useI18n();
   const Heading = headingLevel === 2 ? "h2" : "h3";
@@ -50,6 +57,7 @@ export function ListingCard({
             id={listing.id}
             title={listing.title}
             coverUrl={listing.coverUrl}
+            priority={priority}
           />
         </Link>
         <span className="condition-tag">{t(listing.condition)}</span>

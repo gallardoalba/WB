@@ -1,4 +1,14 @@
-import { mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 /**
@@ -58,6 +68,47 @@ export function readUploadedCover(bookId: string): Cover | null {
     return contentType ? { data, contentType } : null;
   } catch {
     return null;
+  }
+}
+
+/** Lo que hace falta para responder una portada sin abrir el fichero entero. */
+export type UploadedCoverFile = { path: string; size: number; mtimeMs: number };
+
+/**
+ * Ficha de la portada en disco: tamaño y fecha, sin leer los bytes.
+ *
+ * Sirve para dos cosas que antes costaban leer la imagen entera: calcular el
+ * validador (`ETag`) y anunciar el `Content-Length` antes de enviarla.
+ */
+export function statUploadedCover(bookId: string): UploadedCoverFile | null {
+  const file = uploadedCoverPath(bookId);
+  if (!file) return null;
+  try {
+    const stat = statSync(file);
+    if (!stat.isFile() || stat.size < MIN_BYTES) return null;
+    return { path: file, size: stat.size, mtimeMs: stat.mtimeMs };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tipo de la portada leyendo solo su cabecera.
+ *
+ * `sniffImageType` necesita los primeros bytes y no el fichero: con 8 basta para
+ * distinguir JPG de PNG, y así una respuesta de 1–4 MB no pasa por memoria.
+ */
+export function uploadedCoverType(file: string): string | null {
+  let handle: number | null = null;
+  try {
+    handle = openSync(file, "r");
+    const head = Buffer.alloc(8);
+    const read = readSync(handle, head, 0, head.length, 0);
+    return sniffImageType(head.subarray(0, read));
+  } catch {
+    return null;
+  } finally {
+    if (handle !== null) closeSync(handle);
   }
 }
 
