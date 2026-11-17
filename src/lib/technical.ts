@@ -469,7 +469,7 @@ const ES: TechnicalDocument = {
             {
               label: "NOTICE",
               href: `${REPOSITORY}/blob/main/NOTICE`,
-              note: "Atribuciones de la fotografía de portada y de la tipografía.",
+              note: "Atribuciones de la fotografía de portada y de los componentes de terceros.",
             },
           ],
         },
@@ -910,7 +910,7 @@ const DE: TechnicalDocument = {
             {
               label: "NOTICE",
               href: `${REPOSITORY}/blob/main/NOTICE`,
-              note: "Herkunftsnachweise für das Titelbild und die Schrift der Cover.",
+              note: "Herkunftsnachweise für das Titelbild und die Komponenten von Drittanbietern.",
             },
           ],
         },

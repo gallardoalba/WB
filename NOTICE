@@ -16,24 +16,17 @@ principal; no se modifica el contenido de la imagen.
 - Licencia: https://creativecommons.org/licenses/by/4.0/
 - Cambios: recorte a formato panorámico, cambio de tamaño a 1400 px y conversión a WebP.
 
-## Tipografía de las portadas
-
-`public/fonts/tangerine-400.woff2` y `public/fonts/tangerine-700.woff2` son
-**Tangerine** de Toshi Omagari (tosche@mac.com), una caligrafía de pluma
-trazada sobre la escritura inglesa del siglo XVII. Se distribuye bajo
-**SIL Open Font License 1.1**; el texto completo está en
-`public/fonts/OFL-Tangerine.txt`.
-
-- Origen: https://github.com/google/fonts/tree/main/ofl/tangerine
-- Licencia: https://openfontlicense.org
-- Cambios: recorte del juego de caracteres (latín básico, latino-1, signos de
-  puntuación y comillas tipográficas) y conversión a WOFF2, de 23–24 KB a 13 KB
-  cada peso. No se ha modificado ningún trazo.
-
 ## Portadas de libros
 
-Las imágenes se enlazan desde Open Library / Internet Archive; el proyecto no
-aloja ni redistribuye portadas.
+Cada portada la sube quien publica el ejemplar y se guarda en la instancia
+(`/api/cover/book/<obra>`): la aplicación **no** descarga portadas de Open
+Library ni de ningún otro servicio de terceros. La responsabilidad de la imagen
+—y de su licencia— es de quien la sube; el alta la puede sustituir o retirar en
+cualquier momento.
+
+La tipografía manuscrita (Tangerine) que componía una portadilla con el título
+cuando faltaba la imagen ya no se usa: la portada es un dato obligatorio, y los
+dos pesos se retiraron junto con la regla `@font-face` que los cargaba.
 
 ## Iconografía
 

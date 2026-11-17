@@ -289,4 +289,4 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and self-hosting notes.
 - [`deploy/README.md`](deploy/README.md) — step-by-step deployment with systemd, nginx and TLS.
 - [`LICENSE`](LICENSE) — MIT.
-- [`NOTICE`](NOTICE) — credits for the cover photograph and the typeface used on covers.
+- [`NOTICE`](NOTICE) — credits for the cover photograph and for the third-party components.

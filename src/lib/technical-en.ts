@@ -443,7 +443,7 @@ export const EN: TechnicalDocument = {
             {
               label: "NOTICE",
               href: `${REPOSITORY}/blob/main/NOTICE`,
-              note: "Attributions for the cover photograph and the typeface.",
+              note: "Attributions for the cover photograph and the third-party components.",
             },
           ],
         },
