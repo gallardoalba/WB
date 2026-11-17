@@ -147,6 +147,16 @@ test("todas las formulaciones son enunciativas: sin exclamaciones ni emoji", () 
   assert.equal(seen.size, 100, "hay formulaciones duplicadas");
 });
 
+test("las formulaciones no llevan referencias temporales", () => {
+  // La cola publica días después del alta: decir «ab heute» o «heute» sería
+  // mentira en el momento en que sale el aviso.
+  const tiempo = /\b(heute|sofort|soeben|eben|jetzt|nun|seit|gestern|morgen|kürzlich)\b/i;
+  for (const lead of mastodon.leadVariants()) {
+    const text = lead("Título", "Autoría");
+    assert.doesNotMatch(text, tiempo, `«${text}» sitúa el aviso en el tiempo`);
+  }
+});
+
 test("la variante depende del id de la obra y se reparte", () => {
   assert.equal(mastodon.variantIndex("bok_abc", 100), mastodon.variantIndex("bok_abc", 100));
   const used = new Set<number>();

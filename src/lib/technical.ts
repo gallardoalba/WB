@@ -76,7 +76,7 @@ const ES: TechnicalDocument = {
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v54), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v55), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
@@ -181,7 +181,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v53). Una instalación nueva nace con `SCHEMA_V2` y sus índices; las existentes suben por la escalera de `src/lib/db/migrations.ts`, que conserva los datos. Del historial importan cuatro pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones) y la v53 (quién revisó una apelación y si vino de fuera del equipo). El detalle de cada paso está en ese fichero y en su historial de git.",
+          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v55). Una instalación nueva nace con `SCHEMA_V2` y sus índices; las existentes suben por la escalera de `src/lib/db/migrations.ts`, que conserva los datos. Del historial importan cuatro pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones) y la v53 (quién revisó una apelación y si vino de fuera del equipo). El detalle de cada paso está en ese fichero y en su historial de git.",
         },
         {
           kind: "p",
@@ -516,7 +516,7 @@ const DE: TechnicalDocument = {
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v54), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v55), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
@@ -621,7 +621,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v53). Eine neue Installation startet mit `SCHEMA_V2` und seinen Indizes; bestehende steigen über die Leiter in `src/lib/db/migrations.ts` auf, die die Daten erhält. Für den heutigen Code zählen vier Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche) und die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.",
+          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v55). Eine neue Installation startet mit `SCHEMA_V2` und seinen Indizes; bestehende steigen über die Leiter in `src/lib/db/migrations.ts` auf, die die Daten erhält. Für den heutigen Code zählen vier Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche) und die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.",
         },
         {
           kind: "p",

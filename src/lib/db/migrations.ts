@@ -1730,6 +1730,17 @@ function migrateToV54(db: Db) {
 }
 
 /**
+ * v55: los avisos que esperan en la cola pierden las referencias temporales.
+ *
+ * El bot decía «ab heute» aunque el libro llevara días en el catálogo. Los
+ * textos pendientes se recomponen con la voz nueva; los enviados no se tocan.
+ */
+function migrateToV55(db: Db) {
+  refreshQueuedPosts(db);
+  db.pragma("user_version = 55");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1868,6 +1879,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 52) migrateToV52(db);
   if (userVersion(db) < 53) migrateToV53(db);
   if (userVersion(db) < 54) migrateToV54(db);
+  if (userVersion(db) < 55) migrateToV55(db);
 
   backfillSearchKeys(db);
 }

@@ -22,7 +22,7 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v54), seed
+    db/                connection, base schema (v2), migrations (v3–v55), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -99,7 +99,7 @@ The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `users.is_moderator` separates moderation from administration; `suspended_until` and `suspension_reason` make a suspension explainable and time-bound.
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 
-Migrations are versioned with `PRAGMA user_version` (currently v54). A new installation starts from `SCHEMA_V2` and its indexes and runs the 52 steps up to v54; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Five steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own) v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer) and v54 (signed snapshots of the public catalogue). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v55). A new installation starts from `SCHEMA_V2` and its indexes and runs the 53 steps up to v55; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Five steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own) v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer) and v54 (signed snapshots of the public catalogue). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
