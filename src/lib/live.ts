@@ -29,17 +29,39 @@ export function onRequestMessage(requestId: string, listener: () => void): () =>
  * hacer nada útil: una pestaña necesita una.
  */
 const MAX_STREAMS_PER_USER = 3;
-const openStreams = new Map<string, number>();
+/**
+ * Tope global de flujos abiertos. Uno por usuario no basta: mil cuentas
+ * conectadas son mil descriptores y mil temporizadores contra SQLite. Se puede
+ * ajustar con `SSE_MAX_STREAMS` sin recompilar.
+ */
+function maxTotalStreams(): number {
+  const configured = Number(process.env.SSE_MAX_STREAMS);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 500;
+}
 
-export function acquireStream(userId: string): boolean {
+const openStreams = new Map<string, number>();
+let totalStreams = 0;
+
+/** `user`: tope por cuenta; `global`: la instancia está al límite. */
+export type StreamSlot = "ok" | "user" | "global";
+
+export function acquireStream(userId: string): StreamSlot {
+  if (totalStreams >= maxTotalStreams()) return "global";
   const current = openStreams.get(userId) ?? 0;
-  if (current >= MAX_STREAMS_PER_USER) return false;
+  if (current >= MAX_STREAMS_PER_USER) return "user";
   openStreams.set(userId, current + 1);
-  return true;
+  totalStreams += 1;
+  return "ok";
 }
 
 export function releaseStream(userId: string): void {
   const current = openStreams.get(userId) ?? 0;
   if (current <= 1) openStreams.delete(userId);
   else openStreams.set(userId, current - 1);
+  if (current > 0) totalStreams = Math.max(0, totalStreams - 1);
+}
+
+/** Flujos abiertos ahora mismo (para métricas y el cron). */
+export function openStreamCount(): number {
+  return totalStreams;
 }

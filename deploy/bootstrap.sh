@@ -320,25 +320,30 @@ if [ "$DRY_RUN" -eq 1 ]; then
   run "install systemd units and stable backup/watchdog wrappers"
   run systemctl daemon-reload
   run systemctl enable --now "$SERVICE" wanderbibliothek-maintenance.timer \
-    wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer
+    wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer \
+    wanderbibliothek-verify.timer
   ok "unidades instaladas"
 else
   for unit in wanderbibliothek.service wanderbibliothek-maintenance.service \
               wanderbibliothek-maintenance.timer wanderbibliothek-backup.service \
               wanderbibliothek-backup.timer wanderbibliothek-watchdog.service \
-              wanderbibliothek-watchdog.timer; do
+              wanderbibliothek-watchdog.timer wanderbibliothek-verify.service \
+              wanderbibliothek-verify.timer; do
     install -m 644 "$CURRENT_LINK/deploy/$unit" /etc/systemd/system/"$unit"
   done
   install -m 755 "$CURRENT_LINK/deploy/run-backup-container.sh" \
     /usr/local/sbin/wanderbibliothek-backup
   install -m 755 "$CURRENT_LINK/deploy/watchdog.sh" \
     /usr/local/sbin/wanderbibliothek-watchdog
+  install -m 755 "$CURRENT_LINK/deploy/run-verify-backup.sh" \
+    /usr/local/sbin/wanderbibliothek-verify
   install -d -m 755 /usr/local/lib/wanderbibliothek
   install -m 644 "$CURRENT_LINK/deploy/backup-key.sh" \
     /usr/local/lib/wanderbibliothek/backup-key.sh
   systemctl daemon-reload
   systemctl enable --now "$SERVICE" wanderbibliothek-maintenance.timer \
-    wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer >/dev/null 2>&1
+    wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer \
+    wanderbibliothek-verify.timer >/dev/null 2>&1
   ok "servicio y temporizadores activos"
 fi
 

@@ -21,6 +21,7 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 - **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
 - **Lists and nearby readers.** Start public reading lists and browse a directory of readers by distance. Your home page shows what is happening around you.
 - **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
+- **German scope today.** The city catalogue and geocoding cover Germany (`CITIES`, Nominatim `countrycodes=de`). The interface is available in Spanish, German and English, but an instance outside Germany must add its own municipalities to `CITIES` before city selection, distance filters and maps work.
 
 ## Principles
 

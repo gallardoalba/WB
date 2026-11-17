@@ -50,7 +50,22 @@ export default defineConfig({
       origins: [],
     },
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // WebCrypto e IndexedDB no se comportan igual en los tres motores. Estas
+    // dos pasadas solo ejecutan el humo criptográfico: la suite completa en
+    // tres navegadores triplicaría el tiempo de CI sin aportar más.
+    {
+      name: "firefox-smoke",
+      testMatch: /crypto-smoke\.spec\.ts/,
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit-smoke",
+      testMatch: /crypto-smoke\.spec\.ts/,
+      use: { ...devices["Desktop Safari"] },
+    },
+  ],
   webServer: EXTERNAL_SERVER
     ? undefined
     : {

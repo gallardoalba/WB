@@ -943,6 +943,34 @@
   white-space: nowrap;
 }
 
+/* Huella de seguridad (safety number) de la conversación. */
+.safety-number {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.safety-number summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.safety-number p {
+  margin: 6px 0 0;
+}
+
+.safety-number code {
+  display: block;
+  margin-top: 8px;
+  overflow-x: auto;
+  color: var(--ink);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
 /* La huella no se parte en dos líneas en pantallas estrechas. */
 .dm-dialog .encryption-note strong {
   white-space: nowrap;

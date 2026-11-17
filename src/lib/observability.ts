@@ -64,6 +64,7 @@ export function redactarContexto(valor: unknown, profundidad = 0): unknown {
  * petición.
  */
 export function reportError(error: unknown, context: Record<string, unknown> = {}): void {
+  reportedErrors += 1;
   const contexto = (redactarContexto(context) ?? {}) as Record<string, unknown>;
   const payload = {
     level: "error",
@@ -137,10 +138,56 @@ export type RequestLog = {
 };
 
 /**
+ * Ventana en memoria de las últimas peticiones, para `/api/metrics`.
+ *
+ * Solo ve las rutas envueltas por `route()`: son las que llaman a
+ * `recordRequest`. El campo `scope` de la respuesta lo dice para que nadie lea
+ * el p95 como si cubriera toda la API.
+ */
+const LATENCY_WINDOW = 512;
+const latencies: number[] = [];
+let latencyIndex = 0;
+let loggedRequests = 0;
+let reportedErrors = 0;
+
+export function loggedRequestCount(): number {
+  return loggedRequests;
+}
+
+export function reportedErrorCount(): number {
+  return reportedErrors;
+}
+
+export function latencySnapshot(): {
+  samples: number;
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+  max: number | null;
+} {
+  if (latencies.length === 0) {
+    return { samples: 0, p50: null, p95: null, p99: null, max: null };
+  }
+  const sorted = [...latencies].sort((a, b) => a - b);
+  const at = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+  const round = (value: number) => Math.round(value * 10) / 10;
+  return {
+    samples: sorted.length,
+    p50: round(at(0.5)),
+    p95: round(at(0.95)),
+    p99: round(at(0.99)),
+    max: round(sorted[sorted.length - 1]),
+  };
+}
+
+/**
  * Una línea por petición de API, en JSON y con el mismo id que la respuesta.
  * Es lo que permite calcular el p95 por ruta con `jq` sobre journald.
  */
 export function recordRequest(entry: RequestLog): void {
+  loggedRequests += 1;
+  latencies[latencyIndex] = entry.ms;
+  latencyIndex = (latencyIndex + 1) % LATENCY_WINDOW;
   const slow = entry.ms >= SLOW_REQUEST_MS;
   const line = JSON.stringify({
     level: slow ? "warn" : "info",

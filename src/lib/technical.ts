@@ -72,7 +72,7 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               79 rutas agrupadas por dominio",
+            "    api/               80 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
@@ -83,8 +83,8 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 816 pruebas unitarias y de integración (102 ficheros)",
-            "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
+            "tests/                 828 pruebas unitarias y de integración (105 ficheros)",
+            "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
         },
@@ -145,7 +145,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 79 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 20 de los 108 métodos exportados (13 de los 79 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
+          text: "La API tiene 80 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 21 de los 109 métodos exportados (14 de los 80 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
         },
         {
           kind: "list",
@@ -332,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 816 pruebas unitarias y de integración en 102 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 828 pruebas unitarias y de integración en 105 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 54 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100; el humo de WebCrypto e IndexedDB se ejecuta además en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -368,7 +368,7 @@ const ES: TechnicalDocument = {
             "`npm run db:verify` es el ensayo de restauración: descifra la copia más reciente (o la que se le pase), la abre en solo lectura como lo haría la aplicación, ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del esquema y cuenta las tablas principales. Sale con error si la copia no se puede restaurar.",
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año), las apelaciones resueltas (2 años) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
-            "Cada respuesta lleva `x-request-id` y `x-response-time`, y cada petición deja una línea `[req] {…}` en el registro. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "Las rutas envueltas por `route()` dejan una línea `[req] {…}` y la cabecera `x-response-time`; nginx registra **todas** las peticiones con el mismo `x-request-id`, que también vuelve al cliente. Las rutas escritas a mano aún no emiten esa línea: la migración pendiente las va cubriendo. En `/api/metrics` (solo administración) hay un resumen de latencia p50/p95/p99 de esas rutas, memoria, flujos en vivo y tamaño de la base y del WAL. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor y el bus de avisos vive en memoria. Escalar exige PostgreSQL y Redis/pubsub.",
             "Techo medido con `npm run bench:sqlite`: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
@@ -512,7 +512,7 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               79 Routen, nach Domäne gruppiert",
+            "    api/               80 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
@@ -523,8 +523,8 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 816 Unit- und Integrationstests (102 Dateien)",
-            "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
+            "tests/                 828 Unit- und Integrationstests (105 Dateien)",
+            "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
         },
@@ -585,7 +585,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 79 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 20 der 108 exportierten Methoden ab (13 der 79 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
+          text: "Die API besteht aus 80 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 21 der 109 exportierten Methoden ab (14 der 80 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
         },
         {
           kind: "list",
@@ -772,7 +772,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 816 Unit- und Integrationstests in 102 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 828 Unit- und Integrationstests in 105 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 54 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten; der WebCrypto-/IndexedDB-Smoke läuft zusätzlich in Firefox und WebKit.",
         },
         {
           kind: "p",
@@ -808,7 +808,7 @@ const DE: TechnicalDocument = {
             "`npm run db:verify` ist die Wiederherstellungsprobe: entschlüsselt die neueste Sicherung (oder die übergebene), öffnet sie schreibgeschützt wie die Anwendung, führt `integrity_check` und `foreign_key_check` aus, prüft die Schemaversion und zählt die wichtigsten Tabellen. Bricht mit Fehler ab, wenn die Sicherung sich nicht wiederherstellen lässt.",
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr), entschiedene Einsprüche (2 Jahre) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
-            "Jede Antwort trägt `x-request-id` und `x-response-time`, und jede Anfrage hinterlässt eine Zeile `[req] {…}` im Log. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "Von `route()` umschlossene Routen hinterlassen eine `[req] {…}`-Zeile und die Kopfzeile `x-response-time`; nginx protokolliert **jede** Anfrage mit derselben `x-request-id`, die auch an den Client zurückgeht. Handgeschriebene Routen erzeugen diese Zeile noch nicht: die ausstehende Migration deckt sie nach und nach ab. `/api/metrics` (nur Administration) liefert p50/p95/p99-Latenz dieser Routen, Speicher, offene Streams sowie Größe von Datenbank und WAL. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, und der Hinweis-Bus liegt im Speicher. Skalierung verlangt PostgreSQL und Redis/Pubsub.",
             "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",

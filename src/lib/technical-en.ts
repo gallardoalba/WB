@@ -48,7 +48,7 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               79 handlers grouped by domain",
+            "    api/               80 handlers grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
@@ -59,8 +59,8 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 816 unit and integration tests (102 files)",
-            "e2e/                   browser tests with Playwright (8 spec files)",
+            "tests/                 828 unit and integration tests (105 files)",
+            "e2e/                   browser tests with Playwright (9 spec files + Firefox/WebKit smoke)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
         },
@@ -121,7 +121,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 20 of the 108 exported methods (13 of the 79 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
+          text: "The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 21 of the 109 exported methods (14 of the 80 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
         },
         {
           kind: "list",
@@ -306,7 +306,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 816 unit and integration tests in 102 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 828 unit and integration tests in 105 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 54 browser tests with Playwright, which starts its own server on port 3100; the WebCrypto and IndexedDB smoke also runs in Firefox and WebKit.",
         },
         {
           kind: "p",
@@ -342,7 +342,7 @@ export const EN: TechnicalDocument = {
             "`npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given), opens it read-only as the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.",
             "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
-            "Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header; nginx logs **every** request with the same `x-request-id`, which also returns to the client. Hand-written routes do not emit that line yet: the pending migration covers them. `/api/metrics` (administrators only) returns p50/p95/p99 latency for those routes, memory, live streams and database/WAL size. The `reference` returned by a 500 is the first 8 characters of that id.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.",
             "Ceiling measured with `npm run bench:sqlite`: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",

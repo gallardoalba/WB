@@ -365,8 +365,10 @@ sudo npm ... run mastodon:test -- --gustos
 sudo cp deploy/wanderbibliothek.service deploy/wanderbibliothek-maintenance.service \
         deploy/wanderbibliothek-maintenance.timer deploy/wanderbibliothek-backup.service \
         deploy/wanderbibliothek-backup.timer deploy/wanderbibliothek-watchdog.service \
-        deploy/wanderbibliothek-watchdog.timer /etc/systemd/system/
+        deploy/wanderbibliothek-watchdog.timer deploy/wanderbibliothek-verify.service \
+        deploy/wanderbibliothek-verify.timer /etc/systemd/system/
 sudo install -m 755 deploy/run-backup-container.sh /usr/local/sbin/wanderbibliothek-backup
+sudo install -m 755 deploy/run-verify-backup.sh /usr/local/sbin/wanderbibliothek-verify
 sudo install -m 755 deploy/watchdog.sh /usr/local/sbin/wanderbibliothek-watchdog
 sudo install -Dm644 deploy/backup-key.sh /usr/local/lib/wanderbibliothek/backup-key.sh
 # Endurecimiento: ProtectSystem=strict, topes de memoria y la caché de Next
@@ -376,7 +378,8 @@ sudo install -Dm644 deploy/wanderbibliothek-hardening.conf \
 sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current
 sudo systemctl daemon-reload
 sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer \
-  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer
+  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer \
+  wanderbibliothek-verify.timer
 
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
 # Bloqueo de rastreadores de IA por User-Agent (contexto `http`).
@@ -571,6 +574,10 @@ apareció el bucle de redirecciones de `/api/requests`.
 - **Cada 6 horas** (`wanderbibliothek-backup.timer`, a las 00:20, 06:20, 12:20 y
   18:20; antes era diaria, pero la base ocupa ~2 MB y el RPO baja de 24 h a 6 h),
   con `integrity_check` y rotación de 14 copias.
+- **Cada domingo a las 05:10**, `wanderbibliothek-verify.timer` descifra la copia
+  más reciente y la abre entera con el mismo código que sirve la web. Si la
+  restauración no es posible, la unidad falla y el motivo queda en
+  `journalctl -u wanderbibliothek-verify`.
 - Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
   se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
   sirven. Sin clave la copia quedaría en claro con correos y hashes dentro, así

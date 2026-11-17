@@ -16,12 +16,13 @@ HARDENING_FILE=$HARDENING_DIR/hardening.conf
 STAMP="$(date -u +%Y%m%dT%H%M%S%N)"
 BACKUP_SUFFIX=".pre-image-operations-$STAMP"
 
-for source in run-container.sh run-backup-container.sh deploy-image.sh watchdog.sh backup-key.sh \
+for source in run-container.sh run-backup-container.sh run-verify-backup.sh deploy-image.sh watchdog.sh backup-key.sh \
   nginx-image-assets.awk \
   wanderbibliothek-image.service wanderbibliothek-hardening-image.conf \
   wanderbibliothek-backup.service wanderbibliothek-backup.timer \
   wanderbibliothek-watchdog.service wanderbibliothek-watchdog.timer \
-  wanderbibliothek-maintenance.service wanderbibliothek-maintenance.timer; do
+  wanderbibliothek-maintenance.service wanderbibliothek-maintenance.timer \
+  wanderbibliothek-verify.service wanderbibliothek-verify.timer; do
   [ -f "$SCRIPT_DIR/$source" ] || fail "falta $SCRIPT_DIR/$source"
 done
 
@@ -54,12 +55,14 @@ backup_file "$SERVICE_FILE"
 backup_file "$HARDENING_FILE"
 for unit in wanderbibliothek-backup.service wanderbibliothek-backup.timer \
   wanderbibliothek-watchdog.service wanderbibliothek-watchdog.timer \
-  wanderbibliothek-maintenance.service wanderbibliothek-maintenance.timer; do
+  wanderbibliothek-maintenance.service wanderbibliothek-maintenance.timer \
+  wanderbibliothek-verify.service wanderbibliothek-verify.timer; do
   file="/etc/systemd/system/$unit"
   [ ! -e "$file" ] || backup_file "$file"
 done
 for file in /usr/local/sbin/wanderbibliothek-container \
   /usr/local/sbin/wanderbibliothek-backup \
+  /usr/local/sbin/wanderbibliothek-verify \
   /usr/local/sbin/wanderbibliothek-deploy-image \
   /usr/local/sbin/wanderbibliothek-watchdog \
   /usr/local/lib/wanderbibliothek/backup-key.sh; do
@@ -89,6 +92,7 @@ ok "nginx sirve assets desde la imagen activa"
 install -d -m 755 /usr/local/sbin /usr/local/lib/wanderbibliothek "$HARDENING_DIR"
 install -m 755 "$SCRIPT_DIR/run-container.sh" /usr/local/sbin/wanderbibliothek-container
 install -m 755 "$SCRIPT_DIR/run-backup-container.sh" /usr/local/sbin/wanderbibliothek-backup
+install -m 755 "$SCRIPT_DIR/run-verify-backup.sh" /usr/local/sbin/wanderbibliothek-verify
 install -m 755 "$SCRIPT_DIR/deploy-image.sh" /usr/local/sbin/wanderbibliothek-deploy-image
 install -m 755 "$SCRIPT_DIR/watchdog.sh" /usr/local/sbin/wanderbibliothek-watchdog
 install -m 644 "$SCRIPT_DIR/backup-key.sh" /usr/local/lib/wanderbibliothek/backup-key.sh
@@ -96,7 +100,8 @@ install -m 644 "$SCRIPT_DIR/wanderbibliothek-image.service" "$SERVICE_FILE"
 install -m 644 "$SCRIPT_DIR/wanderbibliothek-hardening-image.conf" "$HARDENING_FILE"
 for unit in wanderbibliothek-backup.service wanderbibliothek-backup.timer \
   wanderbibliothek-watchdog.service wanderbibliothek-watchdog.timer \
-  wanderbibliothek-maintenance.service wanderbibliothek-maintenance.timer; do
+  wanderbibliothek-maintenance.service wanderbibliothek-maintenance.timer \
+  wanderbibliothek-verify.service wanderbibliothek-verify.timer; do
   install -m 644 "$SCRIPT_DIR/$unit" "/etc/systemd/system/$unit"
 done
 
@@ -124,8 +129,11 @@ restore_installation() {
     /etc/systemd/system/wanderbibliothek-watchdog.timer \
     /etc/systemd/system/wanderbibliothek-maintenance.service \
     /etc/systemd/system/wanderbibliothek-maintenance.timer \
+    /etc/systemd/system/wanderbibliothek-verify.service \
+    /etc/systemd/system/wanderbibliothek-verify.timer \
     /usr/local/sbin/wanderbibliothek-container \
     /usr/local/sbin/wanderbibliothek-backup \
+    /usr/local/sbin/wanderbibliothek-verify \
     /usr/local/sbin/wanderbibliothek-deploy-image \
     /usr/local/sbin/wanderbibliothek-watchdog \
     /usr/local/lib/wanderbibliothek/backup-key.sh; do
@@ -173,7 +181,8 @@ if [ "$healthy" -ne 1 ]; then
 fi
 
 if ! systemctl enable --now wanderbibliothek-maintenance.timer \
-  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer; then
+  wanderbibliothek-backup.timer wanderbibliothek-watchdog.timer \
+  wanderbibliothek-verify.timer; then
   fail "el servicio está sano, pero no se pudieron habilitar todos los temporizadores"
 fi
-ok "servicio sano; backup, watchdog y mantenimiento habilitados"
+ok "servicio sano; backup, verificación, watchdog y mantenimiento habilitados"

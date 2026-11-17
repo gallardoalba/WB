@@ -23,6 +23,12 @@ const TOKEN_ONLY = new Set(["cron/maintenance/route.ts"]);
  */
 const MANUAL_HANDLERS = 88;
 
+/**
+ * Ficheros con handlers a mano que tampoco llaman a `recordRequest()`. Solo
+ * puede bajar: una ruta nueva sin `route()` ni registro rompe la prueba.
+ */
+const UNLOGGED_ROUTE_FILES = 66;
+
 function routeFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -82,6 +88,23 @@ test("la migración a route() no retrocede", () => {
   assert.ok(
     manual <= MANUAL_HANDLERS,
     `Quedan ${manual} handlers fuera de route() (tope ${MANUAL_HANDLERS}): una ruta nueva debe usar el envoltorio; si has envuelto alguna, baja el tope`,
+  );
+});
+
+test("ninguna ruta nueva se queda sin registro de petición", () => {
+  // `route()` ya llama a `recordRequest()`. Las que siguen a mano deben
+  // hacerlo ellas; hasta completar la migración, el tope es lo que impide que
+  // la deuda crezca.
+  const handlers = /^export (?:const|async function) (?:GET|POST|PUT|PATCH|DELETE)\b/m;
+  const wrapped = /^export const (?:GET|POST|PUT|PATCH|DELETE) = route[<(]/m;
+  const unlogged = routeFiles(API_DIR).filter((file) => {
+    const source = readFileSync(file, "utf8");
+    if (!handlers.test(source) || wrapped.test(source)) return false;
+    return !source.includes("recordRequest(");
+  });
+  assert.ok(
+    unlogged.length <= UNLOGGED_ROUTE_FILES,
+    `Hay ${unlogged.length} ficheros sin route() ni recordRequest() (tope ${UNLOGGED_ROUTE_FILES}): ${unlogged.join(", ")}`,
   );
 });
 

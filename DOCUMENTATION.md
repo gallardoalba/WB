@@ -17,7 +17,7 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               79 handlers grouped by domain
+    api/               80 handlers grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
@@ -28,8 +28,8 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 816 unit and integration tests (102 files)
-e2e/                   53 browser tests with Playwright
+tests/                 828 unit and integration tests (105 files)
+e2e/                   54 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
 
-The API has 79 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 20 of the 108 exported methods (13 of the 79 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
+The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 21 of the 109 exported methods (14 of the 80 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -200,6 +200,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `MAIL_WEBHOOK_URL` / `MAIL_WEBHOOK_TOKEN` | unset | Alternative to Brevo: receives `{to, subject, text}`; with both configured the webhook wins. |
 | `MAINTENANCE_TOKEN` | unset | Token for `POST /api/cron/maintenance`; without it the route answers 404. |
 | `TRUST_PROXY` | unset | `1` only behind your own proxy: allows `X-Forwarded-For`/`-Host` and enables per-IP quotas. |
+| `SSE_MAX_STREAMS` | `500` | Global cap on open live streams (SSE). Each account is already limited to 3; this protects file descriptors and SQLite timers on a single instance. |
 | `WANDERBIBLIOTHEK_BACKUP_KEY` / `WANDERBIBLIOTHEK_BACKUP_KEEP` | unset / `14` | Key of the encrypted backups and how many are kept when rotating. |
 | `ERROR_WEBHOOK_URL` / `ERROR_WEBHOOK_TOKEN` | unset | Receive 500s as JSON, already redacted. |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. |
@@ -214,7 +215,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 816 unit and integration tests in 102 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 828 unit and integration tests in 105 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 54 browser tests with Playwright, which starts its own server on port 3100; `e2e/crypto-smoke.spec.ts` also runs in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -232,13 +233,14 @@ npx playwright install chromium && npm run test:e2e
 ## Operations
 
 - `npm run db:backup` uses SQLite's `.backup()` API, checks integrity, rotates backups, encrypts when a key is present and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while WAL is active.
-- `npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given as an argument), opens it read-only like the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.
+- `npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given as an argument), opens it read-only like the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored. The `wanderbibliothek-verify.timer` runs it every Sunday against the latest backup, so a copy that no longer restores shows up in the journal instead of on the day it is needed.
 - `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
 - `npm run moderator:create -- <address> 'password'` creates a moderation-only account (no suspensions); `npm run admin:create` keeps creating administrators.
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
 - `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--pin` makes an external witness fail if a published snapshot is rewritten.
-- Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
+- Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header. nginx logs every request with the same `x-request-id` (also returned to the client), so a request can be correlated even when its handler is still written by hand.
+- `GET /api/metrics` (administrator only) returns uptime, memory, p50/p95/p99 latency of `route()`-wrapped handlers, error and request counters, open live streams and database/WAL size. It is JSON, not Prometheus, and contains no request data.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.
 - Updating restarts that single process: the deploy scripts take a backup, swap the release, restart and check `/api/health`, rolling back on failure. An update therefore means a few seconds of downtime, and there is no high availability.
