@@ -125,14 +125,27 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      # `--with-deps` sigue haciendo falta en un runner recién creado (las
-      # librerías del sistema no se cachean), pero los navegadores ya están en
-      # la caché: si el espejo de `apt` falla o va lento, se reintenta una vez
-      # en lugar de tumbar el trabajo por un corte de red.
+      # Las librerías del sistema son el otro medio centenar de megas, y lo que
+      # de verdad se atasca cuando el espejo de `apt` va lento. Los `.deb` se
+      # guardan en un directorio propio y se copian a la caché de `apt` antes de
+      # instalar: si están, no se vuelven a descargar. Es best-effort —una
+      # versión nueva del paquete se baja igual—, no una condición.
+      - name: Caché de los paquetes del sistema
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/playwright-apt
+          key: apt-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # `--with-deps` sigue haciendo falta en un runner recién creado, y si el
+      # espejo de `apt` falla se reintenta: un corte de red no puede tumbar un
+      # trabajo que no tiene nada que arreglar en el repositorio.
       - name: Instalar Firefox y WebKit
         run: |
+          mkdir -p ~/.cache/playwright-apt
+          sudo cp -n ~/.cache/playwright-apt/*.deb /var/cache/apt/archives/ 2>/dev/null || true
           npx playwright install --with-deps firefox webkit \
             || { echo "Reintento tras un fallo de red al instalar"; npx playwright install --with-deps firefox webkit; }
+          sudo cp -n /var/cache/apt/archives/*.deb ~/.cache/playwright-apt/ 2>/dev/null || true
 
       - name: Humo de cifrado en Firefox y WebKit
         run: npm run test:e2e:smoke
