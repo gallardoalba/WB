@@ -329,6 +329,12 @@ test("sin sesión, «Explorar libros» abre el catálogo público", async ({ pag
 test("«Descubrir todos los libros» abre el catálogo por arriba", async ({ page }) => {
   await page.goto("/");
   await waitForHydration(page);
+  // La portada llega en streaming: hasta que el estante no está de verdad
+  // pintado, el documento mide poco y el desplazamiento se queda en cero —y el
+  // cambio de contenido, al revelarse, lo cancela aunque ya hubiera empezado.
+  // Esperar a la primera tarjeta es la señal de que el documento tiene su
+  // altura definitiva. (`waitForHydration` solo dice que React montó.)
+  await expect(page.locator(".book-card").first()).toBeVisible();
 
   // Con la portada desplazada al final, el catálogo se abría a media altura:
   // el desplazamiento a cero se hacía antes de que la vista nueva tuviera su
