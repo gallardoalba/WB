@@ -114,8 +114,25 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      # Los dos motores son lo único que necesita este trabajo, y son lo más
+      # pesado de instalar: entre 150 y 250 MB de navegadores más las librerías
+      # del sistema (GStreamer y las fuentes de WebKit traen la mayor parte de
+      # los ~139 MB de `apt`). La caché se invalida sola cuando cambia la
+      # versión de Playwright, que es la que fija qué navegadores se bajan.
+      - name: Caché de los navegadores
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # `--with-deps` sigue haciendo falta en un runner recién creado (las
+      # librerías del sistema no se cachean), pero los navegadores ya están en
+      # la caché: si el espejo de `apt` falla o va lento, se reintenta una vez
+      # en lugar de tumbar el trabajo por un corte de red.
       - name: Instalar Firefox y WebKit
-        run: npx playwright install --with-deps firefox webkit
+        run: |
+          npx playwright install --with-deps firefox webkit \
+            || { echo "Reintento tras un fallo de red al instalar"; npx playwright install --with-deps firefox webkit; }
 
       - name: Humo de cifrado en Firefox y WebKit
         run: npm run test:e2e:smoke
