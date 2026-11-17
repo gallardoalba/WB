@@ -57,16 +57,28 @@ test("sin sesión el catálogo se puede ojear, pero pedir pide acceso", async ({
   await expect(page).toHaveURL(/next=/);
 });
 
-test("el tema claro/oscuro se conmuta y persiste", async ({ page }) => {  await page.goto("/");
+test("el tema claro/oscuro se conmuta y persiste", async ({ page }) => {
+  await page.goto("/");
   await waitForHydration(page);
 
   const toggle = page.locator(".theme-toggle");
-  await toggle.evaluate((element) => (element as HTMLButtonElement).click());
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  // `waitForHydration` solo garantiza que React montó *algo*: en `next dev` la
+  // primera pulsación puede llegar antes de que el botón tenga su manejador y
+  // se pierde. Se reintenta, pero mirando antes el estado: si el clic sí entró,
+  // volver a pulsar lo desharía.
+  async function setTheme(target: "dark" | "light") {
+    await expect(async () => {
+      const actual = await page.evaluate(() => document.documentElement.dataset.theme);
+      if (actual === target) return;
+      await toggle.evaluate((element) => (element as HTMLButtonElement).click());
+      await expect(page.locator("html")).toHaveAttribute("data-theme", target, { timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+  }
+
+  await setTheme("dark");
   expect(await page.evaluate(() => localStorage.getItem("b2p-theme"))).toBe("dark");
 
-  await toggle.evaluate((element) => (element as HTMLButtonElement).click());
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await setTheme("light");
 });
 
 test("una cuenta demo puede iniciar sesión", async ({ page }) => {

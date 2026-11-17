@@ -216,10 +216,16 @@ export function Dialog({
         className={["dialog", wide ? "add-dialog" : "", className ?? ""]
           .filter(Boolean)
           .join(" ")}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
+        // Mientras se desvanece ya no es un diálogo: deja de ser modal, sale
+        // del árbol de accesibilidad y no atrapa el foco. Antes seguía siendo
+        // `role="dialog"` durante los 170 ms del fundido de salida, así que al
+        // entrar con una cuenta nueva convivían dos modales —el de acceso y el
+        // tour— y el lector de pantalla anunciaba el que se iba.
+        role={closing ? undefined : "dialog"}
+        aria-modal={closing ? undefined : "true"}
+        aria-hidden={closing || undefined}
+        aria-labelledby={closing ? undefined : titleId}
+        aria-describedby={closing || !description ? undefined : descriptionId}
         tabIndex={-1}
       >
         <button
