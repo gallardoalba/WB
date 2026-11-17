@@ -43,7 +43,7 @@ directory).
   hasta que llegaba el 409.
 
   Validado: tsc, eslint, 828 pruebas unitarias y de integración (105 ficheros),
-  build y 53/53 E2E.
+  build y 54/54 E2E (Chromium) y el humo en Firefox/WebKit.
   ```
 
 - **UI language**: strings are written in Spanish, and the German and English

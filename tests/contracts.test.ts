@@ -229,12 +229,14 @@ test("las cifras de la documentación no se contradicen", () => {
 
   const handlers = routeFiles(API_DIR).length;
   for (const { file, texto } of fuentes) {
-    const citados = new Set([...texto.matchAll(/\b(\d{2,3}) handlers\b/g)].map((match) => match[1]!));
+    const citados = new Set(
+      [...texto.matchAll(/\b(\d{2,3}) (?:handlers|route files)\b/g)].map((match) => match[1]!),
+    );
     if (citados.size === 0) continue;
     assert.deepEqual(
       [...citados],
       [String(handlers)],
-      `${file} cita ${[...citados].join("/")} handlers y en src/app/api hay ${handlers}`,
+      `${file} cita ${[...citados].join("/")} handlers/route files y en src/app/api hay ${handlers}`,
     );
   }
 });

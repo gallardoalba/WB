@@ -68,23 +68,29 @@ test("un AAD distinto nunca descifra", async () => {
 
 test("envelopesOf no lanza con JSON arbitrario y solo devuelve sobres completos", () => {
   fc.assert(
-    fc.property(fc.anything(), fc.anything(), fc.anything(), (envelopes, ciphertext, iv) => {
-      const message = {
-        isMine: false,
-        keyId: "k",
-        ciphertext,
-        iv,
-        envelopes,
-      } as unknown as Parameters<typeof e2e.envelopesOf>[0];
+    fc.property(
+      fc.anything(),
+      fc.anything(),
+      fc.anything(),
+      fc.anything(),
+      (envelopes, ciphertext, iv, keyId) => {
+        const message = {
+          isMine: false,
+          keyId,
+          ciphertext,
+          iv,
+          envelopes,
+        } as unknown as Parameters<typeof e2e.envelopesOf>[0];
 
-      const result = e2e.envelopesOf(message);
-      assert.ok(Array.isArray(result));
-      for (const envelope of result) {
-        assert.equal(typeof envelope.keyId, "string");
-        assert.equal(typeof envelope.ciphertext, "string");
-        assert.equal(typeof envelope.iv, "string");
-      }
-    }),
+        const result = e2e.envelopesOf(message);
+        assert.ok(Array.isArray(result));
+        for (const envelope of result) {
+          assert.equal(typeof envelope.keyId, "string");
+          assert.equal(typeof envelope.ciphertext, "string");
+          assert.equal(typeof envelope.iv, "string");
+        }
+      },
+    ),
     { numRuns: 200 },
   );
 });

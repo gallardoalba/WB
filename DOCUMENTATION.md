@@ -17,7 +17,7 @@ The code is MIT licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               80 handlers grouped by domain
+    api/               80 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
@@ -239,7 +239,7 @@ npx playwright install chromium && npm run test:e2e
 - `npm run moderator:create -- <address> 'password'` creates a moderation-only account (no suspensions); `npm run admin:create` keeps creating administrators.
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
 - `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--pin` makes an external witness fail if a published snapshot is rewritten.
-- Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header. nginx logs every request with the same `x-request-id` (also returned to the client), so a request can be correlated even when its handler is still written by hand.
+- Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header. nginx logs every application request with the same `x-request-id` (also returned to the client), so a request can be correlated even when its handler is still written by hand.
 - `GET /api/metrics` (administrator only) returns uptime, memory, p50/p95/p99 latency of `route()`-wrapped handlers, error and request counters, open live streams and database/WAL size. It is JSON, not Prometheus, and contains no request data.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.

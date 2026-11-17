@@ -48,7 +48,7 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               80 handlers grouped by domain",
+            "    api/               80 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
@@ -342,7 +342,7 @@ export const EN: TechnicalDocument = {
             "`npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given), opens it read-only as the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.",
             "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
-            "Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header; nginx logs **every** request with the same `x-request-id`, which also returns to the client. Hand-written routes do not emit that line yet: the pending migration covers them. `/api/metrics` (administrators only) returns p50/p95/p99 latency for those routes, memory, live streams and database/WAL size. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header; nginx logs **every application request** with the same `x-request-id`, which also returns to the client. Hand-written routes do not emit that line yet: the pending migration covers them. `/api/metrics` (administrators only) returns p50/p95/p99 latency for those routes, memory, live streams and database/WAL size. The `reference` returned by a 500 is the first 8 characters of that id.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.",
             "Ceiling measured with `npm run bench:sqlite`: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",

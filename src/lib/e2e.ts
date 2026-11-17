@@ -404,7 +404,13 @@ export function envelopesOf(message: ThreadMessageLike): MessageEnvelope[] {
     typeof message.iv === "string" &&
     message.iv
   ) {
-    return [{ keyId: message.keyId ?? "", ciphertext: message.ciphertext, iv: message.iv }];
+    return [
+      {
+        keyId: typeof message.keyId === "string" ? message.keyId : "",
+        ciphertext: message.ciphertext,
+        iv: message.iv,
+      },
+    ];
   }
   return [];
 }
