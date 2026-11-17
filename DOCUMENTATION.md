@@ -22,14 +22,14 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v55), seed
+    db/                connection, base schema (v2), migrations (v3–v56), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 838 unit and integration tests (105 files)
-e2e/                   54 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
+tests/                 850 unit and integration tests (108 files)
+e2e/                   56 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -57,10 +57,10 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/lectores` | Directory with search, city and sorting by distance or activity. |
 | `/clubes`, `/clubes/[clubId]` | Reading circles by city: requests, current read, vote, attendance and members-only forum. |
 | `/listas`, `/listas/[listId]` | Reading lists: readable without a session (the signature only appears if the owner allows it), editable only by their owner. |
-| `/libro/[id]` | Copy page with metadata and JSON-LD `Book`/`Offer`. |
+| `/libro/[id]` | Copy page with metadata, its journey (if it has changed hands) and JSON-LD `Book`/`Offer`. |
 | `/obra/[bookId]` | Canonical work: conversation about the title, copies and recommendations. |
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
-| `/cuenta` | Settings: profile, notifications, password, encryption, second factor, export and deletion. |
+| `/cuenta` | Settings: profile, notifications, password, encryption, second factor, journey visibility, welcome tour, export and deletion. |
 | `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
 | `/privacidad`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
@@ -98,8 +98,9 @@ The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 
 - `users.is_moderator` separates moderation from administration; `suspended_until` and `suspension_reason` make a suspension explainable and time-bound.
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
+- Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v55). A new installation starts from `SCHEMA_V2` and its indexes and runs the 53 steps up to v55; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Five steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own) v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer) and v54 (signed snapshots of the public catalogue). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v56). A new installation starts from `SCHEMA_V2` and its indexes and runs the 54 steps up to v56; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Six steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue) and v56 (the copy's journey: copies inherit their provenance and the copy page can tell it). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
@@ -216,7 +217,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 838 unit and integration tests in 105 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 54 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 850 unit and integration tests in 108 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -277,6 +278,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - Four breakpoints (480, 768, 1120 and 1400/1800 px), spacing scale from 4 to 48 px and controls at 40 px, 44 px on mobile.
 - Dialogs with trapped focus, closing on `Escape` and focus restoration; a "Skip to content" link, `aria-current` in navigation, filters with `aria-pressed` and errors with `role="alert"`.
 - Minimum AA contrast, type from 12 px, 44 px touch targets on phones and `prefers-reduced-motion` respected.
+- First steps: the home page shows a dismissible checklist for signed-in accounts (complete the profile, publish a copy, request one, follow a reader) fed by the server, and a four-step welcome tour. The tour is offered on the home page to accounts that have neither published nor requested anything, and can be replayed from `/cuenta` with `/?tour=1`. Both marks live in `localStorage` (`wb-tour-seen`, `wb-checklist-off`), not in the account: they are interface hints, not profile data.
 - The interface is trilingual and every language has its own URL: German is the default and stays unprefixed (`/werk/x`), while Spanish and English are published under `/es/…` and `/en/…`, each with its own `hreflang` and canonical so search engines index them separately (the proxy rewrites the prefix away and passes the language in a header). Inside a prefixed URL the prefix wins; otherwise the switcher does, setting the `wanderbibliothek-locale` cookie and, with a session, the account preference used for notifications and mail. Without a preference the browser language (`Accept-Language`) decides; German is the last resort. Mail links carry `?lang=…` so the page they open speaks the language of the message.
 
 ## Further reading

@@ -42,6 +42,7 @@ type UserRow = {
   city_precision: string;
   sign_as: string;
   dm_policy: string;
+  show_journey: number;
 };
 
 function toSessionUser(row: UserRow): SessionUser {
@@ -63,6 +64,9 @@ function toSessionUser(row: UserRow): SessionUser {
     cityPrecision: oneOf(row.city_precision, ["exact", "hidden"], "exact"),
     signAs: oneOf(row.sign_as, ["name", "community"], "name"),
     dmPolicy: oneOf(row.dm_policy, ["mutual", "exchanged"], "mutual"),
+    // Apagado solo cuando la cuenta lo pide: las bases anteriores a la v56
+    // reciben 1 en la migración y no cambian de comportamiento.
+    showJourney: row.show_journey !== 0,
   };
 }
 
@@ -74,7 +78,7 @@ function oneOf<T extends string>(value: string, allowed: readonly T[], fallback:
 export function getUserById(id: string): SessionUser | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy FROM users WHERE id = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, show_journey FROM users WHERE id = ?",
     )
     .get(id) as UserRow | undefined;
   return row ? toSessionUser(row) : null;
@@ -85,7 +89,7 @@ export function getUserWithPassword(
 ): (SessionUser & { passwordHash: string }) | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, password_hash AS passwordHash FROM users WHERE email = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, show_journey, password_hash AS passwordHash FROM users WHERE email = ?",
     )
     .get(email) as (UserRow & { passwordHash: string }) | undefined;
   if (!row) return null;
@@ -117,6 +121,7 @@ export function publicSessionUser(account: SessionUser & { passwordHash: string 
     cityPrecision: account.cityPrecision,
     signAs: account.signAs,
     dmPolicy: account.dmPolicy,
+    showJourney: account.showJourney,
   };
 }
 
@@ -545,15 +550,25 @@ export function setUserPrivacy(
     cityPrecision: string;
     signAs: string;
     dmPolicy: string;
+    /** Sin valor no se toca: los clientes antiguos no conocen la preferencia. */
+    showJourney?: boolean;
   },
 ): void {
   getDb()
     .prepare(
       `UPDATE users
-          SET profile_visibility = ?, city_precision = ?, sign_as = ?, dm_policy = ?
+          SET profile_visibility = ?, city_precision = ?, sign_as = ?, dm_policy = ?,
+              show_journey = COALESCE(?, show_journey)
         WHERE id = ?`,
     )
-    .run(input.profileVisibility, input.cityPrecision, input.signAs, input.dmPolicy, userId);
+    .run(
+      input.profileVisibility,
+      input.cityPrecision,
+      input.signAs,
+      input.dmPolicy,
+      input.showJourney === undefined ? null : input.showJourney ? 1 : 0,
+      userId,
+    );
 }
 
 /* -------------------------------- sesiones -------------------------------- */

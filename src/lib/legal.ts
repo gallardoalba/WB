@@ -141,7 +141,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           heading: "5. Cookies und lokale Speicherung",
           body: [
             "Zwei technisch notwendige Cookies: die Sitzung (HttpOnly, Secure, SameSite=Lax, 14 Tage) und, nur wenn die Sprache manuell gewechselt wird, die Spracheinstellung (1 Jahr). Keines dient Werbung oder Analyse und keines verlangt eine Einwilligung.",
-            "Im Browser gespeichert: gewähltes Design und Sprache sowie die Fingerabdrücke der Schlüssel der Gesprächspartner.",
+            "Im Browser gespeichert: gewähltes Design und Sprache, ob die Einführung gesehen wurde, sowie die Fingerabdrücke der Schlüssel der Gesprächspartner.",
             "Die private Schlüsselhälfte für die Verschlüsselung liegt im IndexedDB des Browsers und lässt sich von JavaScript nicht auslesen.",
           ],
         },
@@ -149,8 +149,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           heading: "6. Sichtbarkeit der Daten",
           body: [
             "Das Profil (Name, Stadt, Biografie, Bücher) ist für angemeldete Personen sichtbar; daraus lebt die Gemeinschaft.",
-            "Du kannst wählen, wer dein Profil sieht (die ganze Gemeinschaft, nur Personen, denen du folgst, oder niemand), ob deine Stadt gezeigt wird, ob du Bewertungen und Kommentare mit deinem Namen oder als «eine Person aus der Gemeinschaft» signierst und wer dir direkt schreiben darf. Die genaue Stadt bleibt bei einem angenommenen Tausch sichtbar, sonst kann man sich nicht treffen.",
-            "Startseite und Katalog lassen sich auch ohne Konto ansehen und durchblättern, aber ohne Anmeldung zeigt jedes Exemplar nur Buchangaben und Stadt: nie, wer es anbietet, die Notiz oder das genaue Datum.",
+            "Du kannst wählen, wer dein Profil sieht (die ganze Gemeinschaft, nur Personen, denen du folgst, oder niemand), ob deine Stadt gezeigt wird, ob die Reise deiner Exemplare erzählt wird (Städte und Monate, nie Personen), ob du Bewertungen und Kommentare mit deinem Namen oder als «eine Person aus der Gemeinschaft» signierst und wer dir direkt schreiben darf. Die genaue Stadt bleibt bei einem angenommenen Tausch sichtbar, sonst kann man sich nicht treffen.",
+            "Startseite und Katalog lassen sich auch ohne Konto ansehen und durchblättern. Ohne Anmeldung zeigt jedes Exemplar nur Buchangaben und Stadt: nie, wer es anbietet, die Notiz oder das genaue Datum. Mit Anmeldung kann der Eintrag die Reise des Exemplars erzählen: Städte und Monate, nie Personen.",
             "Suchmaschinen dürfen den Katalog und die Profile nicht indexieren (robots.txt).",
           ],
         },
@@ -249,7 +249,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         heading: "5. Cookies y almacenamiento local",
         body: [
           "Dos cookies técnicas: la de sesión (HttpOnly, Secure, SameSite=Lax, 14 días) y, solo si se cambia el idioma a mano, la de idioma (1 año). Ninguna sirve para publicidad ni analítica, y ninguna requiere consentimiento.",
-          "En el navegador se guardan el tema y el idioma elegidos, y las huellas de las claves de tus interlocutores.",
+          "En el navegador se guardan el tema y el idioma elegidos, si ya viste la guía de primeros pasos y las huellas de las claves de tus interlocutores.",
           "La mitad privada de la clave de cifrado vive en IndexedDB y JavaScript no puede extraerla.",
         ],
       },
@@ -257,8 +257,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         heading: "6. Visibilidad de los datos",
         body: [
           "El perfil (nombre, ciudad, biografía, libros) es visible para personas con sesión iniciada: de ahí vive la comunidad.",
-          "Puedes elegir quién ve tu perfil (toda la comunidad, solo a quienes sigues o nadie), si tu ciudad se enseña, si firmas reseñas y comentarios con tu nombre o como «una persona de la comunidad», y quién puede escribirte por mensaje directo. La ciudad exacta se sigue viendo en un intercambio aceptado, porque sin ella no se puede quedar.",
-          "La portada y el catálogo se pueden ver y recorrer sin cuenta, pero sin sesión cada ejemplar muestra el libro y la ciudad: nunca quién lo publica, su nota ni la fecha exacta.",
+          "Puedes elegir quién ve tu perfil (toda la comunidad, solo a quienes sigues o nadie), si tu ciudad se enseña, si se cuenta el recorrido de tus ejemplares (ciudades y meses, nunca personas), si firmas reseñas y comentarios con tu nombre o como «una persona de la comunidad», y quién puede escribirte por mensaje directo. La ciudad exacta se sigue viendo en un intercambio aceptado, porque sin ella no se puede quedar.",
+          "La portada y el catálogo se pueden ver y recorrer sin cuenta. Sin sesión, cada ejemplar muestra el libro y la ciudad: nunca quién lo publica, su nota ni la fecha exacta. Con sesión, la ficha puede contar el recorrido de la copia: ciudades y meses, nunca las personas.",
           "Los buscadores no pueden indexar el catálogo ni los perfiles (robots.txt).",
         ],
       },

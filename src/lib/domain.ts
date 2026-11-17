@@ -203,6 +203,12 @@ export type SessionUser = {
   signAs: SignAs;
   /** Quién puede abrir un mensaje directo. */
   dmPolicy: DmPolicy;
+  /**
+   * Si el recorrido de los ejemplares que esta cuenta tiene se cuenta en la
+   * ficha (`/libro/[id]`). Es agregado —ciudades y meses, nunca nombres— y se
+   * activa por defecto; se apaga desde la cuenta.
+   */
+  showJourney: boolean;
 };
 
 /** Visibilidad del perfil (v48). */
@@ -248,6 +254,44 @@ export type ListingView = {
   publisher: string | null;
   year: string | null;
   series: string | null;
+  /**
+   * `true` si la copia llegó por un intercambio de Wanderbibliothek (tiene
+   * `from_listing_id`): es la insignia de procedencia del catálogo.
+   */
+  travelled: boolean;
+};
+
+/** Una parada del recorrido de un ejemplar. */
+export type CopyJourneyStop = {
+  /** Ciudad donde estuvo; vacía si quien la tenía ocultaba su ciudad. */
+  city: string;
+  /** Mes (`YYYY-MM`): el día exacto se cruza con otros datos. */
+  since: string;
+};
+
+/**
+ * Recorrido agregado de una copia: de dónde salió y por dónde ha pasado.
+ *
+ * No lleva nombres ni identificadores a propósito. Se calcula al vuelo
+ * siguiendo `from_listing_id`, así que no hay contadores que se desincronicen.
+ */
+export type CopyJourney = {
+  /** Paradas en orden cronológico; la última es la actual. */
+  stops: CopyJourneyStop[];
+  /** Personas distintas que lo han tenido (incluida la actual). */
+  readers: number;
+  /** Kilómetros acumulados entre paradas con distancia conocida. */
+  km: number;
+  /** Quien lo tiene ahora ha ocultado el recorrido: solo lo ve en su cuenta. */
+  hidden: boolean;
+};
+
+/** Lo que le falta a una cuenta recién creada para empezar a moverse. */
+export type OnboardingProgress = {
+  profile: boolean;
+  published: boolean;
+  requested: boolean;
+  following: boolean;
 };
 
 export type RequestView = {
@@ -474,6 +518,11 @@ export type AppSnapshot = {
   myPublished: number;
   /** Ciudades para las que esta cuenta quiere recibir novedades. */
   availabilityAlerts: string[];
+  /**
+   * Qué le falta a la cuenta para completar el arranque. Solo se calcula en la
+   * portada de una sesión iniciada; fuera de ahí llega todo en `false`.
+   */
+  onboarding: OnboardingProgress;
 };
 
 export type MessageView = {

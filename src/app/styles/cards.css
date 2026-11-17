@@ -661,3 +661,22 @@
   width: auto;
   min-width: 0;
 }
+
+/* Procedencia en la tarjeta: la copia llegó por un intercambio. Va abajo a la
+   derecha, donde no compite con el estado (abajo a la izquierda) ni con el
+   corazón (arriba a la derecha). */
+.travelled-tag {
+  position: absolute;
+  z-index: 1;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  color: var(--green-strong);
+  font-size: 12px;
+  font-weight: 700;
+}

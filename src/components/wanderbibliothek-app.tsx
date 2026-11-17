@@ -36,6 +36,8 @@ import {
   X,
 } from "lucide-react";
 import { ListingCard } from "./listing-card";
+import { OnboardingChecklist } from "./onboarding-checklist";
+import { OnboardingTour } from "./onboarding-tour";
 import { EmptyState } from "./empty-state";
 import { AppSidebar } from "./app-sidebar";
 import { AccountMenu } from "./account-menu";
@@ -166,7 +168,7 @@ export default function WanderbibliothekApp({
   buildCommit?: string | null;
   buildCommitUrl?: string | null;
 }) {
-  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications } = snapshot;
+  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
   /**
    * Entrada optimista: al iniciar sesión la cabecera pasa a «dentro» con la
    * respuesta del propio `POST /api/auth/login`, sin esperar a que termine el
@@ -897,6 +899,11 @@ export default function WanderbibliothekApp({
               </div>
             </section>
           )}
+
+          {/* Los primeros pasos van justo bajo el héroe: es la única vista que
+              abre quien acaba de registrarse y la tarjeta desaparece sola al
+              completar las cuatro tareas. */}
+          {view === "home" && user && <OnboardingChecklist progress={onboarding} />}
 
           {/* La portada no lleva titular: el héroe ya presenta la página y el
               h2 solo empujaba el estante hacia abajo. El nombre de la
@@ -1805,6 +1812,22 @@ export default function WanderbibliothekApp({
             <X size={15} />
           </button>
         </div>
+      )}
+
+      {/* El tour solo se ofrece en la portada y a quien todavía no ha publicado
+          ni pedido nada; con `?tour=1` se reabre desde la cuenta. */}
+      {user && (
+        <OnboardingTour
+          autoStart={
+            // `sessionUser` es el valor del servidor: tras un acceso optimista
+            // llega con el refresco, y así no se abre el tour de una cuenta con
+            // recorrido solo porque el snapshot todavía sea el anónimo.
+            Boolean(sessionUser) &&
+            view === "home" &&
+            !onboarding.published &&
+            !onboarding.requested
+          }
+        />
       )}
 
       <LazyDialog open={authOpen && !user}>

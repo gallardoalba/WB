@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { MapPin, MessageCircle } from "lucide-react";
+import { MapPin, MessageCircle, Route } from "lucide-react";
 import { BookCover } from "@/components/book-cover";
 import { ListingActions } from "@/components/listing-actions";
 import { SiteShell } from "@/components/site-shell";
@@ -10,9 +10,16 @@ import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
 import { pick } from "@/lib/locale";
-import { getListing, countBookComments } from "@/lib/repo";
+import { getCopyJourney, getListing, countBookComments } from "@/lib/repo";
 import { socialMetadata } from "@/lib/social";
-import { formatDistance, formatWhen, initialsOf, toneForId } from "@/lib/text";
+import {
+  formatDistance,
+  formatMonth,
+  formatNumber,
+  formatWhen,
+  initialsOf,
+  toneForId,
+} from "@/lib/text";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -70,6 +77,11 @@ export default async function Page({ params }: PageProps) {
 
   // Mismo filtro que el hilo de la obra: sin bloqueos ni cuentas suspendidas.
   const comments = countBookComments(listing.bookId, user?.id ?? null);
+  // El recorrido se calcula solo si esta copia ha cambiado de manos alguna vez:
+  // sin `from_listing_id` no hay cadena que recorrer y la consulta sobra.
+  const journey = listing.travelled
+    ? getCopyJourney(listing.id, user?.id ?? null)
+    : null;
 
   return (
     <SiteShell user={user} section="obra" title={listing.title}>
@@ -113,6 +125,15 @@ export default async function Page({ params }: PageProps) {
               <dt>{t("Publicado")}</dt>
               <dd>{formatWhen(listing.createdAt, locale)}</dd>
             </div>
+            {listing.travelled && (
+              <div>
+                <dt>{t("Procedencia")}</dt>
+                <dd className="provenance-value">
+                  <Route size={13} aria-hidden="true" />
+                  {t("Viajó por Wanderbibliothek")}
+                </dd>
+              </div>
+            )}
           </dl>
 
           <Link href={`/obra/${listing.bookId}`} className="work-link">
@@ -164,6 +185,41 @@ export default async function Page({ params }: PageProps) {
           series={listing.series}
         />
       </article>
+
+      {journey && (
+        <section className="book-journey" aria-labelledby="book-journey-title">
+          <div className="book-journey-head">
+            <h2 id="book-journey-title">{t("El viaje de este ejemplar")}</h2>
+            <p>
+              {journey.km > 0
+                ? t(
+                    "Ha pasado por {n} lectores y ha recorrido {km} km entre ciudades.",
+                    {
+                      n: formatNumber(journey.readers, locale),
+                      km: formatNumber(journey.km, locale),
+                    },
+                  )
+                : t("Ha pasado por {n} lectores.", {
+                    n: formatNumber(journey.readers, locale),
+                  })}
+            </p>
+          </div>
+          <ol className="journey-route">
+            {journey.stops.map((stop, index) => (
+              <li key={`${stop.since}-${index}`}>
+                <span className="journey-dot" aria-hidden="true" />
+                <span className="journey-where">{stop.city || t("Una ciudad")}</span>
+                <span className="journey-when">{formatMonth(stop.since, locale)}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="book-journey-note">
+            {journey.hidden
+              ? t("Este recorrido solo lo ves tú: lo has ocultado en tu cuenta.")
+              : t("Se cuentan ciudades y meses, nunca las personas que lo tuvieron.")}
+          </p>
+        </section>
+      )}
 
       <p className="detail-footer">
         {t("Wanderbibliothek no aloja archivos: los intercambios son de ejemplares físicos entre lectores.")}

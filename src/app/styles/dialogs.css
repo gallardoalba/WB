@@ -1089,3 +1089,39 @@
   font-weight: 800;
   letter-spacing: 0.1em;
 }
+
+/* Tour de bienvenida: cuatro pasos con el mismo diálogo accesible del resto de
+   la aplicación (foco atrapado, Escape y fondo inerte). */
+.dialog.tour-dialog {
+  width: min(520px, 100%);
+}
+
+.tour-progress {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tour-skip {
+  min-height: 40px;
+  margin-right: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tour-skip:hover {
+  color: var(--ink);
+}
+
+/* El tour no tiene campos: al abrirse, el foco cae en el panel y el anillo del
+   sistema rodea toda la tarjeta. Los botones conservan el suyo, que es el que
+   de verdad se usa con el teclado. */
+.dialog.tour-dialog:focus {
+  outline: none;
+}

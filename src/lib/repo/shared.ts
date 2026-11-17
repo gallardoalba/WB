@@ -82,6 +82,8 @@ export type ListingRow = {
   publisher: string | null;
   year: string | null;
   series: string | null;
+  /** 1 si la copia llegó por un intercambio de la plataforma. */
+  travelled: number;
 };
 
 export const listingSelect = (distanceExpression = "l.distance_km") => `
@@ -89,6 +91,7 @@ export const listingSelect = (distanceExpression = "l.distance_km") => `
          b.publisher, b.year, b.series,
          l.city, ${distanceExpression} AS distance_km, l.status, l.created_at,
          l.notes, b.cover_url,
+         CASE WHEN l.from_listing_id IS NULL THEN 0 ELSE 1 END AS travelled,
          (SELECT group_concat(lt.tag, '|') FROM listing_tags lt WHERE lt.listing_id = l.id) AS tags,
          u.id AS owner_id, u.name AS owner_name, u.city_precision AS owner_city_precision,
          CASE WHEN l.owner_id = @userId THEN 1 ELSE 0 END AS is_mine,
@@ -209,6 +212,7 @@ export function toListingView(row: ListingRow, viewerId?: string | null): Listin
     publisher: row.publisher ?? null,
     year: row.year ?? null,
     series: row.series ?? null,
+    travelled: Boolean(row.travelled),
   };
 }
 

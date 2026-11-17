@@ -655,6 +655,11 @@ export const privacySchema = z.object({
   dmPolicy: z.enum(["mutual", "exchanged"], {
     error: "Esa opción de mensajes no existe.",
   }),
+  /**
+   * Contar el recorrido de los ejemplares. Opcional para no resetear la
+   * preferencia desde clientes que todavía no la conocen.
+   */
+  showJourney: z.boolean().optional(),
 });
 
 export const moderationSchema = z.object({
