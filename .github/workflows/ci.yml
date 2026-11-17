@@ -53,8 +53,16 @@ jobs:
       # ESLint, TypeScript y Playwright construyen y revisan lo que se
       # publica. Se informa aparte para no confundir el riesgo de ejecución
       # con el de construcción.
-      - name: Auditoría completa (incluye desarrollo)
-        run: npm audit
+      #
+      # Se usa `npm run audit:dev` y no `npm audit` a secas porque el criterio
+      # del proyecto es el mismo que aplica el escaneo de la imagen: **bloquea
+      # lo que se puede arreglar hoy** (aviso alto o crítico con una versión
+      # corregida que no exige subir de versión mayor) e informa del resto en el
+      # resumen del job. Un `npm audit` devuelve 1 también cuando no existe
+      # parche —pasó con `picomatch` y CVE-2026-112366—, y entonces la rama
+      # queda en rojo por algo que nadie puede resolver desde este repositorio.
+      - name: Auditoría de dependencias de desarrollo
+        run: npm run audit:dev
 
       # Inventario de lo que se ejecuta en producción (CycloneDX): ante un CVE
       # en una dependencia, el SBOM dice si esa versión llegó a desplegarse.

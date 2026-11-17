@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 863 unit and integration tests (110 files)
+tests/                 869 unit and integration tests (111 files)
 e2e/                   56 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -217,13 +217,13 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 863 unit and integration tests in 110 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 869 unit and integration tests in 111 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
 Every run publishes a **CycloneDX SBOM** (`npm sbom`) with the production dependencies, so an advisory can be traced back to a deployment. Tags (`v*`) go through `.github/workflows/release.yml`: GHCR image pinned by digest, SLSA provenance, image SBOM, cosign keyless signature and a release with `SHA256SUMS` and the image reference. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a key-like variable), locally and in CI, without any service; it does not replace reviewing the git history. Static analysis (CodeQL, `security-extended`) lives in `.github/workflows/codeql.yml` and is also scheduled weekly.
 
-CI also audits **development** dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.
+CI also audits **development** dependencies with `npm run audit:dev` (`scripts/audit-dev.ts`): ESLint, TypeScript and Playwright build what gets published. It applies the same rule as the image scan — a **high or critical advisory with a non-breaking fix fails the job**, because that can be resolved in the change itself; one with no published patch, or one whose only fix is a major bump, is reported in the job summary and does not block. A bare `npm audit` fails in both cases, which leaves the branch red for something the repository cannot fix. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.
 
 ```bash
 npm install

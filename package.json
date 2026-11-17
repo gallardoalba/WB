@@ -50,7 +50,8 @@
     "bench:migrate": "node --import tsx scripts/bench-migrations.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:smoke": "playwright test --project=firefox-smoke --project=webkit-smoke",
-    "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\""
+    "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\"",
+    "audit:dev": "node --import tsx scripts/audit-dev.ts"
   },
   "engines": {
     "node": ">=22"

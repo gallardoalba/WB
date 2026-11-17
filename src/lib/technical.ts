@@ -83,7 +83,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 863 pruebas unitarias y de integración (110 ficheros)",
+            "tests/                 869 pruebas unitarias y de integración (111 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -332,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 863 pruebas unitarias y de integración en 110 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta 869 pruebas unitarias y de integración en 111 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -524,7 +524,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 863 Unit- und Integrationstests (110 Dateien)",
+            "tests/                 869 Unit- und Integrationstests (111 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -773,7 +773,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 863 Unit- und Integrationstests in 110 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt 869 Unit- und Integrationstests in 111 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",
