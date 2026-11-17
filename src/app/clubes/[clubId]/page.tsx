@@ -103,10 +103,10 @@ export default async function Page({ params, searchParams }: PageProps) {
   // La lista de miembros no se envía a quien no está en el club: la privacidad
   // se decide aquí, no escondiendo el HTML con CSS.
   const members = club.isMember
-    ? listClubMembers(club.id, { page: membersPage, pageSize: 24 })
+    ? listClubMembers(club.id, { page: membersPage, pageSize: 24, viewerId: viewer?.id })
     : null;
   // El menú de gestión necesita a todo el club, no solo a la página visible.
-  const todos = club.isMine ? listClubMembers(club.id, { pageSize: 100 }) : null;
+  const todos = club.isMine ? listClubMembers(club.id, { pageSize: 100, viewerId: viewer?.id }) : null;
   // Lo lleva el dueño y, desde la v34, sus moderadores.
   const llevaElClub = club.isMine || club.isModerator;
   const requests = llevaElClub && viewer ? listClubRequests(club.id, viewer.id) : [];
@@ -280,7 +280,7 @@ export default async function Page({ params, searchParams }: PageProps) {
               </a>
             </p>
           )}
-          {!club.isMember && (meeting || club.meetsLink) && (
+          {!club.isMember && (meeting || club.hasMeetsLink) && (
             <p className="club-meta">
               {t("El sitio y el enlace del encuentro los ven solo quienes están en el club.")}
             </p>
@@ -304,7 +304,7 @@ export default async function Page({ params, searchParams }: PageProps) {
             </div>
           )}
           {viewer && <ClubAttendance club={club} />}
-          {!meeting && !club.meetsLink && historial.length === 0 && (
+          {!meeting && !club.hasMeetsLink && historial.length === 0 && (
             <p className="empty-note">{t("Sin fecha ni lugar todavía.")}</p>
           )}
         </section>

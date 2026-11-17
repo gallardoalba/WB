@@ -285,3 +285,13 @@ test("toda variable de entorno que lee el código está en la plantilla", () => 
     `Variables sin documentar en deploy/env.example: ${faltan.join(", ")}`,
   );
 });
+
+test("la edición del club no pierde el lugar ni el enlace del encuentro", () => {
+  const source = readFileSync(
+    path.join(process.cwd(), "src", "app", "api", "clubs", "[clubId]", "route.ts"),
+    "utf8",
+  );
+  assert.match(source, /meetsPlace: input\.meetsPlace/);
+  assert.match(source, /meetsLink: input\.meetsLink/);
+  assert.doesNotMatch(source, /bookId: input\.bookId \?\? null/);
+});

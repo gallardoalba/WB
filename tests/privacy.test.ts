@@ -241,3 +241,13 @@ test("un flujo en vivo por pestaña: se cortan las conexiones simultáneas de m�
   for (let index = 0; index < 4; index += 1) live.releaseStream("usr_ana");
   assert.equal(live.acquireStream("usr_ana"), "ok", "liberar de más no deja el contador negativo");
 });
+
+test("las páginas con token de un solo uso no filtran la URL por Referer", () => {
+  const proxy = source("src/proxy.ts");
+  for (const route of ["/verificar", "/restablecer", "/apelar"]) {
+    assert.ok(
+      proxy.includes(`rutaInterna === "${route}"`),
+      `${route} debe quedar fuera del Referer`,
+    );
+  }
+});

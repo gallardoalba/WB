@@ -57,6 +57,14 @@ export function deleteAccount(userId: string): void {
     db.prepare("DELETE FROM dm_reads WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM request_reads WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM reports WHERE reporter_id = ?").run(userId);
+    // La fila de `users` se anonimiza, así que los `ON DELETE CASCADE` no se
+    // disparan. Hay que borrar a mano todo lo que sigue apuntando a la cuenta:
+    // reseñas (también las recibidas), likes, votos y asistencia a clubes.
+    db.prepare("DELETE FROM reviews WHERE author_id = ? OR target_id = ?").run(userId, userId);
+    db.prepare("UPDATE club_posts SET status = 'deleted', body = '' WHERE author_id = ?").run(userId);
+    db.prepare("DELETE FROM club_post_likes WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM club_attendance WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM club_poll_votes WHERE user_id = ?").run(userId);
 
     // Contenido propio: fuera. Si un comentario tiene respuestas se deja el
     // hueco (sin texto) para no romper la conversación de los demás.
@@ -136,17 +144,23 @@ export function exportAccountData(userId: string) {
   // Los sobres de los mensajes de intercambio: sin ellos la exportación no
   // sirve de nada en los mensajes cifrados, porque `messages.ciphertext` se
   // queda a NULL en cuanto el mensaje viaja con sobres (uno por dispositivo).
-  // Solo salen los de las conversaciones de las que la cuenta es parte.
+  // Solo salen los de las conversaciones de las que la cuenta es parte y los
+  // dirigidos a sus propias claves; los de la otra parte no son suyos.
   const messageEnvelopes = db
     .prepare(
       `SELECT e.message_id, e.key_id, e.ciphertext, e.iv
          FROM message_envelopes e
          JOIN messages m ON m.id = e.message_id
          JOIN requests r ON r.id = m.request_id
-        WHERE r.requester_id = ? OR r.owner_id = ?
+        WHERE (r.requester_id = ? OR r.owner_id = ?)
+          AND e.key_id IN (
+            SELECT key_id FROM user_keys WHERE user_id = ?
+            UNION SELECT key_id FROM public_key_history WHERE user_id = ?
+            UNION SELECT public_key_id FROM users WHERE id = ? AND public_key_id IS NOT NULL
+          )
         ORDER BY e.message_id`,
     )
-    .all(userId, userId);
+    .all(userId, userId, userId, userId, userId);
 
   const favorites = db
     .prepare(
@@ -326,9 +340,14 @@ export function exportAccountData(userId: string) {
          FROM dm_message_envelopes e
          JOIN dm_messages m ON m.id = e.message_id
          JOIN dm_threads t ON t.id = m.thread_id
-        WHERE t.user_a = ? OR t.user_b = ?`,
+        WHERE (t.user_a = ? OR t.user_b = ?)
+          AND e.key_id IN (
+            SELECT key_id FROM user_keys WHERE user_id = ?
+            UNION SELECT key_id FROM public_key_history WHERE user_id = ?
+            UNION SELECT public_key_id FROM users WHERE id = ? AND public_key_id IS NOT NULL
+          )`,
     )
-    .all(userId, userId);
+    .all(userId, userId, userId, userId, userId);
 
   const clubPosts = db
     .prepare(

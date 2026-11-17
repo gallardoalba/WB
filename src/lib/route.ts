@@ -40,8 +40,8 @@ type Cuota = {
   by?: "user" | "ip";
   /**
    * `guard` (por defecto) exige mismo origen en las mutaciones, **haya o no**
-   * cuota; `hit` solo cuenta (lecturas y pruebas). Una ruta que no declara
-   * `limit` sigue protegida contra CSRF.
+   * cuota; `hit` solo cuenta (lecturas y pruebas). La comprobación de origen se
+   * aplica igualmente a cualquier método que no sea de lectura.
    */
   mode?: "guard" | "hit";
 };
@@ -107,10 +107,9 @@ export function route<
       }
 
       // La guardia de mismo origen es cosa aparte de la cuota: una mutación no
-      // puede quedarse sin ella solo porque no declare `limit`. Es lo que decía
-      // el comentario de cabecera y no era verdad.
-      const modo = options.limit?.mode ?? "guard";
-      if (modo === "guard" && !LECTURAS.has(request.method.toUpperCase())) {
+      // puede quedarse sin ella solo porque no declare `limit`, y `mode: "hit"`
+      // tampoco debe convertirla en un agujero de CSRF.
+      if (!LECTURAS.has(request.method.toUpperCase())) {
         assertSameOrigin(request);
       }
 

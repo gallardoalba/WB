@@ -4,7 +4,7 @@ import type { ActivityView, StatsView } from "../domain";
 export function listActivity(limit = 8, city: string | null = null): ActivityView[] {
   const rows = getDb()
     .prepare(
-      `SELECT e.id, e.type, e.created_at, e.listing_id, u.name AS actor, b.title
+      `SELECT e.id, e.type, e.created_at, e.listing_id, u.name AS actor, u.sign_as AS actor_sign_as, b.title
        FROM events e
        JOIN users u ON u.id = e.actor_id
        JOIN listings l ON l.id = e.listing_id
@@ -21,13 +21,14 @@ export function listActivity(limit = 8, city: string | null = null): ActivityVie
     created_at: string;
     listing_id: string;
     actor: string;
+    actor_sign_as: string;
     title: string;
   }[];
 
   return rows.map((row) => ({
     id: row.id,
     type: row.type,
-    actor: row.actor,
+    actor: row.actor_sign_as === "community" ? "" : row.actor,
     title: row.title,
     listingId: row.listing_id,
     createdAt: row.created_at,

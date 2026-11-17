@@ -71,7 +71,9 @@ An instance can show what it runs instead of asking for trust:
   `deploy/verify-release.sh` checks the signature against this repository.
 - **Signed content.** `/api/transparency` publishes daily Ed25519-signed snapshots
   of the public catalogue (Merkle root + payload hash). Anyone can download the
-  exact NDJSON and recompute it with `npm run transparency:verify -- --url …`.
+  exact NDJSON and recompute it with `npm run transparency:verify -- --url …`;
+  `--key-fingerprint` and `--pin` let an external witness fix the signing key and
+  the Merkle root between checks.
   It contains only what is already public: never who owns a copy.
 
 None of this proves by itself that the answering process is the signed image;

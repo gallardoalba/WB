@@ -2,7 +2,7 @@ import { assertTokenShape, consumeAccountToken } from "@/lib/account-tokens";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { markEmailVerified } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { tokenSchema } from "@/lib/validation";
 
 /** Confirma el correo con el token del enlace. */
@@ -14,6 +14,9 @@ export async function POST(request: Request) {
       limit: 120,
       windowMs: 60 * 60 * 1000,
     });
+    if (hasClientIp()) {
+      hit({ bucket: "auth:verify:ip", key: clientKey(request), limit: 60, windowMs: 60 * 60 * 1000 });
+    }
     const { token } = tokenSchema.parse(await readJson(request));
     assertTokenShape(token);
 

@@ -47,7 +47,7 @@ export function addReview(
         userId: targetId,
         type: "review",
         title: "Nueva valoración",
-        body: `${author?.name ?? "Alguien"} te ha valorado con ${rating}/5.`,
+        body: `${author?.signAs === "community" ? "Comunidad" : (author?.name ?? "Alguien")} te ha valorado con ${rating}/5.`,
         listingId: request.listing_id,
         requestId,
       });

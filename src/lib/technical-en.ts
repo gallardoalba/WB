@@ -59,7 +59,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 828 unit and integration tests (105 files)",
+            "tests/                 838 unit and integration tests (105 files)",
             "e2e/                   browser tests with Playwright (9 spec files + Firefox/WebKit smoke)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -201,7 +201,7 @@ export const EN: TechnicalDocument = {
             "Directory `0700` and database `0600`; `npm run db:backup` uses the `.backup()` API of SQLite and encrypts with AES-256-GCM if `WANDERBIBLIOTHEK_BACKUP_KEY` is present.",
             "Registration with a honeypot, a minimum elapsed time and optional Cloudflare Turnstile; a generic message so that registered email addresses are not revealed.",
             "Single-use account tokens, hashed and with an expiry; changing the password revokes every session.",
-            "`GET /api/account/export` delivers all data as JSON, **envelopes included** (without them nothing could be decrypted outside the app); deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, and keeps the exchange history without breaking other people's threads.",
+            "`GET /api/account/export` delivers all data as JSON, **envelopes included** (without them nothing could be decrypted outside the app); deleting the account anonymises the profile, withdraws its copies, deletes its device keys, direct conversations, reviews and club forum messages, and clears votes, likes and attendance; it keeps the exchange history without breaking other people's threads.",
             "An encrypted message is rejected when the envelope for one of the recipient's active devices is missing: that device could not read it and the failure would only show up days later.",
             "What this encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.",
           ],
@@ -222,7 +222,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The cron creates at most one snapshot of the public catalogue per day: one canonical JSON line per work, its SHA-256, a Merkle root and an Ed25519 signature when the instance has `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was signed. `npm run transparency:verify -- --url …` recomputes everything from outside and checks the chain of roots.",
+          text: "The cron creates at most one snapshot of the public catalogue per day: one canonical JSON line per work, its SHA-256, a Merkle root and an Ed25519 signature when the instance has `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was signed. `npm run transparency:verify -- --url …` recomputes everything from outside, checks the chain of roots and can pin the public-key fingerprint (`--key-fingerprint`) as well as the Merkle root (`--pin`).",
         },
         {
           kind: "list",
@@ -306,7 +306,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 828 unit and integration tests in 105 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 54 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
+          text: "`npm test` runs 838 unit and integration tests in 105 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 54 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",

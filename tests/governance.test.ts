@@ -435,3 +435,38 @@ test("una revisión externa queda registrada con su nombre y no la firma el equi
     .get() as { details: string };
   assert.match(audit.details, /revisión externa: Asamblea de la instancia vecina/);
 });
+
+test("un moderador no puede levantar una suspensión por la vía de una apelación", () => {
+  const db = dbModule.getDb();
+  db.prepare(
+    `INSERT OR IGNORE INTO users
+       (id, name, email, password_hash, city, bio, is_admin, is_moderator, created_at, locale)
+     VALUES (?, ?, ?, ?, ?, '', 0, 1, ?, 'es')`,
+  ).run(
+    "usr_moderador",
+    "Moderación",
+    "moderador@wanderbibliothek.test",
+    dbModule.DEMO_PASSWORD_HASH,
+    "Stuttgart",
+    new Date().toISOString(),
+  );
+  clearSanctions();
+  repo.moderateTarget("usr_admin", {
+    action: "suspend_user",
+    targetType: "user",
+    targetId: "usr_diego",
+    reason: "Sanción que solo administración puede levantar",
+    days: 30,
+  });
+  const appealId = repo.createAppeal("usr_diego", "Quiero una segunda revisión.");
+
+  assert.throws(
+    () => repo.resolveAppeal("usr_moderador", appealId, "upheld", "La levanto yo."),
+    /Solo la administración/i,
+  );
+  assert.equal(user("usr_diego")!.is_suspended, 1, "la sanción sigue en pie");
+
+  repo.resolveAppeal("usr_admin2", appealId, "upheld", "La levanta administración.");
+  assert.equal(user("usr_diego")!.is_suspended, 0);
+  clearSanctions();
+});

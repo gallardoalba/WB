@@ -300,3 +300,25 @@ test("una respuesta con cabeceras inmutables no rompe el envoltorio", async () =
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "http://localhost:3100/entrar");
 });
+
+test("mode hit no exime una mutación de la guardia de origen", async () => {
+  let called = false;
+  const handler = route(
+    {
+      auth: "none",
+      limit: { bucket: "prueba:hit-post", limit: 10, windowMs: 60_000, mode: "hit" },
+    },
+    () => {
+      called = true;
+      return Response.json({ ok: true });
+    },
+  );
+  const response = await handler(
+    new Request("http://localhost:3100/api/prueba", {
+      method: "POST",
+      headers: { origin: "https://evil.example" },
+    }),
+  );
+  assert.equal(called, false);
+  assert.equal(response.status, 403);
+});

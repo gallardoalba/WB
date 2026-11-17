@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import webpush from "web-push";
 import { getDb } from "./db";
+import { ApiError } from "./errors";
+import { isAllowedPushEndpoint } from "./validation";
 
 /**
  * Avisos del navegador (Web Push).
@@ -58,6 +60,11 @@ export function savePushSubscription(input: {
   auth: string;
   userAgent?: string;
 }): void {
+  // Defensa en profundidad: la ruta valida el esquema, pero el repositorio no
+  // debe guardar un endpoint que luego `web-push` usaría como SSRF.
+  if (!isAllowedPushEndpoint(input.endpoint)) {
+    throw new ApiError(400, "El endpoint del navegador no es válido.");
+  }
   const db = getDb();
   db.prepare(
     `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth, user_agent, created_at)

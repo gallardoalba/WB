@@ -2,41 +2,63 @@
  * Verifica desde fuera la transparencia de una instancia.
  *
  *   npm run transparency:verify -- --url https://biblioteca.example.com
- *   npm run transparency:verify -- --url https://… --snapshot snp_… --pin <raíz>
+ *   npm run transparency:verify -- --url https://… --snapshot snp_… \
+ *     --key-fingerprint <sha256> --pin <raíz>
  *
  * Descarga la instantánea publicada y su NDJSON, recalcula el hash y la raíz de
  * Merkle, comprueba la firma Ed25519 y que la cadena de raíces no tenga
- * eslabones rotos. Pensado para un testigo externo: `--pin` fija la raíz que
- * vio antes para esa misma instantánea y falla si la instancia la reescribe.
+ * eslabones rotos. Pensado para un testigo externo: `--key` fija la clave SPKI
+ * completa y `--key-fingerprint` su SHA-256; `--pin` fija la raíz que vio antes
+ * para esa misma instantánea y falla si la instancia la reescribe.
  *
  * No necesita la base ni el código del servidor: solo la URL pública.
  */
 import {
+  publicKeyFingerprint,
   verifyChain,
   verifySnapshot,
   type TransparencySnapshot,
 } from "../src/lib/transparency";
 
-type Args = { url: string; snapshot: string | null; pin: string | null };
+type Args = {
+  url: string;
+  snapshot: string | null;
+  pin: string | null;
+  key: string | null;
+  keyFingerprint: string | null;
+};
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     url: (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
     snapshot: null,
     pin: null,
+    key: null,
+    keyFingerprint: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     const value = argv[index + 1];
-    if ((flag === "--url" || flag === "--snapshot" || flag === "--pin") && value) {
+    if (
+      (flag === "--url" ||
+        flag === "--snapshot" ||
+        flag === "--pin" ||
+        flag === "--key" ||
+        flag === "--key-fingerprint") &&
+      value
+    ) {
       if (flag === "--url") args.url = value.replace(/\/+$/, "");
       if (flag === "--snapshot") args.snapshot = value;
       if (flag === "--pin") args.pin = value;
+      if (flag === "--key") args.key = value;
+      if (flag === "--key-fingerprint") args.keyFingerprint = value;
       index += 1;
       continue;
     }
     console.error(`Argumento no reconocido: ${flag}`);
-    console.error("Uso: --url https://… [--snapshot snp_…] [--pin <raíz>]");
+    console.error(
+      "Uso: --url https://… [--snapshot snp_…] [--pin <raíz>] [--key <spki-base64>] [--key-fingerprint <sha256>]",
+    );
     process.exit(1);
   }
   return args;
@@ -77,7 +99,10 @@ async function main() {
   const payload = await response.text();
 
   const problems: string[] = [];
-  const checked = verifySnapshot(snapshot, payload);
+  const checked = verifySnapshot(snapshot, payload, {
+    publicKey: args.key ?? undefined,
+    keyFingerprint: args.keyFingerprint ?? undefined,
+  });
   problems.push(...checked.problems);
 
   if (args.pin && args.pin !== snapshot.merkleRoot) {
@@ -94,6 +119,8 @@ async function main() {
   console.log(`Obras:       ${snapshot.itemCount}`);
   console.log(`Raíz:        ${snapshot.merkleRoot}`);
   console.log(`Firma:       ${snapshot.signature ? "Ed25519" : "sin firmar"}`);
+  const fingerprint = snapshot.publicKey ? publicKeyFingerprint(snapshot.publicKey) : null;
+  console.log(`Clave:       ${fingerprint ?? "no disponible"}`);
   console.log(`Cadena:      ${chain.ok ? "íntegra" : "rota"}`);
 
   if (problems.length > 0) {

@@ -83,7 +83,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 828 pruebas unitarias y de integración (105 ficheros)",
+            "tests/                 838 pruebas unitarias y de integración (105 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -227,7 +227,7 @@ const ES: TechnicalDocument = {
             "Directorio `0700` y base `0600`; `npm run db:backup` usa la API `.backup()` de SQLite y cifra con AES-256-GCM si existe `WANDERBIBLIOTHEK_BACKUP_KEY`.",
             "Registro con honeypot, tiempo mínimo y Cloudflare Turnstile opcional; mensaje genérico para no revelar correos registrados.",
             "Tokens de cuenta de un solo uso, hasheados y con caducidad; cambiar la contraseña revoca todas las sesiones.",
-            "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje (sin ellos no se podría descifrar nada fuera de la aplicación), y borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo y sus conversaciones directas, y conserva el historial de intercambio sin romper los hilos ajenos.",
+            "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje (sin ellos no se podría descifrar nada fuera de la aplicación), y borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo, sus conversaciones directas, sus reseñas, sus mensajes de foro y sus votos, likes y asistencias, y conserva el historial de intercambio sin romper los hilos ajenos.",
             "Un mensaje cifrado se rechaza si falta el sobre de algún dispositivo activo del destinatario: el que se quedara fuera no podría leerlo y el fallo aparecería días después.",
             "Lo que este cifrado **no** cubre, dicho sin adornos: cada mensaje se cifra con la clave de identidad de su ranura, **sin secreto hacia delante** (no hay ratchet), y no hay recuperación. Quien obtenga a la vez la base y la clave privada de un dispositivo puede leer lo que ese dispositivo recibió; perder el dispositivo o los datos del navegador es perder ese historial. Cambiarlo exige versionar el protocolo y los dos clientes, no un parche.",
           ],
@@ -248,7 +248,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "El cron crea como mucho una instantánea al día del catálogo público: una línea JSON canónica por obra, su SHA-256, una raíz de Merkle y una firma Ed25519 si la instancia tiene `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lista las instantáneas y `/api/transparency/export` entrega el NDJSON exacto que se firmó. `npm run transparency:verify -- --url …` recalcula todo desde fuera y comprueba la cadena de raíces.",
+          text: "El cron crea como mucho una instantánea al día del catálogo público: una línea JSON canónica por obra, su SHA-256, una raíz de Merkle y una firma Ed25519 si la instancia tiene `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lista las instantáneas y `/api/transparency/export` entrega el NDJSON exacto que se firmó. `npm run transparency:verify -- --url …` recalcula todo desde fuera, comprueba la cadena de raíces y permite fijar la huella de la clave pública (`--key-fingerprint`) además de la raíz (`--pin`).",
         },
         {
           kind: "list",
@@ -332,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 828 pruebas unitarias y de integración en 105 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 54 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta 838 pruebas unitarias y de integración en 105 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 54 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -523,7 +523,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 828 Unit- und Integrationstests (105 Dateien)",
+            "tests/                 838 Unit- und Integrationstests (105 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -667,7 +667,7 @@ const DE: TechnicalDocument = {
             "Verzeichnis `0700` und Datenbank `0600`; `npm run db:backup` nutzt die `.backup()`-API von SQLite und verschlüsselt mit AES-256-GCM, wenn `WANDERBIBLIOTHEK_BACKUP_KEY` gesetzt ist.",
             "Registrierung mit Honeypot, Mindestzeit und optionalem Cloudflare Turnstile; die Antwort ist allgemein gehalten, um keine Adressen zu verraten.",
             "Konto-Tokens sind einmalig, gehasht und befristet; ein Passwortwechsel beendet alle Sitzungen.",
-            "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht (ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln); das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel und die Direktgespräche und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
+            "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht (ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln); das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel, die Direktgespräche, die Rezensionen, die Forumsbeiträge sowie Stimmen, Likes und Teilnahmen und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
             "Eine verschlüsselte Nachricht wird abgelehnt, wenn der Umschlag für ein aktives Gerät der anderen Person fehlt: Das übergangene Gerät könnte sie nicht lesen, und der Fehler würde erst Tage später auffallen.",
             "Was diese Verschlüsselung **nicht** abdeckt, ohne Beschönigung: Jede Nachricht wird mit dem Identitätsschlüssel ihrer Slot verschlüsselt, **ohne Forward Secrecy** (kein Ratchet), und es gibt keine Wiederherstellung. Wer gleichzeitig die Datenbank und den privaten Schlüssel eines Geräts erlangt, kann lesen, was dieses Gerät empfangen hat; ein verlorenes Gerät oder gelöschte Browserdaten bedeuten verlorene Historie. Das zu ändern verlangt eine versionierte Änderung des Protokolls und beider Clients, keinen Patch.",
           ],
@@ -688,7 +688,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Der Cron erstellt höchstens eine Momentaufnahme des öffentlichen Katalogs pro Tag: eine kanonische JSON-Zeile pro Werk, ihren SHA-256, eine Merkle-Wurzel und eine Ed25519-Signatur, wenn die Instanz `TRANSPARENCY_SIGNING_KEY` hat. `/api/transparency` listet die Momentaufnahmen, `/api/transparency/export` liefert genau das signierte NDJSON. `npm run transparency:verify -- --url …` berechnet alles von außen neu und prüft die Kette der Wurzeln.",
+          text: "Der Cron erstellt höchstens eine Momentaufnahme des öffentlichen Katalogs pro Tag: eine kanonische JSON-Zeile pro Werk, ihren SHA-256, eine Merkle-Wurzel und eine Ed25519-Signatur, wenn die Instanz `TRANSPARENCY_SIGNING_KEY` hat. `/api/transparency` listet die Momentaufnahmen, `/api/transparency/export` liefert genau das signierte NDJSON. `npm run transparency:verify -- --url …` berechnet alles von außen neu, prüft die Kette der Wurzeln und erlaubt neben der Wurzel (`--pin`) auch den Fingerabdruck des öffentlichen Schlüssels (`--key-fingerprint`) zu fixieren.",
         },
         {
           kind: "list",
@@ -772,7 +772,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 828 Unit- und Integrationstests in 105 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 54 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt 838 Unit- und Integrationstests in 105 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 54 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",

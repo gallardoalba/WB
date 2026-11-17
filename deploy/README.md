@@ -992,8 +992,10 @@ npm run transparency:verify -- --url https://tu-dominio
 
 El verificador descarga la instantánea y su NDJSON, recalcula hash y raíz,
 comprueba la firma y que la cadena de raíces no tenga eslabones rotos. Si eres un
-testigo externo, guarda la raíz que viste y pásala con `--snapshot <id> --pin
-<raíz>`: si la instancia reescribe esa instantánea, la comprobación falla. Sin
+testigo externo, guarda la huella de la clave y la raíz que viste y pásalas con
+`--snapshot <id> --key-fingerprint <sha256> --pin <raíz>`: si la instancia
+reescribe esa instantánea o empieza a firmar con otra clave, la comprobación
+falla. Sin
 firma, el verificador sale con error: una instantánea sin clave sirve para
 comparar contenido, no como prueba criptográfica.
 

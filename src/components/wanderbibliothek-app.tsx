@@ -1072,11 +1072,11 @@ export default function WanderbibliothekApp({
                   activity.map((item) => (
                   <article className="activity-item" key={item.id}>
                     <span className={`avatar activity-avatar tone-${toneForId(item.id)}`}>
-                      {initialsOf(item.actor)}
+                      {item.actor ? initialsOf(item.actor) : "·"}
                     </span>
                     <div className="activity-copy">
                       <p>
-                        <strong>{item.actor}</strong> {t(ACTIVITY_COPY[item.type] ?? item.type)}{" "}
+                        <strong>{item.actor || t("Comunidad")}</strong> {t(ACTIVITY_COPY[item.type] ?? item.type)}{" "}
                         <b>{item.title}</b>
                       </p>
                       <span>

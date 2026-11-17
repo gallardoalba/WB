@@ -3,7 +3,8 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import { sendAppealResolvedEmail } from "../account-tokens";
 import { nowIso } from "./shared";
-import { liftSuspension } from "./users";
+import { getUserById, liftSuspension } from "./users";
+import { canSanction } from "../permissions";
 import { notify } from "./notifications";
 import { writeAudit } from "./moderation";
 
@@ -192,6 +193,15 @@ export function resolveAppeal(
   if (appeal.status !== "open") throw new ApiError(409, "La apelación ya está resuelta.");
   if (appeal.sanctioner_id === reviewerId) {
     throw new ApiError(403, "La apelación debe revisarla otra persona del equipo.");
+  }
+  // Levantar una suspensión es una sanción, no una tarea de moderación: la
+  // misma frontera que impide a un moderador usar `unsuspend_user` se aplica
+  // aquí, aunque la decisión llegue por la vía de una apelación.
+  if (outcome === "upheld") {
+    const reviewer = getUserById(reviewerId);
+    if (!reviewer || !canSanction(reviewer)) {
+      throw new ApiError(403, "Solo la administración puede levantar una suspensión.");
+    }
   }
 
   db.transaction(() => {

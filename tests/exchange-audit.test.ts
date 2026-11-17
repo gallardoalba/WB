@@ -817,6 +817,18 @@ test("la exportación lleva los sobres de las conversaciones propias", async () 
     ajeno.messageEnvelopes.some((fila) => fila.message_id === mensaje.id),
     false,
   );
+
+  // El remitente tampoco recibe el sobre dirigido al destinatario: solo los
+  // sobres de sus propias claves, no los de la otra parte.
+  const remitente = repo.exportAccountData("usr_lucia") as {
+    messageEnvelopes: { message_id: string; key_id: string }[];
+  };
+  assert.equal(
+    remitente.messageEnvelopes.some(
+      (fila) => fila.message_id === mensaje.id && fila.key_id === claveMarcos.keyId,
+    ),
+    false,
+  );
 });
 
 /* --------------------------- historial paginado --------------------------- */

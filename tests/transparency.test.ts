@@ -15,6 +15,7 @@ import {
   payloadHash,
   payloadOf,
   prunePayloads,
+  publicKeyFingerprint,
   readPayload,
   signingKey,
   stableJson,
@@ -102,6 +103,24 @@ test("una instantánea firmada se guarda, se descarga y se verifica", () => {
   assert.ok(stored);
   assert.equal(stored.payload, payloadOf(lines));
   assert.deepEqual(verifySnapshot(snapshot, stored.payload), { ok: true, problems: [] });
+
+  // La clave se puede fijar fuera de banda: si el servidor cambia la clave y
+  // firma con otra, la huella deja de cuadrar aunque la firma sea válida.
+  const fingerprint = publicKeyFingerprint(snapshot.publicKey!)!;
+  assert.deepEqual(
+    verifySnapshot(snapshot, stored.payload, { keyFingerprint: fingerprint }),
+    { ok: true, problems: [] },
+  );
+  assert.deepEqual(
+    verifySnapshot(snapshot, stored.payload, { publicKey: key.publicKey }),
+    { ok: true, problems: [] },
+  );
+  const other = signingKey(ed25519Pem())!;
+  const changed = verifySnapshot(snapshot, stored.payload, {
+    keyFingerprint: publicKeyFingerprint(other.publicKey)!,
+  });
+  assert.equal(changed.ok, false);
+  assert.ok(changed.problems.some((problem) => problem.includes("huella")));
 
   // Los campos públicos llegan a la API sin el contenido.
   assert.deepEqual(listSnapshots(5, db)[0], snapshot);

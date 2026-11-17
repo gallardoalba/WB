@@ -217,3 +217,67 @@ test("el directorio respeta la visibilidad del perfil", () => {
   repo.setFollow("usr_ana", "usr_lucia", false);
   repo.setUserPrivacy("usr_lucia", DEFAULT_PRIVACY);
 });
+
+test("la ciudad oculta tampoco se filtra en las listas de seguidores", () => {
+  repo.setFollow("usr_diego", "usr_ana", true);
+  repo.setUserPrivacy("usr_diego", { ...DEFAULT_PRIVACY, cityPrecision: "hidden" });
+
+  const followEdges = repo.listFollowEdges("usr_ana", "followers", "usr_clara");
+  const diego = followEdges.find((entry) => entry.user.id === "usr_diego");
+  assert.ok(diego, "Diego debería aparecer como seguidor");
+  assert.equal(diego.user.city, "");
+
+  repo.setUserPrivacy("usr_diego", DEFAULT_PRIVACY);
+  repo.setFollow("usr_diego", "usr_ana", false);
+});
+
+test("la ciudad oculta no se filtra en miembros, solicitudes ni foro del club", () => {
+  const club = repo.createClub("usr_clara", {
+    name: `Privacidad ${Math.random().toString(36).slice(2, 8)}`,
+    city: "Stuttgart",
+    description: "Club de prueba",
+    meetsOn: "",
+    joinPolicy: "approval",
+  });
+  repo.setClubMembership("usr_diego", club.id, true);
+  repo.setClubMembership("usr_ana", club.id, true);
+  repo.setClubMembership("usr_lucia", club.id, true);
+  repo.decideClubMembership("usr_clara", club.id, "usr_diego", true);
+  repo.decideClubMembership("usr_clara", club.id, "usr_ana", true);
+  repo.setUserPrivacy("usr_diego", {
+    ...DEFAULT_PRIVACY,
+    cityPrecision: "hidden",
+    signAs: "community",
+  });
+  repo.setUserPrivacy("usr_lucia", { ...DEFAULT_PRIVACY, cityPrecision: "hidden" });
+
+  const members = repo.listClubMembers(club.id, { viewerId: "usr_ana" });
+  assert.equal(members.members.find((member) => member.id === "usr_diego")?.city, "");
+
+  const pending = repo.listClubRequests(club.id, "usr_clara");
+  assert.equal(pending.find((entry) => entry.user.id === "usr_lucia")?.user.city, "");
+
+  const post = repo.createClubPost({ clubId: club.id, authorId: "usr_diego", body: "Una idea." });
+  const page = repo.listClubPosts(club.id, { id: "usr_ana", isAdmin: false });
+  const visible = page.posts.find((entry) => entry.id === post.id);
+  assert.ok(visible);
+  assert.equal(visible.authorAnonymous, true);
+  assert.equal(visible.author.name, "");
+  assert.equal(visible.author.city, "");
+
+  repo.setUserPrivacy("usr_diego", DEFAULT_PRIVACY);
+  repo.setUserPrivacy("usr_lucia", DEFAULT_PRIVACY);
+  repo.deleteClub("usr_clara", club.id);
+});
+
+test("el hilo directo no revela una ciudad oculta", () => {
+  repo.setUserPrivacy("usr_diego", { ...DEFAULT_PRIVACY, cityPrecision: "hidden" });
+  repo.setFollow("usr_ana", "usr_diego", true);
+  repo.setFollow("usr_diego", "usr_ana", true);
+
+  assert.equal(repo.directThread("usr_ana", "usr_diego").peer.city, "");
+
+  repo.setFollow("usr_ana", "usr_diego", false);
+  repo.setFollow("usr_diego", "usr_ana", false);
+  repo.setUserPrivacy("usr_diego", DEFAULT_PRIVACY);
+});

@@ -2,7 +2,7 @@ import { assertTokenShape, consumeAccountToken } from "@/lib/account-tokens";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { createAppeal } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { appealSchema } from "@/lib/validation";
 
 /**
@@ -17,6 +17,9 @@ export async function POST(request: Request) {
       limit: 1000,
       windowMs: 60 * 60 * 1000,
     });
+    if (hasClientIp()) {
+      hit({ bucket: "account:appeal:ip", key: clientKey(request), limit: 20, windowMs: 60 * 60 * 1000 });
+    }
     const { token, message } = appealSchema.parse(await readJson(request));
     assertTokenShape(token);
     const userId = consumeAccountToken(token, "appeal");

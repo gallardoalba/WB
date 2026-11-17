@@ -605,6 +605,8 @@ export type ClubView = {
   meetsPlace: string;
   /** Enlace del encuentro (videollamada); solo `http(s)`. */
   meetsLink: string;
+  /** Hay enlace configurado, aunque no se enseñe a quien no es miembro. */
+  hasMeetsLink: boolean;
   createdAt: string;
   book: { id: string; title: string; author: string } | null;
   members: number;
@@ -654,6 +656,8 @@ export type ClubPostView = {
   body: string;
   createdAt: string;
   author: { id: string; name: string; city: string };
+  /** La persona firma como comunidad: no se enseña su identidad. */
+  authorAnonymous: boolean;
   likes: number;
   likedByMe: boolean;
   isMine: boolean;

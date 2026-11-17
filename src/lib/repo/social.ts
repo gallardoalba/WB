@@ -98,7 +98,7 @@ export function setFollow(
         notify({
           userId: followedId,
           type: "follow",
-          title: `${author?.name ?? "Alguien"} empezó a seguirte`,
+          title: `${author?.signAs === "community" ? "Comunidad" : (author?.name ?? "Alguien")} empezó a seguirte`,
           body: "Verás sus novedades en la pestaña «Siguiendo» de la comunidad.",
           link: `/u/${followerId}`,
         });
@@ -273,7 +273,7 @@ export function listFollowEdges(
     kind === "followers"
       ? (getDb()
           .prepare(
-            `SELECT u.id, u.name, u.city, u.bio,
+            `SELECT u.id, u.name, u.city, u.bio, u.city_precision, u.profile_visibility,
                     (SELECT COUNT(*) FROM listings l
                       WHERE l.owner_id = u.id AND l.status = 'available') AS published,
                     (SELECT COUNT(*) FROM follows f2 WHERE f2.followed_id = u.id) AS followers,
@@ -291,7 +291,7 @@ export function listFollowEdges(
           .all({ userId, viewer }) as ReaderRow[])
       : (getDb()
           .prepare(
-            `SELECT u.id, u.name, u.city, u.bio,
+            `SELECT u.id, u.name, u.city, u.bio, u.city_precision, u.profile_visibility,
                     (SELECT COUNT(*) FROM listings l
                       WHERE l.owner_id = u.id AND l.status = 'available') AS published,
                     (SELECT COUNT(*) FROM follows f2 WHERE f2.followed_id = u.id) AS followers,
@@ -308,24 +308,41 @@ export function listFollowEdges(
           )
           .all({ userId, viewer }) as ReaderRow[]);
 
-  return rows.map((row) => ({
-    user: { id: row.id, name: row.name, city: row.city, bio: row.bio },
-    published: row.published,
-    followers: row.followers,
-    isFollowing: Boolean(row.is_following),
-    isMe: row.id === viewerId,
-    distanceKm: null,
-    sharedBooks: 0,
-    clubs: 0,
-    lastActiveAt: null,
-  }));
+  return rows.map((row) => {
+    // La misma regla que la ficha del perfil: «solo yo» y «solo seguidores»
+    // no enseñan ciudad ni biografía, y la ciudad oculta no se revela nunca a
+    // terceros. Sin esto, la pestaña de seguidores era una puerta trasera.
+    const restricted =
+      row.id !== viewerId &&
+      (row.profile_visibility === "private" ||
+        (row.profile_visibility === "followers" && !row.is_following));
+    return {
+      user: {
+        id: row.id,
+        name: row.name,
+        city:
+          restricted || (row.city_precision === "hidden" && row.id !== viewerId)
+            ? ""
+            : row.city,
+        bio: restricted ? "" : row.bio,
+      },
+      published: row.published,
+      followers: row.followers,
+      isFollowing: Boolean(row.is_following),
+      isMe: row.id === viewerId,
+      distanceKm: null,
+      sharedBooks: 0,
+      clubs: 0,
+      lastActiveAt: null,
+    };
+  });
 }
 
 /** Actividad reciente de las cuentas que sigue una persona. */
 export function listFollowingActivity(viewerId: string, limit = 8): ActivityView[] {
   const rows = getDb()
     .prepare(
-      `SELECT e.id, e.type, e.created_at, e.listing_id, u.name AS actor, b.title
+      `SELECT e.id, e.type, e.created_at, e.listing_id, u.name AS actor, u.sign_as AS actor_sign_as, b.title
        FROM events e
        JOIN users u ON u.id = e.actor_id
        JOIN listings l ON l.id = e.listing_id
@@ -341,13 +358,14 @@ export function listFollowingActivity(viewerId: string, limit = 8): ActivityView
     created_at: string;
     listing_id: string;
     actor: string;
+    actor_sign_as: string;
     title: string;
   }[];
 
   return rows.map((row) => ({
     id: row.id,
     type: row.type,
-    actor: row.actor,
+    actor: row.actor_sign_as === "community" ? "" : row.actor,
     title: row.title,
     listingId: row.listing_id,
     createdAt: row.created_at,
@@ -373,7 +391,7 @@ export function listFollowingComments(viewerId: string, limit = 4): Conversation
 export function listUserActivity(userId: string, limit = 8): ActivityView[] {
   const rows = getDb()
     .prepare(
-      `SELECT e.id, e.type, e.created_at, e.listing_id, u.name AS actor, b.title
+      `SELECT e.id, e.type, e.created_at, e.listing_id, u.name AS actor, u.sign_as AS actor_sign_as, b.title
        FROM events e
        JOIN users u ON u.id = e.actor_id
        JOIN listings l ON l.id = e.listing_id
@@ -388,13 +406,14 @@ export function listUserActivity(userId: string, limit = 8): ActivityView[] {
     created_at: string;
     listing_id: string;
     actor: string;
+    actor_sign_as: string;
     title: string;
   }[];
 
   return rows.map((row) => ({
     id: row.id,
     type: row.type,
-    actor: row.actor,
+    actor: row.actor_sign_as === "community" ? "" : row.actor,
     title: row.title,
     listingId: row.listing_id,
     createdAt: row.created_at,
