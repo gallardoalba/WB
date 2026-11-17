@@ -350,3 +350,215 @@ test("cada solicitud deriva una clave distinta con el mismo par", async () => {
     "la clave de otro hilo no abre este mensaje",
   );
 });
+
+test("la matriz de sobres y destinatarios se comporta como se espera", async () => {
+  const sender = await newDevice();
+  const me = await newDevice();
+  const other = await newDevice();
+  const otherToo = await newDevice();
+  const conversation = "req_matriz";
+  const text = "Solo el aparato correcto";
+  const aadOfPeer = e2e.messageAad(conversation, "usr_remitente", sender.keyId);
+  const aadOfMine = e2e.messageAad(conversation, "usr_yo", me.keyId);
+
+  // De la otra persona hacia mí.
+  const forMe = await e2e.encryptForRecipients(
+    sender.privateKey,
+    [peer(me)],
+    conversation,
+    text,
+    aadOfPeer,
+  );
+  const forBoth = await e2e.encryptForRecipients(
+    sender.privateKey,
+    [peer(me), peer(other)],
+    conversation,
+    text,
+    aadOfPeer,
+  );
+  const forOther = await e2e.encryptForRecipients(
+    sender.privateKey,
+    [peer(other)],
+    conversation,
+    text,
+    aadOfPeer,
+  );
+  // De mí hacia la otra persona (sus dos aparatos).
+  const mineForOther = await e2e.encryptForRecipients(
+    me.privateKey,
+    [peer(other)],
+    conversation,
+    text,
+    aadOfMine,
+  );
+  const mineForBoth = await e2e.encryptForRecipients(
+    me.privateKey,
+    [peer(other), peer(otherToo)],
+    conversation,
+    text,
+    aadOfMine,
+  );
+  const mineForMe = await e2e.encryptForRecipients(
+    me.privateKey,
+    [peer(me)],
+    conversation,
+    text,
+    aadOfMine,
+  );
+
+  type Caso = {
+    nombre: string;
+    isMine: boolean;
+    senderId: string;
+    keyId: string;
+    envelopes: e2e.MessageEnvelope[];
+    peerKeys: e2e.RecipientKey[];
+    esperado: string | null;
+  };
+
+  const casos: Caso[] = [
+    {
+      nombre: "ajeno: un sobre dirigido a mí",
+      isMine: false,
+      senderId: "usr_remitente",
+      keyId: sender.keyId,
+      envelopes: forMe,
+      peerKeys: [peer(sender)],
+      esperado: text,
+    },
+    {
+      nombre: "ajeno: varios sobres y uno es mío",
+      isMine: false,
+      senderId: "usr_remitente",
+      keyId: sender.keyId,
+      envelopes: forBoth,
+      peerKeys: [peer(sender)],
+      esperado: text,
+    },
+    {
+      nombre: "ajeno: el sobre es de otro aparato",
+      isMine: false,
+      senderId: "usr_remitente",
+      keyId: sender.keyId,
+      envelopes: forOther,
+      peerKeys: [peer(sender)],
+      esperado: null,
+    },
+    {
+      nombre: "ajeno: remitente desconocido",
+      isMine: false,
+      senderId: "usr_remitente",
+      keyId: "desconocida",
+      envelopes: forMe,
+      peerKeys: [peer(sender)],
+      esperado: null,
+    },
+    {
+      nombre: "mío: sobre dirigido al destinatario",
+      isMine: true,
+      senderId: "usr_yo",
+      keyId: me.keyId,
+      envelopes: mineForOther,
+      peerKeys: [peer(other)],
+      esperado: text,
+    },
+    {
+      nombre: "mío: varios sobres para el destinatario",
+      isMine: true,
+      senderId: "usr_yo",
+      keyId: me.keyId,
+      envelopes: mineForBoth,
+      peerKeys: [peer(other)],
+      esperado: text,
+    },
+    {
+      nombre: "mío: sobre sin candidato",
+      isMine: true,
+      senderId: "usr_yo",
+      keyId: me.keyId,
+      envelopes: mineForMe,
+      peerKeys: [peer(other)],
+      esperado: null,
+    },
+  ];
+
+  for (const caso of casos) {
+    const decoded = await e2e.decryptForThread(
+      me.privateKey,
+      me.keyId,
+      caso.peerKeys,
+      {
+        isMine: caso.isMine,
+        keyId: caso.keyId,
+        ciphertext: null,
+        iv: null,
+        envelopes: caso.envelopes,
+      },
+      caso.senderId,
+      conversation,
+      aadOf(conversation),
+    );
+    assert.equal(decoded, caso.esperado, caso.nombre);
+  }
+
+  assert.equal(
+    await e2e.decryptForThread(
+      me.privateKey,
+      me.keyId,
+      [peer(sender)],
+      { isMine: false, keyId: sender.keyId, ciphertext: null, iv: null, envelopes: [] },
+      "usr_remitente",
+      conversation,
+      aadOf(conversation),
+    ),
+    null,
+    "sin sobres ni criptograma no hay nada que descifrar",
+  );
+});
+
+test("un sobre incompleto se descarta en vez de romper el hilo", () => {
+  type Mensaje = Parameters<typeof e2e.envelopesOf>[0];
+
+  const incompletos = [
+    { keyId: "sin-criptograma" },
+    { ciphertext: "x", iv: "y" },
+    { keyId: 7, ciphertext: "x", iv: "y" },
+  ];
+
+  const soloValido = { keyId: "k2", ciphertext: "c", iv: "i" };
+  assert.deepEqual(
+    e2e.envelopesOf({
+      isMine: false,
+      keyId: "k1",
+      ciphertext: null,
+      iv: null,
+      envelopes: [...incompletos, soloValido],
+    } as unknown as Mensaje),
+    [soloValido],
+    "los sobres válidos sobreviven a los rotos",
+  );
+
+  assert.deepEqual(
+    e2e.envelopesOf({
+      isMine: false,
+      keyId: "k1",
+      ciphertext: null,
+      iv: null,
+      envelopes: incompletos,
+    } as unknown as Mensaje),
+    [],
+    "sin ningún sobre válido no hay candidatos",
+  );
+
+  assert.deepEqual(
+    e2e.envelopesOf({
+      isMine: false,
+      keyId: "k1",
+      ciphertext: "viejo",
+      iv: "iv-viejo",
+      envelopes: incompletos,
+    } as unknown as Mensaje),
+    [{ keyId: "k1", ciphertext: "viejo", iv: "iv-viejo" }],
+    "si los nuevos no valen, se lee el sobre heredado",
+  );
+});

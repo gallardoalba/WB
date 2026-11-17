@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 808 unit and integration tests (100 files)
+tests/                 816 unit and integration tests (102 files)
 e2e/                   53 browser tests with Playwright
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -214,7 +214,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 808 unit and integration tests in 100 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
+`npm test` runs 816 unit and integration tests in 102 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -241,6 +241,7 @@ npx playwright install chromium && npm run test:e2e
 - Every response carries `x-request-id` and `x-response-time`, and every request leaves a `[req] {…}` line in the log. The `reference` of a 500 is the first 8 characters of that id.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.
+- Updating restarts that single process: the deploy scripts take a backup, swap the release, restart and check `/api/health`, rolling back on failure. An update therefore means a few seconds of downtime, and there is no high availability.
 - Measured ceiling with `npm run bench:sqlite`: about 99 000 single writes/s, 250 000/s in a batch, 350 000 reads/s by primary key and 2 000/s for a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.
 
 Secrets are stored as `enc:v2:<key>:<flags>:<iv>.<tag>.<data>`. To change the key without losing anything:

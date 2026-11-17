@@ -16,6 +16,13 @@ const ORIGIN_ONLY = new Map([
 /** Rutas autenticadas por token, sin cookies: no hay CSRF posible. */
 const TOKEN_ONLY = new Set(["cron/maintenance/route.ts"]);
 
+/**
+ * Handlers que aún no pasan por `route()`. Solo puede bajar: una ruta nueva que
+ * se escriba a mano rompe la prueba, y envolver una existente deja margen para
+ * bajar el tope. Completa la migración sin exigir un cambio de golpe.
+ */
+const MANUAL_HANDLERS = 88;
+
 function routeFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -62,6 +69,20 @@ test("las rutas que leen cuerpo exigen JSON a través de readJson()", () => {
     }
   }
   assert.deepEqual(offenders, [], `Rutas que parsean el cuerpo a mano: ${offenders.join(", ")}`);
+});
+
+test("la migración a route() no retrocede", () => {
+  let manual = 0;
+  for (const file of routeFiles(API_DIR)) {
+    const source = readFileSync(file, "utf8");
+    const handlers = source.match(/^export (?:const|async function) (?:GET|POST|PUT|PATCH|DELETE)\b/gm);
+    const wrapped = source.match(/^export const (?:GET|POST|PUT|PATCH|DELETE) = route[<(]/gm);
+    manual += (handlers?.length ?? 0) - (wrapped?.length ?? 0);
+  }
+  assert.ok(
+    manual <= MANUAL_HANDLERS,
+    `Quedan ${manual} handlers fuera de route() (tope ${MANUAL_HANDLERS}): una ruta nueva debe usar el envoltorio; si has envuelto alguna, baja el tope`,
+  );
 });
 
 test("las rutas que leen la URL pública se renderizan por petición", () => {

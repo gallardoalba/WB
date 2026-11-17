@@ -777,6 +777,10 @@ Las normas de convivencia, la moderación y las apelaciones se publican en `/nor
 
 - **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no
   admiten varias réplicas. Escalar exige PostgreSQL y Redis/pubsub.
+- **Cada actualización reinicia el proceso.** No hay azul/verde: el servicio se
+  para, arranca la imagen o release nueva y se comprueba `/api/health`; si falla,
+  se vuelve a la anterior. Son unos segundos sin servicio, y no hay alta
+  disponibilidad: dos réplicas exigen PostgreSQL y Redis/pubsub.
 - **Los scripts de operación necesitan `tsx`**, que está en `dependencies` a
   propósito (no es una devDependency): así funcionan también con
   `npm ci --omit=dev` y dentro de la imagen.

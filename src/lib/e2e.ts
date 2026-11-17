@@ -342,12 +342,27 @@ type ThreadMessageLike = {
   envelopes?: MessageEnvelope[];
 };
 
+/** El JSON viene de la base: el tipo no basta para confiar en la forma. */
+function isEnvelope(value: unknown): value is MessageEnvelope {
+  if (typeof value !== "object" || value === null) return false;
+  const envelope = value as Record<string, unknown>;
+  return (
+    typeof envelope.keyId === "string" &&
+    typeof envelope.ciphertext === "string" &&
+    typeof envelope.iv === "string"
+  );
+}
+
 /**
  * Sobres de un mensaje: los guardados o, en mensajes anteriores a la v40, el
- * único sobre de `ciphertext`/`iv` (sin destinatario anotado).
+ * único sobre de `ciphertext`/`iv` (sin destinatario anotado). Un sobre
+ * incompleto se descarta en vez de llegar a WebCrypto.
  */
 export function envelopesOf(message: ThreadMessageLike): MessageEnvelope[] {
-  if (message.envelopes && message.envelopes.length > 0) return message.envelopes;
+  if (message.envelopes && message.envelopes.length > 0) {
+    const valid = message.envelopes.filter(isEnvelope);
+    if (valid.length > 0) return valid;
+  }
   if (message.ciphertext && message.iv) {
     return [{ keyId: message.keyId ?? "", ciphertext: message.ciphertext, iv: message.iv }];
   }

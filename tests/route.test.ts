@@ -220,11 +220,13 @@ test("ninguna ruta se queda sin traducir los errores a JSON", () => {
   // `/api/health` responde a las sondas del despliegue, no a la aplicación:
   // su contrato es el código de estado, no un cuerpo de error.
   const exceptions = new Set(["src/app/api/health/route.ts"]);
-  const missing = ROUTES.filter(
-    (file) =>
-      !exceptions.has(file) &&
-      !/handleApiError|route[<(]/.test(readFileSync(file, "utf8")),
-  );
+  const missing = ROUTES.filter((file) => {
+    if (exceptions.has(file)) return false;
+    // Los `import` no cuentan: buscar la cadena tal cual daba por buena una ruta
+    // que importaba `handleApiError` y no lo llamaba.
+    const source = readFileSync(file, "utf8").replace(/^import\s+[\s\S]*?;\s*$/gm, "");
+    return !/handleApiError\s*\(|=\s*route[<(]/.test(source);
+  });
   assert.deepEqual(missing, [], `rutas sin manejo de errores: ${missing.join(", ")}`);
 });
 

@@ -12,6 +12,7 @@
  */
 
 import { REPOSITORY } from "./brand";
+import { SCHEMA_VERSION } from "./db/schema";
 import type { Locale } from "./i18n";
 import { EN } from "./technical-en";
 
@@ -82,7 +83,7 @@ const ES: TechnicalDocument = {
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 808 pruebas unitarias y de integración (100 ficheros)",
+            "tests/                 816 pruebas unitarias y de integración (102 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (8 ficheros)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -181,7 +182,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Las migraciones se versionan con `PRAGMA user_version` (actual: v55). Una instalación nueva nace con `SCHEMA_V2` y sus índices; las existentes suben por la escalera de `src/lib/db/migrations.ts`, que conserva los datos. Del historial importan cuatro pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones) y la v53 (quién revisó una apelación y si vino de fuera del equipo). El detalle de cada paso está en ese fichero y en su historial de git.",
+          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan cinco pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo) y la v54 (instantáneas firmadas del catálogo público). El detalle de cada paso está en ese fichero y en su historial de git.`,
         },
         {
           kind: "p",
@@ -331,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 808 pruebas unitarias y de integración en 100 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
+          text: "`npm test` ejecuta 816 pruebas unitarias y de integración en 102 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 53 pruebas de navegador con Playwright, que arranca su propio servidor en el puerto 3100.",
         },
         {
           kind: "p",
@@ -522,7 +523,7 @@ const DE: TechnicalDocument = {
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 808 Unit- und Integrationstests (100 Dateien)",
+            "tests/                 816 Unit- und Integrationstests (102 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (8 Dateien)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -621,7 +622,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrationen werden über `PRAGMA user_version` versioniert (aktuell: v55). Eine neue Installation startet mit `SCHEMA_V2` und seinen Indizes; bestehende steigen über die Leiter in `src/lib/db/migrations.ts` auf, die die Daten erhält. Für den heutigen Code zählen vier Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche) und die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.",
+          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen fünf Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam) und die v54 (signierte Momentaufnahmen des öffentlichen Katalogs). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
         },
         {
           kind: "p",
@@ -771,7 +772,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 808 Unit- und Integrationstests in 100 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
+          text: "`npm test` führt 816 Unit- und Integrationstests in 102 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 53 Browser-Tests mit Playwright, die einen eigenen Server auf Port 3100 starten.",
         },
         {
           kind: "p",

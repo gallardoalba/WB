@@ -10,6 +10,7 @@
  */
 
 import { REPOSITORY } from "./brand";
+import { SCHEMA_VERSION } from "./db/schema";
 import type { TechnicalDocument } from "./technical";
 
 export const EN: TechnicalDocument = {
@@ -58,7 +59,7 @@ export const EN: TechnicalDocument = {
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
-            "tests/                 808 unit and integration tests (100 files)",
+            "tests/                 816 unit and integration tests (102 files)",
             "e2e/                   browser tests with Playwright (8 spec files)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
@@ -155,7 +156,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Migrations are versioned with `PRAGMA user_version` (current: v55). A new installation starts from `SCHEMA_V2` and its indexes; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Four steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals) and v53 (who reviewed an appeal and whether they came from outside the team). The detail of every step lives in that file and in its git history.",
+          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Five steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer) and v54 (signed snapshots of the public catalogue). The detail of every step lives in that file and in its git history.`,
         },
         {
           kind: "p",
@@ -305,7 +306,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs 808 unit and integration tests in 100 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
+          text: "`npm test` runs 816 unit and integration tests in 102 files (Node test runner on SQLite in memory) and `npm run test:e2e` adds 53 browser tests with Playwright, which starts its own server on port 3100.",
         },
         {
           kind: "p",
