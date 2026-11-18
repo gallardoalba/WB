@@ -289,9 +289,6 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
     let bookId = book?.id;
     if (!bookId) {
       const newBookId = `bok_${randomUUID()}`;
-      // La obra nace con la primera edición: su id no cambiará aunque después
-      // se sepa más de ella (por ejemplo, que Open Library la conoce).
-      const newWorkId = ensureWork(db, workKey, input.title, input.author, now);
       try {
         db.prepare(
           "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, work_id, publisher, year, series, description, pages, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -305,7 +302,9 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
           language,
           coverUrl,
           workKey,
-          newWorkId,
+          // La obra se asigna justo después con `ensureWork`: así una alta que
+          // pierda la carrera por el ISBN no deja una obra vacía.
+          null,
           // Ficha bibliográfica de la edición, tal como la dio el catálogo.
           cached?.publisher ?? null,
           cached?.year ?? null,
@@ -328,25 +327,34 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
     }
 
     const listingId = `lst_${randomUUID()}`;
-    // El libro pudo existir ya (mismo ISBN o mismo título): se le asegura la
-    // clave de obra y, si ahora se conoce la de Open Library, las ediciones que
-    // estaban con la clave derivada pasan a la buena para quedar agrupadas.
-    // La edición recién usada (nueva o ya existente) queda ligada a su obra. Si
-    // el catálogo externo por fin conoce la obra, las ediciones que estaban
-    // agrupadas por la clave derivada pasan a la obra buena: eso es la fusión,
-    // y se hace con ids, no reescribiendo la clave de cada fila.
-    const workId =
-      workKey !== hashWorkKey
-        ? moveWorkEditions(db, hashWorkKey, workKey, now)
-        : ensureWork(db, workKey, input.title, input.author, now);
-    db.prepare("UPDATE books SET work_key = ?, work_id = ? WHERE id = ?").run(workKey, workId, bookId);
-    db.prepare("UPDATE books SET work_id = ? WHERE id = ? AND work_id IS NULL").run(workId, bookId);
-    if (workKey !== hashWorkKey) {
-      db.prepare("UPDATE books SET work_key = ? WHERE work_key = ? AND id <> ?").run(
-        workKey,
-        hashWorkKey,
+    // La obra de una edición **no se reagrupa** porque otra persona escriba el
+    // título de otra forma al publicar el mismo ISBN: si el libro ya existe se
+    // respeta la obra que tenga. Solo hay dos cosas que hacer aquí:
+    //
+    //  - una fila sin obra la recibe (la suya, si ya traía clave; si no, la
+    //    calculada a partir de lo que se acaba de escribir);
+    //  - si el catálogo externo por fin conoce la obra, las ediciones que
+    //    estaban agrupadas por la clave derivada se fusionan con la buena.
+    const linked = db.prepare("SELECT work_id, work_key FROM books WHERE id = ?").get(bookId) as
+      | { work_id: string | null; work_key: string | null }
+      | undefined;
+
+    if (!linked?.work_id) {
+      // Una fila anterior a la v57 con clave propia conserva su agrupación: se
+      // adopta esa clave en lugar de la recién calculada.
+      const ownKey = linked?.work_key?.trim() || workKey;
+      const workId = ensureWork(db, ownKey, input.title, input.author, now);
+      db.prepare("UPDATE books SET work_key = ?, work_id = ? WHERE id = ?").run(
+        ownKey,
+        workId,
         bookId,
       );
+    }
+
+    if (workKey !== hashWorkKey) {
+      // El catálogo externo conoce la obra: se mueven sus ediciones (las que
+      // estén en el grupo de la clave derivada) a la obra buena.
+      moveWorkEditions(db, hashWorkKey, workKey, now);
     }
     // La sinopsis y las páginas llegan después que el libro (los publica la
     // primera persona que consulta ese ISBN): se rellenan si faltan, sin pisar
