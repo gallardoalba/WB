@@ -49,8 +49,10 @@ const PRIVATE_PREFIXES = [
  * vuelve a precargar). El idioma se guarda **solo** cuando la persona navega.
  */
 function esNavegacionDeDocumento(request: NextRequest): boolean {
-  // Next marca sus peticiones RSC (navegación de cliente y precarga) con `RSC: 1`.
-  if (request.headers.get("rsc") === "1") return false;
+  // Las peticiones del router llevan `?_rsc=…` en la URL; la cabecera `RSC` no
+  // llega aquí porque Next la consume antes (comprobado contra el servidor: con
+  // `RSC: 1` y sin `Sec-Fetch-Mode`, la cookie se guardaba igual).
+  if (request.nextUrl.searchParams.has("_rsc")) return false;
   const modo = request.headers.get("sec-fetch-mode");
   if (modo) return modo === "navigate";
   return request.method === "GET";
