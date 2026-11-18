@@ -208,8 +208,22 @@ const ENTITIES: Record<string, string> = {
   nbsp: " ",
 };
 
-/** Quita marcas HTML. Se aplica antes y después de decodificar entidades. */
-const sinEtiquetas = (valor: string) => valor.replace(/<[^>]*>/g, "");
+/**
+ * Quita marcas HTML, repitiendo hasta que no quede ninguna.
+ *
+ * Una sola pasada no basta con marcas anidadas —`<scr<script>ipt>` deja
+ * `<script>` al quitarlas una vez—, así que se repite hasta que el texto deja
+ * de cambiar. Se aplica antes y después de decodificar entidades.
+ */
+function sinEtiquetas(valor: string): string {
+  let anterior: string;
+  let actual = valor;
+  do {
+    anterior = actual;
+    actual = actual.replace(/<[^>]*>/g, "");
+  } while (actual !== anterior);
+  return actual;
+}
 
 /** Decodifica entidades con nombre y numéricas; lo que no reconoce lo deja igual. */
 function decodificaEntidades(valor: string): string {

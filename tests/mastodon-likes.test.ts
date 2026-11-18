@@ -518,3 +518,10 @@ test("de noche no se da ningún «me gusta»", async () => {
     else process.env.MASTODON_QUIET_HOURS = anterior;
   }
 });
+
+test("una marca anidada no deja una marca", () => {
+  // Una sola pasada convertiría `<scr<script>ipt>` en `<script>`; repetirla no.
+  const anidada = likes.statusText("a <scr<script>ipt>b");
+  assert.ok(!/<[a-z]/i.test(anidada), anidada);
+  assert.ok(!/<[a-z]/i.test(likes.statusText("<<b>>texto")));
+});
