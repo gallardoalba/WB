@@ -107,6 +107,14 @@ test.describe("el idioma no se guarda desde una precarga del router", () => {
     });
     expect(interna.headers()["set-cookie"]).toBeUndefined();
 
+    // Navegador que no manda `Sec-Fetch-Mode`: la precarga se reconoce por lo
+    // que pide (`*/*`), igual que lo hace un `fetch` del router.
+    const sinCabecera = await request.get("/es?_rsc=prueba", {
+      headers: { accept: "*/*" },
+      maxRedirects: 0,
+    });
+    expect(sinCabecera.headers()["set-cookie"]).toBeUndefined();
+
     // Una navegación de verdad (la de un enlace del correo) sí lo guarda.
     const documento = await request.get("/es", {
       headers: { "sec-fetch-mode": "navigate" },
