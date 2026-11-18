@@ -651,8 +651,12 @@ apareció el bucle de redirecciones de `/api/requests`.
   no filtrar a herramientas externas las claves de la app ni meter herramientas
   de terceros en la imagen. Si el proveedor requiere credenciales, guárdalas en
   la configuración del usuario de la app, fuera de
-  `/etc/wanderbibliothek/env`. En modo código, el mismo wrapper ejecuta la
-  release de `current`.
+  `/etc/wanderbibliothek/env`. En modo código hace lo mismo el propio
+  `scripts/backup.ts`: el gancho se lanza con `PATH`, `HOME`, `USER` y
+  `BACKUP_FILE`, no con el entorno del servicio. Consecuencia práctica: un
+  gancho que necesite credenciales tiene que leerlas de un fichero suyo (la
+  configuración de `rclone` en el HOME del usuario), no de variables de
+  `/etc/wanderbibliothek/env`.
 - **Ensayo de restauración**: `npm run db:verify` descifra la copia más reciente
   (o la que se le pase), la abre en solo lectura como lo haría la aplicación,
   ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del

@@ -208,25 +208,53 @@ const ENTITIES: Record<string, string> = {
   nbsp: " ",
 };
 
-/** Texto plano de un estado: Mastodon devuelve el contenido en HTML. */
+/**
+ * Quita marcas HTML, repitiendo hasta que no quede ninguna.
+ *
+ * Una sola pasada no basta con marcas anidadas —`<scr<script>ipt>` deja
+ * `<script>` al quitarlas una vez—, así que se repite hasta que el texto deja
+ * de cambiar. Se aplica antes y después de decodificar entidades.
+ */
+function sinEtiquetas(valor: string): string {
+  let anterior: string;
+  let actual = valor;
+  do {
+    anterior = actual;
+    actual = actual.replace(/<[^>]*>/g, "");
+  } while (actual !== anterior);
+  return actual;
+}
+
+/** Decodifica entidades con nombre y numéricas; lo que no reconoce lo deja igual. */
+function decodificaEntidades(valor: string): string {
+  return valor.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (entity, body: string) => {
+    if (body.startsWith("#x") || body.startsWith("#X")) {
+      const code = Number.parseInt(body.slice(2), 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : entity;
+    }
+    if (body.startsWith("#")) {
+      const code = Number.parseInt(body.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : entity;
+    }
+    return ENTITIES[body.toLowerCase()] ?? entity;
+  });
+}
+
+/**
+ * Texto plano de un estado: Mastodon devuelve el contenido en HTML.
+ *
+ * Se quitan las etiquetas, se decodifican las entidades y **se vuelven a quitar
+ * las etiquetas**: `&lt;script&gt;` no es una etiqueta hasta que se decodifica,
+ * así que sanear solo antes dejaba marcas dentro del texto. El último paso sobre
+ * la cadena es siempre el saneado.
+ */
 export function statusText(html: string): string {
-  return html
+  const conEspacios = html
     .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<\/p>/gi, " ")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (entity, body: string) => {
-      if (body.startsWith("#x") || body.startsWith("#X")) {
-        const code = Number.parseInt(body.slice(2), 16);
-        return Number.isFinite(code) ? String.fromCodePoint(code) : entity;
-      }
-      if (body.startsWith("#")) {
-        const code = Number.parseInt(body.slice(1), 10);
-        return Number.isFinite(code) ? String.fromCodePoint(code) : entity;
-      }
-      return ENTITIES[body.toLowerCase()] ?? entity;
-    })
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/<\/p>/gi, " ");
+  const sinMarcas = sinEtiquetas(conEspacios);
+  const decodificado = decodificaEntidades(sinMarcas);
+  return sinEtiquetas(decodificado).replace(/\s+/g, " ").trim();
 }
 
 /** Normaliza lo que devuelve la API. Devuelve `null` si no es un estado usable. */

@@ -93,3 +93,25 @@ test.describe("idioma por defecto: navegador en inglés y enlaces del correo", (
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
   });
 });
+
+test.describe("el idioma no se guarda desde una precarga del router", () => {
+  test("una petición interna a /es no cambia la cookie", async ({ request }) => {
+    // Next precarga las rutas que hay en pantalla: con la lista en castellano,
+    // pide `/es/werk/…` con `RSC: 1`. Si el proxy guardase el idioma en cada
+    // respuesta, elegir alemán duraría hasta la siguiente precarga. Esto pasaba
+    // de verdad: una de cada ocho ejecuciones de la suite, y en producción cada
+    // vez que la página volvía a precargar.
+    const interna = await request.get("/es?_rsc=prueba", {
+      headers: { rsc: "1", "sec-fetch-mode": "cors" },
+      maxRedirects: 0,
+    });
+    expect(interna.headers()["set-cookie"]).toBeUndefined();
+
+    // Una navegación de verdad (la de un enlace del correo) sí lo guarda.
+    const documento = await request.get("/es", {
+      headers: { "sec-fetch-mode": "navigate" },
+      maxRedirects: 0,
+    });
+    expect(documento.headers()["set-cookie"]).toContain("wanderbibliothek-locale=es");
+  });
+});

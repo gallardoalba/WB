@@ -239,6 +239,15 @@ test("las etiquetas propias se limpian y se admiten con o sin almohadilla", () =
 
 /* ------------------------------- el estado -------------------------------- */
 
+test("una entidad que se convierte en etiqueta no deja la etiqueta dentro", () => {
+  // `&lt;script&gt;` no es una marca hasta que se decodifica: si solo se limpia
+  // antes de decodificar, el texto acaba con `<script>` dentro.
+  assert.equal(likes.statusText("Hola &lt;script&gt;alert(1)&lt;/script&gt;"), "Hola alert(1)");
+  assert.equal(likes.statusText("Hola &#60;b&#62;fuerte&#60;/b&#62;"), "Hola fuerte");
+  // Y lo que era texto de verdad sigue estando.
+  assert.equal(likes.statusText("a &lt; b"), "a < b");
+});
+
 test("el texto del estado pierde el HTML y las entidades", () => {
   const text = likes.statusText(
     "<p>Un libro &amp; una tarde<br />«El infinito en un junco»</p>",
@@ -508,4 +517,11 @@ test("de noche no se da ningún «me gusta»", async () => {
     if (anterior === undefined) delete process.env.MASTODON_QUIET_HOURS;
     else process.env.MASTODON_QUIET_HOURS = anterior;
   }
+});
+
+test("una marca anidada no deja una marca", () => {
+  // Una sola pasada convertiría `<scr<script>ipt>` en `<script>`; repetirla no.
+  const anidada = likes.statusText("a <scr<script>ipt>b");
+  assert.ok(!/<[a-z]/i.test(anidada), anidada);
+  assert.ok(!/<[a-z]/i.test(likes.statusText("<<b>>texto")));
 });
