@@ -96,6 +96,15 @@ jobs:
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
 
+      # Las pruebas de navegador corren contra el build de producción (ver
+      # `playwright.config.ts`): es lo que se despliega y evita el ruido de
+      # `ECONNRESET` que el servidor de desarrollo deja al cancelarse peticiones.
+      # La URL pública se incrusta al compilar, así que va en este paso.
+      - name: Compilar para producción
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3100
+
       - name: Pruebas de extremo a extremo
         run: npm run test:e2e
 
@@ -146,6 +155,13 @@ jobs:
           npx playwright install --with-deps firefox webkit \
             || { echo "Reintento tras un fallo de red al instalar"; npx playwright install --with-deps firefox webkit; }
           sudo cp -n /var/cache/apt/archives/*.deb ~/.cache/playwright-apt/ 2>/dev/null || true
+
+      # El humo levanta el servidor igual que la suite de Chromium: contra el
+      # build de producción (`playwright.config.ts`), así que necesita el build.
+      - name: Compilar para producción
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3100
 
       - name: Humo de cifrado en Firefox y WebKit
         run: npm run test:e2e:smoke

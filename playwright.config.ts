@@ -69,13 +69,22 @@ export default defineConfig({
   webServer: EXTERNAL_SERVER
     ? undefined
     : {
-        command: `npm run dev -- -p ${PORT}`,
+        // En CI se prueba el **build de producción**: es lo que se despliega, va
+        // más rápido (no compila rutas al visitarlas) y no ensucia la salida con
+        // los `ECONNRESET` que el servidor de desarrollo registra cada vez que
+        // el navegador cancela una petición al navegar. En local sigue `dev`,
+        // que recompila solo y evita tener que construir a mano.
+        command: process.env.CI ? `npm start -- -p ${PORT}` : `npm run dev -- -p ${PORT}`,
         url: `http://localhost:${PORT}/api/health`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         env: {
           SEED_DEMO: "1",
           NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
+          // `next start` valida el entorno de producción al arrancar (correo,
+          // claves de cifrado y de copia): aquí no hay ninguno de los tres y las
+          // pruebas no los necesitan.
+          ...(process.env.CI ? { WANDERBIBLIOTHEK_SKIP_ENV_CHECK: "1" } : {}),
         },
       },
 });
