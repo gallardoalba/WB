@@ -156,6 +156,13 @@ jobs:
             || { echo "Reintento tras un fallo de red al instalar"; npx playwright install --with-deps firefox webkit; }
           sudo cp -n /var/cache/apt/archives/*.deb ~/.cache/playwright-apt/ 2>/dev/null || true
 
+      # El humo levanta el servidor igual que la suite de Chromium: contra el
+      # build de producción (`playwright.config.ts`), así que necesita el build.
+      - name: Compilar para producción
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3100
+
       - name: Humo de cifrado en Firefox y WebKit
         run: npm run test:e2e:smoke
 
