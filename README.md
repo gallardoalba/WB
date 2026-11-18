@@ -43,7 +43,7 @@ None of these decisions is neutral. The platform is built so that knowledge circ
 
 ## Run it yourself
 
-Requires Node.js 22 or newer.
+Requires Node.js 24 or newer.
 
 ```bash
 git clone https://github.com/gallardoalba/wanderbibliothek.git
@@ -94,4 +94,4 @@ Project updates are posted on Mastodon at [@wanderbibliothek@mastodon.social](ht
 
 ## License and credits
 
-The code is under the **MIT License**. The cover photograph and the typeface used on book covers keep their own licenses and are credited in [`NOTICE`](NOTICE).
+The code is under the **GNU Affero General Public License v3.0** (AGPL-3.0). It is copyleft: anyone who modifies it and offers it as a network service must also offer the corresponding source. The cover photograph and the typeface used on book covers keep their own licenses and are credited in [`NOTICE`](NOTICE).

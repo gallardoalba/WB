@@ -35,7 +35,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The code is released under the MIT licence. This page describes the code run by the instance that serves it.",
+          text: "The code is released under the AGPL-3.0 licence. This page describes the code run by the instance that serves it.",
         },
       ],
     },
@@ -438,7 +438,7 @@ export const EN: TechnicalDocument = {
             {
               label: "LICENSE",
               href: `${REPOSITORY}/blob/main/LICENSE`,
-              note: "MIT licence.",
+              note: "AGPL-3.0 licence.",
             },
             {
               label: "NOTICE",

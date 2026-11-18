@@ -63,7 +63,7 @@ ENV APP_COMMIT_SHA=$APP_COMMIT_SHA \
 # imagen. `revision` ata la imagen al commit del que salió.
 LABEL org.opencontainers.image.title="Wanderbibliothek" \
       org.opencontainers.image.source="https://github.com/gallardoalba/WB" \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.revision=$APP_COMMIT_SHA \
       org.opencontainers.image.created=$APP_BUILD_TIME
 

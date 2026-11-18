@@ -59,7 +59,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "El código está bajo licencia MIT. Esta página describe el código que ejecuta la instancia que la sirve.",
+          text: "El código está bajo licencia AGPL-3.0. Esta página describe el código que ejecuta la instancia que la sirve.",
         },
       ],
     },
@@ -464,7 +464,7 @@ const ES: TechnicalDocument = {
             {
               label: "LICENSE",
               href: `${REPOSITORY}/blob/main/LICENSE`,
-              note: "Licencia MIT.",
+              note: "Licencia AGPL-3.0.",
             },
             {
               label: "NOTICE",
@@ -500,7 +500,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Der Code steht unter der MIT-Lizenz. Diese Seite beschreibt den Code der Instanz, die sie ausliefert.",
+          text: "Der Code steht unter der AGPL-3.0-Lizenz. Diese Seite beschreibt den Code der Instanz, die sie ausliefert.",
         },
       ],
     },
@@ -905,7 +905,7 @@ const DE: TechnicalDocument = {
             {
               label: "LICENSE",
               href: `${REPOSITORY}/blob/main/LICENSE`,
-              note: "MIT-Lizenz.",
+              note: "AGPL-3.0-Lizenz.",
             },
             {
               label: "NOTICE",

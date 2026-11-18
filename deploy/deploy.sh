@@ -203,8 +203,8 @@ fi
 NODE_VERSION="$("$NODE_BIN" -v)"
 NODE_MAJOR="${NODE_VERSION#v}"
 NODE_MAJOR="${NODE_MAJOR%%.*}"
-if [ "$NODE_MAJOR" -lt 22 ]; then
-  fail "Node $NODE_VERSION es demasiado antiguo: hacen falta 22 o más"
+if [ "$NODE_MAJOR" -lt 24 ]; then
+  fail "Node $NODE_VERSION es demasiado antiguo: hacen falta 24 o más"
   exit 1
 fi
 ok "Node $NODE_VERSION"

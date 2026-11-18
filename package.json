@@ -1,9 +1,9 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad, mensajería cifrada de extremo a extremo y clubes de lectura.",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "author": "gallardoalba",
   "homepage": "https://github.com/gallardoalba/wanderbibliothek",
   "repository": {
