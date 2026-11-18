@@ -31,13 +31,17 @@ test("navegar a /de/werk guarda el alemán", () => {
   assert.equal(idiomaGuardado(respuesta), "de");
 });
 
-test("una precarga del router no toca el idioma", () => {
-  // `?_rsc=` es la marca que sí llega al proxy; la cabecera `RSC` la consume Next.
-  assert.equal(idiomaGuardado(pide("/de/werk?_rsc=abc", { "sec-fetch-mode": "navigate" })), null);
+test("un fetch del cliente no toca el idioma", () => {
+  assert.equal(idiomaGuardado(pide("/de/werk", { "sec-fetch-mode": "cors" })), null);
 });
 
-test("un fetch del cliente tampoco lo toca", () => {
-  assert.equal(idiomaGuardado(pide("/de/werk", { "sec-fetch-mode": "cors" })), null);
+test("sin Sec-Fetch-Mode manda lo que se pide", () => {
+  // Los navegadores anteriores a 2023 no mandan la cabecera: una precarga pide
+  // `*/*` y una navegación pide HTML.
+  const precarga = { accept: "*/*" };
+  assert.equal(idiomaGuardado(pide("/de/werk", precarga)), null);
+  const documento = { accept: "text/html,application/xhtml+xml" };
+  assert.equal(idiomaGuardado(pide("/de/werk", documento)), "de");
 });
 
 test("el enlace del correo guarda el idioma y limpia la query", () => {
