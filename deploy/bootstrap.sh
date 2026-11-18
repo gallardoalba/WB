@@ -166,22 +166,22 @@ else
   exit 1
 fi
 
-# ── Paso 3: Node 22 ────────────────────────────────────────────────────────
+# ── Paso 3: Node 24 ────────────────────────────────────────────────────────
 step "Comprobar Node.js"
 NODE_OK=0
 if have node; then
   NODE_MAJOR="$(node -v | sed 's/^v//' | cut -d. -f1)"
-  [ "$NODE_MAJOR" -ge 22 ] && NODE_OK=1 && ok "Node $(node -v)"
+  [ "$NODE_MAJOR" -ge 24 ] && NODE_OK=1 && ok "Node $(node -v)"
 fi
 if [ "$NODE_OK" -eq 0 ]; then
-  warn "hace falta Node 22: se instala desde NodeSource (deja /usr/bin/node, que es lo que espera la unidad de systemd)"
+  warn "hace falta Node 24: se instala desde NodeSource (deja /usr/bin/node, que es lo que espera la unidad de systemd)"
   if [ "$DRY_RUN" -eq 1 ]; then
-    run "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -"
+    run "curl -fsSL https://deb.nodesource.com/setup_24.x | bash -"
     apt_install nodejs
   else
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null 2>&1
     apt_install nodejs
-    node -v | grep -q '^v2[2-9]' || { fail "Node instalado no es 22+: $(node -v)"; exit 1; }
+    node -v | grep -q '^v2[4-9]' || { fail "Node instalado no es 24+: $(node -v)"; exit 1; }
     ok "Node $(node -v)"
   fi
 fi
