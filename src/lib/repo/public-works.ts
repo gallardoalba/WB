@@ -44,6 +44,7 @@ type BookRow = {
   isbn: string | null;
   cover_url: string | null;
   work_key: string | null;
+  work_id: string | null;
   publisher: string | null;
   year: string | null;
   series: string | null;
@@ -57,16 +58,21 @@ const OWNER_OK = `NOT EXISTS (
   SELECT 1 FROM users u WHERE u.id = l.owner_id AND u.is_suspended = 1
 )`;
 
-/** Todas las ediciones de una obra comparten página. */
-function workKeyOf(book: { id: string; work_key: string | null }): string {
-  return book.work_key || book.id;
+/**
+ * Todas las ediciones de una obra comparten página.
+ *
+ * Manda `work_id` (v57); `work_key` sigue valiendo para una fila que aún no lo
+ * tenga, y una obra de una sola edición cae en su propio id, como siempre.
+ */
+function workGroupOf(book: { id: string; work_id: string | null; work_key: string | null }): string {
+  return book.work_id || book.work_key || book.id;
 }
 
 function readBooks(): BookRow[] {
   // Orden por antigüedad: la primera fila de cada obra es la canónica.
   return getDb()
     .prepare(
-      `SELECT id, title, author, category, language, isbn, cover_url, work_key,
+      `SELECT id, title, author, category, language, isbn, cover_url, work_key, work_id,
               publisher, year, series, pages
          FROM books
         ORDER BY created_at ASC, id ASC`,
@@ -118,7 +124,7 @@ function toPublicWork(book: BookRow, cities: Map<string, number>): PublicWork {
 function catalogIndex(): { works: PublicWork[]; byBook: Map<string, PublicWork> } {
   const groups = new Map<string, BookRow[]>();
   for (const book of readBooks()) {
-    const key = workKeyOf(book);
+    const key = workGroupOf(book);
     const group = groups.get(key);
     if (group) group.push(book);
     else groups.set(key, [book]);
@@ -176,7 +182,7 @@ export function getPublicWork(bookId: string): PublicWork | null {
 
   const book = getDb()
     .prepare(
-      `SELECT id, title, author, category, language, isbn, cover_url, work_key,
+      `SELECT id, title, author, category, language, isbn, cover_url, work_key, work_id,
               publisher, year, series, pages
          FROM books WHERE id = ?`,
     )

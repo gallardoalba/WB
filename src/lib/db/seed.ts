@@ -7,6 +7,8 @@
 import { randomUUID } from "node:crypto";
 import { hashPasswordSync } from "../password";
 import { normalizeText } from "../text";
+import { workKeyFromTitle } from "../work";
+import { ensureWork } from "../repo/works";
 import type { Db } from "./index";
 
 export const DEMO_PASSWORD_HASH =
@@ -204,7 +206,7 @@ export function seed(db: Db) {
     }
 
     const insertBook = db.prepare(
-      "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, work_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
     const insertListing = db.prepare(
       `INSERT INTO listings (id, book_id, owner_id, condition, city, distance_km, status, search_key, created_at)
@@ -216,6 +218,10 @@ export function seed(db: Db) {
 
     for (const book of SEED_BOOKS) {
       const createdAt = isoAgo(book.minutesAgo);
+      const workKey = workKeyFromTitle(book.title, book.author);
+      // La obra nace aquí, como en el alta real (`ensureWork`): sin eso la
+      // muestra tendría `work_key` pero ninguna fila en `works`.
+      const workId = ensureWork(db, workKey, book.title, book.author, createdAt);
       insertBook.run(
         book.bookId,
         book.title,
@@ -226,6 +232,8 @@ export function seed(db: Db) {
         book.language,
         // Se sirve desde la propia app: la CSP no permite imágenes de terceros.
         null,
+        workKey,
+        workId,
         createdAt,
       );
       insertListing.run(

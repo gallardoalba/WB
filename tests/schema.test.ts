@@ -70,11 +70,13 @@ const EXPECTED_TABLES = [
   "transparency_snapshots",
   "user_keys",
   "users",
+  "works",
 ] as const;
 
 /** Columnas que más fácil se pierden en una migración mal escrita. */
 const REQUIRED_COLUMNS: Record<string, string[]> = {
-  books: ["isbn", "language", "work_key", "title_key", "cover_url"],
+  books: ["isbn", "language", "work_key", "work_id", "title_key", "cover_url"],
+  works: ["key", "title", "author"],
   listings: [
     "book_id",
     "owner_id",

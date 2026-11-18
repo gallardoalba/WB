@@ -121,13 +121,17 @@ export const OWNER_ACTIVE = `NOT EXISTS (
  */
 export function workBookIds(bookId: string): string[] {
   const db = getDb();
-  const row = db.prepare("SELECT work_key FROM books WHERE id = ?").get(bookId) as
-    | { work_key: string | null }
+  // `work_id` es la identidad (v57); `work_key` queda como puente para una fila
+  // que aún no la tenga.
+  const row = db.prepare("SELECT work_id, work_key FROM books WHERE id = ?").get(bookId) as
+    | { work_id: string | null; work_key: string | null }
     | undefined;
-  if (!row?.work_key) return [bookId];
-  const rows = db.prepare("SELECT id FROM books WHERE work_key = ?").all(row.work_key) as {
-    id: string;
-  }[];
+  if (!row) return [bookId];
+  const rows = row.work_id
+    ? (db.prepare("SELECT id FROM books WHERE work_id = ?").all(row.work_id) as { id: string }[])
+    : row.work_key
+      ? (db.prepare("SELECT id FROM books WHERE work_key = ?").all(row.work_key) as { id: string }[])
+      : [];
   return rows.length > 0 ? rows.map((item) => item.id) : [bookId];
 }
 

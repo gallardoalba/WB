@@ -18,12 +18,13 @@ All of this has to pass; CI runs the same:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 869 unit and integration tests (111 files)
+npm test            # 879 unit and integration tests (113 files)
 npm run build
 npm run test:e2e    # Playwright: 54 cases in 9 files (Chromium); first time:
                     # npx playwright install chromium
 npm run test:e2e:smoke  # WebCrypto/IndexedDB en Firefox y WebKit
                     # npx playwright install firefox webkit
+npm run db:works    # informe de agrupación por obra (ediciones, colisiones)
 ```
 
 `npm run test:e2e` starts its own server on `localhost:3100`. If you already have
@@ -42,7 +43,7 @@ directory).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 869 pruebas unitarias y de integración (111 ficheros),
+  Validado: tsc, eslint, 879 pruebas unitarias y de integración (113 ficheros),
   build y 54/54 E2E (Chromium) y el humo en Firefox/WebKit.
   ```
 

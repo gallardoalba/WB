@@ -22,13 +22,13 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v56), seed
+    db/                connection, base schema (v2), migrations (v3–v57), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 869 unit and integration tests (111 files)
+tests/                 879 unit and integration tests (113 files)
 e2e/                   56 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -90,7 +90,7 @@ The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 
 ## Data
 
-- `books` is the edition (unique ISBN) and `listings` the specific copy; `books.work_key` groups editions of the same work, so they share the conversation and the list of copies.
+- Three levels, each with its own identity: `works` is the work (the book people search for), `books` the edition (one ISBN, publisher, year) and `listings` the copy someone has. `books.work_id` points at the work — that is what groups editions, so they share the page, the conversation and the list of copies — and `books.work_key` keeps the derived key (`ol:<id>` or `t:<hash>`) used to find the work in the first place. The work's `id` is stable; its `key` may improve when an external catalogue finally knows it, and then its editions move to that work without touching ids already in use (`src/lib/repo/works.ts`).
 - Copy states: `available`, `reserved`, `given`, `paused`, `removed`.
 - Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.
 - Search through FTS5 maintained by triggers: `listings_fts` for the catalogue and `books_fts` for works; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
@@ -100,7 +100,7 @@ The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v56). A new installation starts from `SCHEMA_V2` and its indexes and runs the 54 steps up to v56; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Six steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue) and v56 (the copy's journey: copies inherit their provenance and the copy page can tell it). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v57). A new installation starts from `SCHEMA_V2` and its indexes and runs the 55 steps up to v57; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Seven steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it) and v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
@@ -217,7 +217,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 869 unit and integration tests in 111 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 879 unit and integration tests in 113 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
