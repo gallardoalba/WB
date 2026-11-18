@@ -20,7 +20,7 @@ npm run typecheck   # next typegen + tsc
 npm run lint
 npm test            # 917 unit and integration tests (119 files)
 npm run build
-npm run test:e2e    # Playwright: 54 cases in 9 files (Chromium); first time:
+npm run test:e2e    # Playwright: 63 cases in 12 files (Chromium); first time:
                     # npx playwright install chromium
 npm run test:e2e:smoke  # WebCrypto/IndexedDB en Firefox y WebKit
                     # npx playwright install firefox webkit
@@ -45,7 +45,7 @@ directory).
   hasta que llegaba el 409.
 
   Validado: tsc, eslint, 917 pruebas unitarias y de integración (119 ficheros),
-  build y 54/54 E2E (Chromium) y el humo en Firefox/WebKit.
+  build y 63/63 E2E (Chromium) y el humo en Firefox/WebKit.
   ```
 
 - **UI language**: strings are written in Spanish, and the German and English

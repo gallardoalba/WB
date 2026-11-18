@@ -836,9 +836,15 @@ export default function WanderbibliothekApp({
               <button
                 type="button"
                 className="icon-button notification-button"
+                /* La cifra del distintivo va también en el nombre accesible y
+                   con el mismo texto que se ve («9+» cuando pasa de nueve):
+                   quien usa dictado dice lo que lee, y el lector de pantalla
+                   oye la misma cuenta. */
                 aria-label={
                   unreadNotifications > 0
-                    ? t("Notificaciones: {n} avisos sin leer", { n: unreadNotifications })
+                    ? t("Notificaciones: {n} avisos sin leer", {
+                        n: unreadNotifications > 9 ? "9+" : String(unreadNotifications),
+                      })
                     : t("Notificaciones")
                 }
                 onClick={() => {

@@ -332,11 +332,11 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 917 pruebas unitarias y de integración en 119 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta 917 pruebas unitarias y de integración en 119 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 63 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker, que además se escanea con Trivy: el trabajo se corta solo con vulnerabilidades **críticas y con parche**, porque un aviso sin corrección disponible no se puede arreglar en ese momento pero queda en el registro.",
+          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. Dos pruebas de navegador son vallas y no funcionalidad: `e2e/accesibilidad.spec.ts` pasa **axe** (WCAG 2.0/2.1 A y AA) por la portada, el catálogo, una ficha y la ventana de acceso, y falla con lo que axe marca como `serious` o `critical`; `e2e/rendimiento.spec.ts` comprueba que una visita al catálogo cabe en un **presupuesto de bytes** y que ninguna imagen pasa de 250 KB, que es lo que impide volver a las portadas de 1,3 MB. El presupuesto se mide sobre el build de producción, así que solo corre en la CI. La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker, que además se escanea con Trivy: el trabajo se corta solo con vulnerabilidades **críticas y con parche**, porque un aviso sin corrección disponible no se puede arreglar en ese momento pero queda en el registro.",
         },
         {
           kind: "p",
@@ -773,11 +773,11 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 917 Unit- und Integrationstests in 119 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt 917 Unit- und Integrationstests in 119 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 63 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images aus, das zusätzlich mit Trivy geprüft wird: der Job bricht nur bei **kritischen Schwachstellen mit Patch** ab, denn eine Warnung ohne verfügbare Korrektur lässt sich in dem Moment nicht beheben, bleibt aber im Protokoll.",
+          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Zwei Browser-Tests sind Leitplanken und keine Funktion: `e2e/accesibilidad.spec.ts` schickt **axe** (WCAG 2.0/2.1 A und AA) über Startseite, Katalog, eine Exemplarseite und den Anmeldedialog und scheitert an allem, was axe als `serious` oder `critical` meldet; `e2e/rendimiento.spec.ts` prüft, dass ein Katalogbesuch in ein **Byte-Budget** passt und kein Bild über 250 KB geht — der Riegel gegen die 1,3-MB-Originale. Das Budget wird am Produktions-Build gemessen und läuft daher nur in der CI. Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images aus, das zusätzlich mit Trivy geprüft wird: der Job bricht nur bei **kritischen Schwachstellen mit Patch** ab, denn eine Warnung ohne verfügbare Korrektur lässt sich in dem Moment nicht beheben, bleibt aber im Protokoll.",
         },
         {
           kind: "p",
