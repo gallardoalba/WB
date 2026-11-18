@@ -52,7 +52,7 @@ test("en producción faltan el correo, la URL y las dos claves", () => {
   // Que la copia no salga del servidor sí es un aviso: la copia existe y está
   // cifrada, solo le falta el segundo destino.
   assert.ok(keys(issues, "warn").includes("WANDERBIBLIOTHEK_BACKUP_HOOK"));
-  assert.ok(keys(issues, "warn").includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"));
+  assert.ok(keys(issues, "warn").includes("TURNSTILE_SECRET"));
 });
 
 test("sin clave de copias no se arranca; el registro sin captcha solo avisa", () => {
@@ -62,7 +62,7 @@ test("sin clave de copias no se arranca; el registro sin captcha solo avisa", ()
   // Una copia en claro lleva correos y hashes: no es un aviso, es un fallo de
   // configuración. `assertEnv` aborta el arranque con esto.
   assert.deepEqual(keys(issues, "error"), ["WANDERBIBLIOTHEK_BACKUP_KEY"]);
-  assert.ok(keys(issues, "warn").includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"));
+  assert.ok(keys(issues, "warn").includes("TURNSTILE_SECRET"));
   assert.match(
     issues.find((issue) => issue.key === "WANDERBIBLIOTHEK_BACKUP_KEY")!.message,
     /en claro/,
@@ -262,4 +262,15 @@ test("un TRUSTED_PROXY_HOPS por encima del máximo se avisa en vez de recortarse
   assert.match(issue!.message, /máximo/);
   // El límite (10) sí vale.
   assert.deepEqual(checkEnv(complete({ TRUSTED_PROXY_HOPS: "10" })), []);
+});
+
+test("el secreto de Turnstile sin su clave pública impide arrancar", () => {
+  // Este es el fallo que dejó el registro cerrado en producción: la imagen se
+  // compiló sin la clave pública y el servidor seguía exigiendo el token, así
+  // que toda alta acababa en «Completa la verificación humana».
+  const issues = checkEnv(complete({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: undefined }));
+  const error = issues.find((issue) => issue.severity === "error");
+  assert.ok(error, "tiene que ser un error, no un aviso");
+  assert.equal(error!.key, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+  assert.match(error!.message, /registro rechazaría todas las altas/i);
 });

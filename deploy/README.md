@@ -134,9 +134,11 @@ rutas de base o de copias relativas, `TRUSTED_PROXY_HOPS` no numérico y
 lista: vacía o mal escrita **impide arrancar**, porque lo que se juega es una
 base con correos y hashes en claro.
 
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se **incrusta en el bundle
-del cliente**: si lo activas, tiene que existir en el momento del `build`, no
-solo en el entorno del servicio. En Docker se pasa como build arg (apartado 11).
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se lee en el servidor en
+cada petición, así que basta con definirla en el entorno del servicio —también
+en Docker—: no hay que reconstruir nada. Va siempre junto a `TURNSTILE_SECRET`;
+con el secreto y sin la clave, el registro rechaza todas las altas y la app se
+niega a arrancar para no quedarse así en silencio.
 
 > **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
 > abajo: el mismo entorno sirve, con `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
@@ -882,12 +884,13 @@ docker compose ps               # debe estar «healthy»
 curl -fsS http://127.0.0.1:3000/api/health
 ```
 
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha) se incrusta en el bundle del cliente:
-en Docker hay que pasarla como **build arg**, no basta con el `.env` del
-contenedor.
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha) va en el `.env` del contenedor como
+cualquier otra variable: se lee en el servidor en cada petición, no se incrusta
+al compilar.
 
 ```bash
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAA… docker compose build
+# en el .env del contenedor, junto al resto
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAA…
 docker compose up -d
 ```
 

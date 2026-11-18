@@ -13,9 +13,7 @@ services:
   app:
     build:
       context: .
-      # NEXT_PUBLIC_* se fija en el BUILD, no en tiempo de ejecución.
       args:
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
         # Identidad del build: queda dentro de la imagen y la publica
         # `/api/version`. Para una imagen firmada de la release, el commit lo
         # trae el propio workflow; al construir en local, pásalo a mano:

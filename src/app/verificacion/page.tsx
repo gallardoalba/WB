@@ -32,7 +32,7 @@ export default async function Page() {
             "Esta página la usa la aplicación para Android al crear una cuenta. Si has llegado desde el navegador, ve al registro desde la portada.",
           )}
         </p>
-        <TurnstileBridge />
+        <TurnstileBridge siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null} />
       </div>
     </main>
   );

@@ -282,13 +282,23 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
   }
   // El registro es el punto de entrada favorito de los robots. Sin captcha
   // solo lo frenan la cuota por IP, el campo trampa y la verificación de correo.
-  // Ojo con los nombres: el secreto es `TURNSTILE_SECRET` y la clave del
-  // cliente `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (esta se incrusta en el bundle al
-  // compilar, así que añadirla exige reconstruir, no solo reiniciar).
-  if (!has(env, "TURNSTILE_SECRET") || !has(env, "NEXT_PUBLIC_TURNSTILE_SITE_KEY")) {
-    warn(
+  //
+  // Las dos mitades van juntas o no van: con el secreto y sin la clave, el
+  // servidor exige un token que el navegador no puede producir y **nadie puede
+  // registrarse**; con la clave y sin el secreto, el widget se pinta para nada.
+  // Y el caso que dolió de verdad: la clave se horneaba en el bundle al
+  // compilar, así que la imagen construida en la CI salió sin ella mientras el
+  // servidor seguía teniendo el secreto. Ahora la clave se lee en el servidor en
+  // cada petición, y si falta, esto no arranca.
+  if (has(env, "TURNSTILE_SECRET") && !has(env, "NEXT_PUBLIC_TURNSTILE_SITE_KEY")) {
+    error(
       "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
-      "Turnstile está apagado: el registro solo tiene la cuota por IP, el campo trampa y el tiempo mínimo. Con `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (se incrusta al compilar) y `TURNSTILE_SECRET` se activa sin tocar código.",
+      "Hay `TURNSTILE_SECRET` pero no la clave pública: el formulario no pintaría el widget y el registro rechazaría todas las altas («Completa la verificación humana»). Define `NEXT_PUBLIC_TURNSTILE_SITE_KEY` o quita el secreto para desactivar Turnstile.",
+    );
+  } else if (!has(env, "TURNSTILE_SECRET")) {
+    warn(
+      "TURNSTILE_SECRET",
+      "Turnstile está apagado: el registro solo tiene la cuota por IP, el campo trampa y el tiempo mínimo. Con `TURNSTILE_SECRET` y `NEXT_PUBLIC_TURNSTILE_SITE_KEY` se activa sin tocar código.",
     );
   }
   if (

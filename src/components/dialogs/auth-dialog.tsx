@@ -15,10 +15,21 @@ export function AuthDialog({
   onClose,
   onSuccess,
   initialMode = "login",
+  turnstileSiteKey = null,
 }: BaseDialogProps & {
   /** Recibe la cuenta ya autenticada: el armazón la pinta sin esperar al refresco. */
   onSuccess: (user: SessionUser) => void;
   initialMode?: "login" | "register";
+  /**
+   * Clave pública de Turnstile, resuelta por el servidor en cada petición.
+   *
+   * No se lee de `process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY` aquí: eso se
+   * incrusta al compilar, y la imagen se compila en la CI, sin esa variable.
+   * El resultado fue una release sin captcha cuyo servidor seguía exigiendo el
+   * token, es decir, el registro roto. Como la clave es pública, viene por
+   * props y depende del entorno del contenedor.
+   */
+  turnstileSiteKey?: string | null;
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<"login" | "register" | "forgot" | "totp">(initialMode);
@@ -28,8 +39,6 @@ export function AuthDialog({
   // Credenciales ya verificadas a la espera del segundo factor.
   const [pendingLogin, setPendingLogin] = useState<{ email: string; password: string } | null>(null);
   const startedAt = useRef(0);
-
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   // Sello de tiempo del formulario (anti-bot) y widget opcional de Turnstile.
   useEffect(() => {

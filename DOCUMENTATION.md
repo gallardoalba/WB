@@ -28,7 +28,7 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 921 unit and integration tests (119 files)
+tests/                 923 unit and integration tests (119 files)
 e2e/                   63 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -205,7 +205,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `SSE_MAX_STREAMS` | `500` | Global cap on open live streams (SSE). Each account is already limited to 3; this protects file descriptors and SQLite timers on a single instance. |
 | `WANDERBIBLIOTHEK_BACKUP_KEY` / `WANDERBIBLIOTHEK_BACKUP_KEEP` | unset / `14` | Key of the encrypted backups and how many are kept when rotating. |
 | `ERROR_WEBHOOK_URL` / `ERROR_WEBHOOK_TOKEN` | unset | Receive 500s as JSON, already redacted. |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. Read at request time (not baked into the bundle); the secret without the public key refuses to start, because every sign-up would be rejected. |
 | `REQUIRE_EMAIL_VERIFICATION` | unset | `1` requires a confirmed address to publish, request, comment and write. |
 | `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
 | `LEGAL_*` | unset | Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`. |
@@ -217,7 +217,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 921 unit and integration tests in 119 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 923 unit and integration tests in 119 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

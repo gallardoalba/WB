@@ -182,6 +182,7 @@ export default function WanderbibliothekApp({
   nextPath = null,
   buildCommit = null,
   buildCommitUrl = null,
+  turnstileSiteKey = null,
 }: {
   snapshot: AppSnapshot;
   openAuth?: boolean;
@@ -190,6 +191,16 @@ export default function WanderbibliothekApp({
   /** Commit desplegado, tal y como lo publica `/api/version`. */
   buildCommit?: string | null;
   buildCommitUrl?: string | null;
+  /**
+   * Clave pública de Turnstile, leída en el servidor **en cada petición**.
+   *
+   * `NEXT_PUBLIC_*` se incrusta al compilar, y la imagen se compila en la CI,
+   * donde esa variable no está: la release salió sin captcha mientras el
+   * servidor seguía teniendo `TURNSTILE_SECRET`, así que el registro rechazaba
+   * todas las altas. Como la clave es pública, viaja como prop y depende del
+   * entorno del contenedor, no del build.
+   */
+  turnstileSiteKey?: string | null;
 }) {
   const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
   /**
@@ -1870,6 +1881,7 @@ export default function WanderbibliothekApp({
 
       <LazyDialog open={authOpen && !user}>
       <AuthDialog
+        turnstileSiteKey={turnstileSiteKey}
         open={authOpen && !user}
         onClose={() => {
           pendingFavorite.current = null;
