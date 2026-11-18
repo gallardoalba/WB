@@ -265,7 +265,10 @@ test("un título enorme se recorta y el enlace sobrevive", () => {
   });
   assert.ok(Array.from(text).length <= mastodon.STATUS_LIMIT, `mide ${Array.from(text).length}`);
   assert.match(text, /…/);
-  assert.ok(text.includes(url), "el enlace no puede quedar cortado");
+  // El estado es texto, enlace y etiquetas, separados por línea en blanco: el
+  // enlace tiene que sobrevivir entero en su bloque. Comparar con `includes`
+  // dejaba pasar un enlace partido que casualmente apareciera en otra parte.
+  assert.equal(text.trimEnd().split("\n\n")[1], url, "el enlace no puede quedar cortado");
 });
 
 test("el enlace de la obra no lleva prefijo de idioma y conserva la marca del bot", () => {

@@ -39,6 +39,24 @@ const PRIVATE_PREFIXES = [
  * `unsafe-eval` porque el refresco en caliente lo necesita.
  */
 /**
+ * Si la petición es una navegación de documento y no una petición del router.
+ *
+ * Next pide **precargas** de las rutas que hay en pantalla: con la lista de
+ * obras en castellano, prefetchea `/es/werk/…`. Si el proxy guarda el idioma en
+ * cada una de esas respuestas, elegir alemán dura hasta la siguiente precarga,
+ * que devuelve la cookie a castellano (medido: una de cada ocho veces en la
+ * suite, y en producción cada vez que alguien cambia de idioma y la página
+ * vuelve a precargar). El idioma se guarda **solo** cuando la persona navega.
+ */
+function esNavegacionDeDocumento(request: NextRequest): boolean {
+  // Next marca sus peticiones RSC (navegación de cliente y precarga) con `RSC: 1`.
+  if (request.headers.get("rsc") === "1") return false;
+  const modo = request.headers.get("sec-fetch-mode");
+  if (modo) return modo === "navigate";
+  return request.method === "GET";
+}
+
+/**
  * Si la petición llegó por HTTPS.
  *
  * El idioma lo guarda el proxy en una cookie y el selector la reescribe desde el
@@ -140,14 +158,19 @@ export function proxy(request: NextRequest) {
    * vista pero no la preferencia: la siguiente navegación volvía al idioma
    * anterior y el selector parecía no hacer nada.
    */
-  const redirectConIdioma = (url: URL, status: number, locale: Locale) => {
-    const response = NextResponse.redirect(url, status);
+  /** Deja el idioma elegido en la cookie, con los atributos de siempre. */
+  const guardarIdioma = (response: NextResponse, locale: Locale) => {
     response.cookies.set(LOCALE_COOKIE, locale, {
       path: "/",
       maxAge: 31536000,
       sameSite: "lax",
       secure: https,
     });
+  };
+
+  const redirectConIdioma = (url: URL, status: number, locale: Locale) => {
+    const response = NextResponse.redirect(url, status);
+    if (esNavegacionDeDocumento(request)) guardarIdioma(response, locale);
     return response;
   };
 
@@ -179,13 +202,8 @@ export function proxy(request: NextRequest) {
   }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-  if (idiomaForzado) {
-    response.cookies.set(LOCALE_COOKIE, idiomaForzado, {
-      path: "/",
-      maxAge: 31536000,
-      sameSite: "lax",
-      secure: https,
-    });
+  if (idiomaForzado && esNavegacionDeDocumento(request)) {
+    guardarIdioma(response, idiomaForzado);
   }
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("X-Content-Type-Options", "nosniff");

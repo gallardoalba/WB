@@ -138,12 +138,29 @@ async function main() {
   }
 
   // Gancho opcional para copia externa (rsync, rclone, S3…).
+  //
+  // El comando lo elige quien administra (`WANDERBIBLIOTHEK_BACKUP_HOOK`): es un
+  // gancho, no una entrada de usuario. Lo que **no** hereda es el entorno del
+  // servicio, donde viven la clave de cifrado, el token del mantenimiento y el
+  // secreto del captcha; solo recibe lo que necesita para encontrar la copia.
+  // Es el mismo `env -i` que usa el envoltorio de la imagen (`deploy/run-backup-container.sh`),
+  // para que las dos formas de desplegar se comporten igual.
   const hook = process.env.WANDERBIBLIOTHEK_BACKUP_HOOK;
   if (hook) {
     try {
-      execFileSync("sh", ["-c", hook], {
+      execFileSync("/bin/sh", ["-c", hook], {
         stdio: "inherit",
-        env: { ...process.env, BACKUP_FILE: finalFile },
+        env: {
+          PATH:
+            process.env.PATH ?? "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          HOME: process.env.HOME ?? "/",
+          USER: process.env.USER ?? "wanderbibliothek",
+          LOGNAME: process.env.LOGNAME ?? process.env.USER ?? "wanderbibliothek",
+          BACKUP_FILE: finalFile,
+          // No es un secreto y `ProcessEnv` la exige (Next la declara
+          // obligatoria); el gancho no la usa para nada.
+          NODE_ENV: process.env.NODE_ENV ?? "production",
+        },
       });
     } catch (error) {
       console.error("El gancho de copia externa falló", error);
