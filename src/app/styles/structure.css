@@ -1179,22 +1179,6 @@
   margin: 0;
 }
 
-.exchange-help {
-  margin: 8px 0 12px;
-  color: var(--muted);
-  font-size: 13.5px;
-}
-
-.exchange-help summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.exchange-help p {
-  margin: 6px 0 0;
-  line-height: 1.55;
-}
-
 /* ============================================================
    Esqueleto de carga (loading.tsx)
    ============================================================ */
