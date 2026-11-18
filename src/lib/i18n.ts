@@ -33,7 +33,7 @@ type Dictionary = Record<string, string>;
  * autocompleta al escribir `t("…")`.
  */
 export const DE = {
-  "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation. La plataforma no pide direcciones: cada parte confirma aquí cuando lo tiene.": "Einigt euch im Gespräch, wie das Buch zu euch kommt: persönlich, per Post oder an eine Packstation. Die Plattform fragt keine Adressen ab: Jede Seite bestätigt hier, wenn sie es hat.",
+  "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation.": "Einigt euch im Gespräch, wie das Buch zu euch kommt: persönlich, per Post oder an eine Packstation.",
   // Marca y navegación
   "Saltar al contenido": "Zum Inhalt springen",
   Inicio: "Start",
@@ -230,7 +230,6 @@ export const DE = {
   "Te enviaremos un correo para confirmar la cuenta. Si no llega en unos minutos, mira en la carpeta de spam.": "Wir schicken dir eine E-Mail zur Bestätigung des Kontos. Falls sie nach ein paar Minuten nicht ankommt, schau im Spam-Ordner nach.",
   "Texto libre para el día y la hora que soléis quedar.": "Freitext für den Tag und die Uhrzeit, zu der ihr euch normalerweise trefft.",
   "{label} · {text}": "{label} · {text}",
-  "¿Cómo funciona el cifrado?": "Wie funktioniert die Verschlüsselung?",
   "Solicitado": "Angefragt",
   "Aceptado": "Angenommen",
   "Entrega": "Übergabe",
@@ -1415,7 +1414,7 @@ export const DE = {
  * castellano sin avisar.
  */
 export const EN = {
-  "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation. La plataforma no pide direcciones: cada parte confirma aquí cuando lo tiene.": "Agree in the conversation how the book reaches you: in person, by post or at a Packstation. The platform never asks for addresses: each side confirms here once they have it.",
+  "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation.": "Agree in the conversation how the book reaches you: in person, by post or at a Packstation.",
   // Brand and navigation
   "Saltar al contenido": "Skip to content",
   Inicio: "Home",
@@ -1611,7 +1610,6 @@ export const EN = {
   "Te enviaremos un correo para confirmar la cuenta. Si no llega en unos minutos, mira en la carpeta de spam.": "We will send you an email to confirm the account. If it does not arrive within a few minutes, check your spam folder.",
   "Texto libre para el día y la hora que soléis quedar.": "Free text for the day and time you usually meet.",
   "{label} · {text}": "{label} · {text}",
-  "¿Cómo funciona el cifrado?": "How does encryption work?",
   "Solicitado": "Requested",
   "Aceptado": "Accepted",
   "Entrega": "Handover",

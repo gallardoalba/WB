@@ -945,7 +945,8 @@
 
 /* Huella de seguridad (safety number) de la conversación. */
 .safety-number {
-  margin: 0;
+  /* Un poco de aire respecto a la línea de cifrado/huella de arriba. */
+  margin: 10px 0 0;
   color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.45;
@@ -1022,12 +1023,6 @@
 
 
 
-
-.exchange-help a {
-  color: var(--green-strong);
-  font-weight: 700;
-  text-underline-offset: 2px;
-}
 
 /* Tour de bienvenida: cuatro pasos con el mismo diálogo accesible del resto de
    la aplicación (foco atrapado, Escape y fondo inerte). */

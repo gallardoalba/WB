@@ -635,21 +635,21 @@ export function ExchangeDialog({
         <strong>{t(shortFingerprint(thread?.peer.keyId ?? null))}</strong>
       </p>
 
-      {thread?.safety && (
-        <details className="safety-number">
-          <summary>{t("Huella de seguridad")}</summary>
-          <p>
-            {t(
-              "Compárala con {name} por otro canal. Si cambia, alguien puede haberse interpuesto.",
-              { name: thread?.peer.name ?? t("la otra persona") },
-            )}
-          </p>
-          <code>{thread.safety}</code>
-        </details>
-      )}
-
-      <details className="exchange-help">
-        <summary>{t("¿Cómo funciona el cifrado?")}</summary>
+      {/* Una sola sección: la huella y la explicación del cifrado se leen
+          juntas, sin un segundo desplegable que repita la misma idea. */}
+      <details className="safety-number">
+        <summary>{t("Huella de seguridad")}</summary>
+        {thread?.safety && (
+          <>
+            <p>
+              {t(
+                "Compárala con {name} por otro canal. Si cambia, alguien puede haberse interpuesto.",
+                { name: thread?.peer.name ?? t("la otra persona") },
+              )}
+            </p>
+            <code>{thread.safety}</code>
+          </>
+        )}
         <p>
           {t(
             "Los mensajes van cifrados de extremo a extremo: la clave privada se queda en este navegador y el servidor solo guarda sobres que no puede abrir. En otro dispositivo no se leen los mensajes anteriores; si cambias, pide a la otra persona que vuelva a escribirte.",
@@ -682,11 +682,11 @@ export function ExchangeDialog({
       )}
 
       {/* Cómo se hace llegar el libro no lo decide la plataforma: se acuerda
-          aquí. Cada parte confirma cuando lo tiene. */}
+          aquí. */}
       {request.status === "accepted" && (
         <p className="form-hint exchange-agree">
           {t(
-            "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation. La plataforma no pide direcciones: cada parte confirma aquí cuando lo tiene.",
+            "Acordad en la conversación cómo os pasáis el libro: en mano, por correo o en una Packstation.",
           )}
         </p>
       )}
