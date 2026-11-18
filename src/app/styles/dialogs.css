@@ -1029,67 +1029,6 @@
   text-underline-offset: 2px;
 }
 
-/* Comparar huellas: el QR y las dos huellas cortas, para el careo en persona. */
-.fingerprint-compare {
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.fingerprint-title {
-  margin: 0 0 4px;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.fingerprint-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px;
-  margin-top: 8px;
-}
-
-.fingerprint-qr {
-  flex: 0 0 auto;
-  width: 132px;
-  height: 132px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
-  background: #ffffff;
-}
-
-.fingerprint-qr img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.fingerprint-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  min-width: 0;
-}
-
-.fingerprint-list dt {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.fingerprint-list dd {
-  margin: 2px 0 0;
-  color: var(--green-strong);
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-
 /* Tour de bienvenida: cuatro pasos con el mismo diálogo accesible del resto de
    la aplicación (foco atrapado, Escape y fondo inerte). */
 .dialog.tour-dialog {

@@ -109,10 +109,15 @@ export function getSnapshot(
     pageSize,
     hasMore,
     // La lista completa solo la usa la vista de intercambios; el contador del
-    // menú se resuelve con un COUNT.
+    // menú se resuelve con un COUNT. Los archivados van aparte, para que la
+    // pestaña del cajón no dependa de una segunda petición al abrirse.
     requests: isExchanges && user ? listRequests(user.id) : [],
     // Cuántos hay de verdad: la lista se corta en 500 y la vista lo avisa.
     requestsTotal: isExchanges && user ? countRequests(user.id) : 0,
+    archivedRequests:
+      isExchanges && user ? listRequests(user.id, { archived: "archived" }) : [],
+    archivedRequestsTotal:
+      isExchanges && user ? countRequests(user.id, { archived: "archived" }) : 0,
     activeRequests: user ? countActiveRequests(user.id) : 0,
     activity,
     conversations,

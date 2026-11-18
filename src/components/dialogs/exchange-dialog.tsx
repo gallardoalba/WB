@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import Image from "next/image";
 import { Lock, MessageCircle, Send, Star, TriangleAlert } from "lucide-react";
 import { Dialog } from "../dialog";
 import { api } from "@/lib/client-api";
@@ -158,33 +157,8 @@ export function ExchangeDialog({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [fingerprintQr, setFingerprintQr] = useState("");
   const lastSeenMessage = useRef<string | null>(null);
   const requestId = request?.id ?? null;
-
-  // El QR solo lleva la huella corta (ocho caracteres) que se ve en pantalla:
-  // escanearlo con la cámara tiene que enseñar exactamente eso, para poder
-  // compararlo de un vistazo con lo que muestra la otra persona.
-  const ownFingerprint = shortFingerprint(thread?.me.keyId ?? null);
-  useEffect(() => {
-    if (!thread?.me.keyId) return;
-    let active = true;
-    void import("qrcode")
-      .then((module) =>
-        module.default.toDataURL(`Wanderbibliothek · huella ${ownFingerprint}`, {
-          width: 264,
-          margin: 1,
-          color: { dark: "#2f5741", light: "#ffffff" },
-        }),
-      )
-      .then((url) => {
-        if (active) setFingerprintQr(url);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [ownFingerprint, thread?.me.keyId]);
 
   function close() {
     setError("");
@@ -681,38 +655,6 @@ export function ExchangeDialog({
             "Los mensajes van cifrados de extremo a extremo: la clave privada se queda en este navegador y el servidor solo guarda sobres que no puede abrir. En otro dispositivo no se leen los mensajes anteriores; si cambias, pide a la otra persona que vuelva a escribirte.",
           )}
         </p>
-
-        {/* Huella corta para comparar en persona: sin esto, `keyChanged` avisa
-            pero no hay forma sencilla de comprobar que la clave es la buena. */}
-        <div className="fingerprint-compare">
-          <p className="fingerprint-title">{t("Comprobar que hablamos con quien creemos")}</p>
-          <p className="form-hint">
-            {t("Tu huella y la de {name} tienen que coincidir con lo que veis cada uno en vuestra pantalla. En persona, deja que la otra persona escanee este código: la cámara le mostrará el mismo texto.", { name: thread?.peer.name ?? t("la otra persona") })}
-          </p>
-          <div className="fingerprint-row">
-            <div className="fingerprint-qr">
-              {fingerprintQr ? (
-                <Image
-                  src={fingerprintQr}
-                  alt={t("QR con tu huella de cifrado")}
-                  width={132}
-                  height={132}
-                  unoptimized
-                />
-              ) : null}
-            </div>
-            <dl className="fingerprint-list">
-              <div>
-                <dt>{t("Tu huella")}</dt>
-                <dd>{t(shortFingerprint(thread?.me.keyId ?? null))}</dd>
-              </div>
-              <div>
-                <dt>{thread?.peer.name ?? t("La otra persona")}</dt>
-                <dd>{t(shortFingerprint(thread?.peer.keyId ?? null))}</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
       </details>
 
       {thread && !thread.ownKeyReady && (

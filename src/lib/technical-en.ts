@@ -53,7 +53,7 @@ export const EN: TechnicalDocument = {
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v58), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v59), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -156,7 +156,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Eight steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string) and v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind). The detail of every step lives in that file and in its git history.`,
+          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Nine steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind) and v59 (archiving a closed exchange is personal: \`request_archives\` keeps one row per person and request, so one side can put it away without the other losing sight of it). The detail of every step lives in that file and in its git history.`,
         },
         {
           kind: "p",

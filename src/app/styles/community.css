@@ -156,6 +156,20 @@
   font-size: 17px;
 }
 
+.exchange-tabs {
+  margin-bottom: 12px;
+}
+
+.exchange-error {
+  margin: 0 0 10px;
+  color: var(--coral);
+}
+
+.exchange-archive:disabled {
+  cursor: progress;
+  opacity: 0.55;
+}
+
 .exchange-list {
   border: 1px solid var(--line);
   border-radius: var(--radius);

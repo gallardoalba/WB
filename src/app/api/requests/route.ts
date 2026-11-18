@@ -22,6 +22,8 @@ export async function GET(request: Request) {
     const pagina = listRequestsPage(user.id, {
       limit: Number.isFinite(limite) && limite > 0 ? limite : undefined,
       before: antesDe && antesId ? { updatedAt: antesDe, id: antesId } : undefined,
+      // Por omisión, la lista de siempre; `?archived=1` abre el cajón.
+      archived: params.get("archived") === "1" ? "archived" : "active",
     });
     return json({
       requests: pagina.items,

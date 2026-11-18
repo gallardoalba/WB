@@ -199,11 +199,26 @@ export const requestSchema = z.object({
     .default(""),
 });
 
-export const requestUpdateSchema = z.object({
-  status: z.enum(["accepted", "declined", "cancelled", "completed"], {
-    error: "Ese estado no existe.",
-  }),
-});
+/**
+ * Cambiar el estado del intercambio o archivarlo.
+ *
+ * Son dos acciones distintas y no se mezclan en la misma petición: con `status`
+ * se acepta, rechaza, cancela o confirma la entrega; con `archived` se aparta
+ * un intercambio ya cerrado de la lista de quien lo pide.
+ */
+export const requestUpdateSchema = z
+  .object({
+    status: z
+      .enum(["accepted", "declined", "cancelled", "completed"], {
+        error: "Ese estado no existe.",
+      })
+      .optional(),
+    archived: z.boolean({ error: "Indica si se archiva o se devuelve a la lista." }).optional(),
+  })
+  .refine(
+    (value) => (value.status === undefined) !== (value.archived === undefined),
+    "Indica un estado o si se archiva el intercambio.",
+  );
 
 export const favoriteSchema = z.object({
   favorite: z.boolean(),

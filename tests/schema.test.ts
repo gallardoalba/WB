@@ -60,6 +60,7 @@ const EXPECTED_TABLES = [
   "reading_lists",
   "reading_states",
   "reports",
+  "request_archives",
   "request_reads",
   "requests",
   "reviews",

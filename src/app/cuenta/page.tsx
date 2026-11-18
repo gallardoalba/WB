@@ -46,7 +46,9 @@ export default async function Page() {
     );
   }
 
-  const requests = listRequests(user.id);
+  // El resumen de la cuenta cuenta todo el historial: archivar un intercambio
+  // lo aparta de la lista, no borra lo que ya ocurrió.
+  const requests = listRequests(user.id, { archived: "all" });
   const published = countOwnListings(user.id);
   const alertsOn = listAvailabilityAlerts(user.id).includes(user.city);
 

@@ -484,6 +484,31 @@ test("las miniaturas sin portada no dejan imágenes rotas", async ({ page }) => 
   await expect(page).toHaveURL(/\/libro\/lst_/);
 });
 
+test("un intercambio completado se archiva y se restaura", async ({ page }) => {
+  await loginAsDemo(page);
+  await page.goto("/intercambios");
+  // El botón llega en el HTML del servidor: sin esperar a la hidratación, la
+  // pulsación se pierde en un elemento que todavía no tiene eventos.
+  await waitForHydration(page);
+
+  // El seed deja un intercambio completado entre Ana y Lucía.
+  const activo = page.locator(".exchange-row", { hasText: "Gott und der Staat" });
+  await expect(activo).toBeVisible();
+  await activo.locator(".exchange-archive").click();
+  await expect(activo).toHaveCount(0);
+
+  const tabs = page.locator(".exchange-tabs .category-tab");
+  await tabs.nth(1).click();
+  const archivado = page.locator(".exchange-row", { hasText: "Gott und der Staat" });
+  await expect(archivado).toBeVisible();
+
+  // Se devuelve a la lista para no dejar el seed a medias para otras pruebas.
+  await archivado.locator(".exchange-archive").click();
+  await expect(archivado).toHaveCount(0);
+  await tabs.nth(0).click();
+  await expect(page.locator(".exchange-row", { hasText: "Gott und der Staat" })).toBeVisible();
+});
+
 test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", async ({
   page,
 }) => {
