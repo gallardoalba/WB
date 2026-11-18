@@ -166,9 +166,6 @@ export function ensureInitialAdmin(db: Db) {
   console.log("[db] administrador inicial creado para", email);
 }
 
-/** Próximo encuentro del club de ejemplo: dentro de dos semanas, a las 19:00. */
-const seedMeeting = new Date(Date.now() + 14 * 86_400_000).toISOString();
-
 export function seed(db: Db) {
   const { count } = db.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number };
   if (count > 0) return;
@@ -176,6 +173,11 @@ export function seed(db: Db) {
   // El reloj lo aporta SQLite: evita `new Date()` en el camino de render.
   const clock = db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now', ?) AS ts");
   const isoAgo = (minutes: number) => (clock.get(`-${minutes} minutes`) as { ts: string }).ts;
+  // Próximo encuentro del club de ejemplo: dentro de dos semanas. Se calcula
+  // aquí y no al cargar el módulo: `seed.ts` entra en el grafo del render y un
+  // `Date.now()` en el ámbito del módulo lo convierte en valor inestable al
+  // prerenderizar (Next lo denuncia en cada arranque).
+  const seedMeeting = (clock.get("+14 days") as { ts: string }).ts;
 
   const password = DEMO_PASSWORD_HASH;
 
