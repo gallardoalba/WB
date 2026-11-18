@@ -32,6 +32,36 @@ function location(pattern: string): string | null {
   return null;
 }
 
+/**
+ * Todos los bloques `location` del fichero, contando llaves.
+ *
+ * Antes esto era una expresión regular con un grupo perezoso dentro de otro
+ * cuantificador, y CodeQL tenía razón en quejarse: sobre un texto con muchos
+ * saltos podía retroceder de forma exponencial. Contar llaves es lo que hace
+ * nginx y no se atasca con nada.
+ */
+function bloquesDeLocation(): { nombre: string; texto: string }[] {
+  const lineas = source.split("\n");
+  const bloques: { nombre: string; texto: string }[] = [];
+  let inicio = -1;
+  let profundidad = 0;
+  for (let i = 0; i < lineas.length; i += 1) {
+    const linea = lineas[i]!;
+    if (inicio < 0 && /^    location /.test(linea) && linea.trimEnd().endsWith("{")) {
+      inicio = i;
+    }
+    if (inicio < 0) continue;
+    profundidad += linea.split("{").length - 1 - (linea.split("}").length - 1);
+    if (profundidad <= 0 && i > inicio) {
+      const nombre = /^    location (.*)\{$/.exec(lineas[inicio]!)?.[1]?.trim() ?? "?";
+      bloques.push({ nombre, texto: lineas.slice(inicio, i + 1).join("\n") });
+      inicio = -1;
+      profundidad = 0;
+    }
+  }
+  return bloques;
+}
+
 test("la zona de caché de imágenes se declara antes de usarse", () => {
   const zone = source.indexOf("proxy_cache_path /var/cache/nginx/wb_images");
   const firstUse = source.indexOf("proxy_cache wb_images;");
@@ -108,13 +138,16 @@ test("cada respuesta lleva el id de petición exactamente una vez", () => {
     "en el servidor no vale: las location con add_header propio no lo heredan",
   );
 
-  const conCabeceras = [...source.matchAll(/^    location [^\n]*\{\n((?:[^}]*\n)*?)^    \}/gm)].map(
-    (match) => match[0],
+  const conAddHeader = bloquesDeLocation().filter((bloque) => /^\s+add_header /m.test(bloque.texto));
+  assert.ok(
+    conAddHeader.length >= 4,
+    `esperaba al menos cuatro ubicaciones con cabeceras, hay ${conAddHeader.length}`,
   );
-  const conAddHeader = conCabeceras.filter((bloque) => /^\s+add_header /m.test(bloque));
-  assert.ok(conAddHeader.length >= 4, `esperaba al menos cuatro ubicaciones con cabeceras, hay ${conAddHeader.length}`);
-  for (const bloque of conAddHeader) {
-    const nombre = /^\s+location ([^\n]*)\{/m.exec(bloque)?.[1]?.trim() ?? "?";
-    assert.match(bloque, /add_header X-Request-Id \$request_id always;/, `la ubicación ${nombre} no manda el id`);
+  for (const { nombre, texto } of conAddHeader) {
+    assert.match(
+      texto,
+      /add_header X-Request-Id \$request_id always;/,
+      `la ubicación ${nombre} no manda el id`,
+    );
   }
 });
