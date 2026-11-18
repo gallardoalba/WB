@@ -17,7 +17,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "El proyecto publica el código con licencia MIT, mantiene la documentación y publica versiones. Cada instancia decide sus normas, a quién admite y cómo organiza su moderación: el proyecto no gobierna las instancias.",
+          text: "El proyecto publica el código con licencia AGPL-3.0, mantiene la documentación y publica versiones. Cada instancia decide sus normas, a quién admite y cómo organiza su moderación: el proyecto no gobierna las instancias.",
         },
         {
           kind: "p",
@@ -164,7 +164,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Das Projekt veröffentlicht den Code unter der MIT-Lizenz, pflegt die Dokumentation und veröffentlicht Versionen. Jede Instanz entscheidet über ihre Regeln, wen sie aufnimmt und wie sie ihre Moderation organisiert: Das Projekt regiert die Instanzen nicht.",
+          text: "Das Projekt veröffentlicht den Code unter der AGPL-3.0-Lizenz, pflegt die Dokumentation und veröffentlicht Versionen. Jede Instanz entscheidet über ihre Regeln, wen sie aufnimmt und wie sie ihre Moderation organisiert: Das Projekt regiert die Instanzen nicht.",
         },
         {
           kind: "p",
@@ -284,7 +284,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "The project publishes the code under the MIT licence, maintains the documentation and publishes releases. Each instance decides its own rules, whom it admits and how it organises moderation: the project does not govern the instances.",
+          text: "The project publishes the code under the AGPL-3.0 licence, maintains the documentation and publishes releases. Each instance decides its own rules, whom it admits and how it organises moderation: the project does not govern the instances.",
         },
         {
           kind: "p",

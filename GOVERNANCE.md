@@ -6,7 +6,7 @@ Wanderbibliothek is free software, and each instance is governed by its own comm
 
 ## Project and instance
 
-- **The project** publishes the code under the MIT licence, maintains the documentation and publishes releases. It does not administer instances and does not decide their rules.
+- **The project** publishes the code under the AGPL-3.0 licence, maintains the documentation and publishes releases. It does not administer instances and does not decide their rules.
 - **Each instance** decides its rules, whom it admits, how it organises moderation and who administers it. The software provides the mechanisms; the community gives them legitimacy.
 - **The rules of conduct are public.** What an instance does not admit and which measure corresponds to each case must be visible before registering. This document describes the procedure; it does not replace those rules.
 - **Minimum guarantees.** Rules alone are not enough. Even the smallest instance explains its moderation decisions and lets a suspension be appealed.

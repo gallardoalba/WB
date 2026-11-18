@@ -50,7 +50,7 @@ paso a paso, útil para entender qué hace cada cosa o para depurar.
 ## 1. Requisitos
 
 - Debian 12 / Ubuntu 22.04 o similar, 1 vCPU y 1 GB de RAM bastan para empezar.
-- Node.js 22 (NodeSource o nvm instalado a nivel de sistema).
+- Node.js 24 (NodeSource o nvm instalado a nivel de sistema).
 - nginx y certbot: `sudo apt install nginx certbot python3-certbot-nginx`.
 - `build-essential` y `python3` por si `better-sqlite3` no encuentra binario
   precompilado para tu versión de Node.

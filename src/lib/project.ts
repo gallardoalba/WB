@@ -85,7 +85,7 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "El código está publicado con licencia MIT: cualquiera puede leerlo, auditarlo, modificarlo o montar su propia copia del servicio. No es solo que sea gratis; al estar a la vista, lo que la plataforma hace se puede comprobar en el código y en la documentación técnica. Esta instancia ejecuta exactamente ese código, sin añadidos.",
+          text: "El código está publicado con licencia AGPL-3.0: cualquiera puede leerlo, auditarlo, modificarlo o montar su propia copia del servicio. No es solo que sea gratis; al estar a la vista, lo que la plataforma hace se puede comprobar en el código y en la documentación técnica. Esta instancia ejecuta exactamente ese código, sin añadidos.",
         },
         {
           kind: "links",
@@ -242,7 +242,7 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Der Code ist unter der MIT-Lizenz veröffentlicht: Jede und jeder kann ihn lesen, prüfen, verändern oder den Dienst selbst betreiben. Er ist nicht nur kostenlos; weil er offenliegt, lässt sich nachprüfen, was die Plattform tut – im Code und in der technischen Dokumentation. Die Instanz, die diese Seite ausliefert, führt genau diesen Code aus, ohne Zusätze.",
+          text: "Der Code ist unter der AGPL-3.0-Lizenz veröffentlicht: Jede und jeder kann ihn lesen, prüfen, verändern oder den Dienst selbst betreiben. Er ist nicht nur kostenlos; weil er offenliegt, lässt sich nachprüfen, was die Plattform tut – im Code und in der technischen Dokumentation. Die Instanz, die diese Seite ausliefert, führt genau diesen Code aus, ohne Zusätze.",
         },
         {
           kind: "links",
@@ -399,7 +399,7 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "The code is published under the MIT licence: anyone can read it, audit it, change it or run the service themselves. It is not only free of charge; because it is open, what the platform does can be checked in the code and in the technical documentation. The instance serving this page runs exactly that code, with nothing added.",
+          text: "The code is published under the AGPL-3.0 licence: anyone can read it, audit it, change it or run the service themselves. It is not only free of charge; because it is open, what the platform does can be checked in the code and in the technical documentation. The instance serving this page runs exactly that code, with nothing added.",
         },
         {
           kind: "links",

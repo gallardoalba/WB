@@ -10,7 +10,7 @@ A modular monolith on Next.js 16 (App Router with Cache Components), strict Type
 
 No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records), Photon and Nominatim (city suggestions and coordinates); with `MASTODON_TOKEN` or `INDEXNOW_KEY` it also talks to Mastodon and IndexNow. The browser only talks to this instance.
 
-The code is MIT licensed.
+The code is AGPL-3.0 licensed.
 
 ## Architecture
 
@@ -289,5 +289,5 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - [`GOVERNANCE.md`](GOVERNANCE.md) — roles, moderation, sanctions and appeals.
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and self-hosting notes.
 - [`deploy/README.md`](deploy/README.md) — step-by-step deployment with systemd, nginx and TLS.
-- [`LICENSE`](LICENSE) — MIT.
+- [`LICENSE`](LICENSE) — AGPL-3.0.
 - [`NOTICE`](NOTICE) — credits for the cover photograph and for the third-party components.
