@@ -47,7 +47,24 @@ type RequestRow = {
   last_message_at: string | null;
   unread_messages: number;
   reviewed: number;
+  archived: number;
 };
+
+/**
+ * Qué hacer con los intercambios archivados por quien mira.
+ *
+ * `active` es la lista normal (lo que queda por hacer y el historial reciente);
+ * `archived` es el cajón, y `all` solo lo usan los recuentos de la cuenta, que
+ * no deben bajar porque alguien archive un intercambio cerrado.
+ */
+export type RequestArchiveFilter = "active" | "archived" | "all";
+
+function archiveClause(filter: RequestArchiveFilter): string {
+  if (filter === "all") return "";
+  const exists = `EXISTS (SELECT 1 FROM request_archives ra
+                          WHERE ra.request_id = r.id AND ra.user_id = @userId)`;
+  return filter === "archived" ? `AND ${exists}` : `AND NOT ${exists}`;
+}
 
 const REQUEST_SELECT = `
   SELECT r.id, r.status, r.created_at, r.updated_at, r.listing_id,
@@ -64,7 +81,9 @@ const REQUEST_SELECT = `
              AND m.created_at > COALESCE(
                (SELECT rr.read_at FROM request_reads rr
                  WHERE rr.request_id = r.id AND rr.user_id = @viewerId), '')) AS unread_messages,
-         (SELECT COUNT(*) FROM reviews rv WHERE rv.request_id = r.id AND rv.author_id = @viewerId) AS reviewed
+         (SELECT COUNT(*) FROM reviews rv WHERE rv.request_id = r.id AND rv.author_id = @viewerId) AS reviewed,
+         EXISTS (SELECT 1 FROM request_archives ra
+                  WHERE ra.request_id = r.id AND ra.user_id = @viewerId) AS archived
   FROM requests r
   JOIN listings l ON l.id = r.listing_id
   JOIN books b ON b.id = l.book_id
@@ -109,6 +128,7 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
     lastMessageAt: row.last_message_at,
     unreadMessages: row.unread_messages,
     reviewed: row.reviewed > 0,
+    archived: row.archived > 0,
     confirmedByMe: Boolean(
       row.requester_id === viewerId ? row.requester_confirmed_at : row.owner_confirmed_at,
     ),
@@ -160,20 +180,37 @@ export function countUnreadMessages(userId: string): number {
   return row.count;
 }
 
-export function listRequests(userId: string): RequestView[] {
-  return listRequestsPage(userId, { limit: REQUEST_PAGE_MAX }).items;
+export function listRequests(
+  userId: string,
+  options: { archived?: RequestArchiveFilter } = {},
+): RequestView[] {
+  return listRequestsPage(userId, {
+    limit: REQUEST_PAGE_MAX,
+    archived: options.archived ?? "active",
+  }).items;
 }
 
 /** Tope de una página del historial (lo que devuelve la vista completa). */
 export const REQUEST_PAGE_MAX = 500;
 
-/** Total de intercambios de una cuenta, para saber si la lista viene recortada. */
-export function countRequests(userId: string): number {
+/**
+ * Total de intercambios de una cuenta, para saber si la lista viene recortada.
+ *
+ * Por omisión cuenta los que esa persona no ha archivado: es el número que
+ * acompaña a la lista visible. `all` sirve para los recuentos de la cuenta.
+ */
+export function countRequests(
+  userId: string,
+  options: { archived?: RequestArchiveFilter } = {},
+): number {
+  const filter = options.archived ?? "active";
   const row = getDb()
     .prepare(
-      "SELECT COUNT(*) AS count FROM requests WHERE requester_id = ? OR owner_id = ?",
+      `SELECT COUNT(*) AS count FROM requests r
+        WHERE (r.requester_id = @userId OR r.owner_id = @userId)
+          ${archiveClause(filter)}`,
     )
-    .get(userId, userId) as { count: number };
+    .get({ userId }) as { count: number };
   return row.count;
 }
 
@@ -187,7 +224,11 @@ export function countRequests(userId: string): number {
  */
 export function listRequestsPage(
   userId: string,
-  options: { limit?: number; before?: { updatedAt: string; id: string } } = {},
+  options: {
+    limit?: number;
+    before?: { updatedAt: string; id: string };
+    archived?: RequestArchiveFilter;
+  } = {},
 ): { items: RequestView[]; hasMore: boolean; next: { updatedAt: string; id: string } | null } {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), REQUEST_PAGE_MAX);
   const before = options.before;
@@ -195,6 +236,7 @@ export function listRequestsPage(
     .prepare(
       `${REQUEST_SELECT}
         WHERE (r.requester_id = @userId OR r.owner_id = @userId)
+          ${archiveClause(options.archived ?? "active")}
           AND (@antes IS NULL
                OR r.updated_at < @antes
                OR (r.updated_at = @antes AND r.id < @antesId))
@@ -567,6 +609,49 @@ export function updateRequestStatus(
   })();
 
   const updated = db.prepare(`${REQUEST_SELECT} WHERE r.id = @id`).get({ id: requestId, viewerId: userId }) as RequestRow;
+  return toRequestView(updated, userId);
+}
+
+/**
+ * Archiva o devuelve a la lista un intercambio cerrado, solo para quien lo pide.
+ *
+ * Archivar no borra ni cambia el estado: es un cajón personal. Por eso se exige
+ * que el intercambio haya terminado —cancelado o completado— y que quien lo
+ * pide sea una de sus dos partes. Devolverlo a la lista es la misma operación
+ * con `archived: false`, para que el arrepentimiento no necesite otra ruta.
+ */
+export function setRequestArchived(
+  requestId: string,
+  userId: string,
+  archived: boolean,
+): RequestView {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT status FROM requests
+        WHERE id = ? AND (requester_id = ? OR owner_id = ?)`,
+    )
+    .get(requestId, userId, userId) as { status: RequestStatus } | undefined;
+  if (!row) throw new ApiError(404, "La solicitud no existe.");
+  if (row.status !== "completed" && row.status !== "cancelled") {
+    throw new ApiError(409, "Solo se archivan los intercambios cancelados o completados.");
+  }
+
+  if (archived) {
+    db.prepare(
+      `INSERT INTO request_archives (request_id, user_id, archived_at) VALUES (?, ?, ?)
+       ON CONFLICT(request_id, user_id) DO NOTHING`,
+    ).run(requestId, userId, nowIso());
+  } else {
+    db.prepare("DELETE FROM request_archives WHERE request_id = ? AND user_id = ?").run(
+      requestId,
+      userId,
+    );
+  }
+
+  const updated = db
+    .prepare(`${REQUEST_SELECT} WHERE r.id = @id`)
+    .get({ id: requestId, viewerId: userId }) as RequestRow;
   return toRequestView(updated, userId);
 }
 

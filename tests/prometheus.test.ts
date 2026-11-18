@@ -14,6 +14,7 @@ import { test } from "node:test";
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 import { metricsSnapshot, prometheusText, type Metric } from "../src/lib/prometheus.ts";
+import { SCHEMA_VERSION } from "../src/lib/db/schema.ts";
 
 test("el texto declara cada familia una vez y escapa las etiquetas", () => {
   const metrics: Metric[] = [
@@ -77,7 +78,7 @@ test("la foto trae la versión, la cola y el WAL, y ningún contenido", () => {
   const porNombre = new Map(snapshot.map((metric) => [metric.name, metric]));
 
   const info = porNombre.get("wanderbibliothek_info")!;
-  assert.equal(info.samples[0]!.labels?.schema, "58");
+  assert.equal(info.samples[0]!.labels?.schema, String(SCHEMA_VERSION));
   assert.equal(info.samples[0]!.labels?.commit, "0123456789abcdef");
 
   const jobs = porNombre.get("wanderbibliothek_jobs")!;

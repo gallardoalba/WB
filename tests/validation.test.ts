@@ -13,6 +13,7 @@ import {
   localeSchema,
   moderationSchema,
   profileUpdateSchema,
+  requestUpdateSchema,
   resetPasswordSchema,
 } from "../src/lib/validation.ts";
 
@@ -154,5 +155,19 @@ test("la contraseña nueva pasa por la lista de las habituales", () => {
   assert.equal(
     primerError(resetPasswordSchema.safeParse({ token: "corto", password: "contraseñaNueva123" })),
     "El enlace no es válido.",
+  );
+});
+
+test("archivar y cambiar de estado son peticiones distintas", () => {
+  assert.equal(requestUpdateSchema.safeParse({ archived: true }).success, true);
+  assert.equal(requestUpdateSchema.safeParse({ archived: false }).success, true);
+  assert.equal(requestUpdateSchema.safeParse({ status: "cancelled" }).success, true);
+  assert.equal(
+    primerError(requestUpdateSchema.safeParse({})),
+    "Indica un estado o si se archiva el intercambio.",
+  );
+  assert.equal(
+    primerError(requestUpdateSchema.safeParse({ status: "cancelled", archived: true })),
+    "Indica un estado o si se archiva el intercambio.",
   );
 });

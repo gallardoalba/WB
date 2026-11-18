@@ -202,7 +202,7 @@ export default function WanderbibliothekApp({
    */
   turnstileSiteKey?: string | null;
 }) {
-  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
+  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, archivedRequests, archivedRequestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
   /**
    * Entrada optimista: al iniciar sesión la cabecera pasa a «dentro» con la
    * respuesta del propio `POST /api/auth/login`, sin esperar a que termine el
@@ -1277,11 +1277,14 @@ export default function WanderbibliothekApp({
               <ExchangesList
                 requests={requests}
                 total={requestsTotal}
+                archivedRequests={archivedRequests}
+                archivedTotal={archivedRequestsTotal}
                 onOpen={(id) => {
                 setExchangeId(id);
                 setExchangeOpen(true);
               }}
                 onExplore={() => navigate({ view: "discover" })}
+                onChanged={refresh}
               />
             )
           ) : (

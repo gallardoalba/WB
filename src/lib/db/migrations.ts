@@ -1889,6 +1889,29 @@ function migrateToV58(db: Db) {
 }
 
 /**
+ * v59: archivar un intercambio es una decisión de cada parte.
+ *
+ * El historial de intercambios crece y los cerrados —cancelados o completados—
+ * se quedan para siempre en la lista. Archivar no borra nada ni cambia el
+ * estado: solo lo aparta de la vista de quien lo archiva. Por eso vive en una
+ * tabla propia, con una fila por persona y solicitud, y no en dos columnas de
+ * `requests`: la otra parte sigue viendo el intercambio como siempre.
+ */
+function migrateToV59(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS request_archives (
+      request_id TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      archived_at TEXT NOT NULL,
+      PRIMARY KEY (request_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS request_archives_user ON request_archives(user_id, archived_at);
+  `);
+
+  db.pragma("user_version = 59");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -2031,6 +2054,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 56) migrateToV56(db);
   if (userVersion(db) < 57) migrateToV57(db);
   if (userVersion(db) < 58) migrateToV58(db);
+  if (userVersion(db) < 59) migrateToV59(db);
 
   backfillSearchKeys(db);
 }

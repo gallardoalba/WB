@@ -313,6 +313,8 @@ export type RequestView = {
   lastMessageAt: string | null;
   unreadMessages: number;
   reviewed: boolean;
+  /** Apartado de la lista por quien mira; la otra parte lo sigue viendo. */
+  archived: boolean;
   /** Confirmaciones de entrega: el intercambio se cierra cuando ambas son true. */
   confirmedByMe: boolean;
   confirmedByOther: boolean;
@@ -501,6 +503,10 @@ export type AppSnapshot = {
   requests: RequestView[];
   /** Intercambios totales de la cuenta (puede ser mayor que `requests`). */
   requestsTotal: number;
+  /** Intercambios archivados por quien mira, aparte de la lista principal. */
+  archivedRequests: RequestView[];
+  /** Archivados totales (puede ser mayor que `archivedRequests`). */
+  archivedRequestsTotal: number;
   /** Intercambios abiertos de la cuenta (para el contador del menú). */
   activeRequests: number;
   activity: ActivityView[];
