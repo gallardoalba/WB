@@ -31,16 +31,19 @@ declare global {
   }
 }
 
-const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 const SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
-export function TurnstileBridge() {
+/**
+ * `siteKey` llega del servidor, no del bundle: `NEXT_PUBLIC_*` se incrusta al
+ * compilar y la imagen se compila en la CI, donde la clave no está.
+ */
+export function TurnstileBridge({ siteKey = null }: { siteKey?: string | null }) {
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Sin clave configurada no hay nada que verificar: se lo decimos a la app
     // para que no exija el token al enviar el formulario.
-    if (!SITE_KEY) {
+    if (!siteKey) {
       window.WbTurnstile?.required?.(false);
       return;
     }
@@ -50,7 +53,7 @@ export function TurnstileBridge() {
     const render = () => {
       if (cancelled || !window.turnstile || !container.current) return;
       window.turnstile.render(container.current, {
-        sitekey: SITE_KEY,
+        sitekey: siteKey,
         theme: "auto",
         callback: (token: string) => {
           window.WbTurnstile?.token?.(token);
@@ -82,12 +85,12 @@ export function TurnstileBridge() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [siteKey]);
 
   return (
     <div className="turnstile-bridge">
       <div ref={container} />
-      {!SITE_KEY && (
+      {!siteKey && (
         <p className="form-hint">Turnstile no está configurado en este servidor.</p>
       )}
     </div>

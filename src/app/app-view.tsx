@@ -131,6 +131,7 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
       nextPath={nextPath}
       buildCommit={build.commit}
       buildCommitUrl={build.commitUrl}
+      turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null}
     />
   );
 }

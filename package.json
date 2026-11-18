@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad, mensajería cifrada de extremo a extremo y clubes de lectura.",
   "license": "MIT",
@@ -40,6 +40,7 @@
     "user:verify": "node --import tsx scripts/verify-user.ts",
     "meta:refresh": "node --import tsx scripts/refresh-metadata.ts",
     "mail:test": "node --import tsx scripts/mail-test.ts",
+    "mail:health": "node --import tsx scripts/mail-health.ts",
     "mastodon:test": "node --import tsx scripts/mastodon.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
     "informe:accesos": "bash deploy/informe-accesos.sh",
@@ -71,6 +72,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.65.0",
     "@tailwindcss/turbopack": "^4",
     "@types/better-sqlite3": "^9.6.0",

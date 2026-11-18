@@ -38,8 +38,24 @@ const PRIVATE_PREFIXES = [
  * un XSS que inyecte `<script>` no puede ejecutarse. En desarrollo se añade
  * `unsafe-eval` porque el refresco en caliente lo necesita.
  */
+/**
+ * Si la petición llegó por HTTPS.
+ *
+ * El idioma lo guarda el proxy en una cookie y el selector la reescribe desde el
+ * navegador. Si el proxy marca `Secure` en una conexión que no lo es, el
+ * navegador rechaza la reescritura y el selector parece no hacer nada: pasaba
+ * con el build de producción servido en claro en las pruebas. El esquema real
+ * llega en `X-Forwarded-Proto`; solo si no está se mira la URL.
+ */
+function esHttps(request: NextRequest): boolean {
+  const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  if (forwarded) return forwarded === "https";
+  return new URL(request.url).protocol === "https:";
+}
+
 export function proxy(request: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
+  const https = esHttps(request);
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   // Solo se habilita el host de Turnstile si el registro lo usa.
   const turnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
@@ -130,7 +146,7 @@ export function proxy(request: NextRequest) {
       path: "/",
       maxAge: 31536000,
       sameSite: "lax",
-      secure: !isDev,
+      secure: https,
     });
     return response;
   };
@@ -168,7 +184,7 @@ export function proxy(request: NextRequest) {
       path: "/",
       maxAge: 31536000,
       sameSite: "lax",
-      secure: !isDev,
+      secure: https,
     });
   }
   response.headers.set("Content-Security-Policy", csp);

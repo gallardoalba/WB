@@ -87,10 +87,6 @@ jobs:
           build-args: |
             APP_COMMIT_SHA=${{ github.sha }}
             APP_BUILD_TIME=${{ steps.stamp.outputs.built }}
-            # La site key de Turnstile es pública y se incrusta en el bundle:
-            # sin ella, la imagen de release saldría sin captcha. Se define como
-            # variable del repositorio, no como secreto.
-            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
           # `mode=max` incluye las dependencias y el contexto, no solo el
           # resultado: es lo que permite reconstruir el porqué de la imagen.
           provenance: mode=max

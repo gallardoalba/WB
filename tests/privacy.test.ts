@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { before, test } from "node:test";
 
+import { lastMail } from "./mail-queries.ts";
+
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type DbModule = typeof import("../src/lib/db/index.ts");
@@ -209,10 +211,7 @@ test("escribir los datos legales respeta el resto del fichero de entorno", () =>
 test("los enlaces de un solo uso van en la query, y ni el registro ni el Referer los recogen", async () => {
   const tokens = await import("../src/lib/account-tokens.ts");
   await tokens.sendPasswordResetEmail("usr_ana", "ana@wanderbibliothek.test");
-  const row = dbModule
-    .getDb()
-    .prepare("SELECT body FROM mail_outbox ORDER BY created_at DESC LIMIT 1")
-    .get() as { body: string };
+  const row = lastMail(dbModule.getDb())!;
   // En el fragmento el enlace no sobrevivía: el redireccionador del proveedor
   // de correo cortaba el `#` y el clic llegaba a /restablecer sin token.
   assert.match(row.body, /\/restablecer\?token=[a-f0-9]{64}/);

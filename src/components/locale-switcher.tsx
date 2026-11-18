@@ -69,8 +69,15 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
     // cambiar de idioma, o volvería a imponer el anterior en cada navegación.
     const params = new URLSearchParams(window.location.search);
     params.delete("lang");
+    const ruta = localePath(next, interno);
+    // El alemán es el idioma por defecto y su URL no lleva prefijo: sin nada más,
+    // la única señal sería la cookie, y la escritura del navegador puede llegar
+    // después de que arranque la navegación. Se deja `?lang=` puesto para que
+    // sea el servidor quien fije la preferencia antes de pintar, que es lo mismo
+    // que hacen los enlaces de los correos. Con prefijo sobra: manda la URL.
+    if (ruta === interno) params.set("lang", next);
     const query = params.toString();
-    const destino = `${localePath(next, interno)}${query ? `?${query}` : ""}`;
+    const destino = `${ruta}${query ? `?${query}` : ""}`;
     startTransition(() => {
       // Siempre recarga completa, aunque la URL no cambie (portada, `/descubrir`
       // y demás rutas sin prefijo): el idioma vive en el layout raíz y en los

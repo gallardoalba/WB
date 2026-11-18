@@ -167,7 +167,14 @@ export function AccountMenu({
         className={triggerClass}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={variant === "topbar" ? t("Abrir menú de cuenta") : undefined}
+        aria-label={
+          variant === "topbar"
+            ? // El monograma está a la vista y es lo que se nombra al dictar:
+              // si no va en el nombre accesible, quien lo lea en pantalla dirá
+              // «AM» y no encontrará el botón.
+              `${initialsOf(user.name)}: ${t("Abrir menú de cuenta")}`
+            : undefined
+        }
         onClick={() => {
           setError("");
           setOpen((value) => !value);
@@ -179,7 +186,11 @@ export function AccountMenu({
           }
         }}
       >
-        <span className={`avatar tone-${toneForId(user.id)}`}>{initialsOf(user.name)}</span>
+        {/* El monograma es decoración: no es el nombre de la persona y no
+            aporta nada al leerlo en voz alta. */}
+        <span className={`avatar tone-${toneForId(user.id)}`} aria-hidden="true">
+          {initialsOf(user.name)}
+        </span>
         {variant === "sidebar" && (
           <span className="profile-copy">
             <strong>{user.name}</strong>

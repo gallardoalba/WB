@@ -134,9 +134,11 @@ rutas de base o de copias relativas, `TRUSTED_PROXY_HOPS` no numérico y
 lista: vacía o mal escrita **impide arrancar**, porque lo que se juega es una
 base con correos y hashes en claro.
 
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se **incrusta en el bundle
-del cliente**: si lo activas, tiene que existir en el momento del `build`, no
-solo en el entorno del servicio. En Docker se pasa como build arg (apartado 11).
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se lee en el servidor en
+cada petición, así que basta con definirla en el entorno del servicio —también
+en Docker—: no hay que reconstruir nada. Va siempre junto a `TURNSTILE_SECRET`;
+con el secreto y sin la clave, el registro rechaza todas las altas y la app se
+niega a arrancar para no quedarse así en silencio.
 
 > **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
 > abajo: el mismo entorno sirve, con `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
@@ -231,6 +233,23 @@ sudo journalctl -u wanderbibliothek -n 50 | grep '\[mail\]'
 Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 —el 401 o el 400 con el `code` de Brevo— está una línea antes. El cron
 (`/api/cron/maintenance`) reintenta con espera creciente hasta cinco veces.
+
+**Comprobar que el dominio inspira confianza.** `mail:test` dice si el proveedor
+acepta el mensaje; no dice si el buzón lo va a querer. Eso depende de tres
+registros DNS y de la cola real:
+
+```bash
+sudo npm --prefix /srv/wanderbibliothek/current run mail:health
+# o en JSON, para encadenarlo:
+sudo npm --prefix /srv/wanderbibliothek/current run mail:health -- --json
+```
+
+Lee `MAIL_FROM` para saber el dominio y `MAIL_DKIM_SELECTOR` (el nombre que da
+el proveedor: `brevo`, `s1`, `mail`…) para buscar la clave pública. Comprueba
+SPF, DMARC —avisa si está en `p=none`, que observa el fallo pero no protege el
+dominio— y la firma DKIM; además cuenta los correos pendientes, los dados por
+perdidos en 24 h y los minutos de retraso del más atrasado. Sale 1 si hay algo que
+arreglar, y el vigilante mira la cola por su cuenta cada 15 minutos.
 
 ### Bot de Mastodon (opcional)
 
@@ -421,8 +440,9 @@ sola:
   llegar a Node. Se registran en el `access.log` con estado 444, así que el jail
   `wb-nginx-scan` sigue contándolas. Ninguna ruta real de la aplicación contiene
   esos patrones.
-- **`/api/cron/maintenance` solo desde el propio host** (`allow 127.0.0.1;`): el
-  token ya la protege, pero no hay razón para exponer una tarea de escritura.
+- **`/api/cron/maintenance` y `/api/metrics` solo desde el propio host**
+  (`allow 127.0.0.1;`): el token ya las protege, pero no hay razón para exponer
+  una tarea de escritura ni un endpoint que acepta el mismo secreto sin cookie.
 - **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
 - **Compresión y estáticos en el borde.** El vhost activa `gzip` (con
   `gzip_proxied any`, sin él no comprime lo que viene de Node) y sirve
@@ -668,12 +688,38 @@ la guardas fuera del servidor: pásala en la línea de órdenes, como arriba.
 ### Vigilante (salud, disco, copias y certificado)
 
 `deploy/watchdog.sh` lo ejecuta `wanderbibliothek-watchdog.timer` cada 15
-minutos como root y comprueba cuatro cosas: que `/api/health` responde y dice
+minutos como root y comprueba que `/api/health` responde y dice
 `proxy: "trusted"`, que el disco no pasa del 85 %, que la última copia tiene
 menos de 12 h y que el certificado no caduca en menos de 14 días. Lo que falla
 va al journal; si defines `ERROR_WEBHOOK_URL` en `/etc/wanderbibliothek/env`,
 también sale un JSON a ese webhook. Los umbrales se cambian con
 `MAX_DISK_PCT`, `MAX_BACKUP_AGE_H` y `MIN_CERT_DAYS`.
+
+Además, con `MAINTENANCE_TOKEN` definido, pide `/api/metrics?format=prometheus`
+y vigila lo que la sonda de salud no ve:
+
+| Qué | Variable | Por defecto |
+|---|---|---|
+| Correos dados por perdidos en 24 h | — | cualquier valor > 0 avisa |
+| Correos en estado fallido | `MAX_MAIL_FAILED` | `0` |
+| Retraso del correo más atrasado | `MAX_MAIL_WAIT_MIN` | `120` |
+| Tamaño del WAL (el checkpoint no completa) | `MAX_WAL_MB` | `512` |
+| Proporción de errores de servidor | `MAX_ERROR_PCT` | `5` |
+| Peticiones mínimas para calcularla | `MIN_REQUESTS_ERRORS` | `50` |
+
+Un correo que el proveedor acepta y el buzón manda a spam no deja rastro: la
+base lo marca como entregado y la persona nunca ve su enlace. Por eso la cola
+se vigila aquí y los registros del dominio se comprueban con `npm run
+mail:health` (ver la sección de correo).
+
+`/api/metrics` queda **solo desde el propio host** en nginx, igual que el
+mantenimiento: acepta el mismo token sin cookie, y no hay razón para publicarlo.
+Se lee así:
+
+```bash
+sudo curl -fsS -H "Authorization: Bearer $(sudo sed -n 's/^MAINTENANCE_TOKEN=//p' /etc/wanderbibliothek/env)" \
+  "http://127.0.0.1:3000/api/metrics?format=prometheus" | head
+```
 
 ```bash
 sudo systemctl start wanderbibliothek-watchdog.service   # probarlo a mano
@@ -838,12 +884,13 @@ docker compose ps               # debe estar «healthy»
 curl -fsS http://127.0.0.1:3000/api/health
 ```
 
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha) se incrusta en el bundle del cliente:
-en Docker hay que pasarla como **build arg**, no basta con el `.env` del
-contenedor.
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha) va en el `.env` del contenedor como
+cualquier otra variable: se lee en el servidor en cada petición, no se incrusta
+al compilar.
 
 ```bash
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAA… docker compose build
+# en el .env del contenedor, junto al resto
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAA…
 docker compose up -d
 ```
 
@@ -1197,7 +1244,7 @@ publiques diga la verdad (art. 5.1.e y 13 del RGPD/DSGVO):
 | Contraseña | `users.password_hash` (scrypt) | Igual; nunca en claro |
 | Sesiones | `sessions` | 14 días deslizantes, 30 como máximo |
 | Enlaces de confirmación y restablecimiento | `account_tokens` | 24 h / 1 h; un solo uso |
-| Correos enviados (cuerpo con enlaces) | `mail_outbox` | 7 días los ya entregados |
+| Correos enviados (cuerpo con enlaces) | `jobs` (`kind = 'mail'`) | 7 días los ya entregados y los perdidos |
 | IP del visitante (cuotas y anti-fuerza bruta) | `throttle`, `auth_attempts` | Pseudónimo diario, nunca la dirección; ≤ 1 día |
 | Avisos de la plataforma | `notifications` | 90 días si se leyeron, 180 cualquiera |
 | Actividad pública (muro) | `events` | 180 días |

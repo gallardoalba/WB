@@ -295,3 +295,46 @@ test("la edición del club no pierde el lugar ni el enlace del encuentro", () =>
   assert.match(source, /meetsLink: input\.meetsLink/);
   assert.doesNotMatch(source, /bookId: input\.bookId \?\? null/);
 });
+
+test("la clave de Turnstile se lee en el servidor, no del bundle", () => {
+  // La imagen se compila en la CI, sin la variable. Cuando el componente la
+  // leía de `process.env.NEXT_PUBLIC_…`, el valor se horneaba vacío: la release
+  // salió sin widget mientras el servidor seguía teniendo `TURNSTILE_SECRET`,
+  // así que el registro rechazó todas las altas con «Completa la verificación
+  // humana». Es pública, así que viaja como prop y depende del entorno.
+  const leer = (...partes: string[]) =>
+    readFileSync(path.join(process.cwd(), ...partes), "utf8");
+  /** Sin comentarios: lo que importa es qué hace el código, no qué cuenta. */
+  const codigo = (fuente: string) =>
+    fuente
+      .split("\n")
+      .filter((linea) => {
+        const limpia = linea.trim();
+        return !limpia.startsWith("//") && !limpia.startsWith("*") && !limpia.startsWith("/*");
+      })
+      .join("\n");
+
+  const dialogo = codigo(leer("src", "components", "dialogs", "auth-dialog.tsx"));
+  assert.equal(
+    dialogo.includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"),
+    false,
+    "el diálogo no puede leer la clave del entorno: llegaría vacía desde el bundle",
+  );
+
+  const shell = leer("src", "components", "wanderbibliothek-app.tsx");
+  assert.match(shell, /turnstileSiteKey=\{turnstileSiteKey\}/, "el shell no pasa la clave al diálogo");
+
+  const vista = leer("src", "app", "app-view.tsx");
+  assert.match(
+    vista,
+    /process\.env\.NEXT_PUBLIC_TURNSTILE_SITE_KEY/,
+    "la vista de servidor tiene que resolverla en cada petición",
+  );
+
+  const puente = codigo(leer("src", "components", "turnstile-bridge.tsx"));
+  assert.equal(
+    puente.includes("NEXT_PUBLIC_TURNSTILE_SITE_KEY"),
+    false,
+    "el puente de la app Android tampoco puede leerla del bundle",
+  );
+});

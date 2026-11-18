@@ -72,3 +72,26 @@ test("las ubicaciones con caché repiten las cabeceras del servidor", () => {
     assert.match(block, /add_header Alt-Svc /);
   }
 });
+
+test("las rutas de operación no se publican en Internet", () => {
+  // Las dos aceptan un token en cabecera y no una cookie: el mantenimiento
+  // escribe y las métricas leen. Ninguna tiene por qué estar al alcance de
+  // fuera, y un `location` exacto gana a los de prefijo, así que basta con
+  // declararlas.
+  for (const ruta of ["/api/metrics", "/api/cron/maintenance"]) {
+    // Las dos se declaran como `location = /ruta`, coincidencia exacta.
+    const bloque = location(`= ${ruta}`);
+    assert.ok(bloque, `falta el location de ${ruta}`);
+    assert.match(bloque, /allow 127\.0\.0\.1;/, `${ruta}: falta permitir el propio host`);
+    assert.match(bloque, /deny all;/, `${ruta}: falta cerrar el resto`);
+    assert.match(bloque, /proxy_pass http:\/\/127\.0\.0\.1:3000;/, `${ruta}: falta el proxy`);
+  }
+});
+
+test("la caché de imágenes no abre las rutas de operación", () => {
+  // Una caché delante de una ruta con token guardaría la respuesta de quien
+  // acertó y se la serviría a otro: las rutas de operación no van por ahí.
+  const cache = location("/api/cover/") ?? "";
+  assert.equal(cache.includes("metrics"), false);
+  assert.equal(cache.includes("cron"), false);
+});

@@ -5,6 +5,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
+import { clearMail, countMailTo, lastMail } from "./mail-queries.ts";
+
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
@@ -50,7 +52,7 @@ function clearSanctions() {
     `UPDATE users SET is_suspended = 0, suspended_until = NULL, suspension_reason = NULL
       WHERE id IN (?, ?)`,
   ).run("usr_diego", "usr_lucia");
-  db.prepare("DELETE FROM mail_outbox WHERE to_email LIKE '%wanderbibliothek.test'").run();
+  db.prepare("DELETE FROM jobs WHERE kind = 'mail' AND target LIKE '%wanderbibliothek.test'").run();
 }
 
 test("moderar y sancionar son permisos distintos", async () => {
@@ -121,9 +123,7 @@ test("suspender exige motivo y plazo, y avisa con un enlace de apelación", () =
     .get() as { details: string };
   assert.match(audit.details, /motivo: Acoso reiterado/);
 
-  const mail = db
-    .prepare("SELECT subject, body FROM mail_outbox WHERE to_email = ? ORDER BY created_at DESC LIMIT 1")
-    .get("diego@wanderbibliothek.test") as { subject: string; body: string } | undefined;
+  const mail = lastMail(db, "diego@wanderbibliothek.test");
   assert.ok(mail, "la sanción avisa por correo");
   assert.match(mail!.body, /\/apelar\?token=[a-f0-9]{64}/);
 });
@@ -192,10 +192,7 @@ test("la apelación la revisa otra persona y, si se estima, reactiva la cuenta",
     .get();
   assert.ok(audit, "la decisión queda en la auditoría");
 
-  const mail = db
-    .prepare("SELECT subject FROM mail_outbox WHERE to_email = ? ORDER BY created_at DESC LIMIT 1")
-    .get("diego@wanderbibliothek.test") as { subject: string } | undefined;
-  assert.match(mail!.subject, /apelación/i);
+  assert.match(lastMail(db, "diego@wanderbibliothek.test")!.subject, /apelación/i);
 });
 
 test("el informe de moderación da cifras agregadas y coherentes", () => {
@@ -218,9 +215,7 @@ test("el enlace de apelación vale una vez, para apelar y para nadie más", asyn
     days: 5,
   });
 
-  const mail = db
-    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get("lucia@wanderbibliothek.test") as { body: string };
+  const mail = lastMail(db, "lucia@wanderbibliothek.test")!;
   const enlace = mail.body.match(/\/apelar\?token=([a-f0-9]{64})/);
   assert.ok(enlace, "el correo trae el enlace de apelación");
   const token = enlace![1];
@@ -257,10 +252,7 @@ test("una apelación rechazada mantiene la sanción y lo explica", () => {
     .get();
   assert.ok(audit, "el rechazo queda auditado");
 
-  const mail = db
-    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get("lucia@wanderbibliothek.test") as { body: string };
-  assert.match(mail.body, /suspensión se mantiene/i);
+  assert.match(lastMail(db, "lucia@wanderbibliothek.test")!.body, /suspensión se mantiene/i);
 });
 
 test("si la sanción ya venció, el rechazo no la resucita y el correo lo dice", () => {
@@ -282,10 +274,7 @@ test("si la sanción ya venció, el rechazo no la resucita y el correo lo dice",
   repo.resolveAppeal("usr_admin2", appealId, "rejected", "Se revisó tarde.");
   assert.equal(user("usr_lucia")!.is_suspended, 0, "el rechazo no vuelve a suspender");
 
-  const mail = db
-    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get("lucia@wanderbibliothek.test") as { body: string };
-  assert.match(mail.body, /ya había terminado/i);
+  assert.match(lastMail(db, "lucia@wanderbibliothek.test")!.body, /ya había terminado/i);
 });
 
 test("el mantenimiento borra apelaciones resueltas viejas y conserva las abiertas", () => {
@@ -335,7 +324,7 @@ test("pedir un enlace nuevo reenvía la sanción si el primero se perdió", asyn
     reason: "Enlace perdido",
     days: 5,
   });
-  db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run("lucia@wanderbibliothek.test");
+  clearMail(db, "lucia@wanderbibliothek.test");
 
   const response = await POST(
     new Request("http://localhost:3100/api/account/appeal-link", {
@@ -346,9 +335,7 @@ test("pedir un enlace nuevo reenvía la sanción si el primero se perdió", asyn
   );
   assert.equal(response.status, 200);
 
-  const mail = db
-    .prepare("SELECT body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get("lucia@wanderbibliothek.test") as { body: string } | undefined;
+  const mail = lastMail(db, "lucia@wanderbibliothek.test");
   assert.ok(mail, "se reenvía el correo con el enlace");
   const token = mail!.body.match(/\/apelar\?token=([a-f0-9]{64})/)![1];
   assert.equal(tokens.consumeAccountToken(token, "appeal"), "usr_lucia");
@@ -366,13 +353,10 @@ test("pedir un enlace no revela nada ni duplica una apelación abierta", async (
         body: JSON.stringify({ email }),
       }),
     );
-  const mails = (email: string) =>
-    (db.prepare("SELECT COUNT(*) AS count FROM mail_outbox WHERE to_email = ?").get(email) as {
-      count: number;
-    }).count;
+  const mails = (email: string) => countMailTo(db, email);
 
   // Cuenta corriente: misma respuesta y ningún correo.
-  db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run("ana@wanderbibliothek.test");
+  clearMail(db, "ana@wanderbibliothek.test");
   assert.equal((await pedir("ana@wanderbibliothek.test")).status, 200);
   assert.equal(mails("ana@wanderbibliothek.test"), 0);
 
@@ -385,7 +369,7 @@ test("pedir un enlace no revela nada ni duplica una apelación abierta", async (
     days: 4,
   });
   repo.createAppeal("usr_diego", "Ya he apelado esta sanción.");
-  db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run("diego@wanderbibliothek.test");
+  clearMail(db, "diego@wanderbibliothek.test");
   assert.equal((await pedir("diego@wanderbibliothek.test")).status, 200);
   assert.equal(mails("diego@wanderbibliothek.test"), 0);
   assert.equal(repo.hasOpenAppeal("usr_diego"), true);

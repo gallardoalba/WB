@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
+import { countMailTo } from "./mail-queries.ts";
+
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
@@ -208,12 +210,7 @@ test("borrar la cuenta limpia clave, TOTP, alertas y correo pendiente", () => {
   repo.setAvailabilityAlert(user.id, "Stuttgart", true);
   repo.setPublicKey(user.id, { kty: "EC", crv: "P-256", x: "a".repeat(43), y: "b".repeat(43) });
   repo.notify({ userId: user.id, type: "message", title: "Aviso", body: "Texto" });
-  assert.equal(
-    (dbModule.getDb().prepare("SELECT COUNT(*) AS count FROM mail_outbox WHERE to_email = ?").get(
-      "temporal@wanderbibliothek.test",
-    ) as { count: number }).count,
-    1,
-  );
+  assert.equal(countMailTo(dbModule.getDb(), "temporal@wanderbibliothek.test"), 1);
 
   repo.deleteAccount(user.id);
   const row = dbModule

@@ -1,9 +1,10 @@
 /**
- * Bandeja de salida del correo (`mail_outbox`).
+ * Bandeja de salida del correo (trabajos de tipo `mail`).
  *
  * Los enlaces de verificación y restablecimiento no se envían «a la primera»:
- * se encolan y un worker los reintenta con espera creciente. Lo que se fija
- * aquí:
+ * se encolan y un worker los reintenta con espera creciente. Desde la v58 la
+ * cola es la tabla `jobs` —una sola para todo lo diferido— y el correo va en su
+ * `payload`, así que aquí se lee igual que se escribe. Lo que se fija:
  *
  * - un correo nuevo queda pendiente y se entrega en la siguiente pasada,
  * - un fallo no se pierde: suma un intento y programa el siguiente con espera,
@@ -80,7 +81,13 @@ function db() {
 function fila(id: string) {
   return db()
     .prepare(
-      "SELECT id, to_email, subject, body, status, attempts, next_attempt_at, last_error, sent_at FROM mail_outbox WHERE id = ?",
+      `SELECT id,
+              target AS to_email,
+              json_extract(payload, '$.subject') AS subject,
+              json_extract(payload, '$.text') AS body,
+              status, attempts, next_attempt_at, last_error, finished_at AS sent_at
+         FROM jobs
+        WHERE kind = 'mail' AND id = ?`,
     )
     .get(id) as
     | {
@@ -97,15 +104,16 @@ function fila(id: string) {
     | undefined;
 }
 
-/** Inserta una fila con control del estado y de la antigüedad. */
+/** Inserta un trabajo con control del estado y de la antigüedad. */
 function insertar(id: string, status: string, attempts: number, antiguedad = "-1 minutes") {
   db()
     .prepare(
-      `INSERT INTO mail_outbox (id, to_email, subject, body, status, attempts, next_attempt_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+      `INSERT INTO jobs (id, kind, target, payload, status, attempts, next_attempt_at, created_at)
+       VALUES (?, 'mail', ?, json_object('to', ?, 'subject', 'Asunto', 'text', 'Cuerpo'), ?, ?,
+               strftime('%Y-%m-%dT%H:%M:%fZ','now'),
                strftime('%Y-%m-%dT%H:%M:%fZ','now', ?))`,
     )
-    .run(id, "lectora@example.test", "Asunto", "Cuerpo", status, attempts, antiguedad);
+    .run(id, "lectora@example.test", "lectora@example.test", status, attempts, antiguedad);
 }
 
 let restaurarSalida: () => void = () => undefined;
@@ -116,7 +124,7 @@ before(async () => {
 });
 
 beforeEach(() => {
-  db().prepare("DELETE FROM mail_outbox").run();
+  db().prepare("DELETE FROM jobs").run();
   restaurarSalida = silenciar();
 });
 
@@ -126,7 +134,7 @@ afterEach(() => {
 
 test("un correo nuevo queda pendiente y sin intentos", () => {
   const id = outbox.enqueueMail(CORREO);
-  assert.match(id, /^mail_[0-9a-f-]{36}$/);
+  assert.match(id, /^job_[0-9a-f-]{36}$/);
 
   const guardado = fila(id);
   assert.ok(guardado);
@@ -163,7 +171,7 @@ test("la pasada entrega lo pendiente y lo marca como enviado", async () => {
 
   const guardado = fila(id);
   assert.ok(guardado);
-  assert.equal(guardado.status, "sent");
+  assert.equal(guardado.status, "done");
   assert.ok(guardado.sent_at, "sin fecha de envío no se puede limpiar después");
   assert.equal(guardado.last_error, null);
 });
@@ -186,7 +194,7 @@ test("un fallo suma un intento y espera antes de reintentar", async () => {
         // La espera crece con los intentos: el primero deja un minuto y medio.
         const espera = db()
           .prepare(
-            "SELECT next_attempt_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','+60 seconds') AS dentro FROM mail_outbox WHERE id = ?",
+            "SELECT next_attempt_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','+60 seconds') AS dentro FROM jobs WHERE id = ?",
           )
           .get(id) as { dentro: number };
         assert.equal(espera.dentro, 1, "el siguiente intento queda programado con espera");
@@ -202,7 +210,7 @@ test("un fallo suma un intento y espera antes de reintentar", async () => {
 
 test("al quinto fallo el correo se da por perdido y no se reintenta", async () => {
   // Cuatro intentos previos: el siguiente es el último.
-  insertar("mail_casi", "pending", 4);
+  insertar("job_casi", "pending", 4);
 
   await conEntorno({ MAIL_WEBHOOK_URL: "https://mail.example/send", NODE_ENV: "production" }, async () => {
     await conFetch(
@@ -213,7 +221,7 @@ test("al quinto fallo el correo se da por perdido y no se reintenta", async () =
     );
   });
 
-  const guardado = fila("mail_casi");
+  const guardado = fila("job_casi");
   assert.ok(guardado);
   assert.equal(guardado.attempts, 5);
   assert.equal(guardado.status, "failed");
@@ -244,17 +252,17 @@ test("la pasada respeta el límite y atiende primero lo más antiguo", async () 
     );
   });
 
-  assert.equal(fila("mail_viejo")?.status, "sent");
-  assert.equal(fila("mail_medio")?.status, "sent");
+  assert.equal(fila("mail_viejo")?.status, "done");
+  assert.equal(fila("mail_medio")?.status, "done");
   assert.equal(fila("mail_nuevo")?.status, "pending", "el límite deja trabajo para la siguiente pasada");
 });
 
 test("la limpieza borra lo antiguo entregado o fallido y los pendientes atascados", () => {
-  insertar("mail_enviado", "sent", 0, "-30 days");
+  insertar("mail_enviado", "done", 0, "-30 days");
   insertar("mail_fallido", "failed", 5, "-30 days");
   insertar("mail_pendiente", "pending", 2, "-3 days");
   insertar("mail_atascado", "pending", 4, "-45 days");
-  insertar("mail_reciente", "sent", 0, "-1 days");
+  insertar("mail_reciente", "done", 0, "-1 days");
 
   assert.equal(outbox.purgeOutbox(7), 3);
   assert.equal(fila("mail_enviado"), undefined);
