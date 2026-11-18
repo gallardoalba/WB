@@ -1,0 +1,56 @@
+name: Compatibilidad de Node
+
+# Prueba semanal del mismo árbol contra las versiones de Node que importan:
+# la que se despliega (24) y la siguiente LTS (26). No corre en cada PR —eso
+# triplicaría el tiempo de revisión— pero avisa en una pestaña que nadie mira
+# hasta el día que hay que subir de versión.
+#
+# Node 22 entra en fin de soporte en abril de 2027 y deja de probarse aquí: lo
+# que se despliega es lo que se mantiene.
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibilidad:
+    runs-on: ubuntu-latest
+    # 26 todavía no se despliega: si falla, se ve en el resumen y en el aviso
+    # del job, pero no pinta en rojo una pestaña por algo que no está en
+    # producción. Es el mismo criterio que `audit:dev`.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - node: 24
+            experimental: false
+          - node: 26
+            experimental: true
+    name: Node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `better-sqlite3` se compila con node-gyp: en un runner limpio hace falta
+      # toolchain, y en Node 26 puede no haber binario publicado todavía.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3100

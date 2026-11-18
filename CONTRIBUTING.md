@@ -5,7 +5,7 @@ can be reviewed and merged quickly.
 
 ## Environment
 
-- Node.js **22** (there is a `.nvmrc`).
+- Node.js **24** (there is a `.nvmrc`; the image and CI use the same major).
 - `npm ci` (includes devDependencies: the build needs TypeScript and Tailwind).
 - `npm run dev` starts at `http://localhost:3000` with **demo data** (accounts
   `@wanderbibliothek.test`, password `demo1234`). To skip seeding them,

@@ -10,12 +10,18 @@
 
 # --- 1. Dependencias completas (incluye devDependencies para el build) ------
 #
-# La imagen base va fijada por **digest**, no solo por etiqueta: `22-bookworm-slim`
+# La imagen base va fijada por **digest**, no solo por etiqueta: `24-bookworm-slim`
 # es un puntero que se mueve, y con él cambiarían Node y las librerías del
 # sistema sin que cambie nada en este repositorio. Dependabot (ecosistema
 # `docker`) propone el digest nuevo; actualizarlo es un cambio visible en el
 # diff y en la imagen firmada de la release.
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS deps
+#
+# Node 24 (LTS «Krypton») en lugar de 22: el 22 entra en fin de soporte en
+# abril de 2027 y este es el mismo salto que ya hacen `ci.yml` y `.nvmrc`.
+# Las tres etapas comparten digest para que compilar y ejecutar usen el mismo
+# runtime; cambiarlas por separado es cómo aparecen los fallos que solo se ven
+# en producción.
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS deps
 WORKDIR /app
 
 # `better-sqlite3` se compila con node-gyp al instalarlo (no trae binarios para
@@ -28,7 +34,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # --- 2. Build ---------------------------------------------------------------
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS builder
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG APP_COMMIT_SHA=""
@@ -48,7 +54,7 @@ COPY . .
 RUN npm run build
 
 # --- 3. Runtime -------------------------------------------------------------
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS runner
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runner
 WORKDIR /app
 
 # Identidad del build dentro de la imagen. `/api/version` y el pie de página la
