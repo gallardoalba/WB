@@ -1761,6 +1761,66 @@ function migrateToV56(db: Db) {
 }
 
 /**
+ * v57: la obra deja de ser una cadena y pasa a ser una entidad.
+ *
+ * Hasta aquí «la obra» era `books.work_key`: una cadena derivada del título o
+ * de Open Library que se reescribía en caliente cuando el catálogo conocía la
+ * obra. Servía para agrupar ediciones, pero no era un sitio donde poner un
+ * identificador externo, ni un título propio, ni la razón por la que dos
+ * ediciones están juntas, y no se podía fusionar ni separar a mano.
+ *
+ * La tabla `works` guarda esa identidad: `id` estable (no cambia nunca),
+ * `key` (la antigua `work_key`, que sí puede mejorar) y la ficha canónica de
+ * la obra, tomada de su edición más antigua. `books.work_id` apunta a ella.
+ * `work_key` se conserva porque es la clave con la que se busca y se agrupa
+ * hoy; la migración no pierde ni una fila y agrupa exactamente igual.
+ */
+function migrateToV57(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS works (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      author TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  const columns = (db.pragma("table_info(books)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("work_id")) {
+    // `REFERENCES` sin `ON DELETE`: borrar una obra no puede arrastrar libros
+    // por accidente; si algún día hace falta, se hace a mano y con auditoría.
+    db.exec("ALTER TABLE books ADD COLUMN work_id TEXT REFERENCES works(id)");
+    db.exec("CREATE INDEX IF NOT EXISTS books_work_id ON books(work_id)");
+  }
+
+  // Ficha canónica: la de la edición más antigua del grupo, que es la que el
+  // catálogo público ya usaba como cara de la obra.
+  db.exec(`
+    INSERT OR IGNORE INTO works (id, key, title, author, created_at)
+    SELECT 'wrk_' || work_key, work_key, title, author, created_at
+      FROM (
+        SELECT work_key, title, author, created_at,
+               ROW_NUMBER() OVER (PARTITION BY work_key ORDER BY created_at ASC, id ASC) AS row_number
+          FROM books
+         WHERE work_key IS NOT NULL AND TRIM(work_key) <> ''
+      )
+     WHERE row_number = 1
+  `);
+
+  db.exec(`
+    UPDATE books
+       SET work_id = (SELECT w.id FROM works w WHERE w.key = books.work_key)
+     WHERE work_id IS NULL
+       AND work_key IS NOT NULL AND TRIM(work_key) <> ''
+  `);
+
+  db.pragma("user_version = 57");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1901,6 +1961,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 54) migrateToV54(db);
   if (userVersion(db) < 55) migrateToV55(db);
   if (userVersion(db) < 56) migrateToV56(db);
+  if (userVersion(db) < 57) migrateToV57(db);
 
   backfillSearchKeys(db);
 }

@@ -23,6 +23,7 @@ export * from "./repo/direct";
 export * from "./repo/lists";
 export * from "./repo/profile";
 export * from "./repo/public-works";
+export * from "./repo/works";
 export * from "./repo/provenance";
 export * from "./repo/reading";
 export * from "./repo/journey";

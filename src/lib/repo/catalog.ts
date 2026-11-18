@@ -5,6 +5,7 @@ import type { ListingStatus, ListingView, PagedListings, SortMode } from "../dom
 import { normalizeCoverUrl, normalizeText } from "../text";
 import { cachedIsbnMetadata } from "../isbn-metadata";
 import { workKeyFromOpenLibrary, workKeyFromTitle } from "../work";
+import { ensureWork, moveWorkEditions } from "./works";
 import type { CatalogParams, ListingInput } from "../validation";
 
 /**
@@ -290,7 +291,7 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
       const newBookId = `bok_${randomUUID()}`;
       try {
         db.prepare(
-          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, publisher, year, series, description, pages, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO books (id, title, title_key, author, isbn, category, language, cover_url, work_key, work_id, publisher, year, series, description, pages, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         ).run(
           newBookId,
           input.title,
@@ -301,6 +302,9 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
           language,
           coverUrl,
           workKey,
+          // La obra se asigna justo después con `ensureWork`: así una alta que
+          // pierda la carrera por el ISBN no deja una obra vacía.
+          null,
           // Ficha bibliográfica de la edición, tal como la dio el catálogo.
           cached?.publisher ?? null,
           cached?.year ?? null,
@@ -323,19 +327,34 @@ export function createListing(ownerId: string, input: ListingInputOpcional): Lis
     }
 
     const listingId = `lst_${randomUUID()}`;
-    // El libro pudo existir ya (mismo ISBN o mismo título): se le asegura la
-    // clave de obra y, si ahora se conoce la de Open Library, las ediciones que
-    // estaban con la clave derivada pasan a la buena para quedar agrupadas.
-    db.prepare("UPDATE books SET work_key = ? WHERE id = ? AND (work_key IS NULL OR work_key = '')").run(
-      workKey,
-      bookId,
-    );
-    if (workKey !== hashWorkKey) {
-      db.prepare("UPDATE books SET work_key = ? WHERE work_key = ? AND id <> ?").run(
-        workKey,
-        hashWorkKey,
+    // La obra de una edición **no se reagrupa** porque otra persona escriba el
+    // título de otra forma al publicar el mismo ISBN: si el libro ya existe se
+    // respeta la obra que tenga. Solo hay dos cosas que hacer aquí:
+    //
+    //  - una fila sin obra la recibe (la suya, si ya traía clave; si no, la
+    //    calculada a partir de lo que se acaba de escribir);
+    //  - si el catálogo externo por fin conoce la obra, las ediciones que
+    //    estaban agrupadas por la clave derivada se fusionan con la buena.
+    const linked = db.prepare("SELECT work_id, work_key FROM books WHERE id = ?").get(bookId) as
+      | { work_id: string | null; work_key: string | null }
+      | undefined;
+
+    if (!linked?.work_id) {
+      // Una fila anterior a la v57 con clave propia conserva su agrupación: se
+      // adopta esa clave en lugar de la recién calculada.
+      const ownKey = linked?.work_key?.trim() || workKey;
+      const workId = ensureWork(db, ownKey, input.title, input.author, now);
+      db.prepare("UPDATE books SET work_key = ?, work_id = ? WHERE id = ?").run(
+        ownKey,
+        workId,
         bookId,
       );
+    }
+
+    if (workKey !== hashWorkKey) {
+      // El catálogo externo conoce la obra: se mueven sus ediciones (las que
+      // estén en el grupo de la clave derivada) a la obra buena.
+      moveWorkEditions(db, hashWorkKey, workKey, now);
     }
     // La sinopsis y las páginas llegan después que el libro (los publica la
     // primera persona que consulta ese ISBN): se rellenan si faltan, sin pisar
@@ -772,22 +791,27 @@ export function countListingsForBook(bookId: string, viewerId: string | null): n
  */
 export function workBooks(bookId: string): BookView[] {
   const db = getDb();
-  const row = db.prepare("SELECT work_key FROM books WHERE id = ?").get(bookId) as
-    | { work_key: string | null }
+  const row = db.prepare("SELECT work_id, work_key FROM books WHERE id = ?").get(bookId) as
+    | { work_id: string | null; work_key: string | null }
     | undefined;
   const self = db
     .prepare(
       "SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books WHERE id = ?",
     )
     .get(bookId) as BookRow | undefined;
-  if (!row?.work_key || !self) return self ? [toBookView(self)] : [];
-  const rows = db
-    .prepare(
-      `SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books
-        WHERE work_key = ?
-        ORDER BY created_at ASC, id ASC`,
-    )
-    .all(row.work_key) as BookRow[];
+  if (!row || !self) return self ? [toBookView(self)] : [];
+
+  const select = `SELECT id, title, author, isbn, category, language, cover_url, publisher, year, series FROM books`;
+  // La obra manda (v57); `work_key` solo si la fila es anterior y no tiene id.
+  const rows = row.work_id
+    ? (db
+        .prepare(`${select} WHERE work_id = ? ORDER BY created_at ASC, id ASC`)
+        .all(row.work_id) as BookRow[])
+    : row.work_key
+      ? (db
+          .prepare(`${select} WHERE work_key = ? ORDER BY created_at ASC, id ASC`)
+          .all(row.work_key) as BookRow[])
+      : [];
   return rows.length > 0 ? rows.map(toBookView) : [toBookView(self)];
 }
 

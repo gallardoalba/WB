@@ -394,3 +394,45 @@ test("la portada arranca en el idioma de la interfaz", async () => {
     "sin filtro la portada enseña la mezcla",
   );
 });
+
+/**
+ * La obra de una edición no cambia porque otra persona escriba el título de
+ * otra forma al publicar el **mismo ISBN**. Antes de la v57 la clave derivada
+ * solo se escribía si estaba vacía; al pasar a `work_id` hay que conservar esa
+ * garantía, o publicar «Quijote» sobre el ISBN de «Don Quijote de la Mancha»
+ * reagruparía el libro entero sin avisar.
+ */
+test("republicar un ISBN no reagrupa la obra aunque el título se escriba distinto", () => {
+  const primera = nuevaCuenta("Primera", "primera-reagrupa@example.test");
+  const segunda = nuevaCuenta("Segunda", "segunda-reagrupa@example.test");
+  const isbn = "9788420412146";
+
+  const original = publicar(primera.id, "Don Quijote de la Mancha", "Miguel de Cervantes", isbn);
+  const libro = original.bookId;
+  const obra = () =>
+    dbModule.getDb().prepare("SELECT work_id FROM books WHERE id = ?").get(libro) as {
+      work_id: string | null;
+    };
+  const obraOriginal = obra().work_id;
+  assert.ok(obraOriginal, "la primera edición estrena su obra");
+  const worksAntes = dbModule.getDb().prepare("SELECT COUNT(*) AS count FROM works").get() as {
+    count: number;
+  };
+
+  // Otra persona publica el mismo ISBN con el título abreviado.
+  const repetida = publicar(segunda.id, "Quijote", "Cervantes", isbn);
+  assert.equal(repetida.bookId, libro, "es la misma edición: mismo ISBN, mismo libro");
+  assert.notEqual(repetida.id, original.id, "pero es otro ejemplar");
+
+  // La edición sigue en la misma obra y no ha aparecido una segunda.
+  assert.equal(obra().work_id, obraOriginal, "la obra de la edición no se reagrupa");
+  const worksDespues = dbModule.getDb().prepare("SELECT COUNT(*) AS count FROM works").get() as {
+    count: number;
+  };
+  assert.equal(worksDespues.count, worksAntes.count, "no se ha creado una obra nueva");
+
+  const books = dbModule.getDb()
+    .prepare("SELECT COUNT(*) AS count FROM books WHERE isbn = ?")
+    .get(isbn) as { count: number };
+  assert.equal(books.count, 1, "no se ha creado una edición nueva");
+});
