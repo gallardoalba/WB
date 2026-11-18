@@ -17,7 +17,7 @@ sudo deploy/bootstrap.sh --domain tu-dominio.de --email tu@correo.de
 sudo /srv/wanderbibliothek/current/deploy/deploy.sh
 ```
 
-- **`deploy/bootstrap.sh`** instala Node 22, nginx y certbot, crea el usuario y
+- **`deploy/bootstrap.sh`** instala Node 24, nginx y certbot, crea el usuario y
   los directorios, clona y compila, genera `/etc/wanderbibliothek/env` con
   secretos nuevos, coloca el servicio y los temporizadores, publica el vhost y
   pide el certificado. No pisa un `env` existente ni un vhost sin guardar copia,
@@ -59,9 +59,9 @@ paso a paso, útil para entender qué hace cada cosa o para depurar.
 
 Funciona igual, con tres detalles que cambian respecto a Debian 12:
 
-- El `nodejs` de los repositorios es la 20 y aquí hace falta la 22: instálala
-  desde NodeSource (`curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -`)
-  o con nvm de sistema, y comprueba que `node -v` da 22 antes del `npm ci`.
+- El `nodejs` de los repositorios es la 20 y aquí hace falta la 24: instálala
+  desde NodeSource (`curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -`)
+  o con nvm de sistema, y comprueba que `node -v` da 24 antes del `npm ci`.
 - nginx es 1.26 o superior: `listen 443 ssl http2;` está obsoleto y `nginx -t`
   avisa en cada recarga. `deploy/nginx.conf` ya trae la forma buena
   (`listen 443 ssl;` + `http2 on;`); en una instalación anterior, cambia esas
@@ -798,12 +798,14 @@ Las normas de convivencia, la moderación y las apelaciones se publican en `/nor
 
 ## 10. Límites conocidos
 
-- **Una sola instancia.** SQLite (un escritor) y el bus de avisos en memoria no
-  admiten varias réplicas. Escalar exige PostgreSQL y Redis/pubsub.
+- **Una sola instancia.** SQLite tiene un único escritor, así que varias
+  réplicas exigen PostgreSQL. El canal en vivo no es el problema: el bus en
+  memoria solo ahorra latencia y la fuente de verdad se consulta en la base, de
+  modo que dos procesos coinciden con hasta 15 s de retraso.
 - **Cada actualización reinicia el proceso.** No hay azul/verde: el servicio se
   para, arranca la imagen o release nueva y se comprueba `/api/health`; si falla,
   se vuelve a la anterior. Son unos segundos sin servicio, y no hay alta
-  disponibilidad: dos réplicas exigen PostgreSQL y Redis/pubsub.
+  disponibilidad: dos réplicas exigen PostgreSQL.
 - **Los scripts de operación necesitan `tsx`**, que está en `dependencies` a
   propósito (no es una devDependency): así funcionan también con
   `npm ci --omit=dev` y dentro de la imagen.
