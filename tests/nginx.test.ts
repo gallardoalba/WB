@@ -95,3 +95,26 @@ test("la caché de imágenes no abre las rutas de operación", () => {
   assert.equal(cache.includes("metrics"), false);
   assert.equal(cache.includes("cron"), false);
 });
+
+test("cada respuesta lleva el id de petición exactamente una vez", () => {
+  // `add_header` dentro de un `location` SUSTITUYE a los del `server`: tenerlo
+  // solo arriba dejaba las imágenes y los ficheros estáticos sin id, y en las
+  // rutas de la app lo mandaban dos veces (la aplicación y nginx). Aquí se fija
+  // la forma que funciona: ninguna cabecera suelta en el servidor y el id
+  // repetido en cada ubicación que define cabeceras propias.
+  assert.equal(
+    /^    add_header X-Request-Id/m.test(source),
+    false,
+    "en el servidor no vale: las location con add_header propio no lo heredan",
+  );
+
+  const conCabeceras = [...source.matchAll(/^    location [^\n]*\{\n((?:[^}]*\n)*?)^    \}/gm)].map(
+    (match) => match[0],
+  );
+  const conAddHeader = conCabeceras.filter((bloque) => /^\s+add_header /m.test(bloque));
+  assert.ok(conAddHeader.length >= 4, `esperaba al menos cuatro ubicaciones con cabeceras, hay ${conAddHeader.length}`);
+  for (const bloque of conAddHeader) {
+    const nombre = /^\s+location ([^\n]*)\{/m.exec(bloque)?.[1]?.trim() ?? "?";
+    assert.match(bloque, /add_header X-Request-Id \$request_id always;/, `la ubicación ${nombre} no manda el id`);
+  }
+});
