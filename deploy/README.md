@@ -246,7 +246,7 @@ Lee `MAIL_FROM` para saber el dominio y `MAIL_DKIM_SELECTOR` (el nombre que da
 el proveedor: `brevo`, `s1`, `mail`…) para buscar la clave pública. Comprueba
 SPF, DMARC —avisa si está en `p=none`, que observa el fallo pero no protege el
 dominio— y la firma DKIM; además cuenta los correos pendientes, los dados por
-perdidos en 24 h y lo que lleva esperando el más antiguo. Sale 1 si hay algo que
+perdidos en 24 h y los minutos de retraso del más atrasado. Sale 1 si hay algo que
 arreglar, y el vigilante mira la cola por su cuenta cada 15 minutos.
 
 ### Bot de Mastodon (opcional)
@@ -438,8 +438,9 @@ sola:
   llegar a Node. Se registran en el `access.log` con estado 444, así que el jail
   `wb-nginx-scan` sigue contándolas. Ninguna ruta real de la aplicación contiene
   esos patrones.
-- **`/api/cron/maintenance` solo desde el propio host** (`allow 127.0.0.1;`): el
-  token ya la protege, pero no hay razón para exponer una tarea de escritura.
+- **`/api/cron/maintenance` y `/api/metrics` solo desde el propio host**
+  (`allow 127.0.0.1;`): el token ya las protege, pero no hay razón para exponer
+  una tarea de escritura ni un endpoint que acepta el mismo secreto sin cookie.
 - **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
 - **Compresión y estáticos en el borde.** El vhost activa `gzip` (con
   `gzip_proxied any`, sin él no comprime lo que viene de Node) y sirve
@@ -699,7 +700,7 @@ y vigila lo que la sonda de salud no ve:
 |---|---|---|
 | Correos dados por perdidos en 24 h | — | cualquier valor > 0 avisa |
 | Correos en estado fallido | `MAX_MAIL_FAILED` | `0` |
-| Espera del correo pendiente más antiguo | `MAX_MAIL_WAIT_MIN` | `120` |
+| Retraso del correo más atrasado | `MAX_MAIL_WAIT_MIN` | `120` |
 | Tamaño del WAL (el checkpoint no completa) | `MAX_WAL_MB` | `512` |
 | Proporción de errores de servidor | `MAX_ERROR_PCT` | `5` |
 | Peticiones mínimas para calcularla | `MIN_REQUESTS_ERRORS` | `50` |
@@ -708,6 +709,15 @@ Un correo que el proveedor acepta y el buzón manda a spam no deja rastro: la
 base lo marca como entregado y la persona nunca ve su enlace. Por eso la cola
 se vigila aquí y los registros del dominio se comprueban con `npm run
 mail:health` (ver la sección de correo).
+
+`/api/metrics` queda **solo desde el propio host** en nginx, igual que el
+mantenimiento: acepta el mismo token sin cookie, y no hay razón para publicarlo.
+Se lee así:
+
+```bash
+sudo curl -fsS -H "Authorization: Bearer $(sudo sed -n 's/^MAINTENANCE_TOKEN=//p' /etc/wanderbibliothek/env)" \
+  "http://127.0.0.1:3000/api/metrics?format=prometheus" | head
+```
 
 ```bash
 sudo systemctl start wanderbibliothek-watchdog.service   # probarlo a mano
@@ -1231,7 +1241,7 @@ publiques diga la verdad (art. 5.1.e y 13 del RGPD/DSGVO):
 | Contraseña | `users.password_hash` (scrypt) | Igual; nunca en claro |
 | Sesiones | `sessions` | 14 días deslizantes, 30 como máximo |
 | Enlaces de confirmación y restablecimiento | `account_tokens` | 24 h / 1 h; un solo uso |
-| Correos enviados (cuerpo con enlaces) | `mail_outbox` | 7 días los ya entregados |
+| Correos enviados (cuerpo con enlaces) | `jobs` (`kind = 'mail'`) | 7 días los ya entregados y los perdidos |
 | IP del visitante (cuotas y anti-fuerza bruta) | `throttle`, `auth_attempts` | Pseudónimo diario, nunca la dirección; ≤ 1 día |
 | Avisos de la plataforma | `notifications` | 90 días si se leyeron, 180 cualquiera |
 | Actividad pública (muro) | `events` | 180 días |

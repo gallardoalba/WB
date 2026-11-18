@@ -165,10 +165,10 @@ export function metricsSnapshot(extra: { commit: string | null }): Metric[] {
       samples: [{ labels: { kind: "mail" }, value: mail.failed24h }],
     },
     {
-      name: "wanderbibliothek_jobs_oldest_pending_minutes",
-      help: "Minutos que lleva esperando el trabajo pendiente más antiguo.",
+      name: "wanderbibliothek_jobs_overdue_minutes",
+      help: "Minutos de retraso del trabajo más atrasado (0 si todos están programados para el futuro).",
       type: "gauge",
-      samples: [{ labels: { kind: "mail" }, value: mail.oldestPendingMinutes }],
+      samples: [{ labels: { kind: "mail" }, value: mail.overdueMinutes }],
     },
   ];
 

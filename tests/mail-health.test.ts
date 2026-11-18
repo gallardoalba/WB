@@ -23,7 +23,7 @@ import {
 /** Un TXT largo llega partido en trozos; la comprobación es la misma. */
 const txt = (...chunks: string[]) => [chunks];
 
-const COLA_SANA = { pending: 0, failed24h: 0, oldestPendingMinutes: 0, lastError: null };
+const COLA_SANA = { pending: 0, failed24h: 0, overdueMinutes: 0, lastError: null };
 
 function sano(): Omit<MailHealth, "problems"> {
   return {
@@ -110,11 +110,11 @@ test("sin registros se dice cuáles faltan, con el nombre que hay que crear", ()
 test("una cola parada es tan problema como un DNS mal puesto", () => {
   const problemas = mailProblems({
     ...sano(),
-    queue: { pending: 4, failed24h: 2, oldestPendingMinutes: 300, lastError: "sin respuesta" },
+    queue: { pending: 4, failed24h: 2, overdueMinutes: 300, lastError: "sin respuesta" },
   });
   assert.deepEqual(problemas, [
     "2 correo(s) dados por perdidos en 24 h (último error: sin respuesta)",
-    "hay correo pendiente desde hace 300 min: el envío no avanza",
+    "hay correo con 300 min de retraso: el envío no avanza",
   ]);
 });
 

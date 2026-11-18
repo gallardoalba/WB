@@ -11,7 +11,7 @@
  * En desarrollo (o sin proveedor configurado) el mensaje se escribe en la
  * consola y en `.data/outbox/`, de forma que el flujo completo se pueda probar
  * sin servidor de correo. En producción, un fallo se declara como no entregado
- * y la cola (`mail_outbox`) lo reintenta con espera creciente.
+ * y la cola de trabajos (`jobs`, tipo `mail`) lo reintenta con espera creciente.
  */
 import { mkdirSync, appendFileSync } from "node:fs";
 import path from "node:path";

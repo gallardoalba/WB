@@ -33,7 +33,6 @@ index dm_threads_user_b :: CREATE INDEX dm_threads_user_b ON dm_threads(user_b, 
 index events_created :: CREATE INDEX events_created ON events(created_at DESC)
 index favorites_listing :: CREATE INDEX favorites_listing ON favorites(listing_id)
 index follows_followed :: CREATE INDEX follows_followed ON follows(followed_id, created_at DESC)
-index jobs_finished :: CREATE INDEX jobs_finished ON jobs(status, finished_at)
 index jobs_ready :: CREATE INDEX jobs_ready ON jobs(kind, status, next_attempt_at)
 index jobs_target :: CREATE INDEX jobs_target ON jobs(kind, target, created_at)
 index listing_tags_tag :: CREATE INDEX listing_tags_tag ON listing_tags(tag, listing_id)

@@ -88,7 +88,7 @@ test("la foto trae la versión, la cola y el WAL, y ningún contenido", () => {
 
   assert.ok(porNombre.has("wanderbibliothek_database_wal_bytes"));
   assert.ok(porNombre.has("wanderbibliothek_jobs_failed_24h"));
-  assert.ok(porNombre.has("wanderbibliothek_jobs_oldest_pending_minutes"));
+  assert.ok(porNombre.has("wanderbibliothek_jobs_overdue_minutes"));
 
   // Sin commit conocido no se inventa uno.
   const sinCommit = metricsSnapshot({ commit: null });

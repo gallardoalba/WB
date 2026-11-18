@@ -39,7 +39,8 @@ export type DkimCheck = {
 export type MailQueue = {
   pending: number;
   failed24h: number;
-  oldestPendingMinutes: number;
+  /** Minutos de retraso del correo más atrasado (0 si todo está al día). */
+  overdueMinutes: number;
   lastError: string | null;
 };
 
@@ -125,9 +126,9 @@ export function mailProblems(health: Omit<MailHealth, "problems">): string[] {
         (health.queue.lastError ? ` (último error: ${health.queue.lastError})` : ""),
     );
   }
-  if (health.queue.oldestPendingMinutes > 120) {
+  if (health.queue.overdueMinutes > 120) {
     problems.push(
-      `hay correo pendiente desde hace ${health.queue.oldestPendingMinutes} min: el envío no avanza`,
+      `hay correo con ${health.queue.overdueMinutes} min de retraso: el envío no avanza`,
     );
   }
 
@@ -150,7 +151,7 @@ export function formatHealth(health: MailHealth): string {
     `  DKIM:  ${si(health.dkim.present)}${health.dkim.selector ? ` (selector ${health.dkim.selector})` : ""}`,
     `  DMARC: ${si(health.dmarc.present)}${health.dmarc.policy ? ` (p=${health.dmarc.policy})` : ""}`,
     `Cola: ${health.queue.pending} pendiente(s), ${health.queue.failed24h} perdido(s) en 24 h, ` +
-      `el más antiguo espera ${health.queue.oldestPendingMinutes} min.`,
+      `el más atrasado lleva ${health.queue.overdueMinutes} min de retraso.`,
   ];
 
   if (health.problems.length === 0) {

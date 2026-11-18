@@ -22,7 +22,7 @@ const SCRIPT = new URL("../deploy/watchdog.sh", import.meta.url).pathname;
 type Métricas = {
   failed24h?: number;
   failed?: number;
-  oldestPendingMinutes?: number;
+  overdueMinutes?: number;
   walBytes?: number;
   requests?: number;
   errors?: number;
@@ -42,7 +42,7 @@ function metricas(datos: Métricas): string {
     `wanderbibliothek_jobs{kind="mail",status="running"} 0`,
     `wanderbibliothek_jobs{kind="mail",status="failed"} ${datos.failed ?? 0}`,
     `wanderbibliothek_jobs_failed_24h{kind="mail"} ${datos.failed24h ?? 0}`,
-    `wanderbibliothek_jobs_oldest_pending_minutes{kind="mail"} ${datos.oldestPendingMinutes ?? 0}`,
+    `wanderbibliothek_jobs_overdue_minutes{kind="mail"} ${datos.overdueMinutes ?? 0}`,
     "",
   ].join("\n");
 }
@@ -142,9 +142,9 @@ test("un correo perdido en 24 h avisa aunque la aplicación esté sana", async (
 });
 
 test("una cola que no avanza se anuncia como tal", async () => {
-  const { codigo, avisos } = await vigilante({ oldestPendingMinutes: 600 });
+  const { codigo, avisos } = await vigilante({ overdueMinutes: 600 });
   assert.equal(codigo, 1);
-  assert.match(avisos, /espera 600 min/);
+  assert.match(avisos, /600 min de retraso/);
 });
 
 test("un WAL desbordado señala el checkpoint", async () => {

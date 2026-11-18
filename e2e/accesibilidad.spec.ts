@@ -19,21 +19,19 @@ import { login, waitForHydration } from "./helpers";
 const ETIQUETAS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 /**
- * Las tarjetas entran con una animación de 280 ms y hasta 315 ms de retardo,
- * así que durante ese rato axe mide colores compuestos sobre un fondo que aún
- * no está: contrastes de 4.33 que en reposo son 5.5. Se espera a que terminen
- * las animaciones en lugar de dormir un rato fijo.
+ * Con `prefers-reduced-motion` puesto, las entradas no se animan.
+ *
+ * No es un atajo para que la prueba pase: axe mide colores **compuestos**, y a
+ * mitad de una animación de opacidad calcula contrastes de 4,33 donde en reposo
+ * hay 5,5. Esperar a que terminen las animaciones dejaba la comprobación a
+ * merced de cuándo arrancaba la del contenido nuevo, y eso ya falló una vez.
+ * Con menos movimiento —que la propia web respeta en doce sitios— lo que se
+ * audita es el estado final, y además se audita esa variante, que es la que ve
+ * quien tiene problemas vestibulares.
  */
-async function sinAnimaciones(page: Page): Promise<void> {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every((animation) => animation.playState === "finished" || animation.playState === "idle"),
-  );
-}
+test.use({ reducedMotion: "reduce" });
 
 async function revisar(page: Page, contexto: string): Promise<void> {
-  await sinAnimaciones(page);
   const resultado = await new AxeBuilder({ page }).withTags(ETIQUETAS).analyze();
   const barreras = resultado.violations.filter((violation) =>
     ["serious", "critical"].includes(violation.impact ?? ""),

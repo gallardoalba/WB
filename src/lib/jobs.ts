@@ -139,10 +139,20 @@ export function failJob(id: string, error: string, attempts: number): JobFailure
   getDb()
     .prepare(
       `UPDATE jobs
-          SET attempts = ?, status = ?, last_error = ?, next_attempt_at = ?
+          SET attempts = ?, status = ?, last_error = ?, next_attempt_at = ?, finished_at = ?
         WHERE id = ?`,
     )
-    .run(next, final ? "failed" : "pending", error.slice(0, 300), retryAt ?? now(), id);
+    .run(
+      next,
+      final ? "failed" : "pending",
+      error.slice(0, 300),
+      retryAt ?? now(),
+      // Un trabajo perdido también termina: sin la fecha, «cuándo dejó de
+      // intentarse» solo se podía deducir del último error, y la métrica de las
+      // últimas 24 h contaba por fecha de creación, que no es lo mismo.
+      final ? now() : null,
+      id,
+    );
   return { attempts: next, final, retryAt };
 }
 
@@ -179,8 +189,14 @@ export type JobStats = {
   running: number;
   failed: number;
   failed24h: number;
-  /** Minutos que lleva esperando el pendiente más antiguo (0 si no hay). */
-  oldestPendingMinutes: number;
+  /**
+   * Minutos de retraso del trabajo más atrasado: lo que ya tocaba ejecutar y
+   * sigue ahí. Cero si todos están programados para el futuro, que es el caso
+   * normal mientras el reintento con espera creciente hace su trabajo. Medirlo
+   * desde la creación —y no desde el próximo intento— daría avisos falsos cada
+   * vez que un correo se reintenta, que es justo lo que debe pasar.
+   */
+  overdueMinutes: number;
   /** Último error registrado, para el aviso del vigilante. */
   lastError: string | null;
 };
@@ -195,9 +211,10 @@ export function jobStats(kind: string): JobStats {
          SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running,
          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
          SUM(CASE WHEN status = 'failed'
-                   AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day')
+                   AND COALESCE(finished_at, created_at)
+                       > strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day')
                   THEN 1 ELSE 0 END) AS failed24h,
-         MIN(CASE WHEN status = 'pending' THEN created_at END) AS oldest
+         MIN(CASE WHEN status IN ('pending', 'running') THEN next_attempt_at END) AS oldest
        FROM jobs WHERE kind = ?`,
     )
     .get(kind) as { pending: number | null; running: number | null; failed: number | null; failed24h: number | null; oldest: string | null };
@@ -215,7 +232,7 @@ export function jobStats(kind: string): JobStats {
     running: counts.running ?? 0,
     failed: counts.failed ?? 0,
     failed24h: counts.failed24h ?? 0,
-    oldestPendingMinutes: counts.oldest ? minutesSince(counts.oldest) : 0,
+    overdueMinutes: counts.oldest ? minutesSince(counts.oldest) : 0,
     lastError: last?.last_error ?? null,
   };
 }

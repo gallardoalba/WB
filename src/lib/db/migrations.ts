@@ -1855,7 +1855,6 @@ function migrateToV58(db: Db) {
     );
     CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(kind, status, next_attempt_at);
     CREATE INDEX IF NOT EXISTS jobs_target ON jobs(kind, target, created_at);
-    CREATE INDEX IF NOT EXISTS jobs_finished ON jobs(status, finished_at);
   `);
 
   const tables = (
@@ -1863,10 +1862,17 @@ function migrateToV58(db: Db) {
   ).map((row) => row.name);
 
   if (tables.includes("mail_outbox")) {
+    // El identificador de la cola antigua era «mail_<uuid>»: se conserva el uuid
+    // y se cambia el prefijo. Cualquier otra forma se queda tal cual detrás de
+    // «job_», porque lo que no puede pasar es que dos filas colapsen en el mismo
+    // identificador y `INSERT OR IGNORE` se coma una sin decirlo.
     db.exec(`
       INSERT OR IGNORE INTO jobs
         (id, kind, target, payload, status, attempts, next_attempt_at, last_error, created_at, finished_at)
-      SELECT 'job_' || substr(id, 6), 'mail', to_email,
+      SELECT CASE WHEN substr(id, 1, 5) = 'mail_' THEN 'job_' || substr(id, 6)
+                  ELSE 'job_' || id
+             END,
+             'mail', to_email,
              json_object('to', to_email, 'subject', subject, 'text', body),
              CASE status
                WHEN 'sent' THEN 'done'

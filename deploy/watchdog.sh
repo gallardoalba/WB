@@ -102,7 +102,7 @@ elif [ -z "$metricas" ]; then
 else
   perdidos=$(entero "$(metrica 'wanderbibliothek_jobs_failed_24h{kind=\"mail\"}')")
   fallidos=$(entero "$(metrica 'wanderbibliothek_jobs{kind=\"mail\",status=\"failed\"}')")
-  espera=$(entero "$(metrica 'wanderbibliothek_jobs_oldest_pending_minutes{kind=\"mail\"}')")
+  espera=$(entero "$(metrica 'wanderbibliothek_jobs_overdue_minutes{kind=\"mail\"}')")
   wal=$(entero "$(metrica 'wanderbibliothek_database_wal_bytes')")
   peticiones=$(entero "$(metrica 'wanderbibliothek_http_requests_total')")
   errores=$(entero "$(metrica 'wanderbibliothek_http_errors_total')")
@@ -114,7 +114,7 @@ else
     problemas+=("$fallidos correo(s) en estado fallido")
   fi
   if [ -n "$espera" ] && [ "$espera" -gt "$MAX_MAIL_WAIT_MIN" ]; then
-    problemas+=("el correo pendiente más antiguo espera $espera min (tope $MAX_MAIL_WAIT_MIN)")
+    problemas+=("hay correo con $espera min de retraso (tope $MAX_MAIL_WAIT_MIN): el envío no avanza")
   fi
   if [ -n "$wal" ] && [ "$(( wal / 1048576 ))" -gt "$MAX_WAL_MB" ]; then
     problemas+=("el WAL ocupa $(( wal / 1048576 )) MB (tope $MAX_WAL_MB MB): el checkpoint no completa")

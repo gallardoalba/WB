@@ -155,3 +155,34 @@ test("la poda respeta el trabajo reciente y el pendiente que aún puede correr",
   assert.equal(row(viejo), undefined);
   assert.ok(row(reciente), "lo reciente se conserva para poder investigar");
 });
+
+test("un trabajo perdido también queda con fecha de fin", () => {
+  const id = jobs.enqueueJob({ kind: "prueba", payload: {} });
+  let intentos = 0;
+  for (let vuelta = 0; vuelta < jobs.MAX_ATTEMPTS; vuelta += 1) {
+    intentos = jobs.failJob(id, "sin respuesta", intentos).attempts;
+  }
+  const guardado = row(id)!;
+  assert.equal(guardado.status, "failed");
+  assert.ok(
+    guardado.finished_at,
+    "sin fecha de fin no se sabe cuándo se dejó de intentar",
+  );
+});
+
+test("el retraso se mide desde el próximo intento, no desde la creación", () => {
+  // Un reintento programado para dentro de media hora no es una cola parada:
+  // es la espera creciente haciendo su trabajo.
+  const id = jobs.enqueueJob({
+    kind: "prueba",
+    payload: {},
+    runAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+  });
+  assert.equal(jobs.jobStats("prueba").overdueMinutes, 0);
+
+  // Ya tocaba ejecutarlo y sigue ahí: eso sí es un retraso.
+  db()
+    .prepare("UPDATE jobs SET next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 minutes') WHERE id = ?")
+    .run(id);
+  assert.equal(jobs.jobStats("prueba").overdueMinutes, 45);
+});
