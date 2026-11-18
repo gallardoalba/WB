@@ -1,8 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
 import { handleApiError, json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { processSocialOutbox, purgeSocialOutbox } from "@/lib/mastodon";
 import { processLikes, purgeSocialLikes } from "@/lib/mastodon-likes";
+import { bearerToken, safeEqual } from "@/lib/ops-auth";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
@@ -20,9 +20,7 @@ export async function POST(request: Request) {
     const token = process.env.MAINTENANCE_TOKEN;
     if (!token) throw new ApiError(404, "No encontrado.");
 
-    const header = request.headers.get("authorization") ?? "";
-    const provided = header.startsWith("Bearer ") ? header.slice(7) : "";
-    if (!safeEqual(provided, token)) throw new ApiError(401, "Token no válido.");
+    if (!safeEqual(bearerToken(request), token)) throw new ApiError(401, "Token no válido.");
 
     // El timer dispara cada 15 minutos (4 pasadas por hora). El tope anterior
     // era 6/h y se agotaba en cuanto un despliegue o una prueba manual llamaba
@@ -80,11 +78,4 @@ export async function POST(request: Request) {
   } catch (error) {
     return handleApiError(error);
   }
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
 }

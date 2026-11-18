@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# Vigilante del servicio: salud, proxy, disco, edad de la última copia y
-# caducidad del certificado. Escribe a journal y, si `ERROR_WEBHOOK_URL` está
-# definido en `/etc/wanderbibliothek/env`, manda un JSON (Slack, Discord, un
-# Worker propio…). Sale 1 si algo va mal, así que `systemctl status` lo deja ver.
+# Vigilante del servicio: salud, proxy, cola de correo, WAL, tasa de errores,
+# disco, edad de la última copia y caducidad del certificado. Escribe a journal
+# y, si `ERROR_WEBHOOK_URL` está definido en `/etc/wanderbibliothek/env`, manda
+# un JSON (Slack, Discord, un Worker propio…). Sale 1 si algo va mal, así que
+# `systemctl status` lo deja ver.
 #
 # Lo lanza `wanderbibliothek-watchdog.timer` cada 15 minutos como root: necesita
 # leer el certificado y la carpeta de copias.
@@ -56,13 +57,82 @@ if [ -n "${salud:-}" ]; then
   esac
 fi
 
-# 2. Disco.
+# 2. Cola de correo, WAL y tasa de errores.
+#
+#   Se piden en formato Prometheus y se leen con `awk`: son dos líneas en vez de
+#   un analizador de JSON en shell, y el formato es estable. El token es el del
+#   mantenimiento, que es lo único que tiene el host, y el endpoint no lleva
+#   contenido de nadie.
+#
+#   Lo que se vigila aquí es lo que la sonda de salud no ve: un correo que se
+#   dio por perdido (nadie recibe su enlace de verificación y no hay error en
+#   ninguna parte), una cola que no avanza, un WAL que crece porque el
+#   checkpoint no completa, y una proporción de errores que ya no es un caso
+#   aislado.
+METRICS_URL="${METRICS_URL:-http://127.0.0.1:3000/api/metrics?format=prometheus}"
+MAX_MAIL_FAILED="${MAX_MAIL_FAILED:-0}"
+MAX_MAIL_WAIT_MIN="${MAX_MAIL_WAIT_MIN:-120}"
+MAX_WAL_MB="${MAX_WAL_MB:-512}"
+MAX_ERROR_PCT="${MAX_ERROR_PCT:-5}"
+MIN_REQUESTS_ERRORS="${MIN_REQUESTS_ERRORS:-50}"
+
+metricas=""
+if [ -n "${MAINTENANCE_TOKEN:-}" ]; then
+  metricas=$(curl -fsS --max-time 8 -H "Authorization: Bearer $MAINTENANCE_TOKEN" "$METRICS_URL" 2>/dev/null) || true
+fi
+
+# Valor de una serie; vacío si la métrica no está (instancia sin esta versión).
+metrica() {
+  printf '%s\n' "$metricas" | awk -v serie="$1" '$1 == serie { print $2; exit }'
+}
+
+# Parte entera de un valor de Prometheus, o vacío si no es un número: un cambio
+# de formato no puede convertir el vigilante en un generador de avisos falsos.
+entero() {
+  case "${1%.*}" in
+    '' | *[!0-9]*) printf '' ;;
+    *) printf '%s' "${1%.*}" ;;
+  esac
+}
+
+if [ -z "${MAINTENANCE_TOKEN:-}" ]; then
+  echo "[watchdog] sin MAINTENANCE_TOKEN no se revisan cola, WAL ni errores" >&2
+elif [ -z "$metricas" ]; then
+  problemas+=("no se pudieron leer las métricas en $METRICS_URL")
+else
+  perdidos=$(entero "$(metrica 'wanderbibliothek_jobs_failed_24h{kind=\"mail\"}')")
+  fallidos=$(entero "$(metrica 'wanderbibliothek_jobs{kind=\"mail\",status=\"failed\"}')")
+  espera=$(entero "$(metrica 'wanderbibliothek_jobs_oldest_pending_minutes{kind=\"mail\"}')")
+  wal=$(entero "$(metrica 'wanderbibliothek_database_wal_bytes')")
+  peticiones=$(entero "$(metrica 'wanderbibliothek_http_requests_total')")
+  errores=$(entero "$(metrica 'wanderbibliothek_http_errors_total')")
+
+  if [ -n "$perdidos" ] && [ "$perdidos" -gt 0 ]; then
+    problemas+=("$perdidos correo(s) dados por perdidos en 24 h")
+  fi
+  if [ -n "$fallidos" ] && [ "$fallidos" -gt "$MAX_MAIL_FAILED" ]; then
+    problemas+=("$fallidos correo(s) en estado fallido")
+  fi
+  if [ -n "$espera" ] && [ "$espera" -gt "$MAX_MAIL_WAIT_MIN" ]; then
+    problemas+=("el correo pendiente más antiguo espera $espera min (tope $MAX_MAIL_WAIT_MIN)")
+  fi
+  if [ -n "$wal" ] && [ "$(( wal / 1048576 ))" -gt "$MAX_WAL_MB" ]; then
+    problemas+=("el WAL ocupa $(( wal / 1048576 )) MB (tope $MAX_WAL_MB MB): el checkpoint no completa")
+  fi
+  if [ -n "$peticiones" ] && [ -n "$errores" ] &&
+     [ "$peticiones" -ge "$MIN_REQUESTS_ERRORS" ] &&
+     [ "$(( errores * 100 / peticiones ))" -gt "$MAX_ERROR_PCT" ]; then
+    problemas+=("$(( errores * 100 / peticiones ))% de errores sobre $peticiones peticiones")
+  fi
+fi
+
+# 3. Disco.
 disco=$(df --output=pcent / | tail -1 | tr -dc '0-9')
 if [ -n "$disco" ] && [ "$disco" -gt "$MAX_DISK_PCT" ]; then
   problemas+=("disco al ${disco}% (tope ${MAX_DISK_PCT}%)")
 fi
 
-# 3. ¿Hay una copia reciente?
+# 4. ¿Hay una copia reciente?
 ultima=$(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name '*.db' -o -name '*.db.enc' \) \
   -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
 if [ -z "$ultima" ]; then
@@ -75,7 +145,7 @@ else
   fi
 fi
 
-# 4. Certificado (certbot renueva solo; esto avisa si deja de hacerlo).
+# 5. Certificado (certbot renueva solo; esto avisa si deja de hacerlo).
 if [ -f "$CERT" ]; then
   fin=$(date -d "$(openssl x509 -enddate -noout -in "$CERT" | cut -d= -f2)" +%s 2>/dev/null)
   if [ -n "${fin:-}" ]; then
@@ -89,7 +159,7 @@ if [ -f "$CERT" ]; then
   fi
 fi
 
-# 5. Serie histórica (una línea por pasada; se recorta sola).
+# 6. Serie histórica (una línea por pasada; se recorta sola).
 ram_mb=$(free -m | awk '/^Mem:/ {print $3}')
 estado=ok
 [ ${#problemas[@]} -gt 0 ] && estado=fail
@@ -103,7 +173,7 @@ if [ -f "$METRICS_CSV" ] && [ "$(wc -l < "$METRICS_CSV")" -gt "$MAX_METRICS_LINE
   tail -n "$MAX_METRICS_LINES" "$METRICS_CSV" > "$METRICS_CSV.tmp" && mv "$METRICS_CSV.tmp" "$METRICS_CSV"
 fi
 
-# 6. Dead-man's switch: si este script deja de ejecutarse, el monitor externo
+# 7. Dead-man's switch: si este script deja de ejecutarse, el monitor externo
 #    lo nota. La URL es de healthchecks.io o compatible (una por vigilante).
 if [ -n "${WATCHDOG_PING_URL:-}" ]; then
   destino="$WATCHDOG_PING_URL"

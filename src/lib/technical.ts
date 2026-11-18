@@ -77,13 +77,13 @@ const ES: TechnicalDocument = {
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v57), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v58), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
-            "tests/                 880 pruebas unitarias y de integración (113 ficheros)",
+            "tests/                 917 pruebas unitarias y de integración (119 ficheros)",
             "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
@@ -182,7 +182,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan siete pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla) y la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada). El detalle de cada paso está en ese fichero y en su historial de git.`,
+          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan ocho pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla), la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada) y la v58 (lo diferido deja de tener una tabla por cosa: \`jobs\` guarda estado, intentos, próximo intento y último error para cualquier trabajo, y el correo es un tipo más). El detalle de cada paso está en ese fichero y en su historial de git.`,
         },
         {
           kind: "p",
@@ -332,7 +332,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta 880 pruebas unitarias y de integración en 113 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta 917 pruebas unitarias y de integración en 119 ficheros (runner de Node sobre SQLite en memoria) y `npm run test:e2e` añade 56 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -368,7 +368,7 @@ const ES: TechnicalDocument = {
             "`npm run db:verify` es el ensayo de restauración: descifra la copia más reciente (o la que se le pase), la abre en solo lectura como lo haría la aplicación, ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del esquema y cuenta las tablas principales. Sale con error si la copia no se puede restaurar.",
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año), las apelaciones resueltas (2 años) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
-            "Las rutas envueltas por `route()` dejan una línea `[req] {…}` y la cabecera `x-response-time`; nginx registra **todas las peticiones a la aplicación** con el mismo `x-request-id`, que también vuelve al cliente. Las rutas escritas a mano aún no emiten esa línea: la migración pendiente las va cubriendo. En `/api/metrics` (solo administración) hay un resumen de latencia p50/p95/p99 de esas rutas, memoria, flujos en vivo y tamaño de la base y del WAL. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "Las rutas envueltas por `route()` dejan una línea `[req] {…}` y la cabecera `x-response-time`; nginx registra **todas las peticiones a la aplicación** con el mismo `x-request-id`, que también vuelve al cliente. Las rutas escritas a mano aún no emiten esa línea: la migración pendiente las va cubriendo. En `/api/metrics` (administración o el token del mantenimiento) hay un resumen de latencia p50/p95/p99 de esas rutas, memoria, flujos en vivo, el estado de las colas de trabajo y el tamaño de la base y del WAL; con `?format=prometheus` sale en el formato que entiende un recolector. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor y el bus de avisos vive en memoria. Escalar exige PostgreSQL y Redis/pubsub.",
             "Techo medido con `npm run bench:sqlite`: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
@@ -518,13 +518,13 @@ const DE: TechnicalDocument = {
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v57), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v58), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
-            "tests/                 880 Unit- und Integrationstests (113 Dateien)",
+            "tests/                 917 Unit- und Integrationstests (119 Dateien)",
             "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
@@ -623,7 +623,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen sieben Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen) und die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
+          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen acht Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen), die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben) und die v58 (Aufgeschobenes hat nicht mehr eine Tabelle pro Sache: \`jobs\` hält Status, Versuche, nächsten Versuch und letzten Fehler für jede Aufgabe, und E-Mail ist eine Art davon). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
         },
         {
           kind: "p",
@@ -773,7 +773,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt 880 Unit- und Integrationstests in 113 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt 917 Unit- und Integrationstests in 119 Dateien aus (Node-Testrunner auf SQLite im Speicher), und `npm run test:e2e` ergänzt 56 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",
@@ -809,7 +809,7 @@ const DE: TechnicalDocument = {
             "`npm run db:verify` ist die Wiederherstellungsprobe: entschlüsselt die neueste Sicherung (oder die übergebene), öffnet sie schreibgeschützt wie die Anwendung, führt `integrity_check` und `foreign_key_check` aus, prüft die Schemaversion und zählt die wichtigsten Tabellen. Bricht mit Fehler ab, wenn die Sicherung sich nicht wiederherstellen lässt.",
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr), entschiedene Einsprüche (2 Jahre) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
-            "Von `route()` umschlossene Routen hinterlassen eine `[req] {…}`-Zeile und die Kopfzeile `x-response-time`; nginx protokolliert **jede Anfrage an die Anwendung** mit derselben `x-request-id`, die auch an den Client zurückgeht. Handgeschriebene Routen erzeugen diese Zeile noch nicht: die ausstehende Migration deckt sie nach und nach ab. `/api/metrics` (nur Administration) liefert p50/p95/p99-Latenz dieser Routen, Speicher, offene Streams sowie Größe von Datenbank und WAL. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "Von `route()` umschlossene Routen hinterlassen eine `[req] {…}`-Zeile und die Kopfzeile `x-response-time`; nginx protokolliert **jede Anfrage an die Anwendung** mit derselben `x-request-id`, die auch an den Client zurückgeht. Handgeschriebene Routen erzeugen diese Zeile noch nicht: die ausstehende Migration deckt sie nach und nach ab. `/api/metrics` (Administration oder das Wartungstoken) liefert p50/p95/p99-Latenz dieser Routen, Speicher, offene Streams, den Zustand der Arbeitswarteschlangen sowie Größe von Datenbank und WAL; mit `?format=prometheus` im Format, das ein Collector versteht. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, und der Hinweis-Bus liegt im Speicher. Skalierung verlangt PostgreSQL und Redis/Pubsub.",
             "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",

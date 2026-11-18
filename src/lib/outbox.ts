@@ -1,152 +1,59 @@
-import { randomUUID } from "node:crypto";
-import { getDb, type Db } from "./db";
+import { claimJobs, enqueueJob, failJob, finishJob, jobStats, purgeJobs, type JobStats } from "./jobs";
 import { sendMail, type Mail } from "./mailer";
 
 /**
  * Bandeja de salida de correo.
  *
  * Los enlaces de verificación y recuperación se encolan en la misma base que el
- * token. Un worker (el `after()` de la petición o el cron) los intenta enviar y
- * los reintenta con backoff; antes, un fallo del proveedor perdía el correo.
+ * token, como trabajos de tipo `mail` (ver `jobs.ts`). Un worker (el `after()`
+ * de la petición o el cron) los intenta enviar y los reintenta con espera
+ * creciente; antes, un fallo del proveedor perdía el correo.
+ *
+ * Lo propio del correo —asunto, cuerpo, dirección— va en el `payload` del
+ * trabajo, y la dirección se copia además en `target` porque es lo que se
+ * consulta para el tope anti-spam y para borrar lo pendiente de una baja.
  */
+export const MAIL_JOB = "mail";
+
+type MailPayload = { to: string; subject: string; text: string };
+
 export function enqueueMail(mail: Mail): string {
-  const id = `mail_${randomUUID()}`;
-  getDb()
-    .prepare(
-      `INSERT INTO mail_outbox (id, to_email, subject, body, status, attempts, next_attempt_at, created_at)
-       VALUES (?, ?, ?, ?, 'pending', 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-    )
-    .run(id, mail.to, mail.subject, mail.text);
-  return id;
+  return enqueueJob({
+    kind: MAIL_JOB,
+    target: mail.to,
+    payload: { to: mail.to, subject: mail.subject, text: mail.text } satisfies MailPayload,
+  });
 }
 
-/**
- * Intenta entregar los correos pendientes.
- *
- * Cada fila se **reclama** antes de enviarla: el estado pasa a `sending` dentro
- * de una transacción, así que si el `after()` del registro y el cron coinciden,
- * solo uno de los dos la envía. Antes ambos leían la misma fila pendiente y la
- * persona recibía dos veces el mismo enlace (el segundo invalidaba el primero).
- *
- * Una reclamación que se quede colgada (proceso caído a mitad del envío) vuelve
- * a `pending` pasados cinco minutos, que es más que cualquier tiempo de espera
- * del proveedor.
- */
+/** Intenta entregar los correos pendientes. */
 export async function processOutbox(limit = 20): Promise<{ sent: number; failed: number }> {
-  const db = getDb();
-  const rows = claimPending(db, limit);
+  const jobs = claimJobs<MailPayload>(MAIL_JOB, limit);
 
   let sent = 0;
   let failed = 0;
-  for (const row of rows) {
+  for (const job of jobs) {
     const result = await sendMail({
-      to: row.to_email,
-      subject: row.subject,
-      text: row.body,
+      to: job.payload.to,
+      subject: job.payload.subject,
+      text: job.payload.text,
     });
     if (result.delivered) {
-      db.prepare(
-        "UPDATE mail_outbox SET status = 'sent', sent_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), last_error = NULL WHERE id = ?",
-      ).run(row.id);
+      finishJob(job.id);
       sent += 1;
       continue;
     }
-
-    const attempts = row.attempts + 1;
-    const finalFailure = attempts >= 5;
-    const delaySeconds = Math.min(3600, 2 ** attempts * 60);
-    db.prepare(
-      `UPDATE mail_outbox
-          SET attempts = ?, status = ?, last_error = ?,
-              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
-        WHERE id = ?`,
-    ).run(
-      attempts,
-      finalFailure ? "failed" : "pending",
-      "El proveedor no confirmó la entrega.",
-      `+${delaySeconds} seconds`,
-      row.id,
-    );
+    failJob(job.id, "El proveedor no confirmó la entrega.", job.attempts);
     failed += 1;
   }
   return { sent, failed };
 }
 
-/** Minutos que una fila puede estar «en envío» antes de darla por abandonada. */
-const CLAIM_SECONDS = 5 * 60;
-
-type ClaimedMail = {
-  id: string;
-  to_email: string;
-  subject: string;
-  body: string;
-  attempts: number;
-};
-
-/**
- * Marca como `sending` las filas que este worker va a intentar y las devuelve.
- *
- * Seleccionar y marcar van en la misma transacción: con una sola conexión eso
- * basta para que dos workers del mismo proceso no se repartan la misma fila.
- */
-function claimPending(db: Db, limit: number): ClaimedMail[] {
-  return db.transaction(() => {
-    // Reclamaciones abandonadas por un proceso que murió a mitad.
-    db.prepare(
-      `UPDATE mail_outbox SET status = 'pending'
-        WHERE status = 'sending'
-          AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
-    ).run();
-
-    const rows = db
-      .prepare(
-        `SELECT id, to_email, subject, body, attempts
-           FROM mail_outbox
-          WHERE status = 'pending'
-            AND next_attempt_at <= strftime('%Y-%m-%dT%H:%M:%fZ','now')
-          ORDER BY created_at ASC
-          LIMIT ?`,
-      )
-      .all(limit) as ClaimedMail[];
-
-    const claim = db.prepare(
-      `UPDATE mail_outbox
-          SET status = 'sending',
-              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
-        WHERE id = ? AND status = 'pending'`,
-    );
-    return rows.filter((row) => claim.run(`+${CLAIM_SECONDS} seconds`, row.id).changes === 1);
-  })();
+/** Correos terminados antiguos y, aparte, pendientes atascados. */
+export function purgeOutbox(days = 7, stuckDays = 30): number {
+  return purgeJobs(MAIL_JOB, days, stuckDays);
 }
 
-/**
- * Elimina correos entregados o fallidos antiguos y, aparte, los pendientes
- * atascados.
- *
- * Por defecto 7 días para lo terminado: el cuerpo guarda enlaces de
- * verificación y de restablecimiento, cuyos tokens caducan en 24 h y 1 h.
- * Conservarlos un mes no aporta nada y mantiene datos personales de más.
- *
- * Un pendiente se reintenta cinco veces con espera creciente (una hora como
- * mucho), así que a los 30 días ya no es trabajo: es una fila muerta que sigue
- * llevando el token en el cuerpo. Antes se quedaba para siempre porque la poda
- * solo miraba los estados finales.
- */
-export function purgeOutbox(days = 7, stuckDays = 30): number {
-  const db = getDb();
-  const terminados = db
-    .prepare(
-      `DELETE FROM mail_outbox
-        WHERE status <> 'pending'
-          AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)`,
-    )
-    .run(`-${days} days`).changes;
-  const atascados = db
-    .prepare(
-      `DELETE FROM mail_outbox
-        WHERE status = 'pending'
-          AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)`,
-    )
-    .run(`-${stuckDays} days`).changes;
-  return terminados + atascados;
+/** Foto de la cola de correo, sin contenido: la usan `/api/metrics` y el vigilante. */
+export function outboxStats(): JobStats {
+  return jobStats(MAIL_JOB);
 }

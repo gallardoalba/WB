@@ -8,6 +8,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
+import { lastMail } from "./mail-queries.ts";
+
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type TokensModule = typeof import("../src/lib/account-tokens.ts");
@@ -54,9 +56,7 @@ test("una cuenta en alemán recibe la confirmación en alemán", async () => {
 
   await tokens.sendVerificationEmail("usr_ana", email);
 
-  const row = db
-    .prepare("SELECT subject, body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get(email) as { subject: string; body: string };
+  const row = lastMail(db, email)!;
   assert.match(row.subject, /Bestätige deine E-Mail/);
   assert.match(row.body, /Posteingang/);
   assert.doesNotMatch(row.body, /bandeja de entrada/);
@@ -71,9 +71,7 @@ test("una cuenta en castellano recibe el restablecimiento en castellano", async 
 
   await tokens.sendPasswordResetEmail("usr_diego", email);
 
-  const row = db
-    .prepare("SELECT subject, body FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get(email) as { subject: string; body: string };
+  const row = lastMail(db, email)!;
   assert.match(row.subject, /Restablece tu contraseña/);
   assert.match(row.body, /bandeja de entrada/);
 });
@@ -89,8 +87,6 @@ test("un idioma desconocido en la fila cae al alemán, nunca a una clave técnic
 
   await tokens.sendVerificationEmail("usr_clara", email);
 
-  const row = db
-    .prepare("SELECT subject FROM mail_outbox WHERE to_email = ? ORDER BY rowid DESC LIMIT 1")
-    .get(email) as { subject: string };
+  const row = lastMail(db, email)!;
   assert.match(row.subject, /Bestätige deine E-Mail/);
 });

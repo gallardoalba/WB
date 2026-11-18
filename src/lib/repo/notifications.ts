@@ -94,8 +94,9 @@ function enqueueNotificationEmail(
     // Tope anti-spam: como mucho 5 correos por hora y dirección.
     const recent = db
       .prepare(
-        `SELECT COUNT(*) AS count FROM mail_outbox
-          WHERE to_email = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour')`,
+        `SELECT COUNT(*) AS count FROM jobs
+          WHERE kind = 'mail' AND target = ?
+            AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 hour')`,
       )
       .get(recipient.email) as { count: number };
     if (recent.count >= 5) return;

@@ -232,6 +232,23 @@ Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
 —el 401 o el 400 con el `code` de Brevo— está una línea antes. El cron
 (`/api/cron/maintenance`) reintenta con espera creciente hasta cinco veces.
 
+**Comprobar que el dominio inspira confianza.** `mail:test` dice si el proveedor
+acepta el mensaje; no dice si el buzón lo va a querer. Eso depende de tres
+registros DNS y de la cola real:
+
+```bash
+sudo npm --prefix /srv/wanderbibliothek/current run mail:health
+# o en JSON, para encadenarlo:
+sudo npm --prefix /srv/wanderbibliothek/current run mail:health -- --json
+```
+
+Lee `MAIL_FROM` para saber el dominio y `MAIL_DKIM_SELECTOR` (el nombre que da
+el proveedor: `brevo`, `s1`, `mail`…) para buscar la clave pública. Comprueba
+SPF, DMARC —avisa si está en `p=none`, que observa el fallo pero no protege el
+dominio— y la firma DKIM; además cuenta los correos pendientes, los dados por
+perdidos en 24 h y lo que lleva esperando el más antiguo. Sale 1 si hay algo que
+arreglar, y el vigilante mira la cola por su cuenta cada 15 minutos.
+
 ### Bot de Mastodon (opcional)
 
 Con `MASTODON_TOKEN` definido, cada obra que publica una **cuenta de administración**
@@ -668,12 +685,29 @@ la guardas fuera del servidor: pásala en la línea de órdenes, como arriba.
 ### Vigilante (salud, disco, copias y certificado)
 
 `deploy/watchdog.sh` lo ejecuta `wanderbibliothek-watchdog.timer` cada 15
-minutos como root y comprueba cuatro cosas: que `/api/health` responde y dice
+minutos como root y comprueba que `/api/health` responde y dice
 `proxy: "trusted"`, que el disco no pasa del 85 %, que la última copia tiene
 menos de 12 h y que el certificado no caduca en menos de 14 días. Lo que falla
 va al journal; si defines `ERROR_WEBHOOK_URL` en `/etc/wanderbibliothek/env`,
 también sale un JSON a ese webhook. Los umbrales se cambian con
 `MAX_DISK_PCT`, `MAX_BACKUP_AGE_H` y `MIN_CERT_DAYS`.
+
+Además, con `MAINTENANCE_TOKEN` definido, pide `/api/metrics?format=prometheus`
+y vigila lo que la sonda de salud no ve:
+
+| Qué | Variable | Por defecto |
+|---|---|---|
+| Correos dados por perdidos en 24 h | — | cualquier valor > 0 avisa |
+| Correos en estado fallido | `MAX_MAIL_FAILED` | `0` |
+| Espera del correo pendiente más antiguo | `MAX_MAIL_WAIT_MIN` | `120` |
+| Tamaño del WAL (el checkpoint no completa) | `MAX_WAL_MB` | `512` |
+| Proporción de errores de servidor | `MAX_ERROR_PCT` | `5` |
+| Peticiones mínimas para calcularla | `MIN_REQUESTS_ERRORS` | `50` |
+
+Un correo que el proveedor acepta y el buzón manda a spam no deja rastro: la
+base lo marca como entregado y la persona nunca ve su enlace. Por eso la cola
+se vigila aquí y los registros del dominio se comprueban con `npm run
+mail:health` (ver la sección de correo).
 
 ```bash
 sudo systemctl start wanderbibliothek-watchdog.service   # probarlo a mano

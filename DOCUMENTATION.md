@@ -22,13 +22,13 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v57), seed
+    db/                connection, base schema (v2), migrations (v3–v58), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 880 unit and integration tests (113 files)
+tests/                 917 unit and integration tests (119 files)
 e2e/                   56 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -100,7 +100,7 @@ The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v57). A new installation starts from `SCHEMA_V2` and its indexes and runs the 55 steps up to v57; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Seven steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it) and v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v58). A new installation starts from `SCHEMA_V2` and its indexes and runs the 56 steps up to v58; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Eight steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string) and v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
@@ -217,7 +217,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 880 unit and integration tests in 113 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 917 unit and integration tests in 119 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 56 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -242,7 +242,8 @@ npx playwright install chromium && npm run test:e2e
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
 - `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--key-fingerprint` pins the Ed25519 public key and `--pin` the Merkle root, so an external witness fails if a snapshot is rewritten or the instance starts signing with another key.
 - Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header. nginx logs every application request with the same `x-request-id` (also returned to the client), so a request can be correlated even when its handler is still written by hand.
-- `GET /api/metrics` (administrator only) returns uptime, memory, p50/p95/p99 latency of `route()`-wrapped handlers, error and request counters, open live streams and database/WAL size. It is JSON, not Prometheus, and contains no request data.
+- `GET /api/metrics` returns uptime, memory, p50/p95/p99 latency of `route()`-wrapped handlers, error and request counters, open live streams, the state of each job queue and database/WAL size. JSON by default; `?format=prometheus` (or `Accept: text/plain`) returns the same picture in the exposition format, so a scraper needs no translator. It accepts an admin session **or** the `MAINTENANCE_TOKEN` —the watchdog and a local scraper have no cookie— and never carries request data.
+- `npm run mail:health [-- --json]` checks what makes a mailbox trust the sender —SPF, DKIM under `<MAIL_DKIM_SELECTOR>._domainkey.<domain>` and the DMARC policy— plus the real state of the queue: pending, lost in the last 24 h and how long the oldest one has waited. It exits 1 when something has to be fixed, so it can be chained into maintenance. A message the provider accepts and the inbox files as spam leaves no trace anywhere else.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer and the notification bus lives in memory. Scaling requires PostgreSQL and Redis/pubsub.
 - Updating restarts that single process: the deploy scripts take a backup, swap the release, restart and check `/api/health`, rolling back on failure. An update therefore means a few seconds of downtime, and there is no high availability.

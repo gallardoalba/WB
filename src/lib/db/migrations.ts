@@ -1821,6 +1821,68 @@ function migrateToV57(db: Db) {
 }
 
 /**
+ * v58: las tareas pendientes dejan de ser una tabla por cosa.
+ *
+ * `mail_outbox` tenía ya el patrón completo —estado, intentos, próximo intento,
+ * último error—, pero atado al correo: un aviso de Mastodon o un «me gusta»
+ * pendiente viven en su propia tabla con las mismas columnas copiadas. Eso deja
+ * tres sitios donde mirar para saber qué no ha salido, y cada uno con su propia
+ * forma de reintentar.
+ *
+ * `jobs` guarda cualquier trabajo diferido con ese mismo patrón. `kind` dice de
+ * qué es y `target` es lo que se consulta por ahí (la dirección de correo, para
+ * el tope anti-spam y para borrar lo pendiente al darse de baja); el contenido
+ * va en `payload` como JSON, porque no hay dos tipos de tarea que necesiten las
+ * mismas columnas y no conviene que el esquema crezca con cada uno.
+ *
+ * Los correos encolados se copian con su estado —entregado pasa a `done`,
+ * fallido a `failed`— y `mail_outbox` desaparece: dos tablas con la misma cola
+ * acabarían enviando dos veces.
+ */
+function migrateToV58(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS jobs (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      target TEXT,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT NOT NULL,
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      finished_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(kind, status, next_attempt_at);
+    CREATE INDEX IF NOT EXISTS jobs_target ON jobs(kind, target, created_at);
+    CREATE INDEX IF NOT EXISTS jobs_finished ON jobs(status, finished_at);
+  `);
+
+  const tables = (
+    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+  ).map((row) => row.name);
+
+  if (tables.includes("mail_outbox")) {
+    db.exec(`
+      INSERT OR IGNORE INTO jobs
+        (id, kind, target, payload, status, attempts, next_attempt_at, last_error, created_at, finished_at)
+      SELECT 'job_' || substr(id, 6), 'mail', to_email,
+             json_object('to', to_email, 'subject', subject, 'text', body),
+             CASE status
+               WHEN 'sent' THEN 'done'
+               WHEN 'failed' THEN 'failed'
+               ELSE 'pending'
+             END,
+             attempts, next_attempt_at, last_error, created_at, sent_at
+        FROM mail_outbox
+    `);
+    db.exec("DROP TABLE mail_outbox");
+  }
+
+  db.pragma("user_version = 58");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1962,6 +2024,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 55) migrateToV55(db);
   if (userVersion(db) < 56) migrateToV56(db);
   if (userVersion(db) < 57) migrateToV57(db);
+  if (userVersion(db) < 58) migrateToV58(db);
 
   backfillSearchKeys(db);
 }

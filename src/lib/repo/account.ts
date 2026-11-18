@@ -21,7 +21,7 @@ export function deleteAccount(userId: string): void {
     cancelExchangesForAccount(userId);
     if (account?.email) {
       // Los enlaces pendientes contienen tokens y el correo de la persona.
-      db.prepare("DELETE FROM mail_outbox WHERE to_email = ?").run(account.email);
+      db.prepare("DELETE FROM jobs WHERE kind = 'mail' AND target = ?").run(account.email);
     }
     // La ciudad no sobrevive a la baja: junto con las fechas del historial que
     // sí se conserva, identifica a la persona en un pueblo. El nombre y el

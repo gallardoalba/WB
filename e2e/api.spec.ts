@@ -61,3 +61,37 @@ test("un cuerpo inválido devuelve 422 con el formato de errores", async ({ requ
   expect(typeof body.error).toBe("string");
   expect(Array.isArray(body.issues)).toBe(true);
 });
+
+test("las métricas piden administración y se publican también en formato Prometheus", async ({
+  request,
+}) => {
+  // Sin sesión no hay métricas: ni el JSON ni el texto.
+  expect((await request.get("/api/metrics")).status()).toBe(401);
+  expect((await request.get("/api/metrics?format=prometheus")).status()).toBe(401);
+
+  // Ana entra pero no es administradora.
+  await request.post("/api/auth/login", { data: DEMO });
+  expect((await request.get("/api/metrics")).status()).toBe(403);
+  expect((await request.get("/api/metrics?format=prometheus")).status()).toBe(403);
+
+  // La administración sí, en los dos formatos.
+  await request.post("/api/auth/login", {
+    data: { email: "admin@wanderbibliothek.test", password: "demo1234" },
+  });
+
+  const json = await request.get("/api/metrics");
+  expect(json.status()).toBe(200);
+  const body = await json.json();
+  expect(body.scope).toBe("route()");
+  expect(body.jobs.mail.pending).toBeGreaterThanOrEqual(0);
+
+  const texto = await request.get("/api/metrics?format=prometheus");
+  expect(texto.status()).toBe(200);
+  expect(texto.headers()["content-type"]).toContain("text/plain; version=0.0.4");
+  const lineas = await texto.text();
+  expect(lineas).toContain("# TYPE wanderbibliothek_up gauge");
+  expect(lineas).toMatch(/^wanderbibliothek_up 1$/m);
+  expect(lineas).toMatch(/^wanderbibliothek_database_wal_bytes \d+$/m);
+  // Nada de contenido: ni direcciones de correo en el texto.
+  expect(lineas).not.toContain("@");
+});

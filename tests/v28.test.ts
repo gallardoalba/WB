@@ -22,10 +22,12 @@ test("el esquema v26 crea los índices que faltaban", () => {
     (row) => row.name,
   );
   assert.ok(listings.includes("listings_book"), "falta listings(book_id)");
-  const outbox = (dbModule.getDb().pragma("index_list(mail_outbox)") as { name: string }[]).map(
+  // La cola de correo es la tabla `jobs` desde la v58: el índice que creó la
+  // v26 para el tope de 5 correos/hora sigue existiendo con otro nombre.
+  const outbox = (dbModule.getDb().pragma("index_list(jobs)") as { name: string }[]).map(
     (row) => row.name,
   );
-  assert.ok(outbox.includes("mail_outbox_to"), "falta mail_outbox(to_email)");
+  assert.ok(outbox.includes("jobs_target"), "falta jobs(kind, target)");
 });
 
 test("borrar la cuenta del solicitante devuelve el ejemplar a disponible", () => {
