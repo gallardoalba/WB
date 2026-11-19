@@ -35,7 +35,7 @@ export type TechnicalDocument = {
 };
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-15";
+const UPDATED = "2026-11-19";
 
 const ES: TechnicalDocument = {
   title: "Documentación técnica",
@@ -315,7 +315,6 @@ const ES: TechnicalDocument = {
             ["`REQUIRE_EMAIL_VERIFICATION`", "sin definir", "`1` exige el correo confirmado para publicar, solicitar, comentar y escribir."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Días que se conserva `admin_audit` (0 = para siempre)."],
             ["`LEGAL_*`", "sin definir", "Titular, dirección, contacto y datos opcionales de `/privacidad` y `/aviso-legal`."],
-            ["`MASTODON_*`", "apagado", "Integración opcional con Mastodon; sin `MASTODON_TOKEN` está apagada."],
             ["`TRANSPARENCY_SIGNING_KEY`", "sin definir", "Clave Ed25519 (PKCS#8 en base64 o PEM) que firma la instantánea diaria del catálogo. Sin ella se publican sin firma y así se indica."],
             ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "sin definir", "Identidad del build que publica `/api/version`; la rellena el workflow de release o `deploy/deploy.sh`."],
           ],
@@ -756,7 +755,6 @@ const DE: TechnicalDocument = {
             ["`REQUIRE_EMAIL_VERIFICATION`", "nicht gesetzt", "`1` verlangt eine bestätigte Adresse zum Einstellen, Anfragen, Kommentieren und Schreiben."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Tage, die `admin_audit` aufbewahrt wird (0 = dauerhaft)."],
             ["`LEGAL_*`", "nicht gesetzt", "Betreiber, Anschrift, Kontakt und optionale Angaben für `/privacidad` und `/aviso-legal`."],
-            ["`MASTODON_*`", "aus", "Optionale Mastodon-Integration; ohne `MASTODON_TOKEN` aus."],
             ["`TRANSPARENCY_SIGNING_KEY`", "nicht gesetzt", "Ed25519-Schlüssel (PKCS#8 in Base64 oder PEM), der die tägliche Katalog-Momentaufnahme signiert. Ohne ihn werden sie unsigniert veröffentlicht und als solche gekennzeichnet."],
             ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "nicht gesetzt", "Build-Identität, die `/api/version` veröffentlicht; gefüllt vom Release-Workflow oder von `deploy/deploy.sh`."],
           ],

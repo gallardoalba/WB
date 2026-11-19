@@ -15,7 +15,7 @@ import type { TechnicalDocument } from "./technical";
 
 export const EN: TechnicalDocument = {
   title: "Technical documentation",
-  updated: "2026-11-14",
+  updated: "2026-11-19",
   intro: [
     "How Wanderbibliothek is built: architecture, routes, data, security and operations. It is meant for anyone who is going to read the code, deploy it or audit what it stores.",
     "Everything described here is in the repository. If the code changes, this page changes with it.",
@@ -289,7 +289,6 @@ export const EN: TechnicalDocument = {
             ["`REQUIRE_EMAIL_VERIFICATION`", "unset", "`1` requires a confirmed address to publish, request, comment and write."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Days `admin_audit` is kept (0 = forever)."],
             ["`LEGAL_*`", "unset", "Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`."],
-            ["`MASTODON_*`", "off", "Optional Mastodon integration; disabled without `MASTODON_TOKEN`."],
             ["`TRANSPARENCY_SIGNING_KEY`", "unset", "Ed25519 key (PKCS#8 in base64 or PEM) that signs the daily catalogue snapshot. Without it, snapshots are published unsigned and marked as such."],
             ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "unset", "Build identity published by `/api/version`; filled by the release workflow or `deploy/deploy.sh`."],
           ],
