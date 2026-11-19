@@ -1,78 +1,79 @@
-# Despliegue en un servidor (systemd + nginx)
+# Deploying on a server (systemd + nginx)
 
-Receta para poner Wanderbibliothek en un host Linux propio, con TLS, servicio
-supervisado, tareas programadas y copias de seguridad. La aplicación es una sola
-instancia de Node con SQLite: **no** se puede replicar horizontalmente (ver
-«Límites conocidos»).
+Recipe for running Wanderbibliothek on your own Linux host, with TLS, a
+supervised service, scheduled jobs and backups. The application is a single
+Node instance with SQLite: it **cannot** be replicated horizontally (see
+"Known limits").
 
-## 0. Vía rápida: los dos scripts
+## 0. Quick path: the two scripts
 
-Si prefieres no lanzar los apartados uno a uno, el repositorio trae dos:
+If you would rather not run the sections one by one, the repository ships two:
 
 ```bash
-# Primera instalación en un servidor vacío (Debian/Ubuntu, como root).
-sudo deploy/bootstrap.sh --domain tu-dominio.de --email tu@correo.de
+# First installation on an empty server (Debian/Ubuntu, as root).
+sudo deploy/bootstrap.sh --domain your-domain.de --email you@example.com
 
-# Cada versión nueva: trae el código de GitHub y cambia de release.
+# Every new version: fetch the code from GitHub and switch release.
 sudo /srv/wanderbibliothek/current/deploy/deploy.sh
 ```
 
-- **`deploy/bootstrap.sh`** instala Node 24, nginx y certbot, crea el usuario y
-  los directorios, clona y compila, genera `/etc/wanderbibliothek/env` con
-  secretos nuevos, coloca el servicio y los temporizadores, publica el vhost y
-  pide el certificado. No pisa un `env` existente ni un vhost sin guardar copia,
-  y se niega a seguir si Apache ocupa los puertos 80/443.
-- **`deploy/deploy.sh`** crea una release en `releases/<fecha>-<commit>`, la
-  compila, **hace copia de la base** antes de cambiar nada, mueve `current`,
-  reinicia y comprueba `/api/health`. Si la comprobación falla, vuelve solo a la
-  versión anterior. Acepta `--ref` (etiqueta o commit), `--rollback`, `--keep N`
-  y `--dry-run`.
+- **`deploy/bootstrap.sh`** installs Node 24, nginx and certbot, creates the user
+  and directories, clones and builds, generates `/etc/wanderbibliothek/env` with
+  new secrets, installs the service and timers, publishes the vhost and requests
+  the certificate. It does not overwrite an existing `env` or a vhost without
+  keeping a copy, and it refuses to continue if Apache occupies ports 80/443.
+- **`deploy/deploy.sh`** creates a release under `releases/<date>-<commit>`,
+  builds it, **backs up the database** before changing anything, moves
+  `current`, restarts and checks `/api/health`. If the check fails, it rolls
+  back to the previous version by itself. It accepts `--ref` (tag, branch or
+  commit), `--rollback`, `--keep N`, `--skip-backup` and `--dry-run`.
 
-### Elegir el modo de despliegue
+### Choosing the deployment mode
 
-| Modo | Qué ejecuta | Actualización | Uso recomendado |
+| Mode | What it runs | Upgrade | Recommended use |
 |---|---|---|---|
-| **Imagen firmada** | El digest inmutable de GHCR; backup y assets públicos salen de esa misma imagen. El watchdog se instala en una ruta fija del host. | `wanderbibliothek-deploy-image --ref <versión>` | Recomendado para que terceros puedan contrastar el artefacto con GitHub. |
-| **Código** | La release bajo `current`; el backup usa su script y la aplicación Node del host. | `current/deploy/deploy.sh` | Alternativa para hosts sin Docker o para desarrollo. |
+| **Signed image** | The immutable GHCR digest; backup and public assets come from that same image. The watchdog is installed at a fixed host path. | `wanderbibliothek-deploy-image --ref <version>` | Recommended so that third parties can compare the artefact with GitHub. |
+| **Code** | The release under `current`; the backup uses its script and the host's Node application. | `current/deploy/deploy.sh` | Alternative for hosts without Docker or for development. |
 
-`deploy.sh` se conserva como alternativa deliberada, no como camino de
-actualización de la instancia por imagen. Una vez instalado el desacople descrito
-en el apartado 11, systemd, nginx y las tareas programadas del modo imagen no
-necesitan `current`. Esto hace coherentes el digest anunciado, los assets
-servidos y el código de la copia; no es una atestación del host y una persona
-con acceso root todavía puede cambiar Docker, systemd o nginx.
+`deploy.sh` is kept as a deliberate alternative, not as the image instance's
+upgrade path. Once the decoupling described in section 11 is installed, systemd,
+nginx and the scheduled jobs in image mode no longer need `current`. This makes
+the announced digest, the served assets and the code of the backup consistent;
+it is not an attestation of the host, and a person with root access can still
+change Docker, systemd or nginx.
 
-Los dos aceptan `--dry-run` y explican cada paso con `OK/AVISO/FALLO`. Lo que
-ninguno puede adivinar —correo, Impressum, cuenta de administración— queda
-listado al final de la ejecución. Los apartados siguientes son la versión manual
-paso a paso, útil para entender qué hace cada cosa o para depurar.
+Both accept `--dry-run` and explain each step with `OK`, `AVISO` (warning) and
+`FALLO` (failure). What neither can guess — email, Impressum, administration
+account — is listed at the end of the run. The following sections are the manual, step-by-step version,
+useful for understanding what each thing does or for debugging.
 
-## 1. Requisitos
+## 1. Requirements
 
-- Debian 12 / Ubuntu 22.04 o similar, 1 vCPU y 1 GB de RAM bastan para empezar.
-- Node.js 24 (NodeSource o nvm instalado a nivel de sistema).
-- nginx y certbot: `sudo apt install nginx certbot python3-certbot-nginx`.
-- `build-essential` y `python3` por si `better-sqlite3` no encuentra binario
-  precompilado para tu versión de Node.
+- Debian 12 / Ubuntu 22.04 or similar; 1 vCPU and 1 GB of RAM are enough to
+  start.
+- Node.js 24 (NodeSource or a system-wide nvm install).
+- nginx and certbot: `sudo apt install nginx certbot python3-certbot-nginx`.
+- `build-essential` and `python3` in case `better-sqlite3` has no prebuilt
+  binary for your Node version.
 
 ### Debian 13 (trixie)
 
-Funciona igual, con tres detalles que cambian respecto a Debian 12:
+It works the same, with three details that differ from Debian 12:
 
-- El `nodejs` de los repositorios es la 20 y aquí hace falta la 24: instálala
-  desde NodeSource (`curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -`)
-  o con nvm de sistema, y comprueba que `node -v` da 24 antes del `npm ci`.
-- nginx es 1.26 o superior: `listen 443 ssl http2;` está obsoleto y `nginx -t`
-  avisa en cada recarga. `deploy/nginx.conf` ya trae la forma buena
-  (`listen 443 ssl;` + `http2 on;`); en una instalación anterior, cambia esas
-  dos líneas a mano.
-- Con 1 GB de RAM, `npm run build` es lo más hambriento del proceso: añade 2 GB
-  de swap antes de compilar en el servidor
+- The `nodejs` in the repositories is 20, and 24 is required here: install it
+  from NodeSource (`curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -`)
+  or with a system-wide nvm, and check that `node -v` reports 24 before `npm ci`.
+- nginx is 1.26 or later: `listen 443 ssl http2;` is deprecated and `nginx -t`
+  warns on every reload. `deploy/nginx.conf` already uses the correct form
+  (`listen 443 ssl;` + `http2 on;`); in an older installation, change those two
+  lines by hand.
+- With 1 GB of RAM, `npm run build` is the most memory-hungry part of the
+  process: add 2 GB of swap before building on the server
   (`fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`,
-  y la línea correspondiente en `/etc/fstab`), o compila en tu equipo y copia la
-  release ya construida.
+  plus the matching line in `/etc/fstab`), or build on your machine and copy the
+  release already built.
 
-## 2. Usuario y directorios
+## 2. User and directories
 
 ```bash
 sudo useradd --system --home /srv/wanderbibliothek --shell /usr/sbin/nologin wanderbibliothek
@@ -80,13 +81,13 @@ sudo mkdir -p /srv/wanderbibliothek/releases /var/lib/wanderbibliothek /var/back
 sudo chown -R wanderbibliothek:wanderbibliothek /srv/wanderbibliothek /var/lib/wanderbibliothek /var/backups/wanderbibliothek
 ```
 
-- `/srv/wanderbibliothek/releases/<fecha>/` — cada versión desplegada.
-- `/srv/wanderbibliothek/current` — enlace simbólico a la versión activa.
-- `/var/lib/wanderbibliothek/wanderbibliothek.db` — la base (fuera de la aplicación).
-- `/var/backups/wanderbibliothek/` — copias.
-- `/etc/wanderbibliothek/env` — variables de entorno del servicio (solo root).
+- `/srv/wanderbibliothek/releases/<date>/` — each deployed version.
+- `/srv/wanderbibliothek/current` — symlink to the active version.
+- `/var/lib/wanderbibliothek/wanderbibliothek.db` — the database (outside the application).
+- `/var/backups/wanderbibliothek/` — backups.
+- `/etc/wanderbibliothek/env` — service environment variables (root only).
 
-## 3. Instalación de dependencias
+## 3. Installing dependencies
 
 ```bash
 cd /srv/wanderbibliothek/releases/2026-11-04
@@ -94,76 +95,77 @@ npm ci
 npm run build
 ```
 
-`npm ci` instala también devDependencies porque el **build** necesita
-TypeScript, Tailwind y ESLint. En ejecución basta con `npm ci --omit=dev`:
-`tsx` (lo que usan `admin:create`, `db:backup`, `user:verify` y `smoke`) es
-dependencia de producción a propósito. Si prefieres adelgazar la release, tras
-el `npm run build` puedes ejecutar `npm prune --omit=dev`.
+`npm ci` also installs devDependencies because the **build** needs TypeScript
+and Tailwind; ESLint is only needed for `npm run lint`. At runtime
+`npm ci --omit=dev` is enough: `tsx` (used by
+`admin:create`, `db:backup`, `user:verify` and `smoke`) is a production
+dependency on purpose. If you prefer a slimmer release, after `npm run build`
+you can run `npm prune --omit=dev`.
 
-El build **no** necesita base de datos ni variables de entorno: se puede hacer
-en CI y desplegar el artefacto.
+The build does **not** need a database or environment variables: it can be done
+in CI and the artefact deployed.
 
-## 4. Entorno
+## 4. Environment
 
 ```bash
 sudo mkdir -p /etc/wanderbibliothek
 sudo install -m 600 -o root -g root deploy/env.example /etc/wanderbibliothek/env
-sudo -e /etc/wanderbibliothek/env          # rellena URL, correo y secretos
+sudo -e /etc/wanderbibliothek/env          # fill in URL, email and secrets
 ```
 
-Genera los secretos con `openssl rand -hex 32`. Las variables obligatorias y sus
-consecuencias están comentadas en el propio fichero; el resumen:
+Generate the secrets with `openssl rand -hex 32`. The required variables and
+their consequences are commented in the file itself; the summary:
 
-| Variable | Si falta |
+| Variable | If missing |
 |---|---|
-| `NEXT_PUBLIC_SITE_URL` (https) | Sitemap y canonical apuntan a localhost; con `http://` el navegador descarta la cookie `__Host-` y el login entra en bucle |
-| `BREVO_API_KEY` + `MAIL_FROM` (o `MAIL_WEBHOOK_URL`) | Nadie puede confirmar el correo (obligatorio para publicar en producción) ni recuperar la contraseña |
-| `APP_ENCRYPTION_KEY` | No se puede guardar el secreto TOTP; sin 2FA la administración responde 403 en producción |
-| `APP_ENCRYPTION_OLD_KEYS` | Solo se usa al **rotar** la clave: la nueva en `APP_ENCRYPTION_KEY`, la anterior aquí para seguir leyendo |
-| `MAINTENANCE_TOKEN` | El cron responde 404: sin purgas, sin reintentos de correo, sin recordatorios de club |
-| `TRUST_PROXY=1` | Todas las peticiones comparten la cuota global: un cliente puede agotar el login del sitio |
-| `WANDERBIBLIOTHEK_DB` | La base se crea dentro de la release y se pierde en el siguiente despliegue |
-| `WANDERBIBLIOTHEK_BACKUP_KEY` | La copia se guarda en claro con correos, hashes de contraseña y los mensajes dentro, y esa copia acaba fuera del servidor |
-| `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | `/privacidad` y `/aviso-legal` salen con un aviso de que faltan datos; el Impressum es obligatorio en Alemania |
-| `MASTODON_TOKEN` | El bot no publica: el catálogo funciona igual, solo no hay avisos en el perfil |
+| `NEXT_PUBLIC_SITE_URL` (https) | Sitemap and canonical point to localhost; with `http://` the browser discards the `__Host-` cookie and login loops |
+| `BREVO_API_KEY` + `MAIL_FROM` (or `MAIL_WEBHOOK_URL`) | Nobody can confirm their email (required to publish in production) or reset their password |
+| `APP_ENCRYPTION_KEY` | The TOTP secret cannot be stored; without 2FA, administration returns 403 in production |
+| `APP_ENCRYPTION_OLD_KEYS` | Only used when **rotating** the key: the new one in `APP_ENCRYPTION_KEY`, the previous one here so it can still be read |
+| `MAINTENANCE_TOKEN` | The cron returns 404: no purges, no email retries, no club reminders |
+| `TRUST_PROXY=1` | All requests share the global quota: one client can exhaust the site's login |
+| `WANDERBIBLIOTHEK_DB` | The database is created inside the release and lost on the next deployment |
+| `WANDERBIBLIOTHEK_BACKUP_KEY` | The backup is stored in plain text with emails, password hashes and messages inside, and that backup leaves the server |
+| `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | `/privacidad` and `/aviso-legal` show a notice that data is missing; the Impressum is mandatory in Germany |
 
-Al arrancar, `[env]` también avisa (sin bloquear) de los errores que solo se
-notarían semanas después: un `MAINTENANCE_TOKEN` de menos de 24 caracteres,
-rutas de base o de copias relativas, `TRUSTED_PROXY_HOPS` no numérico y
-`ADMIN_EMAIL`/`ADMIN_PASSWORD` a medias. La clave de las copias no está en esa
-lista: vacía o mal escrita **impide arrancar**, porque lo que se juega es una
-base con correos y hashes en claro.
+On startup, `[env]` also warns (without blocking) about errors that would only
+be noticed weeks later: a `MAINTENANCE_TOKEN` shorter than 24 characters,
+relative database or backup paths, a non-numeric `TRUSTED_PROXY_HOPS` and a
+half-configured `ADMIN_EMAIL`/`ADMIN_PASSWORD`. The backup key is not on that
+list: if empty or mistyped, it **prevents startup**, because what is at stake is
+a database with plain-text emails and hashes.
 
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha opcional) se lee en el servidor en
-cada petición, así que basta con definirla en el entorno del servicio —también
-en Docker—: no hay que reconstruir nada. Va siempre junto a `TURNSTILE_SECRET`;
-con el secreto y sin la clave, el registro rechaza todas las altas y la app se
-niega a arrancar para no quedarse así en silencio.
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (optional captcha) is read on the server on
+every request, so defining it in the service environment — including Docker —
+is enough: nothing needs rebuilding. It always goes together with
+`TURNSTILE_SECRET`; with the secret and without the key, registration rejects
+every signup and the app refuses to start rather than remain in that state
+silently.
 
-> **¿Prefieres contenedores?** Salta al [apartado de Docker](#11-docker) más
-> abajo: el mismo entorno sirve, con `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
+> **Prefer containers?** Jump to the [Docker section](#11-docker) below: the
+> same environment works, with `WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db`.
 
-### Correo: Brevo, integrado en la aplicación
+### Email: Brevo, integrated into the application
 
-La entrega está resuelta dentro del código (`src/lib/mailer.ts`): con
-`BREVO_API_KEY` y `MAIL_FROM` definidas, los envíos van directamente a
-`POST https://api.brevo.com/v3/smtp/email`. No hay adaptador, ni Worker, ni una
-segunda URL pública que proteger. Solo se envían dos correos de texto plano
-—confirmación de cuenta y restablecer contraseña—, así que el plan gratuito
-(300 al día) sobra.
+Delivery is handled inside the code (`src/lib/mailer.ts`): with
+`BREVO_API_KEY` and `MAIL_FROM` defined, messages go straight to
+`POST https://api.brevo.com/v3/smtp/email`. There is no adapter, no Worker and
+no second public URL to protect. Only two plain-text emails are sent — account
+confirmation and password reset — so the free plan (300 per day) is more than
+enough.
 
-1. **Cuenta**: brevo.com. La empresa es Sendinblue SAS (París) y los datos se
-   tratan en la UE. Aun así, antes de dar por hecho que no hay nada que declarar
-   en `/privacidad`, revisa el contrato de encargo del tratamiento, sus
-   subencargados y los accesos desde fuera del EEE: la sede europea no lo decide
-   todo.
-2. **Autenticar el dominio**: *Senders, Domains & Dedicated IPs → Domains* →
-   añade `wanderbibliothek.org`. Brevo muestra los registros exactos: dos o tres
-   **CNAME de DKIM**, un **TXT de DMARC** y el `include:` del **SPF**. En netcup
-   CloudDNS se pegan tal cual; si el dominio ya tiene un SPF (por ejemplo, del
-   correo), los `include:` se suman en **una sola** línea.
-3. **Clave de API**: *SMTP & API → API Keys (v3)*, con permiso de envío. Va en
-   `BREVO_API_KEY`; el remitente, en `MAIL_FROM`.
+1. **Account**: brevo.com. The company is Sendinblue SAS (Paris) and data is
+   processed in the EU. Even so, before assuming there is nothing to declare in
+   `/privacidad`, review the data-processing agreement, its sub-processors and
+   access from outside the EEA: the European headquarters does not decide
+   everything.
+2. **Authenticate the domain**: *Senders, Domains & Dedicated IPs → Domains* →
+   add `wanderbibliothek.org`. Brevo shows the exact records: two or three
+   **DKIM CNAMEs**, a **DMARC TXT** record and the **SPF** `include:`. In netcup
+   CloudDNS they are pasted as-is; if the domain already has an SPF record (for
+   email, for example), the `include:` entries are merged into **one** line.
+3. **API key**: *SMTP & API → API Keys (v3)*, with send permission. It goes in
+   `BREVO_API_KEY`; the sender goes in `MAIL_FROM`.
 
 ```bash
 sudo -e /etc/wanderbibliothek/env
@@ -172,213 +174,87 @@ sudo -e /etc/wanderbibliothek/env
 sudo systemctl restart wanderbibliothek
 ```
 
-Cuatro trampas que dan un 401/400 difícil de leer:
+Five pitfalls that produce hard-to-read 401/400 responses:
 
-- **IP no autorizada.** Si activas *Seguridad → IP autorizadas* en Brevo, la API
-  solo acepta peticiones desde esas direcciones: añade la del servidor o deja la
-  opción desactivada. El registro dirá `Brevo rechazó el envío 401 ·
-  unauthorized` y el mensaje ya apunta a esa pantalla.
-- **Remitente sin verificar.** `MAIL_FROM` tiene que salir de un dominio (o un
-  remitente suelto) validado en la cuenta, nunca de un dominio ajeno.
-- **Remitente de dominio gratuito.** Un `MAIL_FROM` con `@gmail.com`,
-  `@protonmail.com` o similar no puede alinearse con DMARC —no controlas su SPF
-  ni su DKIM— y Gmail lo rechaza o lo manda a spam. El remitente debe ser del
-  dominio autenticado, aunque el buzón no exista (`no-reply@`).
-- **El código de Brevo va en la raíz.** El TXT `brevo-code:<hash>` se publica en
-  `@`, no en un subdominio llamado `brevo-code`: puesto ahí, Brevo lo da por
-  ausente aunque `dig` lo devuelva.
-- **«Los registros no coinciden» cuando el DNS ya está publicado.** Es caché
-  negativa: en el portátil, `systemd-resolved` (`sudo resolvectl flush-caches`);
-  en el verificador de Brevo, el `NXDOMAIN` que guardó antes de crear los
-  registros, con la vida del mínimo del SOA. Comprobar con `dig @1.1.1.1` antes
-  de tocar nada.
+- **Unauthorised IP.** If you enable *Security → Authorised IPs* in Brevo, the
+  API only accepts requests from those addresses: add the server's address or
+  leave the option disabled. The log will say `Brevo rejected the send 401 ·
+  unauthorized` and the message already points to that screen.
+- **Unverified sender.** `MAIL_FROM` must come from a domain (or a standalone
+  sender) validated in the account, never from a third-party domain.
+- **Free-domain sender.** A `MAIL_FROM` with `@gmail.com`, `@protonmail.com` or
+  similar cannot align with DMARC — you do not control its SPF or DKIM — and
+  Gmail rejects it or sends it to spam. The sender must belong to the
+  authenticated domain, even if the mailbox does not exist (`no-reply@`).
+- **The Brevo code goes at the root.** The `brevo-code:<hash>` TXT record is
+  published at `@`, not at a subdomain called `brevo-code`: placed there, Brevo
+  treats it as missing even if `dig` returns it.
+- **"Records do not match" when DNS is already published.** It is negative
+  caching: on the laptop, `systemd-resolved` (`sudo resolvectl flush-caches`);
+  in Brevo's verifier, the `NXDOMAIN` it cached before the records were created,
+  for the SOA minimum TTL. Check with `dig @1.1.1.1` before touching anything.
 
-`DMARC` mejor en `p=none` al principio: si algo falla, los correos llegan igual
-y el informe dice qué.
+`DMARC` is better as `p=none` at first: if something fails, emails still arrive
+and the report says what happened.
 
-### Otros proveedores: `MAIL_WEBHOOK_URL`
+### Other providers: `MAIL_WEBHOOK_URL`
 
-La segunda vía es un webhook genérico: `POST` con
-`{"to": "…", "subject": "…", "text": "…"}` y, si defines `MAIL_WEBHOOK_TOKEN`,
-`Authorization: Bearer <token>`. La aplicación no manda remitente, así que el
-adaptador decide el `from`. Sirve para Resend (`POST /emails`, empresa de
-EE. UU.), Scaleway TEM o Mailjet (UE), Amazon SES (hay que salir del *sandbox*) o
-un Worker propio. Si defines esta URL **y** `BREVO_API_KEY`, manda el webhook y
-el arranque avisa de que la clave de Brevo se está quedando sin usar.
+The second path is a generic webhook: `POST` with
+`{"to": "…", "subject": "…", "text": "…"}` and, if you define
+`MAIL_WEBHOOK_TOKEN`, `Authorization: Bearer <token>`. The application does not
+set a sender, so the adapter decides the `from`. It works for Resend
+(`POST /emails`, a US company), Scaleway TEM or Mailjet (EU), Amazon SES (you
+must leave the *sandbox*) or your own Worker. If you define this URL **and**
+`BREVO_API_KEY`, the webhook is used and startup warns that the Brevo key is
+going unused.
 
-En cualquiera de los dos caminos hay dos pasos que se olvidan y luego caen en
-spam: publicar **SPF y DKIM** (y un `DMARC` en `p=none` para empezar) en el DNS
-del dominio, no solo en el panel del proveedor, y usar un remitente del propio
-dominio, no `no-reply@` de uno ajeno.
+On either path there are two steps that get forgotten and then land in spam:
+publishing **SPF and DKIM** (and a `DMARC` record at `p=none` to start) in the
+domain's DNS, not only in the provider's panel, and using a sender from your own
+domain, not a `no-reply@` from someone else's.
 
-**Probarlo** sin esperar a que alguien se registre: el script envía un correo de
-prueba por el mismo camino que los de verdad (no toca la base). Lee
-`/etc/wanderbibliothek/env` por su cuenta —lo que exportes a mano manda—, así
-que no hay que repetir la clave en la orden. Va con `sudo` a secas: con
-`sudo -u wanderbibliothek` no puede leer el fichero (es 600 de root) y diría
-«no hay proveedor configurado» con la clave puesta.
+**Test it** without waiting for someone to register: the script sends a test
+email through the same path as real ones (it does not touch the database). It
+reads `/etc/wanderbibliothek/env` on its own — what you export by hand takes
+precedence — so there is no need to repeat the key in the command. Run it with
+plain `sudo`: with `sudo -u wanderbibliothek` it cannot read the file (it is
+root-owned 600) and would say "no provider configured" even with the key set.
 
 ```bash
-sudo npm --prefix /srv/wanderbibliothek/current run mail:test -- tu@correo
+sudo npm --prefix /srv/wanderbibliothek/current run mail:test -- you@example.com
 ```
 
-Si sale `Aceptado por el proveedor`, el resto —la cola, los enlaces de un solo
-uso— también funciona. Para ver el flujo completo, pide un restablecimiento desde
-`/restablecer` y mira el registro:
+If it prints `Accepted by the provider`, the rest — the queue, one-time links —
+works too. To see the full flow, request a reset from `/restablecer` and check
+the log:
 
 ```bash
 sudo journalctl -u wanderbibliothek -n 50 | grep '\[mail\]'
 ```
 
-Si aparece `entrega fallida: el mensaje sigue en la cola`, el motivo concreto
-—el 401 o el 400 con el `code` de Brevo— está una línea antes. El cron
-(`/api/cron/maintenance`) reintenta con espera creciente hasta cinco veces.
+If `delivery failed: the message remains in the queue` appears, the specific
+reason — the 401 or the 400 with Brevo's `code` — is one line above. The cron
+(`/api/cron/maintenance`) retries with increasing backoff up to five times.
 
-**Comprobar que el dominio inspira confianza.** `mail:test` dice si el proveedor
-acepta el mensaje; no dice si el buzón lo va a querer. Eso depende de tres
-registros DNS y de la cola real:
+**Check that the domain inspires trust.** `mail:test` says whether the provider
+accepts the message; it does not say whether the mailbox will want it. That
+depends on three DNS records and the real queue:
 
 ```bash
 sudo npm --prefix /srv/wanderbibliothek/current run mail:health
-# o en JSON, para encadenarlo:
+# or as JSON, to chain it:
 sudo npm --prefix /srv/wanderbibliothek/current run mail:health -- --json
 ```
 
-Lee `MAIL_FROM` para saber el dominio y `MAIL_DKIM_SELECTOR` (el nombre que da
-el proveedor: `brevo`, `s1`, `mail`…) para buscar la clave pública. Comprueba
-SPF, DMARC —avisa si está en `p=none`, que observa el fallo pero no protege el
-dominio— y la firma DKIM; además cuenta los correos pendientes, los dados por
-perdidos en 24 h y los minutos de retraso del más atrasado. Sale 1 si hay algo que
-arreglar, y el vigilante mira la cola por su cuenta cada 15 minutos.
+It reads `MAIL_FROM` to learn the domain and `MAIL_DKIM_SELECTOR` (the name the
+provider gives: `brevo`, `s1`, `mail`…) to look up the public key. It checks
+SPF, DMARC — warning if it is at `p=none`, which observes failures but does not
+protect the domain — and the DKIM signature; it also counts pending emails,
+those lost within 24 h and the delay in minutes of the oldest one. It exits 1
+if there is something to fix, and the watchdog checks the queue on its own
+every 15 minutes.
 
-### Bot de Mastodon (opcional)
-
-Con `MASTODON_TOKEN` definido, cada obra que publica una **cuenta de administración**
-se anuncia en el perfil del proyecto; lo que ofrece la comunidad no llega a la
-cola. Los avisos salen **siempre en alemán**, sea cual sea el idioma del
-ejemplar. El token se crea en la instancia —**Preferencias →
-Desarrollo → Nueva aplicación**— con los permisos `write:statuses`, `write:media`
-(para adjuntar la portada) y `read:accounts`; el tercero es el que usa
-`mastodon:test` para comprobar que la credencial vale. Para los «me gusta» hace
-falta además **`write:favourites`**: sin ese permiso la instancia contesta 403.
-
-El formulario pide un **URI de redirección** que aquí no se usa nunca (el token
-se copia de la propia página de la aplicación, no se pide por OAuth): sirve
-`urn:ietf:wg:oauth:2.0:oob`, el valor que la documentación de Mastodon reserva
-para las aplicaciones que muestran el código en pantalla. Tiene que ser una URI
-absoluta; si la instancia lo rechazara, `https://wanderbibliothek.org/` vale
-igual.
-
-```bash
-# Solo comprueba: dice quién es el token y enseña el texto, sin publicar nada
-sudo npm --prefix /srv/wanderbibliothek/current run mastodon:test
-
-# El aviso de una obra concreta, y su publicación de verdad
-sudo npm ... run mastodon:test -- --libro bok_123
-sudo npm ... run mastodon:test -- --media bok_123   # sube la portada sin publicar
-sudo npm ... run mastodon:test -- --enviar bok_123
-
-# Reintentar lo que quedó pendiente (el cron también lo hace cada hora)
-sudo npm ... run mastodon:test -- --cola
-
-# Repasar lo ya publicado: enlaces y avisos que siguen en otro idioma
-sudo npm ... run mastodon:test -- --publicadas
-```
-
-Lo que hay que saber:
-
-- **Solo la administración anuncia.** El aviso se encola únicamente cuando el
-ejemplar lo publica una cuenta con `is_admin`: el perfil cuenta lo que cataloga
-el equipo, no lo que pone a la venta la comunidad. `announceBook` exige la marca
-(`isAdmin`) y sin ella no hace nada, así que una ruta nueva no puede saltarse la
-regla por olvido. El envío manual (`--enviar`) cuenta como administración.
-- **Un aviso por obra, no por ejemplar.** Si tres personas ponen el mismo libro,
-  el perfil no lo repite: la tabla `social_outbox` tiene una clave única por red
-  y obra.
-- **Y uno por persona y día.** Quien cataloga su estantería de una sentada no
-  convierte el perfil en una lista de la compra: se anuncia el primer libro del
-  día y los demás se quedan sin aviso. El día se cuenta en hora alemana
-  (Europe/Berlin), no en UTC. El envío a mano (`--enviar`) no pasa por ese tope.
-- **Y espaciados.** Si se publican varias obras de golpe, la primera sale en el
-  acto y las demás esperan un hueco aleatorio de **4 a 7 horas**
-  (`MASTODON_GAP_MINUTES`, por defecto `240-420`) para que el perfil no parezca
-  un robot. Con `0` no hay espera: solo para una prueba desde la web.
-- **Registro sobrio**: una frase enunciativa, sin emoji ni exclamaciones, el
-  enlace y tres etiquetas. Hay cien formulaciones, siempre en alemán, y la
-  variante se elige con un hash del id de la obra, así que el mismo libro siempre
-  se anuncia igual. Las etiquetas combinan la casa, el tema del libro (sus
-  etiquetas curadas o su categoría) y la lectura; no hay etiquetas de librerías.
-- **Los avisos anteriores al cambio siguen en el idioma del ejemplar.** Mastodon
-  permite editar una publicación, así que `--publicadas` lista los avisos ya
-  enviados que llevan enlace `/es` o `/en` o las etiquetas antiguas, con su
-  enlace directo y el texto, para traducirlos a mano. No toca nada y no necesita
-  token: lee la cola, donde está anotada cada publicación.
-- **La portada viaja como imagen adjunta**, con texto alternativo en alemán. La
-  imagen se sube **antes** de encolar el post y su id se guarda en la fila: un
-  reintento adjunta el mismo medio en vez de subirlo otra vez. Si no hay portada
-  —o la instancia rechaza la imagen— el aviso sale solo con texto.
-- **El post se encola en la base.** Si la instancia no contesta, el aviso no se
-  pierde: se reintenta con espera creciente (5 intentos) desde el cron. Un token
-  revocado o un texto inválido se marcan como fallidos sin reintentar.
-- **Idempotencia.** Cada envío lleva `Idempotency-Key` con el id de la fila, así
-  que un reintento no publica dos veces el mismo estado.
-- **Sin datos personales**: título, autoría y enlace a `/werk/<obra>`. Ni ciudad
-  ni nombre de quien publica.
-- **En desarrollo no se publica**: si `NEXT_PUBLIC_SITE_URL` es localhost, el
-  aviso se descarta antes de encolarse.
-
-Si un post no sale, el motivo está en la propia cola:
-
-```bash
-sudo sqlite3 /var/lib/wanderbibliothek/wanderbibliothek.db \
-  "select subject, status, attempts, last_error from social_outbox order by created_at desc limit 10;"
-```
-
-#### «Me gusta» a publicaciones sobre libros (opcional)
-
-Con `MASTODON_LIKES=on` el bot también lee: recorre las líneas de tiempo de
-etiquetas de libros y pulsa el corazón de lo que parece una persona hablando de
-un libro. **Está apagado por defecto** porque actúa sobre lo que escriben otras
-personas; sin esa variable no hace ni una petición.
-
-Todo lo que hay debajo existe para que no parezca spam:
-
-- **Por etiqueta, nunca por búsqueda libre.** Etiquetas de libros en los tres
-  idiomas de la casa —`#Bücher`, `#Buch`, `#Lesen`, `#Literatur`, `#Buchtipp` ·
-  `#Libros`, `#Lectura`, `#Libro`, `#Literatura` · `#Books`, `#Bookstodon`,
-  `#Reading`, `#BookRecommendation`— y se descarta lo que no está escrito en el
-  idioma de su etiqueta. Con `MASTODON_LIKES_TAGS` se pueden poner otras
-  (separadas por comas) y con `MASTODON_LIKES_LOCALES=de` se puede dejar solo
-  en alemán.
-- **Solo cuentas que leen.** Además de la etiqueta, la **biografía** de la cuenta
-  tiene que hablar de libros («Bücherwurm», «Leseratte», «Rezensionen»,
-  «Buchhandlung»…): el corazón va a personas que hablan de libros, no a cuentas
-  que sueltan la etiqueta para ganar alcance.
-- **Pocos y espaciados.** `MASTODON_LIKES_PER_DAY` (40 por defecto, máximo 60) en
-  una ventana de 24 h y `MASTODON_LIKES_MIN_GAP_MINUTES` (25, mínimo 5) entre dos
-  pulsaciones. El cron pasa cada 15 minutos, así que dos «me gusta» nunca caen
-  seguidos.
-- **Una por cuenta y día.** Si alguien publica cuatro cosas sobre libros, se le
-  pulsa una; el resto parecería acoso (`MASTODON_LIKES_PER_ACCOUNT`, 1 a 3).
-- **Solo lo legible sin cuenta**: estados públicos o no listados, originales
-  (nada de boosts), sin marcar como sensibles, con texto de más de 60 caracteres
-  y una palabra de libros dentro, de los últimos siete días.
-- **Memoria**: `social_likes` guarda cada estado pulsado (clave única por red y
-  estado), así que el mismo post no se repite nunca. Se purga a los 180 días.
-
-```bash
-# Enseña qué le gustaría, sin pulsar nada (y sin gastar cuota de «me gusta»)
-sudo npm --prefix /srv/wanderbibliothek/current run mastodon:test -- --gustar
-
-# Lo pulsa de verdad
-sudo npm ... run mastodon:test -- --gustar-enviar
-
-# Historial de los últimos «me gusta»
-sudo npm ... run mastodon:test -- --gustos
-```
-
-
-## 5. Servicio, proxy y tareas programadas
+## 5. Service, proxy and scheduled jobs
 
 ```bash
 sudo cp deploy/wanderbibliothek.service deploy/wanderbibliothek-maintenance.service \
@@ -390,8 +266,8 @@ sudo install -m 755 deploy/run-backup-container.sh /usr/local/sbin/wanderbibliot
 sudo install -m 755 deploy/run-verify-backup.sh /usr/local/sbin/wanderbibliothek-verify
 sudo install -m 755 deploy/watchdog.sh /usr/local/sbin/wanderbibliothek-watchdog
 sudo install -Dm644 deploy/backup-key.sh /usr/local/lib/wanderbibliothek/backup-key.sh
-# Endurecimiento: ProtectSystem=strict, topes de memoria y la caché de Next
-# escribible (`ReadWritePaths`), que es donde `sharp` guarda las tallas.
+# Hardening: ProtectSystem=strict, memory limits and the writable Next cache
+# (`ReadWritePaths`), where `sharp` stores the resized images.
 sudo install -Dm644 deploy/wanderbibliothek-hardening.conf \
   /etc/systemd/system/wanderbibliothek.service.d/hardening.conf
 sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current
@@ -401,86 +277,88 @@ sudo systemctl enable --now wanderbibliothek wanderbibliothek-maintenance.timer 
   wanderbibliothek-verify.timer
 
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
-# Caché de imágenes del proxy (portadas): nginx la necesita creada y escribible.
+# Proxy image cache (covers): nginx needs it created and writable.
 sudo install -d -o www-data -g www-data -m 700 /var/cache/nginx/wb_images
-# Bloqueo de rastreadores de IA por User-Agent (contexto `http`).
+# AI crawler blocking by User-Agent (`http` context).
 sudo install -m 644 deploy/nginx-ai.conf /etc/nginx/conf.d/wanderbibliothek-ai.conf
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
-# El `nginx.conf` declara el `default_server` de 80 y 443 para cerrar la
-# conexión a quien llega por la IP desnuda o por un dominio que no atendemos.
-# Debian trae el suyo en `sites-enabled/default`: con los dos, `nginx -t` falla
-# con «duplicate default server».
+# `nginx.conf` declares the 80 and 443 `default_server` to close the connection
+# for anyone arriving via the bare IP or a domain we do not serve. Debian ships
+# its own in `sites-enabled/default`: with both, `nginx -t` fails with
+# "duplicate default server".
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo certbot --nginx -d biblioteca.example.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-La unidad escucha en `127.0.0.1:3000`; lo público lo sirve nginx. La ubicación
-`^~ /api/requests` (la ruta exacta y todo lo que cuelga de ella) va sin
-buffering y con timeout largo: ahí vive el canal de mensajería en vivo (SSE).
-⚠ Ese prefijo tiene que casar también con el listado **sin** barra final: con
-`location /api/requests/` la petición caía en `location /`, Next respondía 301
-a `/api/requests/` y la regla la devolvía a `/api/requests` (bucle que la app no
-sigue). Si la app dice «el servidor redirige en bucle», falta copiar este
-`nginx.conf` y recargar.
+The unit listens on `127.0.0.1:3000`; nginx serves the public side. The
+`^~ /api/requests` location (the exact route and everything below it) runs
+without buffering and with a long timeout: that is where the live messaging
+channel (SSE) lives. ⚠ That prefix must also match the listing **without** a
+trailing slash: with `location /api/requests/` the request fell into
+`location /`, Next replied 301 to `/api/requests/` and the rule sent it back to
+`/api/requests` (a loop the app does not follow). If the app says "the server
+redirects in a loop", this `nginx.conf` has not been copied and reloaded.
 
-El `nginx.conf` de `deploy/` añade tres cosas que la aplicación no puede hacer
-sola:
+The `nginx.conf` in `deploy/` adds several protections the application cannot
+provide on its own:
 
-- **Límite de ritmo en el borde** (`limit_req`): 10 peticiones/minuto por IP en
-  `/api/auth/*` y **120/minuto (2 por segundo, con margen de 120)** en el resto.
-  La app ya limita en SQLite, pero cada intento rechazado sigue siendo una
-  escritura: el límite del proxy evita que un flood convierta el disco en el
-  cuello de botella. El margen cubre una carga de página normal (~30 ficheros de
-  golpe) y sigue cortando los barridos de cientos de peticiones; con 300/minuto
-  y margen 300 **ningún escáner lo tocaba**. Si pones un CDN delante, configura
-  `real_ip` o el límite agrupará a todos los visitantes en la IP del CDN.
-- **Rutas de escáner con `444`**: `.php`, `.env`, `/.git`, `/wp-*`, `.sql`,
-  `.bak`, `.old`, `.swp` y `.DS_Store` cierran la conexión sin respuesta y sin
-  llegar a Node. Se registran en el `access.log` con estado 444, así que el jail
-  `wb-nginx-scan` sigue contándolas. Ninguna ruta real de la aplicación contiene
-  esos patrones.
-- **`/api/cron/maintenance` y `/api/metrics` solo desde el propio host**
-  (`allow 127.0.0.1;`): el token ya las protege, pero no hay razón para exponer
-  una tarea de escritura ni un endpoint que acepta el mismo secreto sin cookie.
-- **TLS sin tickets de sesión** (nginx no rota esa clave por sí solo).
-- **Compresión y estáticos en el borde.** El vhost activa `gzip` (con
-  `gzip_proxied any`, sin él no comprime lo que viene de Node) y sirve
-  `public/{fonts,icons,hero}/` desde el disco de la release activa. Los assets
-  de `/_next/static/` pasan por el contenedor que generó el HTML: así no se
-  mezclan los ficheros del checkout operativo con los de la imagen desplegada.
-  Next sirve esos assets con caché inmutable solo cuando existen; el hash se
-  separa por commit para que los navegadores no reutilicen errores 404 de una
-  versión previa. Por eso la aplicación va con `compress: false` en
-  `next.config.ts`: comprimir en los dos sitios solo gastaba CPU.
-- **Caché de imágenes en el borde** (`proxy_cache`, zona `wb_images`). Las
-  portadas —lo más pesado que sirve la aplicación— y sus versiones reducidas de
-  `/_next/image` se guardan en `/var/cache/nginx/wb_images` (1 GB como mucho, un
-  mes sin tocarse) y las sirve nginx sin llegar a Node. La clave es la URL, que
-  lleva la versión de la portada (`?v=…`): sustituir una imagen es una clave
-  nueva, así que no hay nada que invalidar a mano. `/_next/image` negocia WebP o
-  AVIF con `Accept` y responde `Vary: Accept`; como la caché de nginx no mira
-  `Vary`, el formato entra en la clave (`$wb_image_format`, tres valores como
-  mucho) para no servir a un navegador el WebP guardado para otro. Solo se
-  cachean `GET`/`HEAD`: subir o borrar una portada (`PUT`/`DELETE`) sigue
-  llegando a la aplicación. Para ver qué hace, mira la cabecera
-  `X-Cache-Status` (`HIT`, `MISS`, `STALE`, `UPDATING`); para vaciarla,
-  `sudo rm -rf /var/cache/nginx/wb_images/*` y recarga.
-- **HTTP/3** (`listen 443 quic` + `Alt-Svc`) con el módulo `http_v3_module` de
-  Debian. Hay que abrir UDP: `sudo ufw allow 443/udp`. Si el navegador no lo
-  negocia, sigue por HTTP/2 sin cambiar nada.
-- **Sin `POST` a la raíz.** La aplicación no tiene Server Actions, así que un
-  `POST /` solo puede ser una sonda: `location = /` lo cierra con `444`. El
-  filtro de fail2ban cuenta esas líneas como escaneo.
-- **Cuota propia para `/es/…` y `/en/…`** (`wb_lang`, 60/minuto con margen 30):
-  son las mismas páginas que la ruta sin prefijo, para SEO, y un rastreador las
-  recorre todas. Un humano pasa por una o dos.
-- **Rastreadores de IA**: `deploy/nginx-ai.conf` responde `403` por User-Agent
-  (con `robots.txt` y el sitemap exentos). ⚠ Su lista tiene que coincidir con
-  `AI_TRAINING_BOTS` de `src/app/robots.ts`; al añadir uno, se tocan los dos.
+- **Edge rate limiting** (`limit_req`): 10 requests/minute per IP on
+  `/api/auth/*` and **120/minute (2 per second, with a burst of 120)** on the
+  rest. The app already limits in SQLite, but every rejected attempt is still a
+  write: the proxy limit keeps a flood from turning the disk into the
+  bottleneck. The burst covers a normal page load (~30 files at once) and still
+  cuts sweeps of hundreds of requests; with 300/minute and a burst of 300 **no
+  scanner touched it**. If you put a CDN in front, configure `real_ip` or the
+  limit will group all visitors under the CDN's IP.
+- **Scanner routes with `444`**: `.php`, `.env`, `/.git`, `/wp-*`, `.sql`,
+  `.bak`, `.old`, `.swp` and `.DS_Store` close the connection without a response
+  and without reaching Node. They are logged in `access.log` with status 444, so
+  the `wb-nginx-scan` jail keeps counting them. No real application route
+  contains those patterns.
+- **`/api/cron/maintenance` and `/api/metrics` only from the host itself**
+  (`allow 127.0.0.1;`): the token already protects them, but there is no reason
+  to expose a write job or an endpoint that accepts the same secret without a
+  cookie.
+- **TLS without session tickets** (nginx does not rotate that key by itself).
+- **Compression and static files at the edge.** The vhost enables `gzip` (with
+  `gzip_proxied any`; without it, it does not compress what comes from Node) and
+  serves `public/{fonts,icons,hero}/` from the active release's disk. Assets
+  under `/_next/static/` go through the container that generated the HTML: this
+  prevents the operational checkout's files from mixing with those of the
+  deployed image.
+  Next serves those assets with immutable caching only when they exist; the hash
+  is separated per commit so browsers do not reuse 404s from a previous version.
+  That is why the app runs with `compress: false` in `next.config.ts`:
+  compressing in both places only wasted CPU.
+- **Edge image cache** (`proxy_cache`, `wb_images` zone). Covers — the heaviest
+  thing the application serves — and their resized `/_next/image` versions are
+  stored in `/var/cache/nginx/wb_images` (1 GB at most, one month untouched) and
+  served by nginx without reaching Node. The key is the URL, which carries the
+  cover version (`?v=…`): replacing an image is a new key, so there is nothing
+  to invalidate by hand. `/_next/image` negotiates WebP or AVIF with `Accept`
+  and replies `Vary: Accept`; since nginx's cache does not look at `Vary`, the
+  format is part of the key (`$wb_image_format`, three values at most) so a
+  browser is not served the WebP stored for another. Only `GET`/`HEAD` are
+  cached: uploading or deleting a cover (`PUT`/`DELETE`) still reaches the
+  application. To see what it does, look at the `X-Cache-Status` header (`HIT`,
+  `MISS`, `STALE`, `UPDATING`); to clear it,
+  `sudo rm -rf /var/cache/nginx/wb_images/*` and reload.
+- **HTTP/3** (`listen 443 quic` + `Alt-Svc`) with Debian's `http_v3_module`.
+  UDP must be open: `sudo ufw allow 443/udp`. If the browser does not negotiate
+  it, it continues over HTTP/2 with no change.
+- **No `POST` to the root.** The application has no Server Actions, so a
+  `POST /` can only be a probe: `location = /` closes it with `444`. The
+  fail2ban filter counts those lines as scanning.
+- **Separate quota for `/es/…` and `/en/…`** (`wb_lang`, 60/minute with a burst
+  of 30): they are the same pages as the unprefixed route, for SEO, and a
+  crawler walks all of them. A human visits one or two.
+- **AI crawlers**: `deploy/nginx-ai.conf` replies `403` by User-Agent (with
+  `robots.txt` and the sitemap exempt). ⚠ Its list must match
+  `AI_TRAINING_BOTS` in `src/app/robots.ts`; when adding one, change both.
 
-Si además usas fail2ban (recomendado), dos jails cubren el borde. Las plantillas
-están en `deploy/fail2ban/`:
+If you also use fail2ban (recommended), two jails cover the edge. The templates
+are in `deploy/fail2ban/`:
 
 ```bash
 sudo cp deploy/fail2ban/wb-nginx-scan.conf /etc/fail2ban/filter.d/
@@ -489,194 +367,196 @@ sudo fail2ban-client reload
 ```
 
 ```ini
-[wb-nginx-scan]     # 5 respuestas 4xx de escáner en 1 h → 1 día de ban
+[wb-nginx-scan]     # 5 scanner 4xx responses in 1 h → 1 day ban
 filter = wb-nginx-scan
 logpath = /var/log/nginx/wanderbibliothek.access.log
 
-[wb-nginx-limit]    # 5 «limiting requests» en 10 min → 1 h de ban
+[wb-nginx-limit]    # 5 "limiting requests" in 10 min → 1 h ban
 filter = nginx-limit-req
 logpath = /var/log/nginx/wanderbibliothek.error.log
-ignoreip = 127.0.0.1/8 ::1 <IP pública del servidor>
+ignoreip = 127.0.0.1/8 ::1 <server public IP>
 ```
 
-El `ignoreip` del segundo jail importa: fail2ban ya ignora la IP propia
-(`ignoreself`), pero conviene dejarlo escrito porque el propio servidor pide su
-sitio público al generar la tarjeta social de cada libro, y una IP baneada
-rompería esos anuncios.
+The second jail's `ignoreip` matters: fail2ban already ignores its own IP
+(`ignoreself`), but it is worth writing it down because the server itself
+requests its public site when generating each book's social card, and a banned
+IP would break those announcements.
 
-### `www` y la forma canónica
+### `www` and the canonical form
 
-El `server_name` del fichero es un único nombre. Si quieres atender también
-`www.`, **no lo añadas al mismo bloque**: redirígelo al canónico. La sesión es
-una cookie `__Host-` (atada al host exacto) y las claves de cifrado de la
-mensajería viven en IndexedDB por origen, así que quien entre por `www.` sería,
-a efectos prácticos, otra persona: otra sesión y otras claves, con los mensajes
-antiguos ilegibles.
+The file's `server_name` is a single name. If you also want to serve `www.`,
+**do not add it to the same block**: redirect it to the canonical host. The
+session is a `__Host-` cookie (bound to the exact host) and the messaging
+encryption keys live in IndexedDB per origin, so anyone arriving via `www.`
+would, in practice, be another person: another session and other keys, with the
+old messages unreadable.
 
 ```nginx
 # /etc/nginx/sites-available/wanderbibliothek-www
 server {
     listen 80;
     listen [::]:80;
-    server_name www.tu-dominio.de;
-    return 301 https://tu-dominio.de$request_uri;
+    server_name www.your-domain.de;
+    return 301 https://your-domain.de$request_uri;
 }
 
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    server_name www.tu-dominio.de;
-    ssl_certificate     /etc/letsencrypt/live/tu-dominio.de/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/tu-dominio.de/privkey.pem;
-    return 301 https://tu-dominio.de$request_uri;
+    server_name www.your-domain.de;
+    ssl_certificate     /etc/letsencrypt/live/your-domain.de/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.de/privkey.pem;
+    return 301 https://your-domain.de$request_uri;
 }
 ```
 
-Pide el certificado con los dos nombres (`certbot --nginx -d tu-dominio.de -d
-www.tu-dominio.de`) para que el bloque de `www` tenga TLS válido; si no, el
-navegador corta antes de leer la redirección. Y en `NEXT_PUBLIC_SITE_URL` pon
-siempre **la forma canónica**.
+Request the certificate with both names (`certbot --nginx -d your-domain.de -d
+www.your-domain.de`) so the `www` block has valid TLS; otherwise the browser
+stops before reading the redirect. And in `NEXT_PUBLIC_SITE_URL` always use
+**the canonical form**.
 
-## 6. Primer arranque
+## 6. First start
 
 ```bash
 sudo systemctl start wanderbibliothek
-sudo journalctl -u wanderbibliothek -f          # busca líneas [env]
+sudo journalctl -u wanderbibliothek -f          # look for [env] lines
 curl -fsS https://biblioteca.example.com/api/health
 ```
 
-La primera petición crea la base y aplica las 52 migraciones (de la v3 a la
-v54), así que puede tardar unos segundos: hazla tú con el `curl` en lugar de
-dejarla al primer visitante.
+The first database access creates the database and applies every pending
+migration (from v3 onward), so it may take a few seconds: run the `curl`
+yourself instead of leaving it to the first visitor.
 
-Si el entorno está incompleto, el servicio **arranca pero responde 500** y deja
-el motivo en el log (`[env] ERROR …`). Es deliberado: se ve en `systemctl status`
-sin entrar en un bucle de reinicios.
+If the environment is incomplete, the service **starts but returns 500** and
+leaves the reason in the log (`[env] ERROR …`). This is deliberate: it shows in
+`systemctl status` without entering a restart loop.
 
-Administración:
+Administration:
 
 ```bash
-sudo -u wanderbibliothek ADMIN_PASSWORD='contraseña-larga' \
+sudo -u wanderbibliothek ADMIN_PASSWORD='long-password' \
   npm --prefix /srv/wanderbibliothek/current run admin:create -- admin@biblioteca.example.com
 ```
 
-Entra en `/cuenta`, activa la verificación en dos pasos (obligatoria para
-moderar en producción) y después **borra `ADMIN_PASSWORD`** del entorno:
+Go to `/cuenta`, enable two-step verification (mandatory for moderating in
+production) and then **delete `ADMIN_PASSWORD`** from the environment:
 
 ```bash
-sudo -e /etc/wanderbibliothek/env      # elimina ADMIN_EMAIL y ADMIN_PASSWORD
+sudo -e /etc/wanderbibliothek/env      # remove ADMIN_EMAIL and ADMIN_PASSWORD
 sudo systemctl restart wanderbibliothek
 ```
 
-Comprobación final:
+Final check:
 
 ```bash
 BASE_URL=https://biblioteca.example.com npm --prefix /srv/wanderbibliothek/current run smoke
 ```
 
-## 7. Despliegue de una versión nueva
+## 7. Deploying a new version
 
 ```bash
-# 1) Copia antes de tocar nada (las migraciones no se deshacen solas)
+# 1) Back up before touching anything (migrations do not undo themselves)
 sudo systemctl start wanderbibliothek-backup.service
 
-# 2) Nueva release y build (puede hacerse en CI y copiarse)
+# 2) New release and build (can be done in CI and copied)
 cd /srv/wanderbibliothek/releases && git clone --depth 1 … 2026-11-20
 cd 2026-11-20 && npm ci && npm run build
 
-# 3) Cambiar el enlace y reiniciar
+# 3) Switch the symlink and restart
 sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-20 /srv/wanderbibliothek/current
 sudo systemctl restart wanderbibliothek
 
-# 4) Comprobar y, si algo va mal, volver atrás
+# 4) Check, and roll back if something goes wrong
 curl -fsS https://biblioteca.example.com/api/health
 BASE_URL=https://biblioteca.example.com npm --prefix /srv/wanderbibliothek/current run smoke
-# vuelta atrás:
+# rollback:
 # sudo ln -sfn /srv/wanderbibliothek/releases/2026-11-04 /srv/wanderbibliothek/current && sudo systemctl restart wanderbibliothek
 ```
 
-Las releases antiguas se pueden borrar cuando la copia de seguridad de esa fecha
-ya esté fuera del servidor.
+Old releases can be deleted once that date's backup is off the server.
 
-Desde la versión de noviembre de 2026, `deploy.sh` también pone al día el vhost
-de nginx: si encuentra la regla vieja `location /api/requests/` la cambia por
-`location ^~ /api/requests` y recarga nginx. Antes no tocaba el proxy y una
-corrección en `deploy/nginx.conf` no llegaba nunca al servidor, que es como
-apareció el bucle de redirecciones de `/api/requests`.
+Since the November 2026 version, `deploy.sh` also updates the nginx vhost: if it
+finds the old `location /api/requests/` rule it changes it to
+`location ^~ /api/requests` and reloads nginx. Previously it did not touch the
+proxy, so a fix in `deploy/nginx.conf` never reached the server — which is how
+the `/api/requests` redirect loop appeared.
 
-## 8. Copias de seguridad y restauración
+## 8. Backups and restore
 
-- **Cada 6 horas** (`wanderbibliothek-backup.timer`, a las 00:20, 06:20, 12:20 y
-  18:20; antes era diaria, pero la base ocupa ~2 MB y el RPO baja de 24 h a 6 h),
-  con `integrity_check` y rotación de 14 copias.
-- **Cada domingo a las 05:10**, `wanderbibliothek-verify.timer` descifra la copia
-  más reciente y la abre entera con el mismo código que sirve la web. Si la
-  restauración no es posible, la unidad falla y el motivo queda en
+- **Every 6 hours** (`wanderbibliothek-backup.timer`, at 00:20, 06:20, 12:20 and
+  18:20, with up to 15 minutes of jitter; it used to be daily, but the database
+  is ~2 MB and the RPO drops from 24 h to 6 h), with `integrity_check` and
+  rotation of 14 backups.
+- **Every Sunday at 05:10** (with up to 20 minutes of jitter),
+  `wanderbibliothek-verify.timer` decrypts the most recent backup and opens it
+  in full with the same code that serves the site.
+  If restore is not possible, the unit fails and the reason is left in
   `journalctl -u wanderbibliothek-verify`.
-- Con `WANDERBIBLIOTHEK_BACKUP_KEY` las copias se cifran (AES-256-GCM) y el `.db` plano
-  se borra. **Guarda esa clave fuera del servidor**: sin ella las copias no
-  sirven. Sin clave la copia quedaría en claro con correos y hashes dentro, así
-  que `env-check` la trata como **error** y el servicio no arranca (una variable
-  **vacía** cuenta como ausente: era la causa de que las copias se guardaran sin
-  cifrar). `WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1` sigue existiendo para entornos de
-  prueba que asumen la carencia.
-- Una copia en el mismo disco que la base no protege de lo que más pasa (el disco
-  o el propio servidor se van enteros). `deploy/backup-pull.sh` **trae** las
-  copias al portátil, que funciona aunque el portátil esté detrás de un NAT:
+- With `WANDERBIBLIOTHEK_BACKUP_KEY` backups are encrypted (AES-256-GCM) and the
+  plain `.db` is deleted. **Keep that key off the server**: without it the
+  backups are useless. Without a key the backup would be left in plain text with
+  emails and hashes inside, so `env-check` treats it as an **error** and the
+  service does not start (an **empty** variable counts as missing: that was the
+  reason backups were stored unencrypted). `WANDERBIBLIOTHEK_SKIP_ENV_CHECK=1`
+  still exists for test environments that accept the gap.
+- A backup on the same disk as the database does not protect against what
+  happens most often (the disk or the server itself disappears entirely).
+  `deploy/backup-pull.sh` **pulls** the backups to the laptop, which works even
+  behind NAT:
 
   ```bash
-  # Una vez: la clave, fuera del servidor y con permisos cerrados.
+  # Once: the key, off the server and with tight permissions.
   ssh wanderbibliothek 'sudo sed -n "s/^WANDERBIBLIOTHEK_BACKUP_KEY=//p" /etc/wanderbibliothek/env' \
     > ~/.config/wanderbibliothek/backup-key
   chmod 600 ~/.config/wanderbibliothek/backup-key
 
-  # Cada día: las unidades de `deploy/backup-pull-user.{service,timer}`.
+  # Daily: the units in `deploy/backup-pull-user.{service,timer}`.
   install -Dm644 deploy/backup-pull-user.service ~/.config/systemd/user/wanderbibliothek-backup-pull.service
   install -Dm644 deploy/backup-pull-user.timer   ~/.config/systemd/user/wanderbibliothek-backup-pull.timer
   systemctl --user daemon-reload
   systemctl --user enable --now wanderbibliothek-backup-pull.timer
-  loginctl enable-linger "$USER"   # corre aunque no tengas la sesión abierta
+  loginctl enable-linger "$USER"   # runs even when you are not logged in
   ```
 
-  El script trae, rota (30 copias), **descifra la más reciente y comprueba que
-  abre como SQLite**: una copia que no se puede restaurar no es una copia.
-- `WANDERBIBLIOTHEK_BACKUP_HOOK` permite lo contrario, enviarlas desde el
-  servidor (`rsync`, `rclone`, S3); `env-check` avisa si no hay ni gancho ni
-  copia externa. En modo imagen, el backup se ejecuta con el digest del
-  contenedor activo (y falla si no coincide con `image.env`), sin red y como el
-  UID no privilegiado de la app. La web no recibe la clave de copias ni el
-  comando del hook: el envoltorio valida la clave en el host y pasa solo un
-  indicador no secreto al proceso web. El hook se ejecuta después en el host,
-  también como ese UID y con un entorno limpio (ruta, HOME y `BACKUP_FILE`), para
-  no filtrar a herramientas externas las claves de la app ni meter herramientas
-  de terceros en la imagen. Si el proveedor requiere credenciales, guárdalas en
-  la configuración del usuario de la app, fuera de
-  `/etc/wanderbibliothek/env`. En modo código hace lo mismo el propio
-  `scripts/backup.ts`: el gancho se lanza con `PATH`, `HOME`, `USER` y
-  `BACKUP_FILE`, no con el entorno del servicio. Consecuencia práctica: un
-  gancho que necesite credenciales tiene que leerlas de un fichero suyo (la
-  configuración de `rclone` en el HOME del usuario), no de variables de
-  `/etc/wanderbibliothek/env`.
-- **Ensayo de restauración**: `npm run db:verify` descifra la copia más reciente
-  (o la que se le pase), la abre en solo lectura como lo haría la aplicación,
-  ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del
-  esquema y cuenta las tablas principales. Sale con error si la copia no se
-  puede restaurar, así que sirve para una comprobación periódica:
+  The script pulls, rotates (30 backups), **decrypts the most recent one and
+  checks that it opens as SQLite**: a backup that cannot be restored is not a
+  backup.
+- `WANDERBIBLIOTHEK_BACKUP_HOOK` allows the opposite: sending them from the
+  server (`rsync`, `rclone`, S3); `env-check` warns if there is neither a hook
+  nor an external copy. In image mode, the backup runs with the active
+  container's digest (and fails if it does not match `image.env`), without
+  network and as the app's unprivileged UID. The web process does not receive
+  the backup key or the hook command: the wrapper validates the key on the host
+  and passes only a non-secret indicator to the web process. The hook then runs
+  on the host, also as that UID and with a clean environment (path, HOME and
+  `BACKUP_FILE`), so app keys are not leaked to external tools and third-party
+  tools do not get into the image. If the provider requires credentials, store
+  them in the app user's configuration, outside `/etc/wanderbibliothek/env`.
+  In code mode `scripts/backup.ts` does the same: the hook is launched with
+  `PATH`, `HOME`, `USER` and `BACKUP_FILE`, not with the service environment.
+  Practical consequence: a hook that needs credentials must read them from its
+  own file (the `rclone` configuration in the user's HOME), not from variables
+  in `/etc/wanderbibliothek/env`.
+- **Restore rehearsal**: `npm run db:verify` decrypts the most recent backup (or
+  the one passed to it), opens it read-only as the application would, runs
+  `integrity_check` and `foreign_key_check`, checks the schema version and
+  counts the main tables. It exits with an error if the backup cannot be
+  restored, so it works for a periodic check:
 
   ```bash
   WANDERBIBLIOTHEK_BACKUP_KEY="$(cat ~/.config/wanderbibliothek/backup-key)" \
-    npm run db:verify -- ~/copias/wanderbibliothek-2026-11-14T03-20-00-000Z.db.enc
+    npm run db:verify -- ~/backups/wanderbibliothek-2026-11-14T03-20-00-000Z.db.enc
   ```
 
-Restauración (ensáyala antes de necesitarla):
+Restore (rehearse it before you need it):
 
 ```bash
 sudo systemctl stop wanderbibliothek
-# `--import tsx` se resuelve desde el directorio de trabajo, así que hay que
-# situarse en la release: desde `/` el comando falla con
-# «Cannot find package 'tsx'» y la restauración no llega a empezar.
+# `--import tsx` resolves from the working directory, so you have to be in the
+# release: from `/` the command fails with
+# "Cannot find package 'tsx'" and the restore never starts.
 cd /srv/wanderbibliothek/current
-sudo -u wanderbibliothek WANDERBIBLIOTHEK_BACKUP_KEY="$CLAVE" \
+sudo -u wanderbibliothek WANDERBIBLIOTHEK_BACKUP_KEY="$KEY" \
   node --import tsx scripts/decrypt-backup.ts \
   /var/backups/wanderbibliothek/wanderbibliothek-2026-11-04T03-20-00-000Z.db.enc /tmp/restore.db
 sudo install -m 600 -o wanderbibliothek -g wanderbibliothek /tmp/restore.db /var/lib/wanderbibliothek/wanderbibliothek.db
@@ -685,40 +565,40 @@ sudo systemctl start wanderbibliothek
 curl -fsS https://biblioteca.example.com/api/health
 ```
 
-Si la copia no estaba cifrada, sáltate `decrypt-backup.ts` y copia el `.db`
-directamente. La clave de copias **no** viaja en `/etc/wanderbibliothek/env` si
-la guardas fuera del servidor: pásala en la línea de órdenes, como arriba.
+If the backup was not encrypted, skip `decrypt-backup.ts` and copy the `.db`
+directly. The backup key does **not** travel in `/etc/wanderbibliothek/env` if
+you keep it off the server: pass it on the command line, as above.
 
-### Vigilante (salud, disco, copias y certificado)
+### Watchdog (health, disk, backups and certificate)
 
-`deploy/watchdog.sh` lo ejecuta `wanderbibliothek-watchdog.timer` cada 15
-minutos como root y comprueba que `/api/health` responde y dice
-`proxy: "trusted"`, que el disco no pasa del 85 %, que la última copia tiene
-menos de 12 h y que el certificado no caduca en menos de 14 días. Lo que falla
-va al journal; si defines `ERROR_WEBHOOK_URL` en `/etc/wanderbibliothek/env`,
-también sale un JSON a ese webhook. Los umbrales se cambian con
-`MAX_DISK_PCT`, `MAX_BACKUP_AGE_H` y `MIN_CERT_DAYS`.
+`deploy/watchdog.sh` is run by `wanderbibliothek-watchdog.timer` every 15 minutes
+as root and checks that `/api/health` responds and reports
+`proxy: "trusted"`, that the disk is not above 85 %, that the latest backup is
+less than 12 h old and that the certificate does not expire in less than 14
+days. Anything that fails goes to the journal; if you define
+`ERROR_WEBHOOK_URL` in `/etc/wanderbibliothek/env`, a JSON payload is also sent
+to that webhook. The thresholds can be changed with `MAX_DISK_PCT`,
+`MAX_BACKUP_AGE_H` and `MIN_CERT_DAYS`.
 
-Además, con `MAINTENANCE_TOKEN` definido, pide `/api/metrics?format=prometheus`
-y vigila lo que la sonda de salud no ve:
+In addition, with `MAINTENANCE_TOKEN` defined, it requests
+`/api/metrics?format=prometheus` and watches what the health probe cannot see:
 
-| Qué | Variable | Por defecto |
+| What | Variable | Default |
 |---|---|---|
-| Correos dados por perdidos en 24 h | — | cualquier valor > 0 avisa |
-| Correos en estado fallido | `MAX_MAIL_FAILED` | `0` |
-| Retraso del correo más atrasado | `MAX_MAIL_WAIT_MIN` | `120` |
-| Tamaño del WAL (el checkpoint no completa) | `MAX_WAL_MB` | `512` |
-| Proporción de errores de servidor | `MAX_ERROR_PCT` | `5` |
-| Peticiones mínimas para calcularla | `MIN_REQUESTS_ERRORS` | `50` |
+| Emails given up as lost within 24 h | — | any value > 0 warns |
+| Emails in a failed state | `MAX_MAIL_FAILED` | `0` |
+| Delay of the oldest email | `MAX_MAIL_WAIT_MIN` | `120` |
+| WAL size (checkpoint not completing) | `MAX_WAL_MB` | `512` |
+| Server error ratio | `MAX_ERROR_PCT` | `5` |
+| Minimum requests to compute it | `MIN_REQUESTS_ERRORS` | `50` |
 
-Un correo que el proveedor acepta y el buzón manda a spam no deja rastro: la
-base lo marca como entregado y la persona nunca ve su enlace. Por eso la cola
-se vigila aquí y los registros del dominio se comprueban con `npm run
-mail:health` (ver la sección de correo).
+An email that the provider accepts and the mailbox sends to spam leaves no
+trace: the database marks it as delivered and the person never sees their link.
+That is why the queue is watched here and the domain records are checked with
+`npm run mail:health` (see the email section).
 
-`/api/metrics` queda **solo desde el propio host** en nginx, igual que el
-mantenimiento: acepta el mismo token sin cookie, y no hay razón para publicarlo.
-Se lee así:
+`/api/metrics` is **host-only** in nginx, like maintenance: it accepts the same
+token without a cookie, and there is no reason to publish it. Read it like this:
 
 ```bash
 sudo curl -fsS -H "Authorization: Bearer $(sudo sed -n 's/^MAINTENANCE_TOKEN=//p' /etc/wanderbibliothek/env)" \
@@ -726,40 +606,43 @@ sudo curl -fsS -H "Authorization: Bearer $(sudo sed -n 's/^MAINTENANCE_TOKEN=//p
 ```
 
 ```bash
-sudo systemctl start wanderbibliothek-watchdog.service   # probarlo a mano
+sudo systemctl start wanderbibliothek-watchdog.service   # test it by hand
 sudo journalctl -u wanderbibliothek-watchdog -n 20
 ```
 
-Cada pasada deja además una línea en
-`/var/lib/wanderbibliothek/watchdog.csv` con la hora, el código HTTP, el tiempo
-hasta el primer byte, el disco, la memoria, las horas desde la última copia, los
-días de certificado y el estado. El journal dice qué pasó en el último cuarto de
-hora; el CSV permite mirar la semana (`awk -F, '$8 != "ok"' …`) cuando alguien
-cuenta que «ayer iba lento».
+Each run also leaves a line in `/var/lib/wanderbibliothek/watchdog.csv` with the
+time, HTTP code, time to first byte, disk, memory, hours since the last backup,
+certificate days and status. The journal says what happened in the last quarter
+of an hour; the CSV lets you look at the week (`awk -F, '$8 != "ok"' …`) when
+someone says "it was slow yesterday".
 
-El servicio invoca `/usr/local/sbin/wanderbibliothek-watchdog`, no una ruta del
-checkout, por lo que su código queda fijado al instalarlo y se actualiza junto
-con las unidades.
+The service invokes `/usr/local/sbin/wanderbibliothek-watchdog`, not a path in
+the checkout, so its code is fixed when installed and updated together with the
+units.
 
-Con `WATCHDOG_PING_URL` (por ejemplo un *check* de healthchecks.io) cada pasada
-hace un `GET` a esa URL y, cuando algo falla, a `<URL>/fail`: el aviso llega por
-correo o Telegram sin abrir ningún puerto más en el servidor.
+With `WATCHDOG_PING_URL` (for example a healthchecks.io check), each run sends a
+`GET` to that URL and, when something fails, to `<URL>/fail`: the external
+service can then notify you by email or Telegram without opening another port on
+the server.
 
-### Disponibilidad desde fuera (`uptime-check.sh`)
+### External availability (`uptime-check.sh`)
 
-El vigilante vive **en** el servidor: si el servidor entero se cae, el vigilante
-se cae con él y nadie avisa. `deploy/uptime-check.sh` cierra ese hueco desde
-otra máquina (el portátil, un equipo de casa, un contenedor en otro proveedor):
+The watchdog lives **on** the server: if the whole server goes down, the
+watchdog goes down with it and nobody is alerted. `deploy/uptime-check.sh`
+closes that gap from another machine (the laptop, a home box, a container at
+another provider):
 
 ```bash
-./deploy/uptime-check.sh --webhook https://…   # una pasada
+URL=https://your-domain/api/health ./deploy/uptime-check.sh   # one run
 ```
 
-Comprueba `/api/health` y la portada con tiempo límite, guarda el estado en
-`~/.local/state/wanderbibliothek/` y solo avisa en los **cambios** (CAÍDO una vez
-al empezar el fallo, RECUPERADO al volver) para no llenar el buzón. Los
-`deploy/wanderbibliothek-uptime.{service,timer}` lo ejecutan cada cinco minutos
-en esa máquina:
+It requests the configured URL (by default
+`https://wanderbibliothek.org/api/health`) with a timeout, stores state in
+`~/.local/state/wanderbibliothek/` and only sends a desktop notification on
+**changes** (DOWN once when the failure starts, RECOVERED when it returns), so
+it does not repeat the alert on every run. The units in
+`deploy/wanderbibliothek-uptime.{service,timer}` run it every five minutes on
+that machine:
 
 ```bash
 mkdir -p ~/.local/bin ~/.local/state/wanderbibliothek
@@ -768,194 +651,188 @@ install -m 644 deploy/wanderbibliothek-uptime.service deploy/wanderbibliothek-up
 systemctl --user daemon-reload && systemctl --user enable --now wanderbibliothek-uptime.timer
 ```
 
-## 9. Diagnóstico rápido
+To monitor another instance, set `URL` in a user drop-in before enabling the
+timer:
 
-| Síntoma | Causa habitual |
-|---|---|
-| Todo responde 500 y el log dice `[env] ERROR …` | Falta una variable obligatoria del punto 4 |
-| El login «funciona» pero al recargar no hay sesión | El sitio se sirve por HTTP: la cookie `__Host-` necesita TLS |
-| No llegan correos de verificación | Falta el proveedor (`BREVO_API_KEY` + `MAIL_FROM`, o `MAIL_WEBHOOK_URL`) o el proveedor rechaza; el motivo sale en `journalctl \| grep '\[mail\]'` y los reintentos en el outbox del cron |
-| `/admin` y las rutas de moderación dan 403 | La cuenta admin no tiene 2FA activa (o falta `APP_ENCRYPTION_KEY`) |
-| 429 para todo el mundo | `TRUST_PROXY` sin activar: todas las IP comparten la cuota `direct` |
-| 429 solo en `/api/auth/*` con `limit_req` en el log | El límite de nginx: 10 peticiones/minuto por IP. Sube `rate`/`burst` si hay un CDN delante sin `real_ip` |
-| `/api/cron/maintenance` responde 403 al llamarlo desde fuera | Correcto: nginx solo lo deja entrar desde loopback |
-| Los mensajes nuevos no aparecen solos | nginx con buffering en `/api/requests/` |
-| Al pedir un libro, la app dice «el servidor responde con una redirección» y la web «No hay conexión con el servidor» | El vhost todavía tiene `location /api/requests/ {` (con barra). nginx manda `/api/requests` a `/api/requests/`, Next lo devuelve a `/api/requests` y el 301/308 se muerde la cola. Se ve con `curl -sI https://tu-dominio/api/requests \| grep -i location`. Arreglo (una línea, sin tocar el resto del fichero, que es de certbot): `sudo sed -i 's\|location /api/requests/ {\|location ^~ /api/requests {\|' /etc/nginx/sites-available/wanderbibliothek && sudo nginx -t && sudo systemctl reload nginx`. `deploy.sh` lo corrige solo en el siguiente despliegue |
-| Una portada nueva tarda en verse | Caché del proxy: la URL correcta lleva `?v=…` (la genera la app al subir). Si `curl -sI` de la imagen devuelve `X-Cache-Status: HIT` con la imagen vieja, se subió sin versión: vacía `/var/cache/nginx/wb_images` |
-| Subir una portada responde **413** | `client_max_body_size` de nginx (128 KB globales, pensados para JSON). La ruta `/api/cover/` necesita su propio `location` con 8 MB; el registro del proxy lo dice: `error.log` → `client intended to send too large body`. Sin eso la imagen ni llega a la aplicación |
-| El disco crece y la base no baja | Normal: SQLite no compacta al borrar; el mantenimiento hace `PRAGMA optimize` y `wal_checkpoint(TRUNCATE)` |
-| No hay copias en `/var/backups/wanderbibliothek` | Mira `journalctl -u wanderbibliothek-backup`; si el log habla de `tsx`, la release se instaló sin dependencias de producción o falta el `WorkingDirectory` |
-| `Failed to start server … EADDRINUSE` | Hay otro `next start` o un `.next` de otra release |
-
-### Informe de accesos y ataques
-
-`deploy/informe-accesos.sh` compone el informe del día desde el portátil: entra
-por SSH, lee el journal de `ssh`, los access logs de nginx (incluidos los
-rotados), `/var/log/fail2ban.log` y la base de datos, y saca el resumen de
-intentos fallidos, usuarios probados, baneos, sondas bloqueadas con `444`,
-respuestas `5xx`, logins fallidos en `/api/auth/login` y estado del servicio. Es
-solo lectura: no escribe nada ni dispara límites de nginx.
-
-```bash
-./deploy/informe-accesos.sh            # hoy (día del servidor)
-./deploy/informe-accesos.sh --ayer     # el día anterior
-./deploy/informe-accesos.sh --dias 7   # hace siete días
-npm run informe:accesos -- --json      # una línea JSON, para cron o webhook
+```ini
+# ~/.config/systemd/user/wanderbibliothek-uptime.service.d/url.conf
+[Service]
+Environment=URL=https://your-domain/api/health
 ```
 
-Dos detalles que conviene saber:
+## 9. Quick diagnosis
 
-- **Los logrotate no caen a medianoche exacta**: el `access.log.1` puede tener
-  la primera hora del día. El script lee los ficheros rotados y filtra por la
-  fecha de la línea, así que el total del día está completo (mirar solo el
-  `access.log` corriente se deja esas peticiones fuera).
-- **Las IPs con acceso SSH correcto se excluyen solas** de la lista de
-  atacantes (incluida la del portátil que lanza el informe). Si hace falta
-  añadir alguna más: `WB_EXCLUIR=1.2.3.4,5.6.7.8 ./deploy/informe-accesos.sh`.
+| Symptom | Usual cause |
+|---|---|
+| Everything returns 500 and the log says `[env] ERROR …` | A required variable from section 4 is missing |
+| Login "works" but there is no session after reloading | The site is served over HTTP: the `__Host-` cookie needs TLS |
+| Verification emails do not arrive | The provider is missing (`BREVO_API_KEY` + `MAIL_FROM`, or `MAIL_WEBHOOK_URL`) or the provider rejects it; the reason appears in `journalctl \| grep '\[mail\]'` and retries in the cron outbox |
+| `/admin` and moderation routes return 403 | The admin account does not have 2FA enabled (or `APP_ENCRYPTION_KEY` is missing) |
+| 429 for everyone | `TRUST_PROXY` not enabled: all IPs share the `direct` quota |
+| 429 only on `/api/auth/*` with `limit_req` in the log | The nginx limit: 10 requests/minute per IP. Raise `rate`/`burst` if there is a CDN in front without `real_ip` |
+| `/api/cron/maintenance` returns 403 when called from outside | Correct: nginx only lets it in from loopback |
+| New messages do not appear on their own | nginx buffering on `/api/requests/` |
+| When requesting a book, the app says "the server responds with a redirect" and the site says "No connection to the server" | The vhost still has `location /api/requests/ {` (with a slash). nginx sends `/api/requests` to `/api/requests/`, Next sends it back to `/api/requests`, and the 301/308 bites its own tail. It shows with `curl -sI https://your-domain/api/requests \| grep -i location`. Fix (one line, without touching the rest of the file, which belongs to certbot): `sudo sed -i 's\|location /api/requests/ {\|location ^~ /api/requests {\|' /etc/nginx/sites-available/wanderbibliothek && sudo nginx -t && sudo systemctl reload nginx`. `deploy.sh` fixes it automatically on the next deployment |
+| A new cover takes a while to appear | Proxy cache: the correct URL carries `?v=…` (generated by the app on upload). If `curl -sI` of the image returns `X-Cache-Status: HIT` with the old image, it was uploaded without a version: clear `/var/cache/nginx/wb_images` |
+| Uploading a cover returns **413** | nginx's `client_max_body_size` (128 KB globally, intended for JSON). The `/api/cover/` route needs its own `location` with 8 MB; the proxy log says so: `error.log` → `client intended to send too large body`. Without that, the image does not even reach the application |
+| The disk grows and the database does not shrink | Normal: SQLite does not compact on delete; maintenance runs `PRAGMA optimize` and `wal_checkpoint(TRUNCATE)` |
+| There are no backups in `/var/backups/wanderbibliothek` | Check `journalctl -u wanderbibliothek-backup`; if the log mentions `tsx`, the release was installed without production dependencies or `WorkingDirectory` is missing |
+| `Failed to start server … EADDRINUSE` | Another `next start` or a `.next` from another release is running |
 
-Sale con código 1 cuando hay algo que mirar (5xx, `Accepted password` en SSH,
-`/api/health` distinto de 200 o fail2ban sin baneos habiendo fallos), así que
-sirve tal cual en un cron con `ERROR_WEBHOOK_URL`.
+### Access and attack report
 
-La línea «Del bot de Mastodon» cuenta las páginas abiertas con `?ref=mastodon`,
-la marca que lleva el enlace de cada aviso (ver `ANNOUNCE_REF` en
-`src/lib/mastodon.ts`). Existe porque las apps del fediverso no siempre mandan
-`Referer`: sin ella, una visita de Mastodon es indistinguible de una que llega
-sin origen. Es un recuento de aperturas, no de personas.
+`deploy/informe-accesos.sh` builds the day's report from the laptop: it connects
+over SSH, reads the `ssh` journal, the nginx access logs (including rotated
+ones), `/var/log/fail2ban.log` and the database, and prints a summary of failed
+attempts, tried usernames, bans, probes blocked with `444`, `5xx` responses,
+failed logins on `/api/auth/login` and service status. It is read-only: it writes
+nothing and triggers no nginx limits.
 
-El bloque `── MASTODON ──` cierra el informe con lo que no está en los logs: las
-visitas que sí llegan con `Referer` de una instancia o de una app del fediverso
-(sirve para los avisos anteriores a la marca), el reparto por origen y el estado
-de la cuenta del bot (seguidores y respuesta a los últimos veinte avisos, leída
-de la API con el token de `/etc/wanderbibliothek/env`; el token solo tiene
-`read:accounts`, así que los estados se consultan sin él). Si no hay red o
-token, esas líneas salen con «-» y el informe sigue siendo válido. Las IPs de la
-lista de exclusión (las que entran por SSH, o sea, quien lanza el informe) no
-cuentan como visitas; para dejar fuera tu móvil, añádelo con `WB_EXCLUIR`.
+```bash
+./deploy/informe-accesos.sh            # today (server day)
+./deploy/informe-accesos.sh --ayer     # the previous day
+./deploy/informe-accesos.sh --dias 7   # seven days ago
+npm run informe:accesos -- --json      # one JSON line, for cron or a webhook
+```
 
-## Continuidad y relevo
+Two details worth knowing:
 
-Una instancia no debería depender de una sola persona. Antes de abrir el registro:
+- **logrotate does not run exactly at midnight**: `access.log.1` may contain the
+  first hour of the day. The script reads the rotated files and filters by the
+  line's date, so the day's total is complete (looking only at the current
+  `access.log` leaves those requests out).
+- **IPs with successful SSH access are automatically excluded** from the
+  attacker list (including the laptop that runs the report). If you need to add more:
+  `WB_EXCLUIR=1.2.3.4,5.6.7.8 ./deploy/informe-accesos.sh`.
 
-- Crea al menos **dos cuentas de administración** (`npm run admin:create`). La segunda puede quedar inactiva, pero debe existir y tener el segundo factor configurado.
-- Para moderar sin administrar, crea una cuenta de moderación (`npm run moderator:create`): revisa denuncias y oculta contenido, pero no suspende cuentas.
-- Guarda **fuera del servidor** una copia cifrada de la base y de `APP_ENCRYPTION_KEY`; sin la clave, las copias no se pueden restaurar.
-- Documenta quién controla el dominio, el DNS, el proveedor del servidor, el correo y el repositorio.
-- Deja escrito el procedimiento de relevo: qué credenciales hay que transferir, dónde están las copias y cómo se comprueba una restauración (`npm run db:verify`).
-- Revisa una vez al año que la segunda persona puede entrar, restaurar una copia y publicar un cambio.
+It exits with code 1 when there is something to review (5xx, `Accepted
+password` over SSH, `/api/health` not 200 or fail2ban with no bans despite
+failures), so it works as-is in a cron job with `ERROR_WEBHOOK_URL`.
 
-Las normas de convivencia, la moderación y las apelaciones se publican en `/normas`; el documento de referencia está en [`GOVERNANCE.md`](../GOVERNANCE.md).
+## Continuity and handover
 
-## 10. Límites conocidos
+An instance should not depend on a single person. Before opening registration:
 
-- **Una sola instancia.** SQLite tiene un único escritor, así que varias
-  réplicas exigen PostgreSQL. El canal en vivo no es el problema: el bus en
-  memoria solo ahorra latencia y la fuente de verdad se consulta en la base, de
-  modo que dos procesos coinciden con hasta 15 s de retraso.
-- **Cada actualización reinicia el proceso.** No hay azul/verde: el servicio se
-  para, arranca la imagen o release nueva y se comprueba `/api/health`; si falla,
-  se vuelve a la anterior. Son unos segundos sin servicio, y no hay alta
-  disponibilidad: dos réplicas exigen PostgreSQL.
-- **Los scripts de operación necesitan `tsx`**, que está en `dependencies` a
-  propósito (no es una devDependency): así funcionan también con
-  `npm ci --omit=dev` y dentro de la imagen.
-- **La base no se migra hacia atrás**: ante un despliegue que cambie el esquema,
-  la copia previa es la vuelta atrás.
-- **Los registros van a journald** (`journalctl -u wanderbibliothek`) en host, y a
-  `docker compose logs` en contenedor. Con `ERROR_WEBHOOK_URL` se reenvían además
-  los errores a un servicio externo.
-- **La copia fuera del servidor es un `rsync`/`scp` a una máquina tuya**
-  (`deploy/backup-pull.sh`). Una copia en un cubo (S3, Backblaze B2, R2) exige
-  una cuenta y sus claves; cuando las haya, el sitio donde encaja es
-  `WANDERBIBLIOTHEK_BACKUP_HOOK` (recibe la ruta en `$BACKUP_FILE`, así que vale
-  `rclone copy "$BACKUP_FILE" remoto:`) o un Litestream aparte que replique el
-  WAL. Ninguna de las dos está activada por defecto: sin credenciales no se
-  puede probar, y una copia que nunca se ha restaurado no es una copia.
-- **`ERROR_WEBHOOK_URL` y `WATCHDOG_PING_URL` están vacías**: el código las usa si
-  existen, pero el destino lo elige quien opera (Slack, healthchecks.io, un
-  correo). No hay valor por defecto a propósito.
+- Create at least **two administration accounts** (`npm run admin:create`). The second can remain inactive, but it must exist and have the second factor configured.
+- To moderate without administering, create a moderation account (`npm run moderator:create`): it reviews reports and hides content, but does not suspend accounts.
+- Keep an encrypted copy of the database and of `APP_ENCRYPTION_KEY` **off the server**; without the key, backups cannot be restored.
+- Document who controls the domain, DNS, the server provider, email and the repository.
+- Write down the handover procedure: which credentials must be transferred, where the backups are and how a restore is checked (`npm run db:verify`).
+- Once a year, check that the second person can log in, restore a backup and publish a change.
+
+The rules of conduct, moderation and appeals are published at `/normas`; the
+reference document is [`GOVERNANCE.md`](../GOVERNANCE.md).
+
+## 10. Known limits
+
+- **A single instance.** SQLite has one writer, so several replicas require
+  PostgreSQL. The live channel is not the problem: the in-memory bus only saves
+  latency and the source of truth is read from the database, so two processes
+  agree within up to 15 s.
+- **Every upgrade restarts the process.** There is no blue/green: the service
+  stops, the new image or release starts and `/api/health` is checked; if it
+  fails, it rolls back to the previous one. That is a few seconds without
+  service, and there is no high availability: two replicas require PostgreSQL.
+- **The operation scripts need `tsx`**, which is in `dependencies` on purpose
+  (it is not a devDependency): that way they also work with
+  `npm ci --omit=dev` and inside the image.
+- **The database is not migrated backwards**: for a deployment that changes the
+  schema, the previous backup is the rollback path.
+- **Logs go to journald** (`journalctl -u wanderbibliothek`) on a host, and to
+  `docker compose logs` in a container. With `ERROR_WEBHOOK_URL`, errors are also
+  forwarded to an external service.
+- **The off-server backup is an `rsync`/`scp` to one of your machines**
+  (`deploy/backup-pull.sh`). A copy in a bucket (S3, Backblaze B2, R2) requires
+  an account and its keys; when those exist, the place it fits is
+  `WANDERBIBLIOTHEK_BACKUP_HOOK` (it receives the path in `$BACKUP_FILE`, so
+  `rclone copy "$BACKUP_FILE" remote:`) or a separate Litestream that replicates
+  the WAL. Neither is enabled by default: without credentials it cannot be
+  tested, and a backup that has never been restored is not a backup.
+- **`ERROR_WEBHOOK_URL` and `WATCHDOG_PING_URL` are empty**: the code uses them
+  if they exist, but the destination is chosen by the operator (Slack,
+  healthchecks.io, an email). There is deliberately no default.
 
 ## 11. Docker
 
-Alternativa al servicio systemd, mismo comportamiento. `Dockerfile` es
-multi-etapa (el runtime solo lleva dependencias de producción) y
-`docker-compose.yml` monta dos volúmenes: datos y copias.
+An alternative to the systemd service, with the same behaviour. The `Dockerfile`
+is multi-stage (the runtime only carries production dependencies) and
+`docker-compose.yml` mounts two volumes: data and backups.
 
 ```bash
-cp deploy/env.example .env      # NEXT_PUBLIC_SITE_URL=https://tu-dominio…
+cp deploy/env.example .env      # NEXT_PUBLIC_SITE_URL=https://your-domain…
 docker compose up -d --build
-docker compose ps               # debe estar «healthy»
+docker compose ps               # it must be "healthy"
 curl -fsS http://127.0.0.1:3000/api/health
 ```
 
-`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha) va en el `.env` del contenedor como
-cualquier otra variable: se lee en el servidor en cada petición, no se incrusta
-al compilar.
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (captcha) goes in the container's `.env` like
+any other variable: it is read on the server on every request and is not
+embedded at build time.
 
 ```bash
-# en el .env del contenedor, junto al resto
+# in the container's .env, next to the rest
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAA…
 docker compose up -d
 ```
 
-En el `.env` cambia solo las rutas de datos:
+In `.env`, change only the data paths:
 
 ```
 WANDERBIBLIOTHEK_DB=/data/wanderbibliothek.db
 WANDERBIBLIOTHEK_BACKUP_DIR=/backups
 ```
 
-(el `docker-compose.yml` ya las fija, así que no hace falta tocar nada si
-partes de `deploy/env.example`).
+(`docker-compose.yml` already sets them, so there is nothing to change if you
+start from `deploy/env.example`).
 
-La aplicación escucha en `127.0.0.1:3000` del host: pon delante el mismo nginx de
-`deploy/nginx.conf` (el `proxy_pass` ya apunta a `127.0.0.1:3000`). Para probar en
-local basta `http://localhost:3000`: el navegador trata localhost como contexto
-seguro y acepta la cookie `__Host-`.
+The application listens on the host's `127.0.0.1:3000`: put the same nginx from
+`deploy/nginx.conf` in front (the `proxy_pass` already points to
+`127.0.0.1:3000`). To test locally, `http://localhost:3000` is enough: the
+browser treats localhost as a secure context and accepts the `__Host-` cookie.
 
-Tareas y administración dentro del contenedor:
+Jobs and administration inside the container:
 
 ```bash
-# Administrador (solo la primera vez)
-docker compose exec -T app node --import tsx scripts/create-admin.ts admin@tu-dominio 'contraseña-larga'
+# Administrator (first time only)
+docker compose exec -T app node --import tsx scripts/create-admin.ts admin@your-domain 'long-password'
 
-# Verificar un correo a mano
-docker compose exec -T app node --import tsx scripts/verify-user.ts alguien@ejemplo.com
+# Verify an email by hand
+docker compose exec -T app node --import tsx scripts/verify-user.ts someone@example.com
 
-# Copia de seguridad
-# (el volumen /backups es lo que conviene llevarse fuera)
+# Backup
+# (the /backups volume is what you should take off the server)
 ```
 
-Programa desde el **host** (systemd timer o cron), no dentro del contenedor:
+Schedule from the **host** (systemd timer or cron), not inside the container:
 
 ```cron
 */15 * * * *  curl -fsS -X POST -H "Authorization: Bearer $MAINTENANCE_TOKEN" http://127.0.0.1:3000/api/cron/maintenance
 20 3 * * *    cd /srv/wanderbibliothek && docker compose exec -T app node --import tsx scripts/backup.ts
 ```
 
-Notas:
+Notes:
 
-- `docker compose exec` necesita el contenedor en marcha; si el servicio está
-  caído, arranca primero `docker compose start app`.
-- El `HEALTHCHECK` (y el de compose) consulta `/api/health`: si el entorno está
-  incompleto, el contenedor queda **unhealthy** y `docker compose logs` muestra
-  las líneas `[env] ERROR …`.
-- Las releases se cambian con `docker compose pull` + `up -d --no-build` si la
-  imagen está fijada por digest, o con `docker compose build` + `up -d` si se
-  construye en el servidor. El volumen de datos sobrevive en los dos casos.
-- El build de la imagen se valida en CI (job `imagen`), no hace falta compilarla
-  en el servidor.
+- `docker compose exec` needs the container running; if the service is down,
+  start it first with `docker compose start app`.
+- The `HEALTHCHECK` (and compose's) queries `/api/health`: if the environment is
+  incomplete, the container stays **unhealthy** and `docker compose logs` shows
+  the `[env] ERROR …` lines.
+- Releases are changed with `docker compose pull` + `up -d --no-build` if the
+  image is pinned by digest, or with `docker compose build` + `up -d` if it is
+  built on the server. The data volume survives in both cases.
+- The image build is validated in CI (the `imagen` job); there is no need to
+  build it on the server.
 
-## Verificar una release (software y contenido)
+## Verifying a release (software and content)
 
-Una instancia puede decir «ejecuto este código» de tres formas, de menos a más
-prueba. Las dos primeras ya están implementadas y no dependen de confiar en
-quien administra el servidor; la tercera es infraestructura y se explica al
-final para que nadie crea que está cubierta.
+An instance can claim "I run this code" in three ways, from least to most proof.
+The first two are already implemented and do not depend on trusting whoever
+administers the server; the third is infrastructure and is explained at the end
+so that nobody believes it is covered.
 
-### 1. Qué código dice estar sirviendo
+### 1. What code it claims to be serving
 
-`GET /api/version` es público y devuelve, sin datos de nadie:
+`GET /api/version` is public and returns, without anyone's data:
 
 ```json
 {
@@ -968,44 +845,44 @@ final para que nadie crea que está cubierta.
 }
 ```
 
-Si la instalación no sabe qué commit ejecuta, los campos valen `null`: no se
-inventa nada. El pie de página enseña el mismo commit cuando existe.
+If the installation does not know which commit it runs, the fields are `null`:
+nothing is invented. The footer shows the same commit when it exists.
 
-- **systemd desde código:** `deploy/deploy.sh` escribe `.build-info.json` en
-  cada release con el commit del clon y la hora del build. Es lo que hay en este
-  modo, pero no hay digest que publicar: para eso, usa el
-  [despliegue por imagen firmada](#despliegue-por-imagen-firmada).
-- **Docker:** el commit y la hora entran como *build args* y quedan dentro de la
-  imagen (`docker inspect` los muestra en `org.opencontainers.image.revision`).
-  El digest se publica si despliegas con `WANDERBIBLIOTHEK_IMAGE` fijada por
-  digest, porque es la referencia la que lo contiene.
+- **systemd from code:** `deploy/deploy.sh` writes `.build-info.json` in each
+  release with the clone's commit and the build time. That is what this mode
+  has, but there is no digest to publish: for that, use
+  [signed image deployment](#signed-image-deployment).
+- **Docker:** the commit and time enter as *build args* and remain inside the
+  image (`docker inspect` shows them in `org.opencontainers.image.revision`).
+  The digest is published if you deploy with `WANDERBIBLIOTHEK_IMAGE` pinned by
+  digest, because the reference is what contains it.
 
-### 2. Que la imagen salió de este repositorio
+### 2. That the image came from this repository
 
-Cada etiqueta `v*` ejecuta `.github/workflows/release.yml`, que:
+Every `v*` tag runs `.github/workflows/release.yml`, which:
 
-- construye y publica en GHCR **por digest**;
-- adjunta provenance SLSA (`mode=max`) y un SBOM de la imagen;
-- firma con cosign en modo keyless, con la identidad del propio workflow;
-- publica una release con `sbom.cdx.json`, `SHA256SUMS`, `image-digest.txt` e
-  `image-reference.txt`.
+- builds and publishes to GHCR **by digest**;
+- attaches SLSA provenance (`mode=max`) and an SBOM of the image;
+- signs with cosign in keyless mode, with the workflow's own identity;
+- publishes a release with `sbom.cdx.json`, `SHA256SUMS`, `image-digest.txt`
+  and `image-reference.txt`.
 
-Para desplegar una release verificada, fija el digest en `.env` y no dejes que
-Compose construya:
+To deploy a verified release, pin the digest in `.env` and do not let Compose
+build:
 
 ```bash
 # .env
 WANDERBIBLIOTHEK_IMAGE=ghcr.io/gallardoalba/wb@sha256:…
 
-./deploy/verify-release.sh      # lee WANDERBIBLIOTHEK_IMAGE
+./deploy/verify-release.sh      # reads WANDERBIBLIOTHEK_IMAGE
 docker compose pull
 docker compose up -d --no-build
 ```
 
-`deploy/verify-release.sh` exige `cosign` y comprueba la firma contra este
-repositorio y este workflow; si está `slsa-verifier`, comprueba también la
-provenance. Rechaza una referencia sin digest: una etiqueta se puede mover y la
-firma no la seguiría.
+`deploy/verify-release.sh` requires `cosign` and checks the signature against
+this repository and this workflow; if `slsa-verifier` is present, it also checks
+the provenance. It rejects a reference without a digest: a tag can move and the
+signature would not follow it.
 
 ```bash
 cosign verify ghcr.io/gallardoalba/wb@<digest> \
@@ -1015,142 +892,142 @@ cosign verify ghcr.io/gallardoalba/wb@<digest> \
 slsa-verifier verify-image ghcr.io/gallardoalba/wb@<digest> \
   --source-uri github.com/gallardoalba/WB
 ```
-La imagen no promete reproducibilidad bit a bit: Next, npm y las marcas de
-tiempo del sistema de archivos hacen que dos builds puedan diferir aunque el
-código sea el mismo. Lo que ata la imagen al código es la provenance SLSA: dice
-qué workflow, qué commit y qué pasos la produjeron, y la firma keyless dice que
-ese workflow es el de este repositorio. Para auditar el contenido, reconstruye
-desde ese commit con `docker build --build-arg APP_COMMIT_SHA=<sha>` y compara el
-comportamiento y los ficheros que te interesen; si necesitas igualdad byte a
-byte, ese es el siguiente paso (Nix o `rebuilderd`), no algo que hoy se afirme.
 
-### 3. Que el contenido público no se reescribe en silencio
+The image does not promise bit-for-bit reproducibility: Next, npm and
+filesystem timestamps mean two builds can differ even when the code is the same.
+What binds the image to the code is the SLSA provenance: it says which workflow,
+which commit and which steps produced it, and the keyless signature says that
+workflow belongs to this repository. To audit the contents, rebuild from that
+commit with `docker build --build-arg APP_COMMIT_SHA=<sha>` and compare the
+behaviour and files you care about; if you need byte-for-byte equality, that is
+the next step (Nix or `rebuilderd`), not something claimed today.
 
-`/api/transparency` publica **instantáneas firmadas del catálogo público**. Cada
-una contiene:
+### 3. That public content is not rewritten silently
 
-- `merkleRoot`: raíz de Merkle de todas las obras públicas;
-- `payloadHash`: SHA-256 del NDJSON exacto que se puede descargar;
-- `previousRoot`: raíz de la instantánea anterior (cadena);
-- `signature` y `publicKey`: firma Ed25519 en base64 y la clave con la que se
-  firmó (o `null` si la instancia no tiene clave).
+`/api/transparency` publishes **signed snapshots of the public catalogue**. Each
+one contains:
 
-El contenido se descarga en `/api/transparency/export` (`application/x-ndjson`,
-una obra por línea) y **solo lleva lo que ya es público**: título, autoría,
-edición, categoría e idioma, número de ejemplares y ciudades. Nunca quién tiene
-cada ejemplar, ni correos, ni identificadores de personas. Por eso puede servirse
-sin sesión sin recortar nada.
+- `merkleRoot`: Merkle root of all public works;
+- `payloadHash`: SHA-256 of the exact NDJSON that can be downloaded;
+- `previousRoot`: root of the previous snapshot (chain);
+- `signature` and `publicKey`: Ed25519 signature in base64 and the key it was
+  signed with (or `null` if the instance has no key).
 
-El cron de mantenimiento crea una instantánea al día. Para firmarlas, genera una
-clave Ed25519 (PKCS#8 en base64, que es lo que acepta la variable) y ponla en el
-entorno del servicio:
+The content is downloaded from `/api/transparency/export`
+(`application/x-ndjson`, one work per line) and **carries only what is already
+public**: title, authorship, edition, category and language, number of copies
+and cities. Never who holds each copy, nor emails, nor personal identifiers.
+That is why it can be served without a session and without redacting anything.
+
+The maintenance cron creates one snapshot per day. To sign them, generate an
+Ed25519 key (PKCS#8 in base64, which is what the variable accepts) and put it in
+the service environment:
 
 ```bash
 node -e "const{generateKeyPairSync}=require('crypto');process.stdout.write(generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'der'}).toString('base64'))" > /tmp/wb-transparency.key
-# TRANSPARENCY_SIGNING_KEY=$(cat /tmp/wb-transparency.key)   → edita /etc/wanderbibliothek/env
+# TRANSPARENCY_SIGNING_KEY=$(cat /tmp/wb-transparency.key)   → edit /etc/wanderbibliothek/env
 sudo systemctl restart wanderbibliothek
 rm /tmp/wb-transparency.key
-npm run transparency:snapshot       # o espera al cron
+npm run transparency:snapshot       # or wait for the cron
 ```
 
-Verificar desde fuera, sin la base ni el código del servidor:
+Verify from outside, without the server's database or code:
 
 ```bash
-npm run transparency:verify -- --url https://tu-dominio
+npm run transparency:verify -- --url https://your-domain
 ```
 
-El verificador descarga la instantánea y su NDJSON, recalcula hash y raíz,
-comprueba la firma y que la cadena de raíces no tenga eslabones rotos. Si eres un
-testigo externo, guarda la huella de la clave y la raíz que viste y pásalas con
-`--snapshot <id> --key-fingerprint <sha256> --pin <raíz>`: si la instancia
-reescribe esa instantánea o empieza a firmar con otra clave, la comprobación
-falla. Sin
-firma, el verificador sale con error: una instantánea sin clave sirve para
-comparar contenido, no como prueba criptográfica.
+The verifier downloads the snapshot and its NDJSON, recomputes the hash and
+root, checks the signature and that the chain of roots has no broken links. If
+you are an external witness, keep the key fingerprint and the root you saw and
+pass them with `--snapshot <id> --key-fingerprint <sha256> --pin <root>`: if the
+instance rewrites that snapshot or starts signing with another key, the check
+fails. Without a signature, the verifier exits with an error: an unsigned
+snapshot is useful for comparing content, not as cryptographic proof.
 
-Qué garantiza: que un cambio en lo publicado deja rastro y que una instantánea
-pasada no se puede sustituir por otra sin romper la firma o la cadena. Qué no
-garantiza: que el proceso que responde sea exactamente esa imagen. Eso solo lo
-da la attestation por hardware (siguiente apartado).
+What it guarantees: that a change to what is published leaves a trace and that a
+past snapshot cannot be replaced by another without breaking the signature or
+the chain. What it does not guarantee: that the process responding is exactly
+that image. Only hardware attestation (next section) provides that.
 
-### 4. Prueba criptográfica del proceso (no implementada)
+### 4. Cryptographic proof of the process (not implemented)
 
-Si el modelo de amenaza incluye a quien administra el servidor o al proveedor de
-la máquina, firmar imágenes no basta: hay que medir el arranque y el sistema de
-ficheros, y publicar una prueba que se pueda verificar fuera.
+If the threat model includes whoever administers the server or the machine's
+provider, signing images is not enough: boot and filesystem measurements must be
+taken, and a proof that can be verified outside must be published.
 
-- **TPM 2.0 + arranque medido + IMA/dm-verity**, con un servidor de attestation
-  como [Keylime](https://keylime.dev/). El host publica un *quote* firmado por el
-  TPM con las PCR; el verificador compara contra el estado esperado. Cubre
-  kernel, initramfs e integridad de ficheros, no la configuración de la base.
-- **Computación confidencial**: AMD SEV-SNP o Intel TDX (Azure/GCP Confidential
-  VM) o AWS Nitro Enclaves. Proyectos como
-  [Constellation](https://constellation.edgeless.systems/) montan Kubernetes
-  verificable con `constellation verify`. Aquí la confianza se traslada al
-  fabricante de la CPU, no desaparece.
+- **TPM 2.0 + measured boot + IMA/dm-verity**, with an attestation server such as
+  [Keylime](https://keylime.dev/). The host publishes a TPM-signed *quote* with
+  the PCRs; the verifier compares it against the expected state. It covers the
+  kernel, initramfs and file integrity, not the database configuration.
+- **Confidential computing**: AMD SEV-SNP or Intel TDX (Azure/GCP Confidential
+  VM) or AWS Nitro Enclaves. Projects such as
+  [Constellation](https://constellation.edgeless.systems/) build verifiable
+  Kubernetes with `constellation verify`. Here trust moves to the CPU
+  manufacturer; it does not disappear.
 
-Ninguna de las dos está integrada en este repositorio y no se pueden activar
-desde la aplicación: dependen del host, del hipervisor y, en la práctica, de un
-segundo canal para publicar el *quote*. Mientras no existan, la transparencia de
-Wanderbibliothek es **detectable, no imposible**: código abierto, imagen firmada,
-commit publicado e instantáneas firmadas del contenido.
+Neither is integrated into this repository and neither can be enabled from the
+application: they depend on the host, the hypervisor and, in practice, on a
+second channel to publish the *quote*. Until they exist, Wanderbibliothek's
+transparency is **detectable, not impossible**: open code, a signed image, a
+published commit and signed snapshots of the content.
 
-## Despliegue por imagen firmada
+## Signed image deployment
 
-El despliegue de las secciones anteriores compila desde el código y ejecuta
-`next start` directamente. Funciona, pero entonces **no hay artefacto OCI** y
-`/api/version` publica `image: null`: el commit es autoinformado y no existe una
-firma que ligue los ficheros que corren con la release de GitHub.
+The deployment in the previous sections builds from code and runs `next start`
+directly. It works, but then **there is no OCI artefact** and `/api/version`
+publishes `image: null`: the commit is self-reported and there is no signature
+tying the running files to the GitHub release.
 
-Este apartado cambia solo el servicio web a la imagen firmada de GHCR. Los
-datos siguen en el host, las copias y los timers no cambian, y nginx tampoco.
-La diferencia es que `/api/version` pasa a publicar el digest, y cualquiera
-puede comprobarlo con `cosign verify` y `slsa-verifier`.
+This section changes only the web service to the signed GHCR image. Data stays
+on the host, backups and timers do not change, and neither does nginx. The
+difference is that `/api/version` starts publishing the digest, and anyone can
+check it with `cosign verify` and `slsa-verifier`.
 
-### Requisitos
+### Requirements
 
 ```bash
 sudo apt-get update && sudo apt-get install -y docker.io
 sudo systemctl enable --now docker
 
-# cosign (binario oficial; no hace falta el resto de Sigstore)
+# cosign (official binary; the rest of Sigstore is not needed)
 curl -fsSL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
   -o /tmp/cosign && sudo install -m 755 /tmp/cosign /usr/local/bin/cosign
 ```
 
-La imagen es pública: no hace falta `docker login` para descargarla.
+The image is public: no `docker login` is needed to pull it.
 
-### Instalación inicial de la unidad
+### Initial unit installation
 
 ```bash
-# 1. Envoltorio que arranca el contenedor con los montajes del host.
+# 1. Wrapper that starts the container with the host mounts.
 sudo install -m 755 deploy/run-container.sh /usr/local/sbin/wanderbibliothek-container
 sudo install -Dm644 deploy/backup-key.sh /usr/local/lib/wanderbibliothek/backup-key.sh
 
-# 2. Unidad de systemd (sustituye a la del servicio de código).
+# 2. systemd unit (replaces the code service's unit).
 sudo cp -a /etc/systemd/system/wanderbibliothek.service \
-  /etc/systemd/system/wanderbibliothek.service.source   # vuelta atrás
+  /etc/systemd/system/wanderbibliothek.service.source   # rollback
 sudo install -m 644 deploy/wanderbibliothek-image.service \
   /etc/systemd/system/wanderbibliothek.service
 sudo systemctl daemon-reload
 
-# 3. Caché de Next escribible por el usuario del host.
+# 3. Next cache writable by the host user.
 sudo install -d -m 700 -o wanderbibliothek -g wanderbibliothek \
   /var/lib/wanderbibliothek/next-cache
 
-# 4. El comando de despliegue, disponible sin depender del clon.
+# 4. The deploy command, available without depending on the clone.
 sudo install -m 755 deploy/deploy-image.sh /usr/local/sbin/wanderbibliothek-deploy-image
 
-# 5. Primera imagen, verificada y fijada por digest.
-sudo deploy/deploy-image.sh --ref 1.0.1
+# 5. First image, verified and pinned by digest.
+sudo deploy/deploy-image.sh --ref <version>
 ```
 
-`deploy-image.sh` descarga la etiqueta, resuelve el digest, **verifica la firma
-keyless** contra este repositorio, escribe `/etc/wanderbibliothek/image.env`
-(600 root) y reinicia el servicio. Si `/api/health` no responde, restaura la
-imagen anterior y vuelve a arrancar.
+`deploy-image.sh` pulls the tag, resolves the digest, **verifies the keyless
+signature** against this repository, writes `/etc/wanderbibliothek/image.env`
+(root-owned 600) and restarts the service. If `/api/health` does not respond, it
+restores the previous image and starts again.
 
-Comprobar:
+Check:
 
 ```bash
 curl -fsS http://127.0.0.1:3000/api/version | python3 -m json.tool
@@ -1160,69 +1037,67 @@ docker inspect --format '{{.Config.Labels}}' \
   "$(sed -n 's/^WANDERBIBLIOTHEK_IMAGE=//p' /etc/wanderbibliothek/image.env)"
 ```
 
-### Desacoplar las operaciones de `current`
+### Decoupling operations from `current`
 
-En una instalación ya existente, primero publica y despliega `v1.0.3` o una
-versión posterior: la imagen debe incluir el marcador que permite al wrapper
-identificar la copia creada. Después, desde el checkout, ejecuta:
+In an existing installation, first deploy a signed image (the current release,
+for example), then run the installer from the checkout:
 
 ```bash
-sudo wanderbibliothek-deploy-image --ref 1.0.3
+sudo wanderbibliothek-deploy-image --ref <version>
 ```
 
-Y después:
+And then:
 
 ```bash
 sudo deploy/install-image-operations.sh
 ```
 
-El instalador solo trabaja si detecta que systemd ya ejecuta el modo imagen.
-Guarda copias fechadas de las unidades, el hardening y el vhost de nginx;
-reemplaza las rutas de assets de `current` por el proxy al contenedor, instala
-backup/watchdog en `/usr/local/sbin`, reinicia el servicio, comprueba health y
-habilita los temporizadores. Si nginx no valida, restaura el vhost; si falla el
-reinicio o la comprobación de salud, restaura el vhost, las unidades y los
-wrappers anteriores e intenta reiniciar el servicio. No borra el checkout ni
-desactiva `deploy.sh`.
+The installer only works if it detects that systemd is already running image
+mode. It keeps dated copies of the units, the hardening file and the nginx
+vhost; replaces the asset paths under `current` with the proxy to the container,
+installs backup/watchdog in `/usr/local/sbin`, restarts the service, checks
+health and enables the timers. If nginx does not validate, it restores the
+vhost; if the restart or the health check fails, it restores the vhost, the units
+and the previous wrappers and tries to restart the service. It does not delete
+the checkout or disable `deploy.sh`.
 
-Prueba explícita de la copia en el modo imagen:
+Explicit test of the backup in image mode:
 
 ```bash
 sudo systemctl start wanderbibliothek-backup.service
 sudo journalctl -u wanderbibliothek-backup.service -n 40 --no-pager
 ```
 
-La copia y las portadas se generan con el código de la imagen en ejecución. La
-base cifrada, los ficheros de backup y el watchdog siguen en el host; la clave
-no se publica ni se copia al almacenamiento externo junto con los datos.
+The backup and covers are generated with the running image's code. The encrypted
+database, the backup files and the watchdog stay on the host; the key is not
+published or copied to external storage together with the data.
 
-### Actualizar y volver atrás
+### Upgrading and rolling back
 
 ```bash
-sudo deploy/deploy-image.sh --ref 1.0.2     # nueva release firmada
-sudo deploy/deploy-image.sh --rollback      # vuelve a la anterior
+sudo deploy/deploy-image.sh --ref <version>     # new signed release
+sudo deploy/deploy-image.sh --rollback          # back to the previous one
 
-# o, si se instaló en /usr/local/sbin:
-sudo wanderbibliothek-deploy-image --ref 1.0.2
+# or, if installed in /usr/local/sbin:
+sudo wanderbibliothek-deploy-image --ref <version>
 ```
 
-El rollback real de la aplicación es cambiar el digest. Tras instalar el
-desacople, `current` ya no es una dependencia de los servicios web, backup,
-watchdog, nginx ni sus unidades; puede conservarse para las herramientas
-administrativas y como alternativa explícita de despliegue por código.
+The application's real rollback is changing the digest. After installing the
+decoupling, `current` is no longer a dependency of the web, backup or watchdog
+services, nginx or their units; it can be kept for administrative tools and as
+an explicit code-deployment alternative.
 
-### Lo que no cambia
+### What does not change
 
-- **Base y portadas**: siguen en `/var/lib/wanderbibliothek`, montadas en
-  `/data`. El contenedor corre con el UID/GID del usuario `wanderbibliothek`
-  del host para que los ficheros conserven el dueño.
-- **Copias**: el contenedor de una sola ejecución usa el mismo digest que el
-  contenedor web activo; los datos y la clave permanecen bajo control del host.
-- **nginx y TLS**: nginx mantiene el TLS y proxyfica HTML y assets a
-  `127.0.0.1:3000`. Las tareas de mantenimiento y watchdog siguen siendo
-  servicios de host.
+- **Database and covers**: they remain in `/var/lib/wanderbibliothek`, mounted
+  at `/data`. The container runs with the host `wanderbibliothek` user's UID/GID
+  so that files keep their owner.
+- **Backups**: the one-shot container uses the same digest as the active web
+  container; the data and the key remain under the host's control.
+- **nginx and TLS**: nginx keeps TLS and proxies HTML and assets to
+  `127.0.0.1:3000`. Maintenance and watchdog jobs remain host services.
 
-### Volver al despliegue por código
+### Going back to code deployment
 
 ```bash
 sudo cp -a /etc/systemd/system/wanderbibliothek.service.source \
@@ -1233,289 +1108,290 @@ sudo systemctl daemon-reload
 sudo systemctl restart wanderbibliothek
 ```
 
-No mezcles los dos modos: si vuelves a `deploy.sh` con la unidad de imagen
-instalada, el servicio seguirá arrancando el contenedor. Restaura la unidad
-antes de desplegar desde código.
+Do not mix the two modes: if you go back to `deploy.sh` with the image unit
+installed, the service will keep starting the container. Restore the unit before
+deploying from code.
 
-## 12. Privacidad y retención de datos
+## 12. Privacy and data retention
 
-Lo que la base guarda y cuánto vive, para que la política de privacidad que
-publiques diga la verdad (art. 5.1.e y 13 del RGPD/DSGVO):
+What the database stores and how long it lives, so that the privacy policy you
+publish tells the truth (Art. 5(1)(e) and 13 GDPR/DSGVO):
 
-| Dato | Dónde | Se conserva |
+| Data | Where | Retained |
 |---|---|---|
-| Nombre, correo, ciudad, biografía, idioma | `users` | Hasta que la persona borra la cuenta |
-| Contraseña | `users.password_hash` (scrypt) | Igual; nunca en claro |
-| Sesiones | `sessions` | 14 días deslizantes, 30 como máximo |
-| Enlaces de confirmación y restablecimiento | `account_tokens` | 24 h / 1 h; un solo uso |
-| Correos enviados (cuerpo con enlaces) | `jobs` (`kind = 'mail'`) | 7 días los ya entregados y los perdidos |
-| IP del visitante (cuotas y anti-fuerza bruta) | `throttle`, `auth_attempts` | Pseudónimo diario, nunca la dirección; ≤ 1 día |
-| Avisos de la plataforma | `notifications` | 90 días si se leyeron, 180 cualquiera |
-| Actividad pública (muro) | `events` | 180 días |
-| Auditoría de moderación | `admin_audit` | `AUDIT_RETENTION_DAYS` (0 = siempre) |
-| Mensajes | `messages` | Solo el sobre cifrado y los metadatos; el texto lo descifran los navegadores |
+| Name, email, city, biography, language | `users` | Until the person deletes their account |
+| Password | `users.password_hash` (scrypt) | Same; never in plain text |
+| Sessions | `sessions` | 14 sliding days, 30 at most |
+| Confirmation and reset links | `account_tokens` | 24 h / 1 h; single use |
+| Sent emails (body with links) | `jobs` (`kind = 'mail'`) | 7 days for delivered and lost ones |
+| Visitor IP (quotas and brute-force protection) | `throttle`, `auth_attempts` | Daily pseudonym, never the address; ≤ 1 day |
+| Platform notifications | `notifications` | 90 days if read, 180 either way |
+| Public activity (wall) | `events` | 180 days |
+| Moderation audit | `admin_audit` | `AUDIT_RETENTION_DAYS` (0 = forever) |
+| Messages | `messages` | Only the encrypted envelope and metadata; the text is decrypted by browsers |
 
-Borrado de cuenta: se anonimiza la fila del usuario, se borran sesiones,
-avisos, listas, clubes propios, bloqueos, tokens, marcas de lectura, notas
-personales de sus ejemplares y **las claves de dispositivo** (`user_keys` y
-`public_key_history`, que el `ON DELETE CASCADE` no alcanza porque la fila de
-`users` no se borra); las **conversaciones directas se eliminan enteras**, para
-las dos partes, y los mensajes de intercambio y valoraciones se conservan con el
-autor ya anonimizado porque son parte del historial de otras personas. La base
-usa `secure_delete`, así que el contenido borrado no queda en las páginas
-libres del fichero.
+Account deletion: the user row is anonymised; sessions, notifications, lists,
+owned clubs, blocks, tokens, read markers, personal notes on their copies and
+**device keys** (`user_keys` and `public_key_history`, which `ON DELETE CASCADE`
+does not reach because the `users` row is not deleted) are deleted; **direct
+conversations are deleted in full** for both parties, and exchange messages and
+reviews are kept with the author already anonymised because they are part of
+other people's history. The database uses `secure_delete`, so deleted content
+does not remain in the file's free pages.
 
-Salvaguardas que ya trae la aplicación: las cuotas guardan un **pseudónimo
-diario** de la IP (HMAC con una sal derivada de `APP_ENCRYPTION_KEY`, no la
-dirección), las **portadas se descargan en el servidor** y se cachean en
-`WANDERBIBLIOTHEK_COVER_CACHE` (el navegador no contacta con Open Library), el
-catálogo se ve sin sesión pero **lo que se indexa son las fichas de obra**
-(`/werk/<id>`, sin el nombre de quien ofrece), `/descubrir`, `/libro`, `/u` y el
-resto de vistas con datos personales están en el `disallow` de `robots.txt`, y
-el registro exige **declarar 16 años o más**.
+Safeguards the application already provides: quotas store a **daily pseudonym**
+of the IP address (an HMAC with a salt derived from `APP_ENCRYPTION_KEY`, not the
+address), **covers are downloaded on the server** and cached in
+`WANDERBIBLIOTHEK_COVER_CACHE` (the browser does not contact Open Library), the
+catalogue is visible without a session but **what gets indexed are work pages**
+(`/werk/<id>`, without the name of whoever offers it), `/descubrir`, `/libro`,
+`/u` and the other views with personal data are in `robots.txt`'s `disallow`,
+and registration requires **declaring that you are 16 or older**.
 
-Quedan tres decisiones que son tuyas:
+Three decisions remain yours:
 
-1. **Datos del responsable.** `/privacidad` y `/aviso-legal` ya existen, en
-   castellano y alemán, con lo que el código hace de verdad. Se completan con
-   `LEGAL_CONTROLLER`, `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` y, si procede,
-   `LEGAL_VAT_ID`; sin ellas las páginas muestran un aviso visible de que están
-   incompletas y el arranque lo recuerda en el log. El texto sigue siendo un
-   borrador técnico: revísalo con quien asuma la responsabilidad legal.
-2. **Copias de seguridad.** Cada copia contiene datos que quizá ya se borraron
-   de la base: se conservan las `WANDERBIBLIOTHEK_BACKUP_KEEP` más recientes
-   (14 por defecto, una cada seis horas) y la copia externa guarda 30. La
-   política lo declara; no restaures una copia para uso normal.
-3. **Terceros que ven al visitante.** Tu proveedor de correo (recibe el correo y
-   el texto del aviso, nunca el contenido de los mensajes cifrados), Cloudflare
-   si activas Turnstile, y el proveedor de alojamiento. Open Library/Internet
-   Archive ya solo ve la IP del servidor al pedir una portada.
+1. **Controller data.** `/privacidad` and `/aviso-legal` already exist, in
+   Spanish and German, with what the code actually does. They are completed with
+   `LEGAL_CONTROLLER`, `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` and, where
+   applicable, `LEGAL_VAT_ID`; without them the pages show a visible notice that
+   they are incomplete and startup reminds you in the log. The text is still a
+   technical draft: review it with whoever assumes legal responsibility.
+2. **Backups.** Each backup contains data that may already have been deleted
+   from the database: the most recent `WANDERBIBLIOTHEK_BACKUP_KEEP` are kept
+   (14 by default, one every six hours) and the external copy keeps 30. The
+   policy states this; do not restore a backup for normal use.
+3. **Third parties that see the visitor.** Your email provider (it receives the
+   email and the notice text, never the content of encrypted messages),
+   Cloudflare if you enable Turnstile, and the hosting provider.
+   Open Library/Internet Archive only sees the server's IP when requesting a
+   cover.
 
-Lo que la plataforma **no** hace: ni analítica, ni fuentes, ni cookies de
-publicidad (solo la cookie de sesión, que es necesaria y no requiere banner de
-consentimiento), el *service worker* no cachea respuestas y la clave privada de
-cifrado nunca sale del navegador.
-## 13. Lista de comprobación legal antes de abrir
+What the platform does **not** do: no analytics, no fonts, no advertising
+cookies (only the session cookie, which is necessary and does not require a
+consent banner); the service worker does not cache responses and the private
+encryption key never leaves the browser.
 
-La aplicación publica `/privacidad` y `/aviso-legal` con lo que el código hace
-de verdad, pero hay decisiones que **solo puede tomar quien opera el servicio**.
-`npm run smoke` falla si las páginas legales quedan incompletas, así que esta
-lista no se puede olvidar en silencio.
+## 13. Legal checklist before opening
 
-- [ ] Definidos en `/etc/wanderbibliothek/env`: `LEGAL_CONTROLLER`,
-      `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` y, si existen, `LEGAL_REGISTER`,
-      `LEGAL_VAT_ID` y `LEGAL_PHONE`.
+The application publishes `/privacidad` and `/aviso-legal` with what the code
+actually does, but there are decisions that **only the person operating the
+service can make**. `npm run smoke` fails if the legal pages are incomplete, so
+this checklist cannot be silently forgotten.
 
-      Para no editarlo a mano:
+- [ ] Defined in `/etc/wanderbibliothek/env`: `LEGAL_CONTROLLER`,
+      `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` and, if they exist, `LEGAL_REGISTER`,
+      `LEGAL_VAT_ID` and `LEGAL_PHONE`.
+
+      To avoid editing it by hand:
 
       ```bash
       sudo -E npm --prefix /srv/wanderbibliothek/current run legal:env -- \
-        --name "Nombre o razón social" \
-        --address "Calle 1, 00000 Ciudad, Alemania" \
-        --email privacidad@tudominio.example \
+        --name "Name or company name" \
+        --address "Street 1, 00000 City, Germany" \
+        --email privacy@yourdomain.example \
         --register "Vereinsregister Amtsgericht …, VR 12345" \
         --vat DE000000000 --phone "+49 …" \
         --write /etc/wanderbibliothek/env
       sudo systemctl restart wanderbibliothek
       ```
 
-      El comando solo sustituye las líneas `LEGAL_*`; el resto del fichero
-      (secretos, rutas) queda intacto. Sin `--write` imprime el bloque para
-      pegarlo tú.
-- [ ] Forma jurídica decidida (particular, asociación, GmbH…). De ella depende
-      qué campos del Impressum son obligatorios: una asociación necesita el
-      registro y su número; una GmbH, además, el representante.
-- [ ] Comprobado si hay obligación de designar delegado de protección de datos
-      (art. 37 RGPD). Para este tamaño de plataforma no suele haberla, pero es
-      una decisión documentada, no una suposición.
-- [ ] Proveedor de correo identificado (nombre y país) y **contrato de encargo
-      del tratamiento** firmado; si está fuera del EEE, con cláusulas
-      contractuales tipo.
-- [ ] Proveedor de alojamiento identificado y con contrato de encargo.
-- [ ] Autoridad de control competente por el domicilio del responsable
+      The command only replaces the `LEGAL_*` lines; the rest of the file
+      (secrets, paths) is left intact. Without `--write` it prints the block for
+      you to paste.
+- [ ] Legal form decided (individual, association, GmbH…). Which Impressum
+      fields are mandatory depends on it: an association needs the register and
+      its number; a GmbH also needs its representative.
+- [ ] Checked whether a data protection officer must be appointed (Art. 37
+      GDPR). For a platform of this size there usually is none, but it is a
+      documented decision, not an assumption.
+- [ ] Email provider identified (name and country) and a **data-processing
+      agreement** signed; if outside the EEA, with standard contractual clauses.
+- [ ] Hosting provider identified and under a processing agreement.
+- [ ] Competent supervisory authority for the controller's registered office
       (Baden-Württemberg: LfDI).
-- [x] Ensayada una restauración real desde copia y confirmado el plazo de 14
-      días que declara la política. **Hecho el 9-nov-2026** con la copia de las
-      18:03: descifrada a un fichero temporal, `PRAGMA integrity_check` → `ok`,
-      `user_version = 48`, `books_fts` responde a `MATCH 'democ*'` y el secreto
-      TOTP de una cuenta se descifra con `APP_ENCRYPTION_KEY` (32 caracteres).
-      Repetirlo cada vez que cambie el formato de copia o la clave.
-- [ ] Texto revisado por quien asuma la responsabilidad legal: lo que hay es un
-      borrador técnico exacto, no un dictamen jurídico.
+- [x] A real restore from backup has been rehearsed and the 14-day period
+      declared in the policy confirmed. **Done on 9 Nov 2026** with the 18:03
+      backup: decrypted to a temporary file, `PRAGMA integrity_check` → `ok`,
+      `user_version = 48`, `books_fts` responds to `MATCH 'democ*'` and an
+      account's TOTP secret decrypts with `APP_ENCRYPTION_KEY` (32 characters).
+      Repeat it whenever the backup format or the key changes.
+- [ ] Text reviewed by whoever assumes legal responsibility: what is there is an
+      accurate technical draft, not legal advice.
 
-## Rotar la clave de cifrado
+## Rotating the encryption key
 
-`APP_ENCRYPTION_KEY` protege el secreto TOTP de cada cuenta (los campos de envío
-que quedan en la base son históricos: el flujo se retiró el 7-nov). Los valores
-guardan dentro el id de la clave con la que se cifraron, así que se puede cambiar
-sin perder nada:
+`APP_ENCRYPTION_KEY` protects each account's TOTP secret (the shipping fields
+left in the database are historical: the flow was removed on 7 Nov). Values
+store the id of the key they were encrypted with, so it can be changed without
+losing anything:
 
 ```bash
-# 1. La nueva clave como activa; la anterior, solo para leer.
-export APP_ENCRYPTION_KEY=<nueva-32-bytes>
-export APP_ENCRYPTION_OLD_KEYS=<anterior>
-npm run rotate:secrets -- --dry-run   # informe, no escribe
+# 1. The new key as active; the previous one only for reading.
+export APP_ENCRYPTION_KEY=<new-32-bytes>
+export APP_ENCRYPTION_OLD_KEYS=<previous>
+npm run rotate:secrets -- --dry-run   # report, writes nothing
 
-# 2. Rotación real: vuelve a cifrar y comprueba que lo escrito se lee.
+# 2. Real rotation: re-encrypts and checks that what was written can be read.
 npm run rotate:secrets
 
-# 3. Cuando diga «0 de 0 valores rotados», retira APP_ENCRYPTION_OLD_KEYS
-#    y reinicia el servicio.
+# 3. When it says "0 of 0 values rotated", remove APP_ENCRYPTION_OLD_KEYS
+#    and restart the service.
 ```
 
-Si el informe lista valores que no se pueden descifrar, **no retires la clave
-antigua**: significa que falta otra anterior en `APP_ENCRYPTION_OLD_KEYS`.
+If the report lists values that cannot be decrypted, **do not remove the old
+key**: it means another previous one is missing from
+`APP_ENCRYPTION_OLD_KEYS`.
 
-El mismo comando cifra los secretos que hayan quedado **en claro** (bases de
-desarrollo restauradas en el servidor). En producción un valor sin cifrar ya no
-se lee: `decryptSecret` falla a propósito, así que el aviso llega antes de que
-alguien use una cuenta con el TOTP en claro. Ejecuta el `--dry-run` después de
-una restauración y, si aparece alguno, la rotación sin `--dry-run`.
+The same command encrypts any secrets left **in plain text** (development
+databases restored on the server). In production an unencrypted value is no
+longer read: `decryptSecret` fails on purpose, so the warning arrives before
+anyone uses an account with a plain-text TOTP. Run `--dry-run` after a restore
+and, if any appear, run the rotation without `--dry-run`.
 
-## Sustituir una web que ya vive en el servidor
+## Replacing a site that already runs on the server
 
-Este apartado es para un host que **ya sirve otra web** (por ejemplo un
-WordPress con nginx o Apache) y se quiere poner Wanderbibliothek en su lugar sin
-quedarse sin nada. La regla es no tocar lo que funciona hasta que lo nuevo
-responda por HTTPS en un nombre propio.
+This section is for a host that **already serves another site** (for example a
+WordPress with nginx or Apache) and wants to put Wanderbibliothek in its place
+without losing anything. The rule is not to touch what works until the new site
+responds over HTTPS on its own name.
 
-### 1. Inventario antes de instalar
+### 1. Inventory before installing
 
 ```bash
-ss -ltnp | grep -E ':(80|443|3000)\b'          # quién ocupa los puertos
+ss -ltnp | grep -E ':(80|443|3000)\b'          # who occupies the ports
 systemctl list-units --type=service --state=running --no-pager | head -30
 ls -l /etc/nginx/sites-enabled/                 # nginx
-ls -l /etc/apache2/sites-enabled/ 2>/dev/null   # Apache, si lo hubiera
+ls -l /etc/apache2/sites-enabled/ 2>/dev/null   # Apache, if present
 docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' 2>/dev/null
-df -h / ; free -h ; nproc                       # disco, RAM, núcleos
+df -h / ; free -h ; nproc                       # disk, RAM, cores
 ```
 
-Apunta el dominio actual, su `root`/`proxy_pass` y dónde vive su base de datos:
-eso es lo que hay que copiar en el paso 2.
+Write down the current domain, its `root`/`proxy_pass` and where its database
+lives: that is what must be copied in step 2.
 
-### 2. Copia de la web actual (antes de tocar nada)
+### 2. Back up the current site (before touching anything)
 
 ```bash
 sudo tar -C /etc -czf /root/backup-etc-$(date +%F).tar.gz nginx apache2 2>/dev/null
-# WordPress de ejemplo: ficheros, base y configuración
+# WordPress example: files, database and configuration
 sudo tar -C /var/www -czf /root/backup-www-$(date +%F).tar.gz .
 mysqldump --single-transaction -u root -p --all-databases | gzip > /root/backup-db-$(date +%F).sql.gz
-# Docker: volúmenes y compose del proyecto en uso
-docker run --rm -v <volumen>:/v -v /root:/backup alpine tar -czf /backup/docker-<volumen>.tar.gz -C /v .
+# Docker: volumes and compose of the running project
+docker run --rm -v <volume>:/v -v /root:/backup alpine tar -czf /backup/docker-<volume>.tar.gz -C /v .
 ```
 
-Sin esta copia no hay vuelta atrás: la web vieja no se «desinstala», se apaga.
+Without this backup there is no way back: the old site is not "uninstalled", it
+is switched off.
 
-### 3. Instalar Wanderbibliothek en paralelo
+### 3. Install Wanderbibliothek in parallel
 
-Sigue los apartados 2 a 5 de esta guía tal cual. No hay conflicto con la web
-actual: la aplicación escucha en `127.0.0.1:3000` y solo la publica su propio
-`server_name`.
+Follow sections 2 to 5 of this guide as they are. There is no conflict with the
+current site: the application listens on `127.0.0.1:3000` and only its own
+`server_name` publishes it.
 
-Para probar sin tocar el dominio, publica primero en un subdominio
-(`wander.tu-dominio.de`): crea el registro A con antelación y pide el
-certificado solo para él.
+To test without touching the domain, publish first on a subdomain
+(`wander.your-domain.de`): create the A record in advance and request the
+certificate for it alone.
 
 ```bash
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/wanderbibliothek
-sudo sed -i 's/biblioteca.example.com/wander.tu-dominio.de/g' /etc/nginx/sites-available/wanderbibliothek
+sudo sed -i 's/biblioteca.example.com/wander.your-domain.de/g' /etc/nginx/sites-available/wanderbibliothek
 sudo ln -s /etc/nginx/sites-available/wanderbibliothek /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d wander.tu-dominio.de
+sudo certbot --nginx -d wander.your-domain.de
 ```
 
-En `/etc/wanderbibliothek/env`, `NEXT_PUBLIC_SITE_URL` tiene que ser **exactamente**
-ese nombre con `https://`, o la cookie `__Host-` no se guarda y el acceso entra
-en bucle.
+In `/etc/wanderbibliothek/env`, `NEXT_PUBLIC_SITE_URL` must be **exactly** that
+name with `https://`, or the `__Host-` cookie is not stored and login loops.
 
-### 4. Cambiar el dominio
+### 4. Switching the domain
 
-Con el sitio nuevo ya respondiendo en el subdominio:
+With the new site already responding on the subdomain:
 
 ```bash
-# 1) El vhost nuevo pasa a servir el dominio final (y el www, si lo usas).
-sudo sed -i 's/wander.tu-dominio.de/tu-dominio.de www.tu-dominio.de/' \
+# 1) The new vhost starts serving the final domain (and www, if you use it).
+sudo sed -i 's/wander.your-domain.de/your-domain.de www.your-domain.de/' \
   /etc/nginx/sites-available/wanderbibliothek
-sudo sed -i 's|^NEXT_PUBLIC_SITE_URL=.*|NEXT_PUBLIC_SITE_URL=https://tu-dominio.de|' \
+sudo sed -i 's|^NEXT_PUBLIC_SITE_URL=.*|NEXT_PUBLIC_SITE_URL=https://your-domain.de|' \
   /etc/wanderbibliothek/env
 
-# 2) El vhost de la web vieja deja de escuchar ese nombre: se desactiva, no se borra.
-sudo unlink /etc/nginx/sites-enabled/<sitio-antiguo>
-sudo systemctl stop <servicio-antiguo>        # php8.x-fpm, apache2, el contenedor…
+# 2) The old site's vhost stops listening on that name: disable it, do not delete it.
+sudo unlink /etc/nginx/sites-enabled/<old-site>
+sudo systemctl stop <old-service>        # php8.x-fpm, apache2, the container…
 
-# 3) Certificado del dominio final y recarga.
-sudo certbot --nginx -d tu-dominio.de -d www.tu-dominio.de
+# 3) Certificate for the final domain and reload.
+sudo certbot --nginx -d your-domain.de -d www.your-domain.de
 sudo nginx -t && sudo systemctl reload nginx
 sudo systemctl restart wanderbibliothek
 ```
 
-Si el dominio apuntaba a **otra IP**, baja el TTL del registro A un día antes y
-cámbialo; el certificado no se puede pedir hasta que el DNS resuelva al servidor
-nuevo (`dig +short tu-dominio.de`).
+If the domain pointed to **another IP**, lower the A record's TTL a day in
+advance and change it; the certificate cannot be requested until DNS resolves to
+the new server (`dig +short your-domain.de`).
 
-`NEXT_PUBLIC_SITE_URL` se lee en cada arranque (sitemap, `robots.txt`, canonical
-y avisos del comprobador de entorno), así que basta con reiniciar el servicio:
-no hace falta reconstruir la release.
+`NEXT_PUBLIC_SITE_URL` is read on every start (sitemap, `robots.txt`, canonical
+and environment-checker warnings), so restarting the service is enough: there is
+no need to rebuild the release.
 
-### 5. Verificación y vuelta atrás
+### 5. Verification and rollback
 
 ```bash
-curl -fsS https://tu-dominio.de/api/health
-BASE_URL=https://tu-dominio.de npm --prefix /srv/wanderbibliothek/current run smoke
+curl -fsS https://your-domain.de/api/health
+BASE_URL=https://your-domain.de npm --prefix /srv/wanderbibliothek/current run smoke
 systemctl --no-pager status wanderbibliothek | head -12
 systemctl list-timers 'wanderbibliothek-*' --no-pager
 sudo journalctl -u wanderbibliothek -n 40 --no-pager | grep -F '[env]'
 ```
 
-Si algo falla, la vuelta atrás son tres órdenes: reactivar el vínculo del sitio
-antiguo (`ln -s`), arrancar su servicio y recargar nginx. Los ficheros de la web
-vieja siguen en su sitio: **no borres nada de ella hasta que el sitio nuevo
-lleve una semana en pie** con copias funcionando.
+If something fails, rollback is three commands: re-enable the old site's symlink
+(`ln -s`), start its service and reload nginx. The old site's files are still in
+place: **do not delete anything from it until the new site has been running for
+a week** with working backups.
 
-### 6. Que el dominio antiguo no muera (301)
+### 6. Keeping the old domain alive (301)
 
-Si el dominio de la web anterior va a dejar de tener contenido, es mejor que
-redirija al nuevo en vez de dar error: los enlaces guardados y los buscadores
-siguen funcionando.
+If the previous site's domain is going to stop having content, it is better for
+it to redirect to the new one rather than return an error: saved links and
+search engines keep working.
 
 ```nginx
-# /etc/nginx/sites-available/<dominio-antiguo>-redirect
+# /etc/nginx/sites-available/<old-domain>-redirect
 server {
     listen 80;
     listen [::]:80;
-    server_name <dominio-antiguo> www.<dominio-antiguo>;
-    return 301 https://<dominio-nuevo>$request_uri;
+    server_name <old-domain> www.<old-domain>;
+    return 301 https://<new-domain>$request_uri;
 }
 
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    server_name <dominio-antiguo> www.<dominio-antiguo>;
-    ssl_certificate     /etc/letsencrypt/live/<dominio-antiguo>/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/<dominio-antiguo>/privkey.pem;
-    return 301 https://<dominio-nuevo>$request_uri;
+    server_name <old-domain> www.<old-domain>;
+    ssl_certificate     /etc/letsencrypt/live/<old-domain>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/<old-domain>/privkey.pem;
+    return 301 https://<new-domain>$request_uri;
 }
 ```
 
-Detalle que se olvida: **la redirección solo sirve si el certificado del dominio
-antiguo está vigente**. Con el TLS caducado el navegador muestra el aviso y
-nunca llega a leer el `301`. Comprueba la renovación antes
-(`sudo certbot renew --dry-run`, `systemctl list-timers 'certbot*'`) y, si el
-dominio se queda sin contenido, deja ese vhost como única cosa que sirve.
+An easily forgotten detail: **the redirect only works if the old domain's
+certificate is valid**. With expired TLS the browser shows a warning and never
+reads the `301`. Check renewal beforehand (`sudo certbot renew --dry-run`,
+`systemctl list-timers 'certbot*'`) and, if the domain is left without content,
+keep that vhost as the only thing it serves.
 
-### 7. Lo que no puede faltar antes de abrirlo al público
+### 7. What must not be missing before opening to the public
 
-- `LEGAL_CONTROLLER`, `LEGAL_ADDRESS` y `LEGAL_CONTACT_EMAIL`: sin ellos el
-  Impressum y la política de privacidad salen incompletos (obligatorio en
-  Alemania). Ver el apartado 13.
-- `BREVO_API_KEY` y `MAIL_FROM` (o un `MAIL_WEBHOOK_URL`) con un proveedor real
-  y el dominio autenticado: sin correo no se puede confirmar la cuenta ni
-  restablecer la contraseña.
-- Cuenta de administración creada y **con 2FA activo**; después, borrar
-  `ADMIN_EMAIL`/`ADMIN_PASSWORD` del entorno.
-- Copias probadas: ejecutar `wanderbibliothek-backup.service` a mano una vez y
-  restaurar en una base de prueba. Guardar `WANDERBIBLIOTHEK_BACKUP_KEY` fuera
-  del servidor y llevar las copias a otro sitio con `WANDERBIBLIOTHEK_BACKUP_HOOK`.
-- Firewall del proveedor: 80 y 443 abiertos. Si el panel bloquea SMTP (netcup lo
-  hace por defecto), no afecta: la aplicación envía por HTTPS a la API de Brevo,
-  no por SMTP.
+- `LEGAL_CONTROLLER`, `LEGAL_ADDRESS` and `LEGAL_CONTACT_EMAIL`: without them the
+  Impressum and privacy policy are incomplete (mandatory in Germany). See
+  section 13.
+- `BREVO_API_KEY` and `MAIL_FROM` (or a `MAIL_WEBHOOK_URL`) with a real provider
+  and an authenticated domain: without email, accounts cannot be confirmed and
+  passwords cannot be reset.
+- An administration account created and **with 2FA enabled**; then remove
+  `ADMIN_EMAIL`/`ADMIN_PASSWORD` from the environment.
+- Tested backups: run `wanderbibliothek-backup.service` by hand once and restore
+  into a test database. Keep `WANDERBIBLIOTHEK_BACKUP_KEY` off the server and
+  move the backups elsewhere with `WANDERBIBLIOTHEK_BACKUP_HOOK`.
+- Provider firewall: ports 80 and 443 open. If the panel blocks SMTP (some
+  providers do by default), it does not matter: the application sends over
+  HTTPS to Brevo's API, not over SMTP.

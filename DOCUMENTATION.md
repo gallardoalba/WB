@@ -8,7 +8,7 @@ The running instance serves the same content in Spanish and German at `/techdoc`
 
 A modular monolith on Next.js 16 (App Router with Cache Components), strict TypeScript and SQLite through `better-sqlite3`. One single process: SQLite has one writer and the live notification bus lives in memory.
 
-No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records), Photon and Nominatim (city suggestions and coordinates); with `MASTODON_TOKEN` or `INDEXNOW_KEY` it also talks to Mastodon and IndexNow. The browser only talks to this instance.
+No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records), Photon and Nominatim (city suggestions and coordinates); with `INDEXNOW_KEY` it also talks to IndexNow. The browser only talks to this instance.
 
 The code is AGPL-3.0 licensed.
 
@@ -209,7 +209,6 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `REQUIRE_EMAIL_VERIFICATION` | unset | `1` requires a confirmed address to publish, request, comment and write. |
 | `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
 | `LEGAL_*` | unset | Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`. |
-| `MASTODON_*` | off | Optional Mastodon integration; disabled without `MASTODON_TOKEN`. |
 | `TRANSPARENCY_SIGNING_KEY` | unset | Ed25519 private key (PKCS#8 in base64, or PEM) used to sign the daily catalogue snapshots. Without it, snapshots are published unsigned and marked as such. |
 | `APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE` | unset | Build identity published at `/api/version`. Filled by the release workflow (Docker build args) or by `deploy/deploy.sh` (`.build-info.json`). |
 

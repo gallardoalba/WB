@@ -8,4 +8,4 @@ Wants=network-online.target
 Type=oneshot
 # 1 = el sitio no responde; es un aviso, no un fallo del temporizador.
 SuccessExitStatus=0 1
-ExecStart=%h/Desktop/wanderbibliothek/deploy/uptime-check.sh
+ExecStart=%h/.local/bin/wanderbibliothek-uptime-check
