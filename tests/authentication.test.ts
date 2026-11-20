@@ -8,6 +8,7 @@
  * confirmar su correo.
  */
 import assert from "node:assert/strict";
+import { randomBytes, scryptSync } from "node:crypto";
 import { before, beforeEach, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
@@ -36,7 +37,9 @@ beforeEach(() => {
 test("una contraseña se guarda con sal y se verifica sin guardarla en claro", async () => {
   const hash = await password.hashPassword(CORRECTA);
 
-  assert.match(hash, /^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
+  // Los parámetros van dentro del hash para poder subirlos sin invalidar lo
+  // guardado.
+  assert.match(hash, /^scrypt\$32768,8,1\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
   assert.ok(!hash.includes(CORRECTA), "el hash no puede contener la contraseña");
   assert.equal(await password.verifyPassword(CORRECTA, hash), true);
   assert.equal(await password.verifyPassword(INCORRECTA, hash), false);
@@ -53,28 +56,43 @@ test("dos hashes de la misma contraseña son distintos y los dos valen", async (
 
 test("el hash síncrono de las herramientas se verifica igual", async () => {
   const hash = password.hashPasswordSync(CORRECTA);
-  assert.match(hash, /^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
+  assert.match(hash, /^scrypt\$32768,8,1\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
   assert.equal(await password.verifyPassword(CORRECTA, hash), true);
   assert.equal(await password.verifyPassword(INCORRECTA, hash), false);
 });
 
 test("un hash guardado mal formado no autentica a nadie", async () => {
   const valido = await password.hashPassword(CORRECTA);
-  const [esquema, sal, digest] = valido.split("$");
+  const [esquema, parametros, sal, digest] = valido.split("$");
   for (const roto of [
     "",
     "texto-plano",
-    `${esquema}$${sal}`,
-    `bcrypt$${sal}$${digest}`,
+    `${esquema}$${parametros}$${sal}`,
+    `bcrypt$${parametros}$${sal}$${digest}`,
     `scrypt$`,
-    `scrypt$${sal}$`,
+    `scrypt$${parametros}$${sal}$`,
+    // Parámetros imposibles: se rechazan antes de derivar nada.
+    `scrypt$0,0,0$${sal}$${digest}`,
     // Hexadecimal no válido: `Buffer.from` no da 64 bytes.
-    `scrypt$${sal}$zzzz`,
+    `scrypt$${parametros}$${sal}$zzzz`,
     // Hash truncado: la longitud ya no coincide.
-    `scrypt$${sal}$${digest?.slice(0, -2)}`,
+    `scrypt$${parametros}$${sal}$${digest?.slice(0, -2)}`,
   ]) {
     assert.equal(await password.verifyPassword(CORRECTA, roto), false, `«${roto}» no debe valer`);
   }
+});
+
+test("un hash del formato antiguo sigue valiendo y se marca para renovar", async () => {
+  // `scrypt$sal$hash` es lo que hay guardado en las bases de antes: tiene que
+  // seguir entrando, con los parámetros que se usaban entonces.
+  const sal = randomBytes(16).toString("hex");
+  const antiguo = `scrypt$${sal}$${scryptSync(CORRECTA, sal, 64).toString("hex")}`;
+
+  assert.equal(await password.verifyPassword(CORRECTA, antiguo), true);
+  assert.equal(password.needsRehash(antiguo), true);
+
+  const nuevo = await password.hashPassword(CORRECTA);
+  assert.equal(password.needsRehash(nuevo), false);
 });
 
 test("el hash señuelo del login no abre ninguna cuenta", async () => {

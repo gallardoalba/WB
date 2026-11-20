@@ -1936,6 +1936,40 @@ function migrateToV60(db: Db) {
 }
 
 /**
+ * v61: fuera las columnas muertas del envío y la entrega presencial.
+ *
+ * La v55 dejó de usar el envío postal y la v57 la entrega con código, pero las
+ * columnas se quedaron «para no borrar lo que se guardó»: ahí siguen las
+ * direcciones postales históricas (cifradas desde la v44) y los códigos de
+ * entrega (en claro). Ninguna consulta las lee, así que conservarlas es
+ * retención sin finalidad. Se van; quien necesite ese historial lo tiene en las
+ * copias de seguridad.
+ */
+function migrateToV61(db: Db) {
+  const dead = [
+    "handover_office_id",
+    "handover_set_at",
+    "handover_code",
+    "handover_method",
+    "ship_kind",
+    "ship_number",
+    "ship_station",
+    "ship_street",
+    "ship_postal_code",
+    "ship_city",
+    "ship_set_at",
+  ];
+  const present = new Set(
+    (db.pragma("table_info(requests)") as { name: string }[]).map((column) => column.name),
+  );
+  // Los nombres son constantes de esta función, no entrada externa.
+  for (const column of dead) {
+    if (present.has(column)) db.exec(`ALTER TABLE requests DROP COLUMN ${column}`);
+  }
+  db.pragma("user_version = 61");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -1958,6 +1992,10 @@ function renameLegacyCityColumns(db: Db) {
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
+  // Las páginas se leen mapeadas en memoria en vez de copiarse en cada consulta.
+  // 256 MB cubren de sobra una base de este tamaño; el valor es una propiedad
+  // de la conexión y no cambia el fichero.
+  db.pragma("mmap_size = 268435456");
   db.pragma("foreign_keys = ON");
   // SQLite no borra el contenido de una fila eliminada: la marca como libre y
   // la deja en el fichero. Con `secure_delete` los bytes se sobrescriben con
@@ -2080,6 +2118,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 58) migrateToV58(db);
   if (userVersion(db) < 59) migrateToV59(db);
   if (userVersion(db) < 60) migrateToV60(db);
+  if (userVersion(db) < 61) migrateToV61(db);
 
   backfillSearchKeys(db);
 }

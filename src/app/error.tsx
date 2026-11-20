@@ -25,7 +25,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           <button type="button" className="secondary-button" onClick={reset}>
             {t("Reintentar")}
           </button>
-          <Link className="share-button" href="/">
+          <Link className="primary-button" href="/">
             {t("Ir al catálogo")}
           </Link>
         </div>

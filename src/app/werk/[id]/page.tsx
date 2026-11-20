@@ -162,13 +162,13 @@ export default async function Page({ params }: PageProps) {
           <div className="public-work-actions">
             {work.copies > 0 ? (
               viewer ? (
-                <Link href={requestPath} className="share-button public-work-primary">
+                <Link href={requestPath} className="primary-button public-work-primary">
                   <BookOpen size={16} aria-hidden="true" /> {t("Pedir este libro")}
                 </Link>
               ) : (
                 <Link
                   href={`/?auth=1&next=${encodeURIComponent(requestPath)}`}
-                  className="share-button public-work-primary"
+                  className="primary-button public-work-primary"
                 >
                   <BookOpen size={16} aria-hidden="true" /> {t("Entrar para pedirlo")}
                 </Link>
@@ -176,7 +176,7 @@ export default async function Page({ params }: PageProps) {
             ) : (
               <Link
                 href={localePath(locale, "/ofrecer")}
-                className="share-button public-work-primary"
+                className="primary-button public-work-primary"
               >
                 <BookOpen size={16} aria-hidden="true" /> {t("Ofrecer un libro")}
               </Link>
@@ -291,6 +291,26 @@ export default async function Page({ params }: PageProps) {
               seller: { "@type": "Organization", name: "Wanderbibliothek", url: base },
               areaServed: work.cities.map((city) => ({ "@type": "City", name: city.city })),
             },
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+      {/* La miga visible («Descubrir» → obra) también en datos estructurados:
+          es el rich result más barato que quedaba en las páginas indexables. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: t("Descubrir todos los libros"),
+                item: `${base}${localePath(locale, "/descubrir")}`,
+              },
+              { "@type": "ListItem", position: 2, name: work.title, item: `${base}${workPath}` },
+            ],
           }).replace(/</g, "\\u003c"),
         }}
       />

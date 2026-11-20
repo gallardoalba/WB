@@ -79,7 +79,7 @@ export function ClubCreate({
 
   return (
     <div className="club-create">
-      <button type="button" className="share-button small" onClick={() => setOpen((v) => !v)}>
+      <button type="button" className="primary-button small" onClick={() => setOpen((v) => !v)}>
         <Plus size={15} /> {t("Crear un club")}
       </button>
       {feedback && (
@@ -136,7 +136,7 @@ export function ClubCreate({
               {t("Lectura inicial")}: <strong>{book.title}</strong> {t("de")} {book.author}
             </p>
           )}
-          <button type="submit" className="share-button small" disabled={pending}>
+          <button type="submit" className="primary-button small" disabled={pending}>
             {t("Crear club")}
           </button>
           {error && (
@@ -308,7 +308,7 @@ export function ClubReports({
                   </button>
                   <button
                     type="button"
-                    className="share-button small danger"
+                    className="primary-button small danger"
                     onClick={() => void borrar(report.post.id)}
                     disabled={pending}
                   >
@@ -533,7 +533,7 @@ export function ClubSettings({ club }: { club: ClubView }) {
             <button type="button" className="secondary-button" onClick={cerrar} disabled={pending}>
               {t("Cancelar")}
             </button>
-            <button type="submit" className="share-button small" disabled={pending}>
+            <button type="submit" className="primary-button small" disabled={pending}>
               {t("Guardar cambios")}
             </button>
           </div>
@@ -567,7 +567,7 @@ export function ClubSettings({ club }: { club: ClubView }) {
                   </button>
                   <button
                     type="button"
-                    className="share-button small danger"
+                    className="primary-button small danger"
                     onClick={() => void remove()}
                     disabled={pending}
                   >
@@ -632,7 +632,7 @@ export function ClubAttendance({ club }: { club: ClubView }) {
     <div className="club-attendance">
       <button
         type="button"
-        className={attending ? "share-button small" : "secondary-button small"}
+        className={attending ? "primary-button small" : "secondary-button small"}
         disabled={pending || !hasMeeting}
         aria-pressed={attending}
         onClick={toggle}
@@ -804,7 +804,7 @@ export function ClubRequests({
             <span className="club-request-actions">
               <button
                 type="button"
-                className="share-button small"
+                className="primary-button small"
                 disabled={pending === request.user.id}
                 onClick={() => void decide(request.user.id, true)}
               >

@@ -85,7 +85,7 @@ export function AppealForm({ token: initialToken, texts }: { token: string; text
           {error}
         </p>
       )}
-      <button className="share-button" type="submit" disabled={state === "sending"}>
+      <button className="primary-button" type="submit" disabled={state === "sending"}>
         {state === "sending" ? texts.sending : texts.submit}
       </button>
     </form>

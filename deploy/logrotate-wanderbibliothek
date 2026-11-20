@@ -1,0 +1,19 @@
+# Rotación de los logs de nginx para una instancia de Wanderbibliothek.
+#
+# La política de privacidad promete 14 días para los logs del servidor, que
+# guardan la IP en claro. La rotación por defecto de Debian también son 14 días,
+# pero eso es una propiedad de la distribución, no del despliegue: este fichero
+# la fija. Instalar en /etc/logrotate.d/wanderbibliothek.
+/var/log/nginx/*.log {
+    daily
+    rotate 14
+    maxage 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        if [ -f /run/nginx.pid ]; then kill -USR1 "$(cat /run/nginx.pid)"; fi
+    endscript
+}

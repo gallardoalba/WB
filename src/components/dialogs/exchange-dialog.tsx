@@ -550,7 +550,7 @@ export function ExchangeDialog({
             <button
               key={status}
               type="button"
-              className={status === "accepted" || status === "completed" ? "share-button small" : "secondary-button small"}
+              className={status === "accepted" || status === "completed" ? "primary-button small" : "secondary-button small"}
               disabled={busy}
               // Aceptar no pregunta nada: es la acción esperada y la única que
               // reserva el ejemplar. Rechazar, cancelar o cerrar la entrega sí
@@ -579,7 +579,7 @@ export function ExchangeDialog({
             </button>
             <button
               type="button"
-              className="share-button small"
+              className="primary-button small"
               onClick={() => void applyStatus(confirmStatus)}
               disabled={busy}
             >
@@ -774,7 +774,7 @@ export function ExchangeDialog({
                   </button>
                   <button
                     type="button"
-                    className="share-button small"
+                    className="primary-button small"
                     disabled={reportBusy}
                     onClick={() => void reportMessage(message.id)}
                   >
@@ -817,7 +817,7 @@ export function ExchangeDialog({
             disabled={!canSend || sending}
           />
           <button
-            className="share-button small"
+            className="primary-button small"
             type="submit"
             disabled={!canSend || sending}
             aria-label={t("Enviar mensaje")}
@@ -891,7 +891,7 @@ export function ExchangeDialog({
                 </button>
                 <button
                   type="button"
-                  className="share-button small"
+                  className="primary-button small"
                   onClick={() => void applyStatus("cancelled")}
                   disabled={busy}
                 >
@@ -951,7 +951,7 @@ export function ExchangeDialog({
               {reviewError}
             </p>
           )}
-          <button className="share-button small" type="submit" disabled={reviewSending}>
+          <button className="primary-button small" type="submit" disabled={reviewSending}>
             {reviewSending ? t("Enviando…") : t("Enviar valoración")}
           </button>
         </form>

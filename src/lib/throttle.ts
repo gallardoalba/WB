@@ -152,10 +152,14 @@ export function pseudonymizeIp(ip: string): string {
   if (ip === "direct") return "direct";
   const day = new Date().toISOString().slice(0, 10);
   if (cachedSalt.day !== day) {
-    const secret = process.env.APP_ENCRYPTION_KEY?.trim() || "desarrollo-wanderbibliothek";
+    // La clave maestra no se usa directamente como clave HMAC: se deriva una
+    // subclave con su propia etiqueta, para que un uso comprometido (o un
+    // oráculo sobre este HMAC) no diga nada del cifrado de secretos.
+    const master = process.env.APP_ENCRYPTION_KEY?.trim() || "desarrollo-wanderbibliothek";
+    const subkey = createHmac("sha256", master).update("wanderbibliothek:throttle:v1").digest();
     cachedSalt = {
       day,
-      key: createHmac("sha256", secret).update(`throttle:${day}`).digest("hex"),
+      key: createHmac("sha256", subkey).update(`throttle:${day}`).digest("hex"),
     };
   }
   return createHmac("sha256", cachedSalt.key).update(ip).digest("hex").slice(0, 32);
@@ -189,6 +193,26 @@ export function assertSameOrigin(request: Request): void {
   } catch {
     throw new ApiError(403, "Origen no permitido.");
   }
+  // En producción el host esperado es el configurado: `Origin` tiene que ser
+  // ese y no el que venga en la cabecera `Host`, que un proxy mal puesto (o un
+  // envenenamiento de caché) puede reescribir. `checkEnv()` exige
+  // `NEXT_PUBLIC_SITE_URL` en producción, así que aquí siempre hay valor.
+  if (process.env.NODE_ENV === "production") {
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (configured) {
+      try {
+        if (originHost !== new URL(configured).host) {
+          throw new ApiError(403, "Origen no permitido.");
+        }
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        // Una URL configurada ilegible la canta `checkEnv()`: aquí se sigue con
+        // la comprobación por cabeceras en vez de romper todas las mutaciones.
+      }
+      return;
+    }
+  }
+
   // Detrás de un proxy que reescribe `Host` (nginx con `proxy_set_header Host
   // $proxy_host`, un ALB…) el host público solo llega en `X-Forwarded-Host`.
   // Se acepta únicamente cuando el despliegue declara que hay proxy propio.

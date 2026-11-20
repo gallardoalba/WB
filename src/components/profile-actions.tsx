@@ -126,7 +126,7 @@ export function ProfileActions({
       {canFollow && (
         <button
           type="button"
-          className={following ? "secondary-button small following" : "share-button small"}
+          className={following ? "secondary-button small following" : "primary-button small"}
           disabled={pending}
           aria-pressed={following}
           onClick={toggleFollow}

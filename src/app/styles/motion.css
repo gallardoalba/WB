@@ -130,7 +130,7 @@
 }
 
 .secondary-button:active:not(:disabled),
-.hero-button:active:not(:disabled),
+.primary-button:active:not(:disabled),
 .icon-button:active:not(:disabled) {
   transform: translateY(1px);
   transition-duration: 90ms;
@@ -140,13 +140,15 @@
 @media (prefers-reduced-motion: reduce) {
   .book-card,
   .book-detail,
-  .work-hero {
+  .work-hero,
+  .toast,
+  .toast.is-closing {
     animation: none;
   }
 
   .book-card:active,
   .secondary-button:active:not(:disabled),
-  .hero-button:active:not(:disabled),
+  .primary-button:active:not(:disabled),
   .icon-button:active:not(:disabled) {
     transform: none;
   }

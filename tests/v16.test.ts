@@ -20,15 +20,16 @@ before(async () => {
   e2e = await import("../src/lib/e2e.ts");
 });
 
-test("la base incluye los datos de envío y el sobre cifrado", () => {
+test("la base retira las columnas de envío y conserva el sobre cifrado", () => {
   const db = dbModule.getDb();
   assert.equal(db.pragma("user_version", { simple: true }), dbModule.SCHEMA_VERSION);
   const columns = (table: string) =>
     (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
-  for (const column of ["ship_kind", "ship_street", "ship_postal_code"]) {
-    assert.ok(columns("requests").includes(column), `falta ${column}`);
+  // La v61 las retiró: direcciones postales y códigos de entrega que ninguna
+  // consulta leía. Dejarlas era retención sin finalidad.
+  for (const column of ["ship_kind", "ship_street", "ship_postal_code", "handover_office_id"]) {
+    assert.equal(columns("requests").includes(column), false, `sobra ${column}`);
   }
-  assert.equal(columns("requests").includes("handover_office_id"), false);
   for (const column of ["ciphertext", "iv", "encrypted"]) {
     assert.ok(columns("messages").includes(column), `falta ${column}`);
   }
@@ -209,6 +210,11 @@ test("borrar la cuenta limpia clave, TOTP, alertas y correo pendiente", () => {
   });
   repo.setAvailabilityAlert(user.id, "Stuttgart", true);
   repo.setPublicKey(user.id, { kty: "EC", crv: "P-256", x: "a".repeat(43), y: "b".repeat(43) });
+  repo.notify({ userId: user.id, type: "message", title: "Aviso", body: "Texto" });
+  // Sin correo confirmado no sale nada: una dirección mal escrita no debe
+  // recibir la actividad de una cuenta que no es suya.
+  assert.equal(countMailTo(dbModule.getDb(), "temporal@wanderbibliothek.test"), 0);
+  repo.markEmailVerified(user.id);
   repo.notify({ userId: user.id, type: "message", title: "Aviso", body: "Texto" });
   assert.equal(countMailTo(dbModule.getDb(), "temporal@wanderbibliothek.test"), 1);
 

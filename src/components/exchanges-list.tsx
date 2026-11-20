@@ -169,7 +169,7 @@ export function ExchangesList({
             title={t("Todavía no hay intercambios")}
             hint={t("Cuando solicites un libro, podrás seguir aquí cada paso.")}
             action={
-              <button type="button" className="share-button" onClick={onExplore}>
+              <button type="button" className="primary-button" onClick={onExplore}>
                 {t("Explorar libros")} <ArrowRight size={16} />
               </button>
             }

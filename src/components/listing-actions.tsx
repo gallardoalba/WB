@@ -366,11 +366,11 @@ export function ListingActions({
         </p>
       ) : status === "available" ? (
         !isAuthenticated ? (
-          <Link className="share-button" href={`/?auth=1&next=${encodeURIComponent(`/libro/${listingId}`)}`}>
+          <Link className="primary-button" href={`/?auth=1&next=${encodeURIComponent(`/libro/${listingId}`)}`}>
             {t("Inicia sesión para pedirlo")} <ArrowRight size={16} />
           </Link>
         ) : (
-          <button type="button" className="share-button" onClick={() => setRequesting(true)}>
+          <button type="button" className="primary-button" onClick={() => setRequesting(true)}>
             {t("Pedir este libro")} <ArrowRight size={16} />
           </button>
         )

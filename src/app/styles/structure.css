@@ -991,7 +991,7 @@
 /* «Entrar» de la cabecera: mismo alto que el resto de controles (tema, idioma,
    GitHub), que ya miden 44 px. */
 .topbar .secondary-button.small,
-.topbar .share-button.small {
+.topbar .primary-button.small {
   min-height: 44px;
 }
 

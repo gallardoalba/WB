@@ -414,7 +414,7 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
           <span className="comment-remaining">
             {t("{n} caracteres", { n: MAX_LENGTH - body.length })}
           </span>
-          <button className="share-button small" type="submit" disabled={publicando}>
+          <button className="primary-button small" type="submit" disabled={publicando}>
             {t("Publicar mensaje")}
           </button>
         </div>

@@ -63,7 +63,7 @@ export function ResetPassword({ token: initialToken }: { token: string }) {
         <p className="action-feedback" role="status">
           {t("Ya puedes entrar con tu contraseña nueva. Hemos cerrado las demás sesiones.")}
         </p>
-        <Link className="share-button" href="/?auth=1">
+        <Link className="primary-button" href="/?auth=1">
           {t("Entrar")}
         </Link>
       </div>
@@ -94,7 +94,7 @@ export function ResetPassword({ token: initialToken }: { token: string }) {
           {error}
         </p>
       )}
-      <button className="share-button" type="submit" disabled={state === "sending"}>
+      <button className="primary-button" type="submit" disabled={state === "sending"}>
         {state === "sending" ? t("Guardando…") : t("Guardar contraseña")}
       </button>
     </form>

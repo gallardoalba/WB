@@ -89,20 +89,7 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "from_listing_id",
     "from_request_id",
   ],
-  requests: [
-    "status",
-    "handover_code",
-    "owner_confirmed_at",
-    "requester_confirmed_at",
-    "handover_method",
-    "ship_kind",
-    "ship_number",
-    "ship_station",
-    "ship_street",
-    "ship_postal_code",
-    "ship_city",
-    "ship_set_at",
-  ],
+  requests: ["status", "owner_confirmed_at", "requester_confirmed_at"],
   users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at", "is_moderator", "suspended_until", "suspension_reason"],
   appeals: [
     "user_id",
@@ -182,6 +169,37 @@ test("una base nueva queda en la versión de esquema que espera el código", () 
 test("las tablas son exactamente las esperadas (cambio deliberado o error)", () => {
   const db = freshDatabase();
   assert.deepEqual(inventory(db).tables, [...EXPECTED_TABLES]);
+  db.close();
+});
+
+/** Columnas que una migración antigua creó y la v61 retira: nadie las lee. */
+const RETIRED_COLUMNS: Record<string, string[]> = {
+  requests: [
+    "handover_office_id",
+    "handover_set_at",
+    "handover_code",
+    "handover_method",
+    "ship_kind",
+    "ship_number",
+    "ship_station",
+    "ship_street",
+    "ship_postal_code",
+    "ship_city",
+    "ship_set_at",
+  ],
+};
+
+test("las columnas retiradas no vuelven por una migración antigua", () => {
+  const db = freshDatabase();
+  const { columns } = inventory(db);
+  for (const [table, retired] of Object.entries(RETIRED_COLUMNS)) {
+    for (const column of retired) {
+      assert.ok(
+        !columns[table]!.includes(column),
+        `${table}.${column} se conserva: la v61 debería haberla retirado`,
+      );
+    }
+  }
   db.close();
 });
 

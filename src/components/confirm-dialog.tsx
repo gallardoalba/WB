@@ -48,7 +48,7 @@ export function ConfirmDialog({
         </button>
         <button
           type="button"
-          className="share-button danger"
+          className="primary-button danger"
           onClick={onConfirm}
           disabled={pending || confirmDisabled}
         >

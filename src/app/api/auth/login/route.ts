@@ -3,8 +3,9 @@ import { cookies } from "next/headers";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
-import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/password";
+import { DUMMY_PASSWORD_HASH, hashPassword, needsRehash, verifyPassword } from "@/lib/password";
 import {
+  changePassword,
   clearAuthFailures,
   getTotpState,
   getUserWithPassword,
@@ -81,6 +82,19 @@ export async function POST(request: Request) {
     // Segundo factor: la contraseña ya es correcta, pero no se abre sesión
     // hasta validar el código de la app de autenticación.
     if (getTotpState(account.id).enabled) {
+      // Los fallos del segundo factor se cuentan aparte: un ataque contra el
+      // código no puede bloquear el acceso de quien solo se equivocó con la
+      // contraseña, y una racha de códigos incorrectos sí se corta aquí. Antes
+      // el contador subía pero nadie lo miraba, así que probar códigos era
+      // gratis para quien ya tenía la contraseña.
+      const totpKey = `${accountKey}|totp`;
+      if (isAuthBlocked(totpKey)) {
+        return json(
+          { error: "Demasiados códigos incorrectos. Espera unos minutos antes de volver a probar." },
+          429,
+          { "Retry-After": "900" },
+        );
+      }
       const code = input.code ?? "";
       if (!code) {
         return json(
@@ -92,10 +106,16 @@ export async function POST(request: Request) {
         );
       }
       if (!verifyUserTotp(account.id, code)) {
-        recordAuthFailure(attemptKey);
-        hit({ bucket: "login:account", key: accountKey, limit: 20, windowMs: 15 * 60_000 });
+        recordAuthFailure(totpKey);
         throw new ApiError(401, "El código de verificación no es válido o ha caducado.");
       }
+      clearAuthFailures(totpKey);
+    }
+
+    // El hash viejo (sin parámetros versionados) se vuelve a firmar aquí, que
+    // es el único momento en el que la contraseña está disponible.
+    if (needsRehash(account.passwordHash)) {
+      changePassword(account.id, await hashPassword(input.password));
     }
 
     clearAuthFailures(attemptKey);

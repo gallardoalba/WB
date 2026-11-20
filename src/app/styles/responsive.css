@@ -93,7 +93,7 @@
     grid-template-columns: 1fr;
   }
 
-  .detail-actions > .share-button {
+  .detail-actions > .primary-button {
     max-width: none;
   }
 
@@ -186,8 +186,7 @@
     line-height: 1.5;
   }
 
-  .hero-button {
-    min-height: 44px;
+  .hero-cta {
     margin-top: 10px;
   }
 
@@ -604,26 +603,6 @@
   background: var(--green-pale);
   color: var(--green-strong);
   font-weight: 600;
-}
-
-.text-link,
-.inline-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  padding: 0;
-  background: none;
-  color: var(--green-strong);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.text-link:hover,
-.inline-link:hover {
-  color: var(--focus);
 }
 
 .inbox-item.unread {

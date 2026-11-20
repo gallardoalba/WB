@@ -319,7 +319,7 @@ export function AuthDialog({
           </p>
         )}
 
-        <button className="share-button form-submit" type="submit" disabled={pending}>
+        <button className="primary-button form-submit" type="submit" disabled={pending}>
           {pending
             ? t("Un momento…")
             : mode === "login"

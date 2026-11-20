@@ -187,19 +187,6 @@
   font-size: 14px;
 }
 
-/* Relleno suave en vez de coral macizo: en modo oscuro `--coral` es un tono
-   claro y el texto blanco encima se perdía. */
-.club-danger .share-button.danger {
-  border-color: color-mix(in srgb, var(--coral) 45%, transparent);
-  background: var(--coral-soft);
-  color: var(--coral);
-}
-
-.club-danger .share-button.danger:hover:not(:disabled) {
-  border-color: var(--coral);
-  background: color-mix(in srgb, var(--coral) 24%, var(--surface));
-}
-
 /* Pestañas del muro de la comunidad */
 .feed-tab {
   display: inline-flex;

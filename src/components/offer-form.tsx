@@ -548,7 +548,7 @@ export function OfferForm({
         <div className="offer-actions">
           <small>{t("Al publicar, confirmas que tienes derecho a compartir este ejemplar físico.")}</small>
           <button
-            className="share-button form-submit"
+            className="primary-button form-submit"
             type="submit"
             disabled={pending || Boolean(createdListingId)}
           >
