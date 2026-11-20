@@ -4,7 +4,8 @@
  * Las fotos salen del móvil con 3000-4000 px de lado y 5-10 MB, y el servidor
  * solo acepta JPG de como mucho 4 MB. En vez de rechazarlas, aquí se reducen y
  * se recomprimen en el navegador hasta cumplir; si la imagen ya cumple, se
- * sube tal cual, porque recomprimir sin necesidad solo pierde calidad.
+ * se sube tal cual para conservar la calidad; el servidor retira los metadatos
+ * del archivo sin recomprimir sus píxeles.
  *
  * La aritmética del tamaño (`coverSize`) vive aparte, sin DOM, para poder
  * probarla en Node.

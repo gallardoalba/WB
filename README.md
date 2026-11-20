@@ -14,14 +14,14 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 
 ## What you can do
 
-- **Share books.** List a book you'd like to pass on, including its condition and city. Entering an ISBN automatically retrieves its bibliographic details from Open Library, Google Books or the German National Library (DNB).
+- **Share books.** List a book you'd like to pass on, including its condition and city. Entering an ISBN automatically retrieves bibliographic details from Open Library or the German National Library (DNB); the Austrian National Library is not currently queried, so Austrian-edition coverage depends on those catalogues. Covers are uploaded by users.
 - **Exchange books.** Every exchange follows a simple, mutual process: one reader requests a book, the owner accepts, and both confirm the handover. Neither side can complete an exchange on their own. Once it's done, both readers can leave each other feedback. The book that has changed hands remains in the platform's history, while the recipient's own copy is temporarily paused.
 - **No addresses, no shipping.** The platform never asks for postal addresses, postcodes or delivery details. Books are exchanged directly between readers.
 - **Private messages.** Every exchange comes with an end-to-end encrypted conversation. Readers who follow each other can also send private messages.
 - **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
 - **Lists and nearby readers.** Start public reading lists and browse a directory of readers by distance. Your home page shows what is happening around you.
 - **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
-- **German scope today.** The city catalogue and geocoding cover Germany (`CITIES`, `src/lib/city-search.ts`, `src/lib/geocode.ts`). The interface is available in Spanish, German and English, but an instance outside Germany must add its own municipalities to `CITIES` and change the country filter in those two modules before city selection and distance filters work.
+- **Germany and Austria.** City search and validation cover both countries. Distance filters use a curated set of cities; other municipalities can still be selected, but do not have a precomputed distance. Austrian city names carry `(AT)` to distinguish them from German homonyms. Cross-border exchanges are supported and arranged directly between readers; the platform does not handle shipping.
 
 ## Principles
 

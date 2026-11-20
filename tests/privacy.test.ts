@@ -44,12 +44,31 @@ test("el borrado de filas no deja el contenido en el fichero SQLite", () => {
   assert.equal(dbModule.getDb().pragma("secure_delete", { simple: true }), 1);
 });
 
-test("robots.txt no invita a indexar el catálogo ni los perfiles", () => {
+test("las páginas públicas con datos de catálogo y perfiles envían noindex", () => {
+  for (const route of [
+    "src/app/descubrir/page.tsx",
+    "src/app/werk/[id]/page.tsx",
+    "src/app/libro/[id]/page.tsx",
+    "src/app/obra/[bookId]/page.tsx",
+    "src/app/listas/page.tsx",
+    "src/app/listas/[listId]/page.tsx",
+    "src/app/lectores/page.tsx",
+    "src/app/u/[id]/page.tsx",
+  ]) {
+    assert.match(source(route), /index:\s*false/, `${route} debe declarar noindex`);
+  }
+
+  const sitemap = source("src/app/sitemap.ts");
+  assert.doesNotMatch(sitemap, /listPublicWorks|listPublicReadingLists|\/werk\/|\/listas/);
+
+  const listings = source("src/app/api/listings/route.ts");
+  assert.doesNotMatch(listings, /notifyIndexNow|indexnow/i);
+
   const robots = source("src/app/robots.ts");
-  for (const route of ["/descubrir", "/u/", "/libro/", "/obra/", "/lectores"]) {
+  for (const route of ["/descubrir", "/u/", "/libro/", "/obra/", "/lectores", "/listas/"]) {
     assert.ok(
-      robots.includes(`"${route}"`),
-      `robots.ts debería vetar ${route}: expone nombre y ciudad de lectores`,
+      !robots.includes(`"${route}"`),
+      `robots.ts no debe bloquear ${route}: los crawlers deben leer su noindex`,
     );
   }
 });

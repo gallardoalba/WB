@@ -14,9 +14,9 @@ import { HREFLANG, LOCALES, localePath, type Locale } from "./locale";
  * `<meta>` y el texto visible digan lo mismo.
  */
 export const SITE_TITLE: Record<Locale, string> = {
-  de: `Bücher tauschen und teilen in Deutschland | ${BRAND}`,
-  es: `Intercambiar y compartir libros en Alemania | ${BRAND}`,
-  en: `Swap and share books in Germany | ${BRAND}`,
+  de: `Bücher tauschen in Deutschland & Österreich | ${BRAND}`,
+  es: `Intercambiar libros en Alemania y Austria | ${BRAND}`,
+  en: `Swap books in Germany & Austria | ${BRAND}`,
 };
 
 export const SITE_DESCRIPTION: Record<Locale, string> = {

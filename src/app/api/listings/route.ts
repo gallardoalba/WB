@@ -3,7 +3,6 @@ import { invalidatePublicData } from "@/lib/revalidate";
 import { handleApiError, json, readJson } from "@/lib/api";
 import { getSessionUser, requireUser } from "@/lib/auth";
 import { cityName } from "@/lib/city-name";
-import { notifyIndexNow } from "@/lib/indexnow";
 import { announceBook } from "@/lib/mastodon";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
@@ -64,16 +63,7 @@ export async function POST(request: Request) {
       input.city ? { ...input, city: await cityName(input.city) } : input,
     );
     invalidatePublicData();
-    // Aviso a Bing (y por él a DuckDuckGo y Ecosia) de que hay una ficha nueva.
-    // Va en `after()` y nunca lanza: publicar no puede depender del buscador.
     const base = siteUrl();
-    after(() =>
-      notifyIndexNow(base, [
-        `${base}/werk/${listing.bookId}`,
-        `${base}/es/werk/${listing.bookId}`,
-        `${base}/en/werk/${listing.bookId}`,
-      ]),
-    );
     // Aviso en Mastodon, también en `after()` y tan silencioso como el anterior:
     // el post se encola en la base, así que un fallo de la instancia no pierde el
     // aviso ni retrasa la respuesta. Un post por obra y, por persona, uno al día.

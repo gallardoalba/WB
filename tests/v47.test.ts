@@ -130,18 +130,19 @@ test("la tarjeta social usa la imagen grande y el sitio publica su entidad", () 
   assert.ok(layout.includes("siteSchema"));
 });
 
-test("robots deja rastrear el catálogo público y no el resto", () => {
+test("robots deja leer las páginas públicas noindex y bloquea rutas privadas", () => {
   const robots = read("src/app/robots.ts");
   assert.ok(!robots.includes('"/werk'));
   assert.ok(!robots.includes('"/buecher"'));
-  for (const privada of ['"/libro/"', '"/u/"', '"/ofrecer"']) {
-    assert.ok(robots.includes(privada), `robots.txt debería bloquear ${privada}`);
+  for (const publica of ['"/libro/"', '"/u/"']) {
+    assert.ok(!robots.includes(publica), `robots.txt debe permitir leer ${publica}`);
   }
+  assert.ok(robots.includes('"/ofrecer"'), "robots.txt debe bloquear rutas privadas");
 });
 
-test("el sitemap anuncia las fichas de obra y no la vieja URL del catálogo", () => {
+test("el sitemap omite las fichas noindex y la vieja URL del catálogo", () => {
   const sitemap = read("src/app/sitemap.ts");
-  assert.ok(sitemap.includes("/werk/"));
+  assert.ok(!sitemap.includes("/werk/"));
   // `/buecher` solo sobrevive como redirección a `/descubrir`.
   assert.ok(!sitemap.includes("/buecher"));
 });

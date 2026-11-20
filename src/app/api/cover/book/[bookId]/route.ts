@@ -2,7 +2,11 @@ import { handleApiError, json } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { toJpeg } from "@/lib/cover-convert";
 import { uploadedCoverResponse } from "@/lib/cover-response";
-import { removeUploadedCover, saveUploadedCover } from "@/lib/covers";
+import {
+  MIN_UPLOADED_COVER_BYTES,
+  removeUploadedCover,
+  saveUploadedCover,
+} from "@/lib/covers";
 import { ApiError } from "@/lib/errors";
 import {
   assertVerified,
@@ -42,9 +46,9 @@ export async function GET(
  * —no puede enviar ese `Content-Type`— y el guardia de origen lo cierra del
  * todo. El tipo real se comprueba por los primeros bytes, no por lo declarado.
  *
- * Se acepta JPG y PNG; el PNG se convierte a JPG antes de guardarlo, de modo que
- * la política de almacenamiento sigue siendo una sola (`saveUploadedCover`)
- * venga la imagen de donde venga.
+ * Se acepta JPG y PNG; el PNG se convierte a JPG y se eliminan los metadatos
+ * antes de guardar, de modo que la política de almacenamiento sigue siendo una
+ * sola (`saveUploadedCover`) venga la imagen de donde venga.
  */
 export async function PUT(
   request: Request,
@@ -69,9 +73,12 @@ export async function PUT(
     if (raw.byteLength > MAX_BYTES) {
       throw new ApiError(413, "La imagen pesa demasiado (máximo 4 MB).");
     }
-    // El PNG se convierte aquí; un JPG pasa tal cual. Lanza 415/422/413 si no
-    // es ninguna de las dos cosas o si no se puede leer.
+    // El PNG se convierte aquí; al JPG se le quitan metadatos sin recomprimirlo.
+    // Lanza 415/422/413 si no es una imagen admitida o si no se puede leer.
     const data = toJpeg(raw);
+    if (raw.byteLength < MIN_UPLOADED_COVER_BYTES) {
+      throw new ApiError(422, "El archivo pesa menos de 1 KB: sube una portada más grande.");
+    }
     // Un PNG de 4 MB puede crecer al recomprimirlo —raro, pero pasa con texturas
     // y ruido—: sin esta comprobación el rechazo saldría como «pesa menos de
     // 1 KB», que no explica nada.
@@ -103,7 +110,7 @@ export async function PUT(
   }
 }
 
-/** Quita la portada subida y vuelve a dejar que el servidor busque la del ISBN. */
+/** Quita la portada subida y deja la ficha sin imagen hasta que se suba otra. */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ bookId: string }> },

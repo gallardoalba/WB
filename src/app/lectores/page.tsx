@@ -23,6 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: translate(locale, "Lectores"),
     description: translate(locale, "Lectores activos que comparten libros en {region}, por ciudad.", { region: regionName(locale) }),
     alternates: { canonical: "/lectores" },
+    robots: { index: false, follow: true },
   };
 }
 
@@ -105,7 +106,7 @@ export default async function Page({ searchParams }: PageProps) {
           {t("Ciudad")}
         </label>
         <select id="reader-city" name="city" defaultValue={city}>
-          <option value="">{t("Toda Alemania")}</option>
+          <option value="">{t("Alemania y Austria")}</option>
           {citiesInUse("readers").map((name) => (
             <option key={name} value={name}>
               {name}

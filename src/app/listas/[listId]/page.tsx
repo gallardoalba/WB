@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       signature,
     }),
     alternates: alternatesFor(locale, `/listas/${list.id}`),
-    robots: list.items > 0 ? { index: true, follow: true } : { index: false, follow: true },
+    robots: { index: false, follow: true },
     ...socialMetadata({
       locale,
       path: `/listas/${list.id}`,

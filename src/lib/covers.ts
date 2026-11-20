@@ -1,15 +1,20 @@
 import {
   closeSync,
+  existsSync,
   mkdirSync,
   openSync,
   readSync,
   readdirSync,
   readFileSync,
+  renameSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
+
+import { stripJpegMetadata, toJpeg } from "./cover-convert";
 
 /**
  * Portadas de libro servidas desde la propia aplicación.
@@ -23,8 +28,11 @@ import path from "node:path";
 
 /** Una portada no cambia: se sirve desde disco sin volver a pedirla. */
 const MAX_BYTES = 4 * 1024 * 1024;
-/** Por debajo de este tamaño no es una imagen de verdad (ni un JPG válido). */
-const MIN_BYTES = 1_000;
+/** Mínimo del archivo recibido, antes de retirar metadatos. */
+export const MIN_UPLOADED_COVER_BYTES = 1_000;
+/** Mínimo de una cabecera JPEG válida después de retirar los metadatos. */
+const MIN_STORED_BYTES = 4;
+const sanitizedCovers = new Set<string>();
 
 /** Carpeta de portadas: junto a la base de datos (volumen persistente). */
 export function coverCacheDir(): string {
@@ -62,6 +70,8 @@ export function uploadedCoverPath(bookId: string): string | null {
 export function readUploadedCover(bookId: string): Cover | null {
   const file = uploadedCoverPath(bookId);
   if (!file) return null;
+  if (!statUploadedCover(bookId)) return null;
+  sanitizeUploadedCover(bookId);
   try {
     const data = readFileSync(file);
     const contentType = sniffImageType(data);
@@ -85,11 +95,38 @@ export function statUploadedCover(bookId: string): UploadedCoverFile | null {
   if (!file) return null;
   try {
     const stat = statSync(file);
-    if (!stat.isFile() || stat.size < MIN_BYTES) return null;
+    if (!stat.isFile() || stat.size < MIN_STORED_BYTES) return null;
     return { path: file, size: stat.size, mtimeMs: stat.mtimeMs };
   } catch {
     return null;
   }
+}
+
+/**
+ * Limpia también portadas antiguas al primer acceso de cada proceso. Así una
+ * portada ya guardada nunca se entrega antes de retirar sus metadatos.
+ */
+export function sanitizeUploadedCover(bookId: string): void {
+  const file = uploadedCoverPath(bookId);
+  if (!file || sanitizedCovers.has(file)) return;
+
+  const original = readFileSync(file);
+  const sanitized = toJpeg(original);
+  if (sanitized.byteLength > MAX_BYTES) {
+    throw new Error("La portada almacenada supera el tamaño máximo tras limpiarla.");
+  }
+
+  if (!sanitized.equals(original)) {
+    const temporary = `${file}.${randomUUID()}.tmp`;
+    try {
+      writeFileSync(temporary, sanitized, { mode: 0o600, flag: "wx" });
+      renameSync(temporary, file);
+    } finally {
+      if (existsSync(temporary)) unlinkSync(temporary);
+    }
+  }
+
+  sanitizedCovers.add(file);
 }
 
 /**
@@ -130,10 +167,13 @@ export function saveUploadedCover(bookId: string, data: Buffer): Cover | null {
   // Una sola política para la interfaz y para el servidor: JPG. Se mira el
   // contenido, no la extensión ni el `Content-Type`, que los pone quien sube.
   if (!file || !contentType || !isJpegCover(data)) return null;
-  if (data.length < MIN_BYTES || data.byteLength > MAX_BYTES) return null;
+  if (data.length < MIN_STORED_BYTES || data.byteLength > MAX_BYTES) return null;
+  const sanitized = stripJpegMetadata(data);
+  if (sanitized.byteLength < MIN_STORED_BYTES || sanitized.byteLength > MAX_BYTES) return null;
   mkdirSync(coverCacheDir(), { recursive: true, mode: 0o700 });
-  writeFileSync(file, data, { mode: 0o600 });
-  return { data, contentType };
+  writeFileSync(file, sanitized, { mode: 0o600 });
+  sanitizedCovers.add(file);
+  return { data: sanitized, contentType };
 }
 
 export function removeUploadedCover(bookId: string): void {
@@ -141,6 +181,7 @@ export function removeUploadedCover(bookId: string): void {
   if (!file) return;
   try {
     unlinkSync(file);
+    sanitizedCovers.delete(file);
   } catch {
     // No había portada subida: nada que borrar.
   }

@@ -49,6 +49,10 @@ test("de la respuesta de Nominatim se usa el núcleo de población", () => {
   assert.equal(cityFromNominatim([{ address: { village: "Calella" } }]), "Calella");
   assert.equal(cityFromNominatim([{ address: { municipality: "El Vendrell" } }]), "El Vendrell");
   assert.equal(cityFromNominatim([{ address: { hamlet: "La Beguda" } }]), "La Beguda");
+  assert.equal(
+    cityFromNominatim([{ address: { city: "Graz", country_code: "at" } }]),
+    "Graz (AT)",
+  );
 
   // Un resultado sin dirección sigue valiendo si trae nombre propio.
   assert.equal(cityFromNominatim([{ name: "Cádiz" }]), "Cádiz");
@@ -75,6 +79,7 @@ test("una ciudad del catálogo se reconoce sin salir a la red", async () => {
   await conFetch(nominatim([]), async (calls) => {
     // El índice ignora mayúsculas y acentos.
     assert.deepEqual(await resolveCity("  stuttgart "), { status: "found", name: "Stuttgart" });
+    assert.deepEqual(await resolveCity("Wien (AT)"), { status: "found", name: "Wien (AT)" });
     assert.equal(calls.length, 0, "las ciudades conocidas no necesitan Nominatim");
   });
 });
@@ -90,7 +95,7 @@ test("una ciudad nueva se busca una sola vez y queda en caché", async () => {
     assert.equal(url.searchParams.get("format"), "jsonv2");
     assert.equal(url.searchParams.get("addressdetails"), "1");
     assert.equal(url.searchParams.get("limit"), "1");
-    assert.equal(url.searchParams.get("countrycodes"), "de");
+    assert.equal(url.searchParams.get("countrycodes"), "de,at");
 
     // Misma ciudad escrita de otra forma: sale de la caché, sin otra petición.
     assert.deepEqual(await resolveCity("  rendsburg "), { status: "found", name: "Rendsburg" });

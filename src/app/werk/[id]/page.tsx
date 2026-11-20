@@ -62,9 +62,9 @@ function workSummary(
 /**
  * Ficha pública de una obra.
  *
- * Es la página del catálogo pensada para buscadores: título, autoría, cifras y
- * ciudades, nunca quién tiene el ejemplar. Todas las ediciones de una obra
- * comparten esta URL: la que no es canónica redirige a la más antigua.
+ * Es una página pública para compartir una obra: título, autoría, cifras y
+ * ciudades, nunca quién tiene el ejemplar. Lleva `noindex` porque las obras no
+ * deben aparecer en buscadores. Todas las ediciones comparten esta URL.
  */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
@@ -81,9 +81,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${work.title} — ${work.author}`,
     description,
     alternates: alternatesFor(locale, `/werk/${work.id}`),
-    // Sin ejemplares la página no aporta nada nuevo: se deja rastrear el enlace
-    // pero no se indexa una ficha vacía.
-    robots: work.copies > 0 ? { index: true, follow: true } : { index: false, follow: true },
+    robots: { index: false, follow: true },
     ...socialMetadata({
       locale,
       path: `/werk/${work.id}`,

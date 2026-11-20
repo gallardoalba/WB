@@ -36,6 +36,14 @@ function fakePngHeader(width: number, height: number): Buffer {
   return header;
 }
 
+function addJpegSegment(jpegData: Buffer, marker: number, payload: Buffer): Buffer {
+  const header = Buffer.alloc(4);
+  header[0] = 0xff;
+  header[1] = marker;
+  header.writeUInt16BE(payload.length + 2, 2);
+  return Buffer.concat([jpegData.subarray(0, 2), header, payload, jpegData.subarray(2)]);
+}
+
 function expectApiError(status: number, action: () => unknown): void {
   assert.throws(action, (error: unknown) => {
     assert.ok(error instanceof ApiError, `se esperaba ApiError y llegó ${String(error)}`);
@@ -64,10 +72,34 @@ test("las dimensiones se leen sin decodificar la imagen", () => {
   assert.equal(imageDimensions(Buffer.alloc(0)), null);
 });
 
-test("un JPG se devuelve tal cual, sin recomprimir", () => {
-  const original = Buffer.from(jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data);
+test("un JPG se limpia sin recomprimir sus píxeles", () => {
+  const cleanJpeg = Buffer.from(
+    jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data,
+  );
+  const withExif = addJpegSegment(cleanJpeg, 0xe1, Buffer.from("Exif\0\0GPS coordinates"));
+  const withIptc = addJpegSegment(withExif, 0xed, Buffer.from("IPTC author"));
+  const original = addJpegSegment(withIptc, 0xfe, Buffer.from("private comment"));
+
   const result = toJpeg(original);
-  assert.equal(result, original, "debe ser el mismo objeto, no una copia recodificada");
+  assert.notEqual(result, original, "se retiran los segmentos de metadatos");
+  for (const metadata of ["Exif", "IPTC author", "private comment"]) {
+    assert.equal(result.includes(metadata), false, `${metadata} no debe quedar en la portada`);
+  }
+  assert.deepEqual(imageDimensions(result), { width: 4, height: 4 });
+  assert.deepEqual(jpeg.decode(result, { useTArray: true }).data, jpeg.decode(original, { useTArray: true }).data);
+});
+
+test("un JPG ya limpio se devuelve sin volver a procesarlo", () => {
+  const original = Buffer.from(
+    jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data,
+  );
+  const limpio = toJpeg(original);
+
+  assert.equal(toJpeg(limpio), limpio);
+});
+
+test("un segmento JPEG truncado se rechaza", () => {
+  expectApiError(422, () => toJpeg(Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x20, 0x01])));
 });
 
 test("un PNG se convierte en JPG conservando el tamaño", () => {

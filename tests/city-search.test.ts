@@ -2,7 +2,7 @@
  * Sugerencias de ciudad (OpenStreetMap/Photon).
  *
  * La ciudad se elige de una lista: estas pruebas fijan cómo se lee la respuesta
- * de Photon (solo municipios alemanes, sin calles ni regiones), cómo se mezcla
+ * de Photon (solo municipios de Alemania y Austria, sin calles ni regiones), cómo se mezcla
  * con el catálogo local, que la misma búsqueda no se repite y que un servicio
  * caído no deja el campo vacío.
  */
@@ -46,24 +46,28 @@ const feature = (properties: Record<string, unknown>) => ({
   geometry: { type: "Point", coordinates: [8.4, 49] },
 });
 
-test("de Photon solo valen municipios alemanes", () => {
+test("de Photon solo valen municipios de Alemania y Austria", () => {
   const cities = citiesFromPhoton({
     features: [
       feature({ countrycode: "DE", osm_key: "place", osm_value: "city", name: "Karlsruhe", state: "Baden-Württemberg" }),
       // Otro país con el mismo nombre: no entra.
       feature({ countrycode: "CZ", osm_key: "place", osm_value: "city", name: "Karlsbad" }),
+      feature({ countrycode: "AT", osm_key: "place", osm_value: "city", name: "Graz", state: "Steiermark" }),
       // Una calle y un estado tampoco son ciudades.
       feature({ countrycode: "DE", osm_key: "highway", osm_value: "residential", name: "Karlstraße" }),
       feature({ countrycode: "DE", osm_key: "boundary", osm_value: "administrative", name: "Baden" }),
-      // Sin país declarado se acepta: Photon lo omite en algunos municipios.
-      feature({ osm_key: "place", osm_value: "town", name: "Karlstadt" }),
+      // Si falta el código, el nombre del país permite validar el resultado.
+      feature({ country: "Deutschland", osm_key: "place", osm_value: "town", name: "Karlstadt" }),
       // Pueblos y municipios son válidos, no solo las ciudades grandes.
       feature({ countrycode: "DE", osm_key: "place", osm_value: "village", name: "Karlsdorf" }),
+      // La caja de búsqueda incluye zonas vecinas: sin país no se acepta.
+      feature({ osm_key: "place", osm_value: "town", name: "Karlsbad" }),
     ],
   });
 
   assert.deepEqual(cities, [
     { name: "Karlsruhe", region: "Baden-Württemberg" },
+    { name: "Graz (AT)", region: "Steiermark" },
     { name: "Karlstadt", region: null },
     { name: "Karlsdorf", region: null },
   ]);
@@ -78,9 +82,10 @@ test("una respuesta ilegible no es una lista de ciudades", () => {
     features: [
       feature({ countrycode: "DE", osm_key: "place", osm_value: "town", name: "Neustadt" }),
       feature({ countrycode: "DE", osm_key: "place", osm_value: "town", name: "neustadt" }),
+      feature({ countrycode: "AT", osm_key: "place", osm_value: "town", name: "Neustadt" }),
     ],
   });
-  assert.equal(repeated.length, 1);
+  assert.deepEqual(repeated.map((city) => city.name), ["Neustadt", "Neustadt (AT)"]);
 });
 
 test("el catálogo local responde sin red, primero lo que empieza por lo escrito", () => {
@@ -88,6 +93,7 @@ test("el catálogo local responde sin red, primero lo que empieza por lo escrito
   // Se ignora mayúsculas y acentos.
   assert.deepEqual(localCityMatches("MUNCHEN"), [{ name: "München", region: null }]);
   assert.deepEqual(localCityMatches("münc"), [{ name: "München", region: null }]);
+  assert.deepEqual(localCityMatches("Wien", 1), [{ name: "Wien (AT)", region: null }]);
   // Dentro del nombre también cuenta, pero detrás de los que empiezan por ahí.
   const names = localCityMatches("halle").map((city) => city.name);
   assert.equal(names[0], "Halle (Saale)");
@@ -123,8 +129,7 @@ test("las sugerencias juntan el catálogo y el mapa sin repetir", async () => {
       assert.equal(url.origin + url.pathname, "https://photon.komoot.io/api/");
       assert.equal(url.searchParams.get("q"), "Karls");
       assert.equal(url.searchParams.get("lang"), "de");
-      // Solo Alemania: la caja envolvente del país.
-      assert.ok(url.searchParams.get("bbox"), "falta el ámbito de Alemania");
+      assert.equal(url.searchParams.get("bbox"), "5.87,46.37,17.16,55.06");
     },
   );
 });

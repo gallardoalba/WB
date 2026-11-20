@@ -22,6 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: translate(locale, "Listas de lectura"),
     description: translate(locale, "Listas de lectura compartidas por la comunidad de {region}.", { region: regionName(locale) }),
     alternates: alternatesFor(locale, "/listas"),
+    robots: { index: false, follow: true },
   };
 }
 

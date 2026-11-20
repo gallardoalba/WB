@@ -30,6 +30,12 @@ const completo: LegalConfig = {
   vatId: "DE123456789",
   phone: "+49 341 000000",
   register: "Vereinsregister 42",
+  emailProvider: null,
+  turnstileEnabled: false,
+  webPushEnabled: false,
+  mastodonEnabled: false,
+  mastodonLikesEnabled: false,
+  errorWebhookEnabled: false,
   complete: true,
 };
 
@@ -40,6 +46,12 @@ const incompleto: LegalConfig = {
   vatId: "",
   phone: "",
   register: "",
+  emailProvider: null,
+  turnstileEnabled: false,
+  webPushEnabled: false,
+  mastodonEnabled: false,
+  mastodonLikesEnabled: false,
+  errorWebhookEnabled: false,
   complete: false,
 };
 
@@ -72,6 +84,42 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
   assert.equal(llena.vatId, "DE123", "también en los datos opcionales");
   assert.equal(llena.phone, "+49 341 000000");
   assert.equal(llena.register, "Vereinsregister 42");
+  assert.equal(legalConfig({ BREVO_API_KEY: "test-key" }).emailProvider, null);
+  assert.equal(
+    legalConfig({ BREVO_API_KEY: "test-key", MAIL_FROM: "mail@example.test" }).emailProvider,
+    "brevo",
+  );
+  assert.equal(legalConfig({ MASTODON_TOKEN: "test-token" }).mastodonLikesEnabled, false);
+  assert.equal(
+    legalConfig({ MASTODON_TOKEN: "test-token", MASTODON_LIKES: "on" }).mastodonLikesEnabled,
+    true,
+  );
+  assert.equal(
+    legalConfig({
+      MASTODON_TOKEN: "test-token",
+      MASTODON_LIKES: "on",
+      MASTODON_LIKES_PER_DAY: "0",
+    }).mastodonLikesEnabled,
+    false,
+  );
+
+  const servicios = legalConfig({
+    MAIL_WEBHOOK_URL: "https://mail.example.test/send",
+    BREVO_API_KEY: "not-a-real-key",
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: "public-test-key",
+    TURNSTILE_SECRET: "not-a-real-secret",
+    VAPID_PUBLIC_KEY: "public-test-vapid",
+    VAPID_PRIVATE_KEY: "not-a-real-private-key",
+    MASTODON_TOKEN: "not-a-real-token",
+    MASTODON_LIKES: "on",
+    ERROR_WEBHOOK_URL: "https://errors.example.test/receive",
+  });
+  assert.equal(servicios.emailProvider, "webhook", "el webhook tiene precedencia sobre Brevo");
+  assert.equal(servicios.turnstileEnabled, true);
+  assert.equal(servicios.webPushEnabled, true);
+  assert.equal(servicios.mastodonEnabled, true);
+  assert.equal(servicios.mastodonLikesEnabled, true);
+  assert.equal(servicios.errorWebhookEnabled, true);
 
   // Un contacto en blanco no cuenta como contacto.
   const sinContacto = legalConfig({
@@ -187,6 +235,61 @@ test("la política de privacidad cubre las mismas secciones en los tres idiomas"
   for (const locale of ["de", "es", "en"] as const) {
     assert.match(texto(privacyDocument(locale, incompleto)), /LEGAL_CONTROLLER/);
   }
+});
+
+test("la política refleja proveedores opcionales activos y los nuevos flujos de privacidad", () => {
+  const servicios = legalConfig({
+    MAIL_WEBHOOK_URL: "https://mail.example.test/send",
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: "public-test-key",
+    TURNSTILE_SECRET: "not-a-real-secret",
+    VAPID_PUBLIC_KEY: "public-test-vapid",
+    VAPID_PRIVATE_KEY: "not-a-real-private-key",
+    MASTODON_TOKEN: "not-a-real-token",
+    MASTODON_LIKES: "on",
+    ERROR_WEBHOOK_URL: "https://errors.example.test/receive",
+  });
+
+  for (const locale of ["de", "es", "en"] as const) {
+    const body = texto(privacyDocument(locale, servicios));
+    assert.match(body, /webhook/i);
+    assert.match(body, /Cloudflare Turnstile/);
+    assert.match(body, /Web Push/);
+    assert.match(body, /Mastodon/);
+    assert.match(body, /public hashtag|publicaciones públicas por hashtag|öffentliche Hashtag-Beiträge/i);
+    assert.match(body, /error webhook|Webhook de errores|Fehler-Webhook/i);
+    assert.doesNotMatch(body, /not-a-real-secret|not-a-real-token|not-a-real-private-key/);
+  }
+
+  const allLanguages = (["de", "es", "en"] as const).map((locale) =>
+    texto(privacyDocument(locale, incompleto)),
+  );
+  for (const body of allLanguages) {
+    assert.match(body, /noindex/);
+    assert.match(body, /7 days|7 días|7 Tage/);
+    assert.doesNotMatch(body, /Google Books/);
+  }
+});
+
+test("los textos legales contemplan Austria sin cambiar la jurisdicción del operador", () => {
+  const privacidad = {
+    de: texto(privacyDocument("de", completo)),
+    es: texto(privacyDocument("es", completo)),
+    en: texto(privacyDocument("en", completo)),
+  };
+  assert.match(privacidad.de, /§ 165 Abs\. 3 TKG 2021/);
+  assert.match(privacidad.de, /Rechtsgrundlage, Zweck und Speicherdauer/);
+  assert.match(privacidad.es, /§ 165\.3 TKG 2021/);
+  assert.match(privacidad.es, /base jurídica, la finalidad y el plazo de conservación/);
+  assert.match(privacidad.en, /TKG 2021 § 165\(3\)/);
+  assert.match(privacidad.en, /legal basis, purposes and retention period/);
+  assert.match(privacidad.de, /Datenschutzbehörde \(DSB\)/);
+  assert.match(privacidad.es, /Datenschutzbehörde \(DSB\)/);
+  assert.match(privacidad.en, /Datenschutzbehörde, DSB/);
+
+  const impressum = texto(imprintDocument("de", completo));
+  assert.match(impressum, /§ 5 ECG/);
+  assert.match(impressum, /§ 25 MedienG/);
+  assert.match(impressum, /Nutzung aus Österreich ändert den Sitz/);
 });
 
 /** Todo el texto de un documento largo, para buscar en él sin recorrer la estructura. */

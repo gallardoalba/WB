@@ -1,11 +1,10 @@
 /**
  * Comprobación de la ciudad contra OpenStreetMap.
  *
- * La plataforma cubre Alemania, pero no hay una lista fija de ciudades: lo que
- * escribe una persona se contrasta con `Nominatim` (OpenStreetMap) y se guarda
- * el nombre con el que lo conoce el mapa. Así «Munich», «munchen» y «München»
- * acaban siendo la misma ciudad, y no hay que mantener a mano un catálogo de
- * todos los municipios del país.
+ * La plataforma cubre Alemania y Austria, pero no hay una lista fija de
+ * municipios: lo que escribe una persona se contrasta con `Nominatim`
+ * (OpenStreetMap) y se guarda el nombre con el que lo conoce el mapa. Las
+ * ciudades austríacas llevan `(AT)` para distinguirlas de homónimos alemanes.
  *
  * La distancia es un dato secundario: **no** se guardan coordenadas ni se
  * calculan kilómetros. Lo que se guarda es el nombre.
@@ -23,10 +22,9 @@ const TIMEOUT_MS = 4_000;
 const MIN_INTERVAL_MS = 1_100;
 
 /**
- * Ámbito de la búsqueda (ISO-3166 alfa-2): solo Alemania. Si algún día la
- * plataforma vuelve a abrirse a más países, basta con añadirlos aquí.
+ * Ámbito de la búsqueda (ISO-3166 alfa-2): Alemania y Austria.
  */
-const COUNTRY_CODES = "de";
+const COUNTRY_CODES = "de,at";
 
 export type CityLookup =
   /** La ciudad existe: se guarda `name` tal y como lo escribe el mapa. */
@@ -51,13 +49,16 @@ export function cityFromNominatim(payload: unknown): string | null {
     | undefined;
   if (!first || typeof first !== "object") return null;
   const address = first.address ?? {};
+  const countryCode =
+    typeof address.country_code === "string" ? address.country_code.toUpperCase() : "";
+  const qualify = (name: string) => (countryCode === "AT" ? `${name} (AT)` : name);
   for (const field of ["city", "town", "village", "municipality", "hamlet"]) {
     const value = address[field];
-    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "string" && value.trim()) return qualify(value.trim());
   }
   // Un resultado sin `address` sigue valiendo si trae nombre propio.
   const name = first.name;
-  return typeof name === "string" && name.trim() ? name.trim() : null;
+  return typeof name === "string" && name.trim() ? qualify(name.trim()) : null;
 }
 
 let lastCall = 0;

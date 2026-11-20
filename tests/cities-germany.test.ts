@@ -2,20 +2,26 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 /**
- * Ciudades de toda Alemania.
+ * Ciudades de Alemania y Austria.
  *
- * La lista cerrada de municipios alemanes dejó de ser la puerta: lo que escribe
- * una persona se contrasta con OpenStreetMap. Estas pruebas cubren la parte que
+ * La lista de coordenadas no limita los municipios que se pueden usar: lo que
+ * escribe una persona se contrasta con OpenStreetMap. Estas pruebas cubren la parte que
  * no necesita red (el catálogo de siempre, la lectura de la respuesta de
  * Nominatim y la validación del formulario).
  */
 
-test("las ciudades del catálogo se reconocen sin preguntar a OpenStreetMap", async () => {
+test("las ciudades alemanas y austríacas del catálogo se reconocen sin preguntar a OpenStreetMap", async () => {
   const { resolveCity } = await import("../src/lib/geocode.ts");
   // Sin acentos, en minúsculas o con el nombre exacto: siempre la misma.
-  for (const written of ["München", "munchen", "MUNCHEN", "  München  "]) {
-    const found = await resolveCity(written);
-    assert.deepEqual(found, { status: "found", name: "München" }, written);
+  for (const [written, expected] of [
+    ["München", "München"],
+    ["munchen", "München"],
+    ["MUNCHEN", "München"],
+    ["  München  ", "München"],
+    ["Wien (AT)", "Wien (AT)"],
+    ["Graz (AT)", "Graz (AT)"],
+  ]) {
+    assert.deepEqual(await resolveCity(written), { status: "found", name: expected }, written);
   }
 });
 
@@ -49,7 +55,7 @@ test("Nominatim da el nombre local de la ciudad", async () => {
   assert.equal(cityFromNominatim([{ name: "Rendsburg" }]), "Rendsburg");
 });
 
-test("el formulario acepta cualquier ciudad alemana", async () => {
+test("el formulario acepta ciudades de Alemania y Austria", async () => {
   const { registerSchema } = await import("../src/lib/validation.ts");
   const base = {
     name: "Prueba",
@@ -57,7 +63,15 @@ test("el formulario acepta cualquier ciudad alemana", async () => {
     password: "una-clave-larga-9",
     ageConfirmed: true,
   };
-  for (const city of ["Rendsburg", "Cuxhaven", "Bad Tölz", "Garmisch-Partenkirchen", "Spiekeroog"]) {
+  for (const city of [
+    "Rendsburg",
+    "Cuxhaven",
+    "Bad Tölz",
+    "Garmisch-Partenkirchen",
+    "Spiekeroog",
+    "Wien (AT)",
+    "Graz (AT)",
+  ]) {
     const parsed = registerSchema.parse({ ...base, city });
     assert.equal(typeof parsed.city, "string");
     assert.ok(parsed.city.length > 1, city);

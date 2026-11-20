@@ -7,9 +7,10 @@ export type City = { name: string; lat: number; lng: number };
  * Ciudades con coordenadas reales (GeoNames vía Open-Meteo) para calcular
  * distancias.
  *
- * La plataforma se dirige a Alemania, así que la lista es de municipios
- * alemanes: son los ejemplares que hay. La lista es cerrada para poder calcular
- * distancias y validar; crece añadiendo filas.
+ * La lista combina municipios de Alemania y Austria para calcular distancias.
+ * Los nombres austríacos llevan `(AT)` para distinguirlos de homónimos y de las
+ * ciudades alemanas ya guardadas. Los municipios no incluidos siguen pudiendo
+ * usarse, pero no tienen distancia precalculada.
  */
 export const CITIES: City[] = [
   { name: "Aachen", lat: 50.7766, lng: 6.0834 }, { name: "Aalen", lat: 48.8378, lng: 10.0933 },
@@ -74,19 +75,32 @@ export const CITIES: City[] = [
   { name: "Wolfsburg", lat: 52.4236, lng: 10.776 }, { name: "Worms", lat: 49.6328, lng: 8.3592 },
   { name: "Wuppertal", lat: 51.2563, lng: 7.1482 }, { name: "Würzburg", lat: 49.7939, lng: 9.9512 },
   { name: "Zwickau", lat: 50.7272, lng: 12.4884 },
+  { name: "Baden (AT)", lat: 48.00543, lng: 16.23264 },
+  { name: "Bregenz (AT)", lat: 47.50311, lng: 9.7471 },
+  { name: "Dornbirn (AT)", lat: 47.41427, lng: 9.74195 },
+  { name: "Eisenstadt (AT)", lat: 47.84565, lng: 16.52327 },
+  { name: "Feldkirch (AT)", lat: 47.23645, lng: 9.59734 },
+  { name: "Graz (AT)", lat: 47.06733, lng: 15.44197 },
+  { name: "Innsbruck (AT)", lat: 47.26266, lng: 11.39454 },
+  { name: "Klagenfurt (AT)", lat: 46.62472, lng: 14.30528 },
+  { name: "Leoben (AT)", lat: 47.379, lng: 15.094 },
+  { name: "Linz (AT)", lat: 48.30639, lng: 14.28611 },
+  { name: "Salzburg (AT)", lat: 47.79941, lng: 13.04399 },
+  { name: "Steyr (AT)", lat: 48.04274, lng: 14.42127 },
+  { name: "St. Pölten (AT)", lat: 48.20762, lng: 15.63725 },
+  { name: "Villach (AT)", lat: 46.61028, lng: 13.85583 },
+  { name: "Wels (AT)", lat: 48.16667, lng: 14.03333 },
+  { name: "Wien (AT)", lat: 48.20849, lng: 16.37208 },
+  { name: "Wiener Neustadt (AT)", lat: 47.80485, lng: 16.23196 },
 ];
 
 /**
- * Ámbito de la plataforma, en cada idioma. La plataforma se dirige a Alemania;
- * el catálogo de ciudades tiene los municipios alemanes porque es de donde
- * salen los ejemplares reales (GeoNames vía Open-Meteo). Ampliar el ámbito es
- * añadir filas a `CITIES`, que es la lista cerrada con la que se calculan
- * distancias y se valida la ciudad de cada persona.
+ * Ámbito de la plataforma, en cada idioma.
  */
 export const COUNTRY_NAMES = {
-  es: "Alemania",
-  de: "Deutschland",
-  en: "Germany",
+  es: "Alemania y Austria",
+  de: "Deutschland und Österreich",
+  en: "Germany and Austria",
 } as const;
 
 /** Compatibilidad con textos que aún no pasan por el diccionario. */

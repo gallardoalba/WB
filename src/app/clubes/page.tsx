@@ -117,7 +117,7 @@ export default async function Page({ searchParams }: PageProps) {
             {t("Ciudad")}
           </label>
           <select id="club-city" name="city" defaultValue={city}>
-            <option value="">{t("Toda Alemania")}</option>
+            <option value="">{t("Alemania y Austria")}</option>
             {citiesInUse("clubs").map((name) => (
               <option key={name} value={name}>
                 {name}

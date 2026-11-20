@@ -15,7 +15,7 @@ import type { TechnicalDocument } from "./technical";
 
 export const EN: TechnicalDocument = {
   title: "Technical documentation",
-  updated: "2026-11-19",
+  updated: "2026-11-20",
   intro: [
     "How Wanderbibliothek is built: architecture, routes, data, security and operations. It is meant for anyone who is going to read the code, deploy it or audit what it stores.",
     "Everything described here is in the repository. If the code changes, this page changes with it.",
@@ -31,7 +31,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "There are no mandatory external services. Covers and bibliographic records are requested by the server and cached on disk, so the browser never talks to third parties.",
+          text: "No external services are mandatory. The server queries Open Library and the German National Library for bibliographic data; users upload covers, which this instance serves. Depending on configuration, the browser may also communicate with Cloudflare Turnstile and the browser's push service.",
         },
         {
           kind: "p",
@@ -53,7 +53,7 @@ export const EN: TechnicalDocument = {
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v59), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v60), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -88,7 +88,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Internal pages require a session; without one they redirect to `/?auth=1&next=…`. The home page, the legal pages, the flows with their own link and this documentation are public. `robots.txt` blocks the catalogue and the profiles so that the name and the city of every reader are not published in search engines.",
+          text: "Internal pages require a session; without one they redirect to `/?auth=1&next=…`. The home page, legal pages, flows with their own link and this documentation are public. The catalogue, works, lists, reader directory and profiles are marked `noindex`; `robots.txt` allows crawlers to read that directive and is not access control.",
         },
         {
           kind: "table",
@@ -96,7 +96,7 @@ export const EN: TechnicalDocument = {
           rows: [
             ["`/`", "Public home page: full-width header, four figures and a row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter (that lives in `/descubrir`) and falls back to the whole catalogue when there is nothing in that language."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
-            ["`/werk/[id]`", "Public page for the work with JSON-LD `Book`/`Offer`: the URL that gets indexed."],
+            ["`/werk/[id]`", "Public work page with JSON-LD `Book`/`Offer`, marked `noindex`."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
             ["`/buscar`", "Global search: works, clubs, readers and lists."],
             ["`/estanteria`, `/intercambios`", "Private sections: own copies and requests with their next step."],
@@ -116,7 +116,7 @@ export const EN: TechnicalDocument = {
             ["`/normas`", "Governance, moderation, sanctions and appeals."],
             ["`/apelar`", "Appeal form opened from the sanction email."],
             ["`/api/health`", "Status of the service and of the database."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing, and through it DuckDuckGo and Ecosia, whenever a book is listed."],
+            ["`/sitemap.xml`, `/robots.txt`", "The sitemap publishes the home page and information pages in all three languages (with `xhtml:link`). The catalogue, works, lists and profiles are omitted and marked `noindex`; `robots.txt` allows crawlers to read that directive, and no search-engine notifications are sent."],
           ],
         },
         {
@@ -151,12 +151,12 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 maintained by triggers: `listings_fts` for the catalogue and `books_fts` for works; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. The city is picked from a list of German municipalities supplied by OpenStreetMap (`searchCities()`, through Photon, which does allow suggestions while typing; if it does not answer, the local catalogue is offered instead) and checked on save with `resolveCity()`, which asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list simply shows no kilometres.",
+            "`cities` holds a curated set of cities in Germany and Austria with their coordinates; `city_distances` stores distances for that set. `searchCities()` gets suggestions from OpenStreetMap through Photon, constrained to both countries, and falls back to the local catalogue if Photon is unavailable. `resolveCity()` checks the selected name with Nominatim, also limited to Germany and Austria. Austrian names carry `(AT)` to avoid collisions with German names. Other municipalities can still be selected, but do not have precomputed distances.",
           ],
         },
         {
           kind: "p",
-          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Nine steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind) and v59 (archiving a closed exchange is personal: \`request_archives\` keeps one row per person and request, so one side can put it away without the other losing sight of it). The detail of every step lives in that file and in its git history.`,
+          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Ten steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: \`request_archives\` keeps one row per person and request, so one side can put it away without the other losing sight of it) and v60 (adds Austria to the distance matrix without changing existing German city names). The detail of every step lives in that file and in its git history.`,
         },
         {
           kind: "p",
@@ -295,7 +295,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The canonical template is `deploy/env.example`: every variable, the ones in this table and the detail ones (bot, backups, demo data, Google Books quota, first administrator), is there, commented, with its default value.",
+          text: "The canonical template is `deploy/env.example`: every variable, the ones in this table and the detail ones (bot, backups, demo data, first administrator), is there, commented, with its default value.",
         },
       ],
     },

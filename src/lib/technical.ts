@@ -35,7 +35,7 @@ export type TechnicalDocument = {
 };
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-19";
+const UPDATED = "2026-11-20";
 
 const ES: TechnicalDocument = {
   title: "Documentación técnica",
@@ -55,7 +55,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "No hay servicios externos obligatorios. Las portadas y las fichas bibliográficas las pide el servidor y se cachean en disco, así que el navegador nunca habla con terceros.",
+          text: "No hay servicios externos obligatorios. El servidor consulta Open Library y la DNB para los datos bibliográficos; las portadas las suben las personas usuarias y se sirven desde esta instancia. Según la configuración, el navegador también puede comunicarse con Cloudflare Turnstile y con el servicio de notificaciones push.",
         },
         {
           kind: "p",
@@ -77,7 +77,7 @@ const ES: TechnicalDocument = {
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v59), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v60), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
@@ -112,7 +112,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Las páginas internas exigen sesión; sin ella redirigen a `/?auth=1&next=…`. Son públicas la portada, las páginas legales, los flujos con enlace propio y esta documentación. `robots.txt` veta el catálogo y los perfiles para no publicar en buscadores el nombre y la ciudad de cada lector.",
+          text: "Las páginas internas exigen sesión; sin ella redirigen a `/?auth=1&next=…`. Son públicas la portada, las páginas legales, los flujos con enlace propio y esta documentación. Catálogo, obras, listas, directorio y perfiles se marcan `noindex`; `robots.txt` permite leer esa directiva y no es un control de acceso.",
         },
         {
           kind: "table",
@@ -120,7 +120,7 @@ const ES: TechnicalDocument = {
           rows: [
             ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros **en el idioma de la interfaz** (`BOOK_LANGUAGE_BY_LOCALE`); la portada no enseña el filtro, que sí está en `/descubrir`, y si no hay libros en ese idioma enseña el catálogo entero."],
             ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
-            ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`: la URL que se indexa."],
+            ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`, marcada `noindex`."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
             ["`/buscar`", "Buscador global: obras, clubes, lectores y listas."],
             ["`/estanteria`, `/intercambios`", "Secciones privadas: ejemplares propios y solicitudes con su siguiente paso."],
@@ -140,7 +140,7 @@ const ES: TechnicalDocument = {
             ["`/normas`", "Gobernanza, moderación, sanciones y apelaciones."],
             ["`/apelar`", "Formulario de apelación desde el enlace del correo de sanción."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexación: el sitemap publica la portada, las fichas de obra, las listas públicas y las páginas informativas **en los tres idiomas** (con `xhtml:link`), e IndexNow avisa a Bing, y con él a DuckDuckGo y Ecosia, cuando se publica un libro."],
+            ["`/sitemap.xml`, `/robots.txt`", "El sitemap publica la portada y las páginas informativas **en los tres idiomas** (con `xhtml:link`). Catálogo, obras, listas y perfiles se omiten y llevan `noindex`; `robots.txt` permite leer esa directiva y no se envían avisos a buscadores."],
           ],
         },
         {
@@ -177,12 +177,12 @@ const ES: TechnicalDocument = {
             "Estados de ejemplar: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Estados de solicitud: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Búsqueda con FTS5 mantenida por disparadores: `listings_fts` para el catálogo y `books_fts` para las obras; `unaccent()` pliega las tildes para que «Lucía» se encuentre escribiendo «lucia».",
-            "`cities` guarda las ciudades conocidas con sus coordenadas (la semilla alemana) y `city_distances` su matriz de distancias. La ciudad se elige de una lista de municipios alemanes que da OpenStreetMap (`searchCities()`, por Photon, que sí admite proponer mientras se escribe; si no responde se ofrecen los del catálogo local) y al guardar se comprueba con `resolveCity()`, que pregunta a Nominatim, limitado a Alemania, y guarda el nombre con el que lo conoce el mapa. La distancia es un dato secundario: una ciudad fuera de la lista no muestra kilómetros.",
+            "`cities` guarda una selección de ciudades de Alemania y Austria con sus coordenadas; `city_distances` contiene la matriz para esa selección. `searchCities()` pide sugerencias a OpenStreetMap mediante Photon, limitado a ambos países, y ofrece el catálogo local si Photon no responde. `resolveCity()` comprueba el nombre con Nominatim, también limitado a Alemania y Austria. Las ciudades austríacas llevan `(AT)` para distinguirlas de posibles homónimos alemanes. Se pueden usar otros municipios, pero no tienen distancia precalculada.",
           ],
         },
         {
           kind: "p",
-          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan nueve pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla), la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada), la v58 (lo diferido deja de tener una tabla por cosa: \`jobs\` guarda estado, intentos, próximo intento y último error para cualquier trabajo, y el correo es un tipo más) y la v59 (archivar un intercambio cerrado es cosa de cada parte: \`request_archives\` guarda una fila por persona y solicitud, así que una puede apartarlo sin que la otra deje de verlo). El detalle de cada paso está en ese fichero y en su historial de git.`,
+          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan diez pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla), la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada), la v58 (lo diferido deja de tener una tabla por cosa: \`jobs\` guarda estado, intentos, próximo intento y último error para cualquier trabajo, y el correo es un tipo más), la v59 (archivar un intercambio cerrado es cosa de cada parte: \`request_archives\` guarda una fila por persona y solicitud, así que una puede apartarlo sin que la otra deje de verlo) y la v60 (amplía a Austria la matriz de distancias sin cambiar los nombres de ciudades alemanas ya guardados). El detalle de cada paso está en ese fichero y en su historial de git.`,
         },
         {
           kind: "p",
@@ -321,7 +321,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La plantilla canónica es `deploy/env.example`: ahí están todas, las de este cuadro y las de detalle (bot, copias, datos de demostración, cuota de Google Books, primer administrador), comentadas con su valor por defecto.",
+          text: "La plantilla canónica es `deploy/env.example`: ahí están todas, las de este cuadro y las de detalle (bot, copias, datos de demostración y primer administrador), comentadas con su valor por defecto.",
         },
       ],
     },
@@ -423,7 +423,7 @@ const ES: TechnicalDocument = {
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
             "Lo que no se ve al cargar no viaja en el paquete inicial: el diálogo de acceso, el de intercambio (criptografía y QR), el formulario de publicación, las notificaciones y las vistas de comunidad e intercambios se descargan con `next/dynamic` cuando se abren. La criptografía del navegador se importa al publicar la clave, no al arrancar. Ojo con `dynamic` en algo que se monta siempre: sin `loading`, su descarga suspende el árbol entero y la página tarda en responder (lo cubre `e2e/app.spec.ts` con el foco del corazón).",
             "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado: las animaciones (en `styles/motion.css`) solo mueven `opacity` y `transform`, y se apagan enteras con esa preferencia.",
-            "La interfaz es trilingüe y cada idioma tiene su propia URL: el alemán es el de por defecto y va sin prefijo (`/werk/x`), mientras que el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios para que los buscadores los indexen por separado. Dentro de una URL con prefijo manda el prefijo; si no lo hay manda el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo; sin preferencia se usa el idioma del navegador (`Accept-Language`) y, si no hay ninguno de los tres, el alemán.",
+            "La interfaz es trilingüe y cada idioma tiene su propia URL: el alemán va sin prefijo (`/werk/x`) y el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios. Así se identifica el idioma correcto en las páginas cuyo indexado está permitido. Dentro de una URL con prefijo manda el prefijo; si no lo hay manda el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo; sin preferencia se usa el idioma del navegador (`Accept-Language`) y, si no hay ninguno de los tres, el alemán.",
           ],
         },
       ],
@@ -495,7 +495,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Es gibt keine verpflichtenden Fremddienste. Cover und bibliografische Daten holt der Server und legt sie auf der Platte ab, sodass der Browser nie mit Dritten spricht.",
+          text: "Es gibt keine verpflichtenden Fremddienste. Für bibliografische Daten fragt der Server Open Library und die DNB ab; Cover laden Nutzer:innen hoch und werden von dieser Instanz ausgeliefert. Je nach Konfiguration kommuniziert der Browser außerdem mit Cloudflare Turnstile und dem Push-Dienst des Browsers.",
         },
         {
           kind: "p",
@@ -517,7 +517,7 @@ const DE: TechnicalDocument = {
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v59), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v60), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
@@ -552,7 +552,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Die internen Seiten verlangen eine Sitzung; ohne sie leiten sie auf `/?auth=1&next=…` um. Öffentlich sind nur die Startseite, die Rechtstexte, die Abläufe mit eigenem Link und diese Dokumentation. `robots.txt` sperrt Katalog und Profile, damit Name und Stadt der Leser:innen nicht in Suchmaschinen landen.",
+          text: "Die internen Seiten verlangen eine Sitzung; ohne sie leiten sie auf `/?auth=1&next=…` um. Öffentlich sind nur die Startseite, die Rechtstexte, die Abläufe mit eigenem Link und diese Dokumentation. Katalog, Werke, Listen, Verzeichnis und Profile sind mit `noindex` gekennzeichnet; `robots.txt` lässt das Lesen dieser Direktive zu und ist kein Zugriffsschutz.",
         },
         {
           kind: "table",
@@ -560,7 +560,7 @@ const DE: TechnicalDocument = {
           rows: [
             ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher **in der Sprache der Oberfläche** (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht (der steht in `/descubrir`), und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
-            ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`: die URL, die indexiert wird."],
+            ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`, mit `noindex` gekennzeichnet."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
             ["`/buscar`", "Globale Suche: Werke, Clubs, Leser:innen und Listen."],
             ["`/estanteria`, `/intercambios`", "Private Bereiche: eigene Exemplare und Anfragen mit dem nächsten Schritt."],
@@ -580,7 +580,7 @@ const DE: TechnicalDocument = {
             ["`/normas`", "Governance, Moderation, Sanktionen und Einsprüche."],
             ["`/apelar`", "Einspruchsformular über den Link in der Sanktions-E-Mail."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
-            ["`/sitemap.xml`, `/robots.txt`", "Indexierung: die Sitemap veröffentlicht Startseite, Werkseiten, öffentliche Listen und Infoseiten **in allen drei Sprachen** (mit `xhtml:link`); IndexNow benachrichtigt Bing, und damit DuckDuckGo und Ecosia, sobald ein Buch eingestellt wird."],
+            ["`/sitemap.xml`, `/robots.txt`", "Die Sitemap veröffentlicht die Startseite und die Informationsseiten **in allen drei Sprachen** (mit `xhtml:link`). Katalog, Werke, Listen und Profile sind ausgeschlossen und mit `noindex` gekennzeichnet; `robots.txt` lässt das Lesen dieser Direktive zu, und es werden keine Suchmaschinen benachrichtigt."],
           ],
         },
         {
@@ -617,12 +617,12 @@ const DE: TechnicalDocument = {
             "Zustände eines Exemplars: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Zustände einer Anfrage: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Suche über FTS5, von Triggern gepflegt: `listings_fts` für den Katalog und `books_fts` für die Werke; `unaccent()` faltet Akzente, damit „Lucía“ auch als „lucia“ gefunden wird.",
-            "`cities` hält die bekannten Städte mit ihren Koordinaten (der deutsche Grundstock), `city_distances` deren Distanzmatrix. Die Stadt wird aus einer Liste deutscher Gemeinden gewählt, die OpenStreetMap liefert (`searchCities()`, über Photon, das Vorschläge beim Tippen erlaubt; antwortet es nicht, werden die des lokalen Grundstocks angeboten) und beim Speichern mit `resolveCity()` geprüft, das Nominatim fragt, begrenzt auf Deutschland, und den Namen speichert, den die Karte kennt. Die Entfernung ist Nebensache: eine Stadt außerhalb der Liste zeigt keine Kilometer.",
+            "`cities` enthält eine Auswahl von Städten in Deutschland und Österreich samt Koordinaten; `city_distances` enthält die Distanzmatrix für diese Auswahl. `searchCities()` holt Vorschläge über Photon von OpenStreetMap, begrenzt auf beide Länder, und nutzt bei einem Ausfall den lokalen Katalog. `resolveCity()` prüft den Namen mit Nominatim, ebenfalls auf Deutschland und Österreich begrenzt. Österreichische Städtenamen tragen `(AT)`, um mögliche deutsche Namensvetter zu unterscheiden. Andere Gemeinden können genutzt werden, haben aber keine vorberechnete Entfernung.",
           ],
         },
         {
           kind: "p",
-          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen neun Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen), die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben), die v58 (Aufgeschobenes hat nicht mehr eine Tabelle pro Sache: \`jobs\` hält Status, Versuche, nächsten Versuch und letzten Fehler für jede Aufgabe, und E-Mail ist eine Art davon) und die v59 (einen abgeschlossenen Tausch archiviert jede Seite für sich: \`request_archives\` hält eine Zeile pro Person und Anfrage, sodass eine ihn weglegen kann, ohne dass die andere ihn aus den Augen verliert). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
+          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen zehn Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen), die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben), die v58 (Aufgeschobenes hat nicht mehr eine Tabelle pro Sache: \`jobs\` hält Status, Versuche, nächsten Versuch und letzten Fehler für jede Aufgabe, und E-Mail ist eine Art davon), die v59 (einen abgeschlossenen Tausch archiviert jede Seite für sich: \`request_archives\` hält eine Zeile pro Person und Anfrage, sodass eine ihn weglegen kann, ohne dass die andere ihn aus den Augen verliert) und die v60 (erweitert die Distanzmatrix um Österreich, ohne bereits gespeicherte deutsche Städtenamen zu ändern). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
         },
         {
           kind: "p",
@@ -761,7 +761,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die verbindliche Vorlage ist `deploy/env.example`: dort stehen alle, die aus dieser Tabelle und die Detailvariablen (Bot, Sicherungen, Demodaten, Google-Books-Kontingent, erster Administrator), kommentiert mit ihrem Standardwert.",
+          text: "Die verbindliche Vorlage ist `deploy/env.example`: dort stehen alle, die aus dieser Tabelle und die Detailvariablen (Bot, Sicherungen, Demodaten und erster Administrator), kommentiert mit ihrem Standardwert.",
         },
       ],
     },
@@ -863,7 +863,7 @@ const DE: TechnicalDocument = {
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
             "Was beim Laden nicht zu sehen ist, reist nicht im Startpaket: Anmeldedialog, Tauschdialog (Kryptografie und QR), Veröffentlichungsformular, Benachrichtigungen sowie Community- und Tauschansicht kommen per `next/dynamic`, wenn sie geöffnet werden. Die Browser-Kryptografie wird beim Veröffentlichen des Schlüssels geladen, nicht beim Start. Vorsicht bei `dynamic` für etwas, das immer eingebunden ist: ohne `loading` suspensiert sein Laden den ganzen Baum und die Seite reagiert spät (abgedeckt von `e2e/app.spec.ts` über den Fokus des Herzens).",
             "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert: die Animationen (in `styles/motion.css`) bewegen nur `opacity` und `transform` und entfallen mit dieser Einstellung ganz.",
-            "Die Oberfläche ist dreisprachig und jede Sprache hat ihre eigene URL: Deutsch ist die Vorgabe und bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/…`, jeweils mit eigenem `hreflang` und Canonical, damit Suchmaschinen sie getrennt indexieren. Innerhalb einer URL mit Präfix gilt das Präfix; sonst gilt der Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert; ohne Vorliebe entscheidet die Sprache des Browsers (`Accept-Language`) und, wenn keine der drei passt, Deutsch.",
+            "Die Oberfläche ist dreisprachig und jede Sprache hat ihre eigene URL: Deutsch ist die Vorgabe und bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/`, jeweils mit eigenem `hreflang` und Canonical. So lässt sich die Sprache auf Seiten erkennen, deren Indexierung erlaubt ist. Innerhalb einer URL mit Präfix gilt das Präfix; sonst gilt der Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert; ohne Vorliebe entscheidet die Sprache des Browsers (`Accept-Language`) und, wenn keine der drei passt, Deutsch.",
           ],
         },
       ],
