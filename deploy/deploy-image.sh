@@ -185,3 +185,12 @@ else
   fi
   fail "el servicio no arranca; revisa journalctl -u $SERVICE"
 fi
+
+log "Invalidar la caché de imágenes de nginx"
+if [ -d /var/cache/nginx/wb_images ]; then
+  find /var/cache/nginx/wb_images -type f -delete \
+    || fail "no se pudo invalidar la caché de nginx; revisa /var/cache/nginx/wb_images"
+  ok "caché de portadas y versiones optimizadas invalidada"
+else
+  warn "no existe /var/cache/nginx/wb_images; no hay caché de imágenes que invalidar"
+fi

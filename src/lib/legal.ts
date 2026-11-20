@@ -33,7 +33,8 @@ export type LegalConfig = {
   /** Registro público (asociación, mercantil…) y su número, si aplica. */
   register: string;
   emailProvider: "brevo" | "webhook" | null;
-  turnstileEnabled: boolean;
+  turnstileWidgetEnabled: boolean;
+  turnstileVerificationEnabled: boolean;
   webPushEnabled: boolean;
   mastodonEnabled: boolean;
   mastodonLikesEnabled: boolean;
@@ -65,9 +66,8 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
     phone,
     register,
     emailProvider,
-    turnstileEnabled: Boolean(
-      env.TURNSTILE_SECRET?.trim() && env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim(),
-    ),
+    turnstileWidgetEnabled: Boolean(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()),
+    turnstileVerificationEnabled: Boolean(env.TURNSTILE_SECRET?.trim()),
     webPushEnabled: Boolean(env.VAPID_PUBLIC_KEY?.trim() && env.VAPID_PRIVATE_KEY?.trim()),
     mastodonEnabled,
     mastodonLikesEnabled:
@@ -123,12 +123,24 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           : "Correo electrónico: el webhook configurado recibe la dirección, el asunto y el texto completo; quien administra el servicio elige el proveedor que hay detrás."
         : null;
   const optionalRecipients: string[] = [];
-  if (config.turnstileEnabled) {
-    optionalRecipients.push(
-      german
-        ? "Cloudflare Turnstile: Wird es aktiviert, lädt der Browser das Widget bei der Registrierung; Cloudflare erhält Verbindungsdaten. Die Serverprüfung kann zusätzlich die IP-Adresse enthalten."
-        : "Cloudflare Turnstile: si está activado, el navegador carga el widget al registrarse y Cloudflare recibe datos de conexión. La verificación del servidor puede incluir además la dirección IP.",
-    );
+  if (config.turnstileWidgetEnabled || config.turnstileVerificationEnabled) {
+    const turnstileDetails = [
+      ...(config.turnstileWidgetEnabled
+        ? [
+            german
+              ? "Der Browser lädt das Widget bei der Registrierung; Cloudflare erhält Verbindungsdaten."
+              : "El navegador carga el widget al registrarse y Cloudflare recibe datos de conexión.",
+          ]
+        : []),
+      ...(config.turnstileVerificationEnabled
+        ? [
+            german
+              ? "Die Serverprüfung sendet das Token an Cloudflare und kann die IP-Adresse enthalten."
+              : "La verificación del servidor envía el token a Cloudflare y puede incluir la dirección IP.",
+          ]
+        : []),
+    ];
+    optionalRecipients.push(`Cloudflare Turnstile: ${turnstileDetails.join(" ")}`);
   }
   if (config.webPushEnabled) {
     optionalRecipients.push(

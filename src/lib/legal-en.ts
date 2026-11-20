@@ -27,9 +27,17 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         ? "Email delivery: the configured mail webhook receives the recipient address, subject and full message text; the instance operator chooses the provider behind it."
         : null;
   const optionalRecipients: string[] = [];
-  if (config.turnstileEnabled) {
+  if (config.turnstileWidgetEnabled || config.turnstileVerificationEnabled) {
+    const turnstileDetails = [
+      ...(config.turnstileWidgetEnabled
+        ? ["The browser loads the widget during registration, and Cloudflare receives connection data."]
+        : []),
+      ...(config.turnstileVerificationEnabled
+        ? ["Server-side verification sends the token to Cloudflare and may include the IP address."]
+        : []),
+    ];
     optionalRecipients.push(
-      "Cloudflare Turnstile: when enabled, the browser loads its widget during registration and Cloudflare receives connection data. Server-side verification may also include the IP address.",
+      `Cloudflare Turnstile: ${turnstileDetails.join(" ")}`,
     );
   }
   if (config.webPushEnabled) {

@@ -31,7 +31,8 @@ const completo: LegalConfig = {
   phone: "+49 341 000000",
   register: "Vereinsregister 42",
   emailProvider: null,
-  turnstileEnabled: false,
+  turnstileWidgetEnabled: false,
+  turnstileVerificationEnabled: false,
   webPushEnabled: false,
   mastodonEnabled: false,
   mastodonLikesEnabled: false,
@@ -47,7 +48,8 @@ const incompleto: LegalConfig = {
   phone: "",
   register: "",
   emailProvider: null,
-  turnstileEnabled: false,
+  turnstileWidgetEnabled: false,
+  turnstileVerificationEnabled: false,
   webPushEnabled: false,
   mastodonEnabled: false,
   mastodonLikesEnabled: false,
@@ -115,7 +117,8 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
     ERROR_WEBHOOK_URL: "https://errors.example.test/receive",
   });
   assert.equal(servicios.emailProvider, "webhook", "el webhook tiene precedencia sobre Brevo");
-  assert.equal(servicios.turnstileEnabled, true);
+  assert.equal(servicios.turnstileWidgetEnabled, true);
+  assert.equal(servicios.turnstileVerificationEnabled, true);
   assert.equal(servicios.webPushEnabled, true);
   assert.equal(servicios.mastodonEnabled, true);
   assert.equal(servicios.mastodonLikesEnabled, true);
@@ -128,6 +131,30 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
     LEGAL_CONTACT_EMAIL: "   ",
   });
   assert.equal(sinContacto.complete, false);
+});
+
+test("la política informa del widget Turnstile aunque no haya verificación del servidor", () => {
+  const servicios = legalConfig({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "public-test-key" });
+  assert.equal(servicios.turnstileWidgetEnabled, true);
+  assert.equal(servicios.turnstileVerificationEnabled, false);
+
+  for (const locale of ["de", "es", "en"] as const) {
+    const body = texto(privacyDocument(locale, servicios));
+    assert.match(body, /Cloudflare Turnstile/);
+    assert.doesNotMatch(body, /Serverprüfung|verificación del servidor|server-side verification/i);
+  }
+
+  const soloVerificacion = legalConfig({ TURNSTILE_SECRET: "server-test-secret" });
+  assert.equal(soloVerificacion.turnstileWidgetEnabled, false);
+  assert.equal(soloVerificacion.turnstileVerificationEnabled, true);
+  for (const locale of ["de", "es", "en"] as const) {
+    const body = texto(privacyDocument(locale, soloVerificacion));
+    assert.match(body, /Serverprüfung|verificación del servidor|server-side verification/i);
+    assert.doesNotMatch(
+      body,
+      /Der Browser lädt das Widget|El navegador carga el widget|The browser loads the widget/,
+    );
+  }
 });
 
 test("la dirección de contacto se publica enmascarada", () => {
