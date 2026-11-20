@@ -259,7 +259,12 @@ export default function WanderbibliothekApp({
   const [favoriteOverrides, setFavoriteOverrides] = useState<Record<string, boolean>>({});
   const [busyFavorite, setBusyFavorite] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
+  // El aviso no se desmonta de golpe: se marca `is-closing`, dura el fundido de
+  // salida y entonces se retira. Es el mismo patrón que el diálogo, y sin él la
+  // interfaz entraba suave y cerraba a saco.
+  const [toastClosing, setToastClosing] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingFavorite = useRef<{ id: string; favorite: boolean } | null>(null);
 
   // Si una petición responde 401, la sesión ya no vale. Se reabre el acceso
@@ -274,12 +279,27 @@ export default function WanderbibliothekApp({
     return () => window.removeEventListener("wb:auth-required", onAuthRequired);
   }, []);
 
-  const notify = useCallback((message: string, tone: "ok" | "error" = "ok") => {
-    setToast({ message, tone });
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    // Un error necesita más tiempo de lectura que una confirmación.
-    toastTimer.current = setTimeout(() => setToast(null), tone === "error" ? 6000 : 3500);
+  const dismissToast = useCallback(() => {
+    setToastClosing(true);
+    if (toastCloseTimer.current) clearTimeout(toastCloseTimer.current);
+    toastCloseTimer.current = setTimeout(() => {
+      setToast(null);
+      setToastClosing(false);
+    }, 150);
   }, []);
+
+  const notify = useCallback(
+    (message: string, tone: "ok" | "error" = "ok") => {
+      // Un aviso nuevo cancela la salida del anterior.
+      if (toastCloseTimer.current) clearTimeout(toastCloseTimer.current);
+      setToastClosing(false);
+      setToast({ message, tone });
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      // Un error necesita más tiempo de lectura que una confirmación.
+      toastTimer.current = setTimeout(dismissToast, tone === "error" ? 6000 : 3500);
+    },
+    [dismissToast],
+  );
 
   const clearQueryParams = useCallback((...keys: string[]) => {
     const url = new URL(window.location.href);
@@ -906,7 +926,7 @@ export default function WanderbibliothekApp({
                 </p>
                 <button
                   type="button"
-                  className="hero-button"
+                  className="primary-button hero-cta"
                   onPointerEnter={() => prefetchView("discover")}
                   onFocus={() => prefetchView("discover")}
                   onClick={() => {
@@ -1269,7 +1289,7 @@ export default function WanderbibliothekApp({
                 </span>
                 <h3>{t("Entra para ver tus intercambios")}</h3>
                 <p>{t("Las solicitudes quedan ligadas a tu cuenta y se sincronizan en tus dispositivos.")}</p>
-                <button type="button" className="share-button" onClick={() => setAuthOpen(true)}>
+                <button type="button" className="primary-button" onClick={() => setAuthOpen(true)}>
                   {t("Entrar")} <ArrowRight size={16} />
                 </button>
               </div>
@@ -1574,13 +1594,13 @@ export default function WanderbibliothekApp({
                     }
                     action={
                       view === "shelf" && !user ? (
-                      <button type="button" className="share-button small" onClick={() => setAuthOpen(true)}>
+                      <button type="button" className="primary-button small" onClick={() => setAuthOpen(true)}>
                         {t("Entrar")}
                       </button>
                       ) : (
                         <button
                           type="button"
-                          className="share-button small"
+                          className="primary-button small"
                           onClick={clearFilters}
                         >
                           {t("Limpiar filtros")}
@@ -1855,12 +1875,14 @@ export default function WanderbibliothekApp({
 
       {toast && (
         <div
-          className={toast.tone === "error" ? "toast toast-error" : "toast"}
+          className={`toast${toast.tone === "error" ? " toast-error" : ""}${
+            toastClosing ? " is-closing" : ""
+          }`}
           role={toast.tone === "error" ? "alert" : "status"}
         >
           {toast.tone === "error" ? <TriangleAlert size={17} /> : <Check size={17} />}
           {toast.message}
-          <button type="button" aria-label={t("Cerrar aviso")} onClick={() => setToast(null)}>
+          <button type="button" aria-label={t("Cerrar aviso")} onClick={dismissToast}>
             <X size={15} />
           </button>
         </div>

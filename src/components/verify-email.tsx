@@ -59,7 +59,7 @@ export function VerifyEmail({ token: initialToken }: { token: string }) {
           <p className="action-feedback" role="status">
             {t("Correo confirmado. Ya puedes usar tu cuenta con normalidad.")}
           </p>
-          <Link className="share-button" href="/">
+          <Link className="primary-button" href="/">
             <Check size={15} /> {t("Ir al catálogo")}
           </Link>
         </>
@@ -68,7 +68,7 @@ export function VerifyEmail({ token: initialToken }: { token: string }) {
           <p>{t("Pulsa el botón para confirmar que este correo es tuyo.")}</p>
           <button
             type="button"
-            className="share-button"
+            className="primary-button"
             onClick={confirm}
             disabled={state === "sending"}
           >

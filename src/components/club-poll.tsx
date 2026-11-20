@@ -201,7 +201,7 @@ export function ClubPoll({
               <div className="club-poll-form-actions">
                 <button
                   type="button"
-                  className="share-button small"
+                  className="primary-button small"
                   disabled={pendiente || propuestas.length < 2}
                   onClick={() => void crear()}
                 >

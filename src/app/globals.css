@@ -1,3 +1,8 @@
+/* Solo por el preflight: no hay una sola utility de Tailwind en el proyecto.
+   Se queda porque quitarlo cambia el reset de toda la plataforma (botones,
+   listas, imágenes) y eso merece su propia revisión visual, no un cambio de
+   pasada. La versión está fijada sin `^` para que una actualización menor no
+   mueva ese reset por su cuenta. */
 @import "tailwindcss";
 
 /* Orden de importación = orden de cascada anterior. Los archivos de abajo

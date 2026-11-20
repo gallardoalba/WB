@@ -78,3 +78,31 @@ test("la prosa y la escala base se leen a 16 px", () => {
     "los campos deben heredar 16 px por defecto",
   );
 });
+
+/**
+ * Una sola acción primaria.
+ *
+ * Convivían `.share-button` (40 px, peso 700) para casi todo y `.hero-button`
+ * (44 px, 600) solo en la portada: la acción más importante de cada pantalla no
+ * medía igual en ninguna. El catálogo es lo que impide que vuelvan a separarse.
+ */
+test("solo hay una clase de botón primario", () => {
+  const componentes = path.join(import.meta.dirname, "..", "src");
+  const prohibidas: string[] = [];
+  for (const file of readdirSync(STYLES).filter((name) => name.endsWith(".css"))) {
+    const source = readFileSync(path.join(STYLES, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    // Sin comentarios: el que explica el cambio sí puede nombrarlas.
+    for (const match of source.matchAll(/\.(share-button|hero-button)\b/g)) {
+      prohibidas.push(`${file}: ${match[0]}`);
+    }
+  }
+  assert.deepEqual(prohibidas, [], "usa .primary-button (y .hero-cta para el margen)");
+
+  const usos = readdirSync(componentes, { recursive: true, encoding: "utf8" })
+    .filter((name) => name.endsWith(".tsx"))
+    .flatMap((name) => {
+      const source = readFileSync(path.join(componentes, name), "utf8");
+      return source.match(/share-button|hero-button/g) ?? [];
+    });
+  assert.deepEqual(usos, [], "queda una clase de botón retirada en un componente");
+});

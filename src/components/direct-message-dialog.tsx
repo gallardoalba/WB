@@ -374,7 +374,7 @@ export function DirectMessageDialog({
               />
               <button
                 type="submit"
-                className="share-button small"
+                className="primary-button small"
                 disabled={sending || !draft.trim() || !ready}
               >
                 <Send size={14} /> {t("Enviar")}

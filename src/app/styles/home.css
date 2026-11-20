@@ -285,12 +285,17 @@
   text-shadow: var(--hero-text-halo);
 }
 
-.hero-button {
+/* Acción primaria: una sola, con las medidas del héroe.
+   Antes convivían `.share-button` (40 px, peso 700, sin sombra) para casi todo
+   y `.hero-button` (44 px, 600, con sombra) solo para el CTA de la portada, así
+   que la acción más importante de cada pantalla no medía igual en ninguna.
+   `.hero-cta` es solo colocación: el margen que separa el botón del titular. */
+.primary-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   min-height: 44px;
-  margin-top: 20px;
   padding: 0 18px;
   border: 1px solid var(--green-fill);
   border-radius: var(--radius-sm);
@@ -299,16 +304,18 @@
   color: var(--on-fill);
   font-size: 14.5px;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.18s, transform 0.18s;
 }
 
-.hero-button:hover {
+.primary-button:hover {
+  background: var(--green-fill-strong);
   transform: translateY(-1px);
 }
 
-.hero-button:hover {
-  background: var(--green-fill-strong);
+.hero-cta {
+  margin-top: 20px;
 }
 
 /* Cuatro cifras: ejemplares, intercambios, lectores y clubes.
@@ -476,28 +483,6 @@
   line-height: 1.12;
 }
 
-.share-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--green-fill);
-  border-radius: var(--radius-sm);
-  background: var(--green-fill);
-  color: var(--on-fill);
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.18s;
-}
-
-.share-button:hover {
-  background: var(--green-fill-strong);
-}
-
 .secondary-button {
   display: inline-flex;
   align-items: center;
@@ -523,14 +508,29 @@
   color: var(--coral);
 }
 
-.share-button.small,
+/* Destructivo de verdad: mismo patrón de contraste que el secundario (relleno
+   suave y texto coral) porque el coral macizo con texto blanco se perdía en
+   modo oscuro. Antes el modificador `.danger` no pintaba nada fuera de
+   `.club-danger`, así que un «Eliminar» del primario salía verde. */
+.primary-button.danger {
+  border-color: color-mix(in srgb, var(--coral) 45%, transparent);
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.primary-button.danger:hover:not(:disabled) {
+  border-color: var(--coral);
+  background: color-mix(in srgb, var(--coral) 24%, var(--surface));
+}
+
+.primary-button.small,
 .secondary-button.small {
   min-height: 36px;
   padding: 0 11px;
   font-size: 13px;
 }
 
-.share-button:disabled,
+.primary-button:disabled,
 .secondary-button:disabled,
 .request-button:disabled,
 .favorite-button:disabled {

@@ -78,7 +78,7 @@ export function RequestDialog({
           <button type="button" className="secondary-button" onClick={close}>
             {t("Ahora no")}
           </button>
-          <button className="share-button" type="submit" disabled={pending}>
+          <button className="primary-button" type="submit" disabled={pending}>
             {pending ? t("Enviando…") : t("Enviar solicitud")}
             {!pending && <ArrowRight size={16} />}
           </button>

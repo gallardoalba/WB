@@ -92,7 +92,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           <p className="admin-gate-note">
             {t("Cuando esté activa, «Moderación» abrirá el panel completo.")}
           </p>
-          <Link href="/cuenta" className="share-button small">
+          <Link href="/cuenta" className="primary-button small">
             {t("Ir a mi cuenta")}
           </Link>
         </section>

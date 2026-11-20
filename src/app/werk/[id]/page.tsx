@@ -162,13 +162,13 @@ export default async function Page({ params }: PageProps) {
           <div className="public-work-actions">
             {work.copies > 0 ? (
               viewer ? (
-                <Link href={requestPath} className="share-button public-work-primary">
+                <Link href={requestPath} className="primary-button public-work-primary">
                   <BookOpen size={16} aria-hidden="true" /> {t("Pedir este libro")}
                 </Link>
               ) : (
                 <Link
                   href={`/?auth=1&next=${encodeURIComponent(requestPath)}`}
-                  className="share-button public-work-primary"
+                  className="primary-button public-work-primary"
                 >
                   <BookOpen size={16} aria-hidden="true" /> {t("Entrar para pedirlo")}
                 </Link>
@@ -176,7 +176,7 @@ export default async function Page({ params }: PageProps) {
             ) : (
               <Link
                 href={localePath(locale, "/ofrecer")}
-                className="share-button public-work-primary"
+                className="primary-button public-work-primary"
               >
                 <BookOpen size={16} aria-hidden="true" /> {t("Ofrecer un libro")}
               </Link>

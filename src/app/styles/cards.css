@@ -262,9 +262,13 @@
   transition: color 0.15s, transform 0.15s;
 }
 
-.favorite-button:hover {
-  transform: scale(1.06);
-  color: var(--coral);
+/* En táctil el `:hover` se queda pegado después del toque: el corazón se
+   agrandaba y se teñía como si estuviera guardado. */
+@media (hover: hover) {
+  .favorite-button:hover {
+    transform: scale(1.06);
+    color: var(--coral);
+  }
 }
 
 .favorite-button.is-favorite {
@@ -646,20 +650,6 @@
   color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
-}
-
-/* Casilla del formulario de listas: el input no ocupa el ancho del campo. */
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-
-.checkbox-row input {
-  width: auto;
-  min-width: 0;
 }
 
 /* Procedencia en la tarjeta: la copia llegó por un intercambio. Va abajo a la

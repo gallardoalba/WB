@@ -37,10 +37,6 @@
   --status-expired-ink: #7f3f30;
   /* Borde con más presencia que --line (círculos y separadores). */
   --line-strong: #d3ddcf;
-  /* Texto decorativo apagado (barras del breadcrumb). */
-  /* Solo para adornos (la barra de las migas). 3,2:1 sobre el papel: antes
-     1,84:1, ilegible en pantallas con brillo. */
-  --faint: #878b81;
   /* Foto del hero: sin tinte en claro y atenuada de noche; el contorno de esa
      tarjeta se separa del papel con un tono propio. El halo del titular se
      compone del mismo color de la tarjeta, así que en cada tema despega las
@@ -61,7 +57,6 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
-  --space-7: 48px;
   --content-max: 1120px;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -148,7 +143,6 @@
     --status-expired-bg: #38251f;
     --status-expired-ink: #e0a292;
     --line-strong: #444b3f;
-    --faint: #6f7568;
     --hero-veil: rgba(21, 23, 15, 0.55);
     --hero-border: #454c40;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -210,7 +204,6 @@
   --status-expired-bg: #38251f;
   --status-expired-ink: #e0a292;
   --line-strong: #444b3f;
-  --faint: #6f7568;
   --hero-veil: rgba(21, 23, 15, 0.55);
   --hero-border: #454c40;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);

@@ -111,7 +111,7 @@ export function OnboardingTour({ autoStart }: { autoStart: boolean }) {
         </button>
         <button
           type="button"
-          className="share-button"
+          className="primary-button"
           onClick={() => (last ? dismiss() : setStep((value) => value + 1))}
         >
           {last ? t("Empezar") : t("Siguiente")}
