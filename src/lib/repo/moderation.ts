@@ -38,11 +38,12 @@ export function reportContent(input: {
   if (input.targetType === "request" && input.reason === DELIVERY_INCIDENT_REASON) {
     const request = db
       .prepare(
-        "SELECT requester_id, status, accepted_at, created_at FROM requests WHERE id = ?",
+        "SELECT requester_id, requester_confirmed_at, status, accepted_at, created_at FROM requests WHERE id = ?",
       )
       .get(input.targetId) as
       | {
           requester_id: string;
+          requester_confirmed_at: string | null;
           status: string;
           accepted_at: string | null;
           created_at: string;
@@ -51,6 +52,9 @@ export function reportContent(input: {
     if (!request) throw new ApiError(404, "El intercambio no existe.");
     if (request.requester_id !== input.reporterId) {
       throw new ApiError(403, "Solo quien recibe el libro puede abrir esta incidencia.");
+    }
+    if (request.requester_confirmed_at) {
+      throw new ApiError(409, "No puedes abrir una incidencia después de confirmar la recepción.");
     }
     if (request.status !== "accepted") {
       throw new ApiError(

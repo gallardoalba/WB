@@ -79,6 +79,7 @@ const REQUEST_SELECT = `
          inc.created_at AS incident_opened_at,
          CASE WHEN r.requester_id = @viewerId
                    AND r.status = 'accepted'
+                   AND r.requester_confirmed_at IS NULL
                    AND inc.id IS NULL
                    AND datetime(COALESCE(r.accepted_at, r.created_at), '+60 days') >= datetime('now')
               THEN 1 ELSE 0 END AS incident_can_open,

@@ -435,6 +435,9 @@ export function ExchangeDialog({
     (request.confirmedByMe ? 1 : 0) + (request.confirmedByOther ? 1 : 0);
   const isOwner = request.role === "owner";
   const canOpenIncident = request.incidentCanOpen;
+  const reportReasons = REPORT_REASONS.filter(
+    (reason) => reason !== DELIVERY_INCIDENT_REASON || canOpenIncident,
+  );
   // Cancelar es la salida de emergencia del intercambio: vive al final del
   // diálogo y desaparece en cuanto alguna de las dos partes confirma la
   // entrega, porque a partir de ahí el libro ya cambió de manos.
@@ -591,6 +594,7 @@ export function ExchangeDialog({
     event.preventDefault();
     if (!requestId) return;
     const form = new FormData(event.currentTarget);
+    const reason = String(form.get("reason") ?? "");
     const details = String(form.get("details") ?? "").trim();
     if (details.length < 10) {
       setIncidentError(t("Describe qué ha pasado para que la moderación pueda revisar la incidencia."));
@@ -605,10 +609,14 @@ export function ExchangeDialog({
         body: {
           targetType: "request",
           targetId: requestId,
-          reason: form.get("reason"),
+          reason,
           details,
         },
       });
+      if (reason === DELIVERY_INCIDENT_REASON) {
+        setIncidentReason(REPORT_REASONS[0]);
+        onChanged();
+      }
       setIncidentFeedback(t("Incidencia enviada. La moderación la revisará."));
     } catch (caught) {
       setIncidentError(caught instanceof Error ? caught.message : t("No se pudo enviar la incidencia."));
@@ -1185,13 +1193,7 @@ export function ExchangeDialog({
               value={incidentReason}
               onChange={(event) => setIncidentReason(event.target.value)}
             >
-              {REPORT_REASONS.filter(
-                (reason) =>
-                  !(
-                    reason === DELIVERY_INCIDENT_REASON &&
-                    (isOwner || request.incidentOpen)
-                  ),
-              ).map((reason) => (
+              {reportReasons.map((reason) => (
                 <option key={reason} value={reason}>
                   {t(reason)}
                 </option>

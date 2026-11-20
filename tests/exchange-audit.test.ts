@@ -356,6 +356,28 @@ test("solo quien recibe puede abrir la incidencia y solo durante 60 días", () =
   assert.equal(late.status, 409);
 });
 
+test("quien recibe no puede abrir una incidencia después de confirmar la recepción", () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  repo.updateRequestStatus(request.id, "usr_diego", "completed");
+
+  assert.equal(estado(request.id, "usr_diego"), "accepted");
+  assert.equal(repo.getRequest(request.id, "usr_diego")?.incidentCanOpen, false);
+
+  const error = errorDe(() =>
+    repo.reportContent({
+      reporterId: "usr_diego",
+      targetType: "request",
+      targetId: request.id,
+      reason: DELIVERY_INCIDENT_REASON,
+      details: "El libro no ha llegado, aunque confirmé la recepción.",
+    }),
+  );
+  assert.equal(error.status, 409);
+  assert.match(error.message, /confirmar la recepción/);
+});
+
 test("una incidencia abierta bloquea completar y cancelar", () => {
   const { request } = incidencia();
   assert.equal(
