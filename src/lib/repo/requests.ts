@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
+import { INCIDENT_WINDOW_DAYS } from "../domain";
 import type {
   ListingStatus,
   MessageEnvelopeView,
@@ -81,7 +82,8 @@ const REQUEST_SELECT = `
                    AND r.status = 'accepted'
                    AND r.requester_confirmed_at IS NULL
                    AND inc.id IS NULL
-                   AND datetime(COALESCE(r.accepted_at, r.created_at), '+60 days') >= datetime('now')
+                   AND datetime(COALESCE(r.accepted_at, r.created_at), '+${INCIDENT_WINDOW_DAYS} days')
+                       >= datetime('now')
               THEN 1 ELSE 0 END AS incident_can_open,
          b.title, b.author, b.cover_url, l.status AS listing_status,
          req.id AS requester_id, req.name AS requester_name, req.city AS requester_city,

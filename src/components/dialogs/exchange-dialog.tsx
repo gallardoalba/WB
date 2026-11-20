@@ -7,6 +7,7 @@ import { Dialog } from "../dialog";
 import { api } from "@/lib/client-api";
 import {
   DELIVERY_INCIDENT_REASON,
+  INCIDENT_WINDOW_DAYS,
   REPORT_REASONS,
   REQUEST_STATUS_LABELS,
   type MessageView,
@@ -1086,12 +1087,16 @@ export function ExchangeDialog({
                 )}
                 {canOpenIncident && (
                   <p className="form-hint exchange-handover-window">
-                    {t("Puedes abrir una incidencia hasta 60 días después de la aceptación.")}
+                    {t("Puedes abrir una incidencia hasta {days} días después de la aceptación.", {
+                      days: INCIDENT_WINDOW_DAYS,
+                    })}
                   </p>
                 )}
                 {!isOwner && !request.incidentOpen && !canOpenIncident && (
                   <p className="form-hint">
-                    {t("El plazo de 60 días para abrir la incidencia ha terminado.")}
+                    {t("El plazo de {days} días para abrir la incidencia ha terminado.", {
+                      days: INCIDENT_WINDOW_DAYS,
+                    })}
                   </p>
                 )}
               </div>

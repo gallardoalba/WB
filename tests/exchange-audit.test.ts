@@ -280,6 +280,34 @@ test("el recordatorio solo se envía a quien aún no ha confirmado", async () =>
   );
 });
 
+test("un intercambio con incidencia abierta no recibe recordatorios de firma", async () => {
+  const { request } = incidencia();
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE requests SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days') WHERE id = ?",
+    )
+    .run(request.id);
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE notifications SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days') WHERE request_id = ?",
+    )
+    .run(request.id);
+
+  const { remindStaleAcceptedRequests } = await import("../src/lib/repo/maintenance.ts");
+  assert.equal(remindStaleAcceptedRequests(7), 0);
+  // A quien dice que el libro no llegó no se le pide que confirme que lo tiene.
+  assert.equal(
+    avisoDeSolicitud("usr_diego", request.id, "Recordatorio: falta confirmar la recepción"),
+    undefined,
+  );
+  assert.equal(
+    avisoDeSolicitud("usr_clara", request.id, "Recordatorio: falta confirmar la entrega"),
+    undefined,
+  );
+});
+
 function incidencia() {
   const listing = nuevoEjemplar();
   const request = repo.createRequest("usr_diego", listing.id);

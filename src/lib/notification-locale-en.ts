@@ -90,7 +90,7 @@ export const BODY_RULES_EN: Array<[RegExp, string]> = [
   [/^«(.+)» · Moderación revisará las dos versiones\.$/, "“$1” · Moderation will review both versions."],
   [/^«(.+)» · La moderación no ha encontrado motivos para cancelar el intercambio\. Podéis seguir\.$/, "“$1” · Moderation found no reason to cancel the exchange. You can continue."],
   [/^«(.+)» · La moderación ha cerrado la incidencia\.$/, "“$1” · Moderation has closed the incident."],
-  [/«(.+)» · La moderación ha revisado la incidencia y ha cancelado el intercambio\.$/, "“$1” · Moderation reviewed the incident and cancelled the exchange."],
+  [/^«(.+)» · La moderación ha revisado la incidencia y ha cancelado el intercambio\.$/, "“$1” · Moderation reviewed the incident and cancelled the exchange."],
   [/^«(.+)» · Punto de entrega: (.+)$/, "“$1” · Handover point: $2"],
   [/^«(.+)»$/, "“$1”"],
   [/^(.+) te ha escrito\. Abre la conversación para leerlo\.$/, "$1 wrote to you. Open the conversation to read it."],
