@@ -465,6 +465,9 @@ export function editListing(
 
   if (!row) throw new ApiError(404, "El ejemplar no existe.");
   if (row.owner_id !== ownerId) throw new ApiError(403, "Solo puedes editar tus publicaciones.");
+  if (row.status === "given") {
+    throw new ApiError(409, "No puedes editar un ejemplar que ya fue entregado.");
+  }
 
   const title = patch.title?.trim() || row.title;
   const author = patch.author?.trim() || row.author;

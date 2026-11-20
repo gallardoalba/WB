@@ -1,4 +1,5 @@
 import { dbMetrics, getDb, type DbMetrics } from "../db";
+import { DELIVERY_INCIDENT_REASON } from "../domain";
 import { pruneCoverCache } from "../covers";
 import { notifyUpcomingMeetings } from "./clubs";
 import { listingTitle, notify } from "./notifications";
@@ -68,6 +69,9 @@ export function expireStaleRequests(days = 14): number {
  * bandeja sirven de marca (el título se guarda traducido, el tipo no) para no
  * añadir otra columna ni otra migración. Se limita a 50 por pasada para que un
  * histórico grande no genere una ráfaga de avisos de golpe.
+ *
+ * Una incidencia abierta deja el intercambio fuera: ni quien dice que el libro
+ * no llegó ni la otra parte tienen que firmar nada mientras decide moderación.
  */
 export function remindStaleAcceptedRequests(days = 7): number {
   const db = getDb();
@@ -84,10 +88,17 @@ export function remindStaleAcceptedRequests(days = 7): number {
                AND n.type = 'accepted'
                AND n.created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
           )
+          AND NOT EXISTS (
+            SELECT 1 FROM reports rp
+             WHERE rp.target_type = 'request'
+               AND rp.target_id = r.id
+               AND rp.status = 'open'
+               AND rp.reason = ?
+          )
         ORDER BY r.updated_at ASC
         LIMIT 50`,
     )
-    .all(`-${days} days`, `-${days} days`) as {
+    .all(`-${days} days`, `-${days} days`, DELIVERY_INCIDENT_REASON) as {
     id: string;
     listing_id: string;
     owner_id: string;
