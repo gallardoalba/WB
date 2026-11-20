@@ -580,9 +580,8 @@ export default function WanderbibliothekApp({
     };
   }, [pathname]);
 
-  // Al pasar de página la lista nueva se pinta por encima y la persona se
-  // queda al pie, mirando los mismos botones. Se sube a la primera tarjeta y
-  // el foco entra en el listado, para que el teclado siga donde está lo nuevo.
+  // Conserva los enlaces paginados antiguos: al cambiar de página, el foco entra
+  // en el listado para que el teclado llegue al contenido nuevo.
   const pageRef = useRef(page);
   useEffect(() => {
     if (pageRef.current === page) return;
@@ -597,19 +596,23 @@ export default function WanderbibliothekApp({
     });
   }, [page]);
 
-  // Scroll infinito del catálogo: la primera pintura llega del servidor y cada
-  // fila siguiente se pide a `/api/listings` cuando el final asoma en pantalla
-  // (una fila de la rejilla, no una página entera).
+  // La primera tanda llega del servidor; las siguientes se añaden al asomar el
+  // final de la cuadrícula. La estantería usa su ruta privada y el catálogo la
+  // pública.
   type MoreState = {
     key: string;
     items: ListingView[];
     hasMore: boolean;
+    nextPage: number;
   };
   const [more, setMore] = useState<MoreState | null>(null);
   // El estado de carga lleva la clave de los filtros: al cambiar de filtro se
   // ignora el anterior sin un efecto que escriba estado.
   const [load, setLoad] = useState<{ key: string; state: "loading" | "error" } | null>(null);
-  const loadingMore = useRef(false);
+  // Clave de la tirada en curso. Se compara por clave y no con un simple
+  // booleano: la petición de una estantería que se acaba de abandonar no debe
+  // bloquear la de la estantería que ahora se está mirando.
+  const loadingMore = useRef<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Cambiar cualquier filtro (o la página de la URL) invalida lo ya cargado.
   const filterKey = [
@@ -624,87 +627,119 @@ export default function WanderbibliothekApp({
     filters.tag,
     page,
   ].join("|");
+  // Una tirada puede volver cuando la persona ya cambió de filtro o de
+  // estantería: entonces se descarta en vez de mezclar dos listas.
+  const activeKey = useRef(filterKey);
+  useEffect(() => {
+    activeKey.current = filterKey;
+  }, [filterKey]);
+
   const loadState = load && load.key === filterKey ? load.state : "idle";
 
   const currentMore = more && more.key === filterKey ? more : null;
   const visibleListings = currentMore ? [...listings, ...currentMore.items] : listings;
-  const canLoadMore = view === "discover" && (currentMore ? currentMore.hasMore : hasMore);
+  const canLoadMore =
+    (view === "discover" || view === "shelf") &&
+    (currentMore ? currentMore.hasMore : hasMore);
 
   const loadMore = useCallback(async () => {
-    if (loadingMore.current || !canLoadMore || view !== "discover") return;
-    loadingMore.current = true;
+    if (
+      loadingMore.current === filterKey ||
+      !canLoadMore ||
+      (view !== "discover" && view !== "shelf")
+    ) {
+      return;
+    }
+    loadingMore.current = filterKey;
     setLoad({ key: filterKey, state: "loading" });
     try {
-      // Una fila de la rejilla en este ancho (5 en pantalla ancha, 3 en
-      // portátil). En una o dos columnas una fila sería una o dos tarjetas:
-      // se piden cuatro para no encadenar una petición por cada libro.
-      const grid = document.getElementById("book-grid");
-      const columns = grid
-        ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length
-        : 5;
-      const pageSize = columns >= 3 ? Math.min(columns, 12) : 4;
-      const query = new URLSearchParams({
-        view: "discover",
-        // Cada tirada añade una fila detrás de lo ya pintado, así que se pide
-        // por desplazamiento: el tamaño de fila cambia con el ancho.
-        offset: String(visibleListings.length),
-        pageSize: String(pageSize),
-        sort: filters.sort,
-      });
-      if (filters.q) query.set("q", filters.q);
-      if (filters.category !== "Todos") query.set("category", filters.category);
-      if (filters.language !== "Todos") query.set("language", filters.language);
-      if (filters.radius > 0) query.set("radius", String(filters.radius));
-      if (filters.tag) query.set("tag", filters.tag);
+      let data: { items: ListingView[]; page: number; hasMore: boolean };
+      if (view === "shelf") {
+        const query = new URLSearchParams({
+          shelf: filters.shelf,
+          page: String(currentMore?.nextPage ?? page + 1),
+        });
+        data = await api(`/api/shelf?${query.toString()}`);
+      } else {
+        // Una fila de la rejilla en este ancho (5 en pantalla ancha, 3 en
+        // portátil). En una o dos columnas se piden cuatro para no encadenar
+        // una petición por cada libro.
+        const grid = document.getElementById("book-grid");
+        const columns = grid
+          ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length
+          : 5;
+        const pageSize = columns >= 3 ? Math.min(columns, 12) : 4;
+        const query = new URLSearchParams({
+          view: "discover",
+          // El tamaño de cada tanda cambia con el ancho, así que el catálogo
+          // continúa por desplazamiento en vez de por número de página.
+          offset: String(visibleListings.length),
+          pageSize: String(pageSize),
+          sort: filters.sort,
+        });
+        if (filters.q) query.set("q", filters.q);
+        if (filters.category !== "Todos") query.set("category", filters.category);
+        if (filters.language !== "Todos") query.set("language", filters.language);
+        if (filters.radius > 0) query.set("radius", String(filters.radius));
+        if (filters.tag) query.set("tag", filters.tag);
 
-      const data = await api<{ items: ListingView[]; page: number; hasMore: boolean }>(
-        `/api/listings?${query.toString()}`,
-      );
+        data = await api(`/api/listings?${query.toString()}`);
+      }
+      if (activeKey.current !== filterKey) return;
       setMore((previous) => {
-        const base = previous?.key === filterKey ? previous : { key: filterKey, items: [], hasMore: true };
+        const base =
+          previous?.key === filterKey
+            ? previous
+            : { key: filterKey, items: [], hasMore: true, nextPage: page + 1 };
         const seen = new Set([...listings, ...base.items].map((item) => item.id));
         const fresh = data.items.filter((item) => !seen.has(item.id));
         return {
           key: filterKey,
           items: [...base.items, ...fresh],
           hasMore: data.hasMore,
+          nextPage: data.page + 1,
         };
       });
       setLoad(null);
     } catch {
       setLoad({ key: filterKey, state: "error" });
     } finally {
-      loadingMore.current = false;
+      if (loadingMore.current === filterKey) loadingMore.current = null;
     }
   }, [
     canLoadMore,
+    currentMore?.nextPage,
     filterKey,
     filters.category,
     filters.language,
     filters.q,
     filters.radius,
+    filters.shelf,
     filters.sort,
     filters.tag,
     listings,
+    page,
     view,
     visibleListings.length,
   ]);
 
   // `useEffectEvent` para que el observer no se vuelva a montar cada vez que
   // cambia la identidad de `loadMore` (que depende de la lista y de todos los
-  // filtros, o sea de casi todo): se suscribe una vez por vista y aun así llama
-  // siempre a la versión actual.
+  // filtros, o sea de casi todo): se suscribe por vista y aun así llama siempre
+  // a la versión actual.
   const pedirMas = useEffectEvent(() => {
     void loadMore();
   });
 
+  // Se vuelve a suscribir cuando cambia el filtro o llega una tanda nueva: si el
+  // centinela sigue en pantalla no habría un aviso nuevo de intersección y la
+  // lista se quedaría parada. Al observarlo otra vez, el navegador informa de su
+  // estado actual y se sigue pidiendo mientras quede contenido.
   useEffect(() => {
-    if (view !== "discover" || !canLoadMore) return;
+    if ((view !== "discover" && view !== "shelf") || !canLoadMore) return;
     const node = sentinelRef.current;
     if (!node) return;
-    // Sin margen extra: al añadir una fila el centinela sale de la pantalla y
-    // vuelve a entrar con el siguiente scroll (si quedara dentro, no habría
-    // nuevo aviso de intersección y la lista se quedaría parada).
+    // Sin margen extra: se pide justo cuando el final asoma, no antes.
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) pedirMas();
@@ -713,7 +748,7 @@ export default function WanderbibliothekApp({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [canLoadMore, view]);
+  }, [canLoadMore, view, filterKey, currentMore?.items.length]);
 
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
@@ -817,8 +852,6 @@ export default function WanderbibliothekApp({
       notify(t("No se pudieron marcar los avisos como leídos."), "error");
     }
   }
-
-  const lastPage = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <main className="app-shell" aria-busy={isPending}>
@@ -1694,7 +1727,7 @@ export default function WanderbibliothekApp({
                 </section>
               )}
 
-              {view === "discover" &&
+              {(view === "discover" || view === "shelf") &&
                 (total > pageSize || loadState === "loading") && (
                 <div className="catalog-more">
                   <span className="catalog-more-status" role="status" aria-live="polite">
@@ -1735,41 +1768,6 @@ export default function WanderbibliothekApp({
                       pide la fila siguiente. */}
                   <div ref={sentinelRef} className="catalog-sentinel" aria-hidden="true" />
                 </div>
-              )}
-
-              {view === "shelf" && total > pageSize && (
-                <nav className="pager" aria-label={t("Paginación")}>
-                  <button
-                    type="button"
-                    className="pager-button"
-                    aria-label={t("Ir a la página anterior")}
-                    disabled={page <= 1 || isPending}
-                    onClick={() => navigate({ page: page - 1 })}
-                  >
-                    <ChevronLeft size={18} aria-hidden="true" />
-                    {t("Anterior")}
-                  </button>
-                  <p className="pager-status" role="status" aria-live="polite">
-                    <strong>{t("Página {page} de {last}", { page, last: lastPage })}</strong>
-                    <span>
-                      {t("Mostrando {from}–{to} de {total}", {
-                        from: (page - 1) * pageSize + 1,
-                        to: Math.min(page * pageSize, total),
-                        total,
-                      })}
-                    </span>
-                  </p>
-                  <button
-                    type="button"
-                    className="pager-button"
-                    aria-label={t("Ir a la página siguiente")}
-                    disabled={!hasMore || isPending}
-                    onClick={() => navigate({ page: page + 1 })}
-                  >
-                    {t("Siguiente")}
-                    <ChevronRight size={18} aria-hidden="true" />
-                  </button>
-                </nav>
               )}
             </>
           )}

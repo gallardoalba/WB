@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { login, waitForHydration } from "./helpers";
+import { localDatabase } from "./db";
 
 /** Entra con la cuenta de demostración y deja la portada cargada. */
 async function loginAsDemo(page: Page) {
@@ -37,6 +39,74 @@ test("el catálogo carga y permite buscar", async ({ page }) => {
   await expect(page.locator(".book-card:visible")).toContainText(
     "Staatlichkeit und Anarchie",
   );
+});
+
+test("la estantería añade libros al desplazarse, sin cambiar de página", async ({ page }) => {
+  const database = localDatabase();
+  if (!database) {
+    test.skip(true, "La prueba crea datos y solo se ejecuta contra una base local.");
+    return;
+  }
+  const source = database
+    .prepare(
+      `SELECT l.book_id, l.search_key
+       FROM listings l JOIN books b ON b.id = l.book_id
+       WHERE l.status = 'available' AND b.author <> 'Michail Bakunin'
+       LIMIT 1`,
+    )
+    .get() as { book_id: string; search_key: string } | undefined;
+  if (!source) {
+    database.close();
+    throw new Error("La base local no contiene un libro para preparar la prueba.");
+  }
+
+  const createdIds: string[] = [];
+  const insert = database.prepare(
+    `INSERT INTO listings
+       (id, book_id, owner_id, condition, city, distance_km, status, search_key, created_at)
+     VALUES (?, ?, 'usr_ana', 'Muy buen estado', 'Stuttgart', NULL, 'paused', ?, ?)`,
+  );
+  try {
+    database.transaction(() => {
+      for (let index = 0; index < 16; index += 1) {
+        const id = `lst_${randomUUID()}`;
+        createdIds.push(id);
+        insert.run(id, source.book_id, source.search_key, new Date(Date.now() + index).toISOString());
+      }
+    })();
+  } finally {
+    database.close();
+  }
+
+  try {
+    await login(page, "ana@wanderbibliothek.test");
+    const shelf = page.locator(".sidebar").getByRole("button", { name: "Mi estantería" });
+    await shelf.click();
+    await page.getByRole("button", { name: "Mis publicaciones" }).click();
+    // La pestaña se refleja en la URL: se espera a que la navegación termine
+    // antes de medir, para no contar las tarjetas de la estantería anterior.
+    await expect(page).toHaveURL(/shelf=mine/);
+    const cards = page.locator(".book-card:visible");
+    await expect(cards.first()).toBeVisible();
+    const firstBatch = await cards.count();
+    const url = page.url();
+
+    // Al llegar al final se pide la tanda siguiente y las tarjetas se suman a
+    // las que ya estaban: la lista no se sustituye ni cambia de página.
+    await page.locator(".catalog-sentinel").scrollIntoViewIfNeeded();
+    await expect.poll(() => cards.count(), { timeout: 20_000 }).toBeGreaterThan(firstBatch);
+    expect(page.url()).toBe(url);
+  } finally {
+    const cleanup = localDatabase();
+    if (!cleanup) throw new Error("No se pudo volver a abrir la base local para limpiar la prueba.");
+    try {
+      cleanup
+        .prepare(`DELETE FROM listings WHERE id IN (${createdIds.map(() => "?").join(",")})`)
+        .run(...createdIds);
+    } finally {
+      cleanup.close();
+    }
+  }
 });
 
 test("sin sesión el catálogo se puede ojear, pero pedir pide acceso", async ({ page }) => {
