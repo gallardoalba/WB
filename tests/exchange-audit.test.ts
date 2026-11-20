@@ -577,6 +577,24 @@ test("al cerrarse, el ejemplar entregado sigue con su dueño y el receptor estre
   assert.equal(copia.status, "paused", "recibirlo no es ofrecerlo");
 });
 
+test("el registro de un ejemplar entregado es histórico y no se puede editar", () => {
+  const { listing } = intercambioCerrado();
+  const error = errorDe(() =>
+    repo.editListing("usr_clara", listing.id, {
+      condition: "Como nuevo",
+      city: "Freiburg im Breisgau",
+      notes: "",
+      tags: [],
+      title: "Título cambiado",
+    }),
+  );
+
+  assert.equal(error.status, 409);
+  assert.match(error.message, /ya fue entregado/);
+  assert.equal(repo.getListing(listing.id, "usr_clara")?.status, "given");
+  assert.notEqual(repo.getListing(listing.id, "usr_clara")?.title, "Título cambiado");
+});
+
 test("la copia recibida la ve su dueño y nadie más hasta que la active", () => {
   const { copia } = intercambioCerrado();
 

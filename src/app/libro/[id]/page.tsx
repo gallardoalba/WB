@@ -44,24 +44,38 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Los metadatos no llevan el nombre de quien publica: se generan también sin
   // sesión (`getListing(id, null)`), y ahí la identidad va enmascarada. Se
   // describe el ejemplar por la ciudad, que es lo que ayuda a decidir.
+  const availability = listing.status === "available"
+    ? "available"
+    : listing.status === "given"
+      ? "given"
+      : "reserved";
+  const description = pick(locale, {
+    es: availability === "available"
+      ? `Ejemplar de «${listing.title}», de ${listing.author}, disponible para intercambio en ${listing.city}.`
+      : availability === "given"
+        ? `Ejemplar de «${listing.title}», de ${listing.author}, en ${listing.city}. Ya se entregó y no está disponible para intercambio.`
+        : `Ejemplar de «${listing.title}», de ${listing.author}, en ${listing.city}. Está reservado y no se puede pedir ahora.`,
+    de: availability === "available"
+      ? `Exemplar von «${listing.title}» von ${listing.author}, zum Tauschen in ${listing.city} verfügbar.`
+      : availability === "given"
+        ? `Exemplar von «${listing.title}» von ${listing.author} in ${listing.city}. Bereits übergeben und nicht mehr zum Tausch verfügbar.`
+        : `Exemplar von «${listing.title}» von ${listing.author} in ${listing.city}. Reserviert und derzeit nicht anfragbar.`,
+    en: availability === "available"
+      ? `A copy of «${listing.title}» by ${listing.author}, available to exchange in ${listing.city}.`
+      : availability === "given"
+        ? `A copy of «${listing.title}» by ${listing.author} in ${listing.city}. Already handed over and no longer available for exchange.`
+        : `A copy of «${listing.title}» by ${listing.author} in ${listing.city}. Reserved and cannot be requested right now.`,
+  });
   return {
     title: `${listing.title} — ${listing.author}`,
-    description: pick(locale, {
-      es: `Ejemplar de «${listing.title}», de ${listing.author}, disponible para intercambio en ${listing.city}.`,
-      de: `Exemplar von «${listing.title}» von ${listing.author}, zum Tauschen in ${listing.city} verfügbar.`,
-      en: `A copy of «${listing.title}» by ${listing.author}, available to exchange in ${listing.city}.`,
-    }),
+    description,
     alternates: { canonical: `/libro/${listing.id}` },
     robots: { index: false, follow: true },
     ...socialMetadata({
       locale,
       path: `/libro/${listing.id}`,
       title: `${listing.title} — ${listing.author}`,
-      description: pick(locale, {
-        es: `Ejemplar disponible para intercambio en ${listing.city}.`,
-        de: `Zum Tauschen in ${listing.city} verfügbar.`,
-        en: `Copy available to exchange in ${listing.city}.`,
-      }),
+      description,
       image: listing.coverUrl,
       type: "book",
     }),
@@ -151,7 +165,13 @@ export default async function Page({ params }: PageProps) {
               {initialsOf(listing.owner.name)}
             </span>
             <span>
-              <strong>{listing.isMine ? t("Tu publicación") : listing.owner.name}</strong>
+              <strong>
+                {listing.isMine && listing.status === "given"
+                  ? t("Entregado")
+                  : listing.isMine
+                    ? t("Tu publicación")
+                    : listing.owner.name}
+              </strong>
               <small>
                 <MapPin size={11} /> {listing.city}
               </small>

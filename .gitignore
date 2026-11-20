@@ -60,3 +60,6 @@ AGENTS.md
 
 # Identidad del build que escribe deploy/deploy.sh en cada release.
 /.build-info.json
+
+# Ayudante local de despliegue de producción.
+/deploy-production.sh

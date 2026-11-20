@@ -218,7 +218,23 @@ export function ListingActions({
         </p>
       )}
 
-      {isMine ? (
+      {isMine && status === "given" ? (
+        <>
+          <p className="unavailable-note">
+            {t("La otra persona ya tiene el libro en su estantería. Puede volver a circular.")}
+          </p>
+          <div className="owner-actions">
+            <button
+              type="button"
+              className="secondary-button small danger"
+              disabled={pending}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              <Trash2 size={14} /> {t("Retirar del historial")}
+            </button>
+          </div>
+        </>
+      ) : isMine ? (
         <div className="owner-actions">
           {status === "available" && (
             <button
@@ -456,9 +472,13 @@ export function ListingActions({
         open={confirmingRemove}
         onClose={() => setConfirmingRemove(false)}
         onConfirm={() => void removeListing()}
-        title={t("Retirar el ejemplar")}
-        description={t("«{title}» dejará de aparecer en el catálogo y se cerrarán las solicitudes pendientes.", { title: listingTitle })}
-        confirmLabel={t("Retirar")}
+        title={t(status === "given" ? "Retirar ejemplar del historial" : "Retirar el ejemplar")}
+        description={
+          status === "given"
+            ? t("El intercambio ya se completó. Retirar este registro no deshace la transferencia.")
+            : t("«{title}» dejará de aparecer en el catálogo y se cerrarán las solicitudes pendientes.", { title: listingTitle })
+        }
+        confirmLabel={t(status === "given" ? "Retirar del historial" : "Retirar")}
         pending={pending}
       />
 
