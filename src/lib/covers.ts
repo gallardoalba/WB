@@ -93,7 +93,7 @@ export function readUploadedCover(bookId: string): Cover | null {
   const file = uploadedCoverPath(bookId);
   if (!file) return null;
   if (!statUploadedCover(bookId)) return null;
-  sanitizeUploadedCover(bookId);
+  if (!sanitizeUploadedCover(bookId)) return null;
   try {
     const data = readFileSync(file);
     const contentType = sniffImageType(data);
@@ -127,13 +127,33 @@ export function statUploadedCover(bookId: string): UploadedCoverFile | null {
 /**
  * Limpia también portadas antiguas al primer acceso de cada proceso. Así una
  * portada ya guardada nunca se entrega antes de retirar sus metadatos.
+ *
+ * Devuelve `false` si el fichero no se puede limpiar: una portada guardada
+ * antes de esta regla puede estar truncada o no ser un JPEG recorrible. Se
+ * retira, porque servirla tal cual filtraría los metadatos que esta capa quita
+ * —y, sin retirarla, cada visita reintentaría el trabajo y fallaría igual—;
+ * quien publicaba el libro puede volver a subirla.
  */
-export function sanitizeUploadedCover(bookId: string): void {
+export function sanitizeUploadedCover(bookId: string): boolean {
   const file = uploadedCoverPath(bookId);
-  if (!file || sanitizedCovers.has(file)) return;
+  if (!file) return false;
+  if (sanitizedCovers.has(file)) return true;
 
-  const original = readFileSync(file);
-  const sanitized = toJpeg(original);
+  let original: Buffer;
+  let sanitized: Buffer;
+  try {
+    original = readFileSync(file);
+    sanitized = toJpeg(original);
+  } catch {
+    sanitizedCovers.delete(file);
+    try {
+      unlinkSync(file);
+    } catch {
+      // Ya no estaba: nada que retirar.
+    }
+    return false;
+  }
+
   if (sanitized.byteLength > MAX_BYTES) {
     throw new Error("La portada almacenada supera el tamaño máximo tras limpiarla.");
   }
@@ -143,6 +163,7 @@ export function sanitizeUploadedCover(bookId: string): void {
   }
 
   sanitizedCovers.add(file);
+  return true;
 }
 
 /**

@@ -89,6 +89,34 @@ test("un JPG se limpia sin recomprimir sus píxeles", () => {
   assert.deepEqual(jpeg.decode(result, { useTArray: true }).data, jpeg.decode(original, { useTArray: true }).data);
 });
 
+/** APP1 EXIF válido con la única etiqueta de orientación y un extra opcional. */
+function exifOrientation(orientation: number, extra = ""): Buffer {
+  const payload = Buffer.alloc(32);
+  payload.write("Exif\0\0", 0, "latin1");
+  payload.write("II", 6, "latin1");
+  payload.writeUInt16LE(42, 8);
+  payload.writeUInt32LE(8, 10);
+  payload.writeUInt16LE(1, 14);
+  payload.writeUInt16LE(0x0112, 16);
+  payload.writeUInt16LE(3, 18);
+  payload.writeUInt32LE(1, 20);
+  payload.writeUInt16LE(orientation, 24);
+  return Buffer.concat([payload, Buffer.from(extra, "latin1")]);
+}
+
+/** Lee la orientación de un APP1 de salida, siguiendo el mismo recorrido. */
+function orientationOf(data: Buffer): number | null {
+  const app1 = data.indexOf(Buffer.from([0xff, 0xe1]));
+  if (app1 < 0) return null;
+  const tiff = app1 + 4 + 6;
+  const ifd = tiff + data.readUInt32LE(tiff + 4);
+  for (let index = 0; index < data.readUInt16LE(ifd); index += 1) {
+    const entry = ifd + 2 + index * 12;
+    if (data.readUInt16LE(entry) === 0x0112) return data.readUInt16LE(entry + 8);
+  }
+  return null;
+}
+
 test("un JPG ya limpio se devuelve sin volver a procesarlo", () => {
   const original = Buffer.from(
     jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data,
@@ -96,6 +124,38 @@ test("un JPG ya limpio se devuelve sin volver a procesarlo", () => {
   const limpio = toJpeg(original);
 
   assert.equal(toJpeg(limpio), limpio);
+});
+
+test("la orientación EXIF se conserva aunque se retire el resto del EXIF", () => {
+  // Una foto de móvil llega con los píxeles sin girar y una etiqueta que dice
+  // cómo verlos. Si se tira el EXIF entero, la portada se muestra tumbada; solo
+  // la orientación se reescribe, sin GPS ni el resto de datos privados.
+  const clean = Buffer.from(
+    jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data,
+  );
+  const original = addJpegSegment(clean, 0xe1, exifOrientation(6, "GPS-Schlossplatz"));
+
+  const result = toJpeg(original);
+
+  assert.equal(result.includes("GPS-Schlossplatz"), false, "el resto del EXIF se retira");
+  assert.equal(orientationOf(result), 6, "la orientación sobrevive sola");
+  assert.deepEqual(imageDimensions(result), { width: 4, height: 4 });
+  assert.deepEqual(
+    jpeg.decode(result, { useTArray: true }).data,
+    jpeg.decode(original, { useTArray: true }).data,
+    "los píxeles no se recomprimen",
+  );
+  assert.deepEqual(toJpeg(result), result, "volver a limpiarla no la cambia");
+});
+
+test("una orientación normal no añade EXIF al JPG limpio", () => {
+  const clean = Buffer.from(
+    jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data,
+  );
+  const result = toJpeg(addJpegSegment(clean, 0xe1, exifOrientation(1)));
+
+  assert.equal(result.includes("Exif"), false);
+  assert.equal(orientationOf(result), null);
 });
 
 test("un segmento JPEG truncado se rechaza", () => {

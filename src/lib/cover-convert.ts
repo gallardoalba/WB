@@ -54,11 +54,87 @@ function declaredPngSize(data: Buffer): { width: number; height: number } | null
 }
 
 /**
+ * Orientación EXIF (etiqueta 0x0112) de un segmento APP1, o `null`.
+ *
+ * El EXIF se elimina por privacidad, pero la orientación no es un dato
+ * personal: sin ella, la foto de un móvil se guarda con los píxeles sin girar
+ * y se muestra tumbada. Por eso se lee antes de tirar el segmento y se vuelve
+ * a escribir sola (ver `orientationSegment`).
+ */
+function exifOrientation(data: Buffer, payload: number, segmentEnd: number): number | null {
+  if (segmentEnd - payload < 14) return null;
+  if (
+    data[payload] !== 0x45 ||
+    data[payload + 1] !== 0x78 ||
+    data[payload + 2] !== 0x69 ||
+    data[payload + 3] !== 0x66 ||
+    data[payload + 4] !== 0 ||
+    data[payload + 5] !== 0
+  ) {
+    return null;
+  }
+
+  const tiff = payload + 6;
+  const little = data[tiff] === 0x49 && data[tiff + 1] === 0x49;
+  const big = data[tiff] === 0x4d && data[tiff + 1] === 0x4d;
+  if ((!little && !big) || tiff + 8 > segmentEnd) return null;
+  if (data.readUInt16LE(tiff + 2) !== 42 && data.readUInt16BE(tiff + 2) !== 42) return null;
+
+  const read16 = (at: number) =>
+    at + 2 <= segmentEnd ? (little ? data.readUInt16LE(at) : data.readUInt16BE(at)) : null;
+  const read32 = (at: number) =>
+    at + 4 <= segmentEnd ? (little ? data.readUInt32LE(at) : data.readUInt32BE(at)) : null;
+
+  const ifdOffset = read32(tiff + 4);
+  if (ifdOffset === null) return null;
+  const ifd = tiff + ifdOffset;
+  const entries = read16(ifd);
+  if (entries === null || ifd + 2 + entries * 12 > segmentEnd) return null;
+
+  for (let index = 0; index < entries; index += 1) {
+    const entry = ifd + 2 + index * 12;
+    if (read16(entry) !== 0x0112) continue;
+    if (read16(entry + 2) !== 3) return null;
+    const count = read32(entry + 4);
+    if (count !== 1) return null;
+    const orientation = read16(entry + 8);
+    return orientation !== null && orientation >= 1 && orientation <= 8 ? orientation : null;
+  }
+  return null;
+}
+
+/**
+ * Segmento APP1 mínimo con una sola etiqueta: la orientación.
+ *
+ * Sustituye al EXIF original, que traía GPS, número de serie y miniaturas. Solo
+ * se escribe cuando la orientación no es la normal (1), así que un JPG ya
+ * enderezado no cambia de tamaño.
+ */
+function orientationSegment(orientation: number): Buffer {
+  const segment = Buffer.alloc(36);
+  segment[0] = 0xff;
+  segment[1] = 0xe1;
+  segment.writeUInt16BE(34, 2);
+  segment.write("Exif\0\0", 4, "latin1");
+  const tiff = 10;
+  segment.write("II", tiff, "latin1");
+  segment.writeUInt16LE(42, tiff + 2);
+  segment.writeUInt32LE(8, tiff + 4);
+  segment.writeUInt16LE(1, tiff + 8);
+  segment.writeUInt16LE(0x0112, tiff + 10);
+  segment.writeUInt16LE(3, tiff + 12);
+  segment.writeUInt32LE(1, tiff + 14);
+  segment.writeUInt16LE(orientation, tiff + 18);
+  return segment;
+}
+
+/**
  * Elimina segmentos de aplicación/comentario de un JPEG y conserva su flujo de
  * imagen. Se mantienen APP14 (Adobe), necesario para interpretar ciertos JPEG
- * CMYK; los demás APP pueden contener EXIF/GPS, XMP, IPTC, miniaturas o datos
- * privados. También se procesa JPEG progresivo, que puede intercalar segmentos
- * entre sus distintos barridos.
+ * CMYK, y la orientación EXIF —reescrita sola—, sin la cual las fotos de móvil
+ * se verían tumbadas; los demás APP pueden contener GPS, XMP, IPTC, miniaturas
+ * o datos privados. También se procesa JPEG progresivo, que puede intercalar
+ * segmentos entre sus distintos barridos.
  */
 export function stripJpegMetadata(data: Buffer): Buffer {
   const invalid = () => new ApiError(422, "El JPEG está dañado y no se puede limpiar.");
@@ -68,6 +144,7 @@ export function stripJpegMetadata(data: Buffer): Buffer {
   let offset = 2;
   let changed = false;
   let sawEnd = false;
+  let orientation: number | null = null;
 
   while (offset < data.length) {
     const markerStart = offset;
@@ -98,8 +175,14 @@ export function stripJpegMetadata(data: Buffer): Buffer {
 
     const isMetadata =
       (marker >= 0xe0 && marker <= 0xed) || marker === 0xef || marker === 0xfe;
-    if (isMetadata) changed = true;
-    else chunks.push(data.subarray(markerStart, segmentEnd));
+    if (isMetadata) {
+      changed = true;
+      // La orientación se rescata antes de tirar el segmento: es lo único del
+      // EXIF que cambia cómo se ve la foto y no identifica a nadie.
+      if (marker === 0xe1 && orientation === null) {
+        orientation = exifOrientation(data, offset + 2, segmentEnd);
+      }
+    } else chunks.push(data.subarray(markerStart, segmentEnd));
     offset = segmentEnd;
 
     if (marker !== 0xda) continue;
@@ -136,7 +219,12 @@ export function stripJpegMetadata(data: Buffer): Buffer {
   }
 
   if (!sawEnd) throw invalid();
-  return changed ? Buffer.concat(chunks) : data;
+  if (!changed) return data;
+  if (orientation !== null && orientation !== 1) {
+    // Justo detrás del SOI, donde los lectores esperan el APP1.
+    chunks.splice(1, 0, orientationSegment(orientation));
+  }
+  return Buffer.concat(chunks);
 }
 
 /**

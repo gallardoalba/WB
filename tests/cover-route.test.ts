@@ -8,6 +8,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  existsSync,
   lstatSync,
   mkdtempSync,
   readFileSync,
@@ -122,6 +123,21 @@ test("guardar una portada reemplaza un enlace simbólico sin modificar su destin
   } finally {
     rmSync(victimDir, { recursive: true, force: true });
   }
+});
+
+test("una portada antigua que no se puede limpiar no se sirve ni se reintenta", async () => {
+  // Antes de 1.0.15 se guardaba cualquier fichero que empezara por `FF D8 FF`
+  // y pasara de 1 KB, aunque estuviera truncado. Al limpiarla ahora falla, y
+  // eso no puede convertirse en un error en cada visita: se retira y la
+  // respuesta es la misma que la de una portada que no existe.
+  const roto = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4_000, 0x20)]);
+  writeFileSync(path.join(dir, "upload-bok_roto.img"), roto);
+
+  const response = await call("bok_roto");
+
+  assert.equal(response.status, 404);
+  assert.equal(readUploadedCover("bok_roto"), null);
+  assert.equal(existsSync(path.join(dir, "upload-bok_roto.img")), false);
 });
 
 test("un validador que coincide responde 304 sin cuerpo", async () => {
