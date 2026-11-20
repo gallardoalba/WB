@@ -10,13 +10,14 @@ import { login } from "./helpers";
  * alguien vuelve a poner un `await api(...)` antes de pintar, esta prueba falla.
  *
  * Funciona con cuentas y obras sembradas por `SEED_DEMO`; la obra sale del
- * sitemap para no depender de un identificador escrito a mano.
+ * feed para no depender de un identificador escrito a mano. El sitemap ya no
+ * sirve: las fichas de obra llevan `noindex` y se omiten a propósito.
  */
 
 async function primeraObra(page: Page) {
-  const sitemap = await (await page.request.get("/sitemap.xml")).text();
-  const bok = [...sitemap.matchAll(/\/werk\/(bok_[A-Za-z0-9-]+)/g)][0]?.[1];
-  expect(bok, "el sitemap debería traer al menos una obra").toBeTruthy();
+  const feed = await (await page.request.get("/feed.xml")).text();
+  const bok = [...feed.matchAll(/\/werk\/(bok_[A-Za-z0-9-]+)/g)][0]?.[1];
+  expect(bok, "el feed debería traer al menos una obra").toBeTruthy();
   return bok!;
 }
 
