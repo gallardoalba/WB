@@ -372,7 +372,22 @@ else
   exit 1
 fi
 
-# ── Paso 9: limpiar releases antiguas ──────────────────────────────────────
+# ── Paso 9: invalidar caché de portadas ────────────────────────────────────
+step "Invalidar la caché de imágenes de nginx"
+if [ "$DRY_RUN" -eq 1 ]; then
+  ok "se invalidaría /var/cache/nginx/wb_images"
+elif [ -d /var/cache/nginx/wb_images ]; then
+  if find /var/cache/nginx/wb_images -type f -delete; then
+    ok "caché de portadas y versiones optimizadas invalidada"
+  else
+    fail "no se pudo invalidar la caché de nginx; revisa /var/cache/nginx/wb_images"
+    exit 1
+  fi
+else
+  warn "no existe /var/cache/nginx/wb_images; no hay caché de imágenes que invalidar"
+fi
+
+# ── Paso 10: limpiar releases antiguas ─────────────────────────────────────
 step "Conservar las últimas $KEEP releases"
 if [ "$DRY_RUN" -eq 1 ]; then
   printf '    %s→ se borrarían las anteriores a las %s más recientes%s\n' "$DIM" "$KEEP" "$NC"

@@ -1,11 +1,11 @@
 /**
  * Sugerencias de ciudad para el selector.
  *
- * La ciudad no se escribe a mano: se elige de una lista de municipios
- * alemanes. La lista sale de OpenStreetMap por medio de **Photon**, el buscador
- * que mantiene Komoot sobre los datos del mapa y que sí está pensado para
- * proponer mientras se teclea (Nominatim, que es quien confirma el nombre al
- * guardar, no admite consultas por cada tecla).
+ * La ciudad se elige de una lista de municipios de Alemania y Austria. La lista
+ * sale de OpenStreetMap por medio de **Photon**, el buscador que mantiene
+ * Komoot sobre los datos del mapa y que sí está pensado para proponer mientras
+ * se teclea (Nominatim, que confirma el nombre al guardar, no admite consultas
+ * por cada tecla).
  *
  * Esto solo propone: quien decide si la ciudad vale sigue siendo
  * `resolveCity()` al guardar, con Nominatim. Si Photon no responde se devuelve
@@ -17,7 +17,7 @@ import { normalizeText } from "./text";
 
 export type CitySuggestion = {
   name: string;
-  /** Estado federado, solo para distinguir municipios homónimos. */
+  /** Estado federado; el sufijo `(AT)` del nombre distingue el país. */
   region: string | null;
 };
 
@@ -33,9 +33,11 @@ export const MIN_QUERY_CHARS = 2;
 export const MAX_SUGGESTIONS = 8;
 /** Se piden a Photon unos cuantos de más: entre medias se descartan países y calles. */
 const REMOTE_LIMIT = 20;
-/** Caja envolvente de Alemania (Photon no filtra por país, sí por `bbox`). */
-const GERMANY_BBOX = "5.87,47.27,15.04,55.06";
-const COUNTRY = "DE";
+/** Caja que cubre Alemania y Austria (Photon no filtra por país, sí por `bbox`). */
+const REGION_BBOX = "5.87,46.37,17.16,55.06";
+const COUNTRIES = new Set(["DE", "AT"]);
+const COUNTRY_NAMES = new Set(["germany", "deutschland", "austria", "osterreich"]);
+const AUSTRIAN_COUNTRY_NAMES = new Set(["austria", "osterreich"]);
 /** Núcleos de población: ni una calle ni una región sirven como ciudad. */
 const PLACES = new Set(["city", "town", "village", "municipality"]);
 const CACHE_LIMIT = 500;
@@ -62,14 +64,21 @@ export function citiesFromPhoton(payload: unknown, limit = MAX_SUGGESTIONS): Cit
     const properties = feature?.properties;
     if (!properties || typeof properties !== "object") continue;
     const country = properties.countrycode;
-    if (typeof country === "string" && country.toUpperCase() !== COUNTRY) continue;
+    const countryCode = typeof country === "string" ? country.toUpperCase() : null;
+    const countryName =
+      typeof properties.country === "string" ? normalizeText(properties.country) : "";
+    if (countryCode ? !COUNTRIES.has(countryCode) : !COUNTRY_NAMES.has(countryName)) continue;
     const kind = properties.osm_key;
     if (typeof kind === "string" && kind !== "place") continue;
     const place = properties.osm_value ?? properties.type;
     if (typeof place !== "string" || !PLACES.has(place)) continue;
 
-    const name = typeof properties.name === "string" ? properties.name.trim() : "";
-    if (name.length < MIN_QUERY_CHARS) continue;
+    const rawName = typeof properties.name === "string" ? properties.name.trim() : "";
+    if (rawName.length < MIN_QUERY_CHARS) continue;
+    const isAustria =
+      countryCode === "AT" ||
+      (!countryCode && AUSTRIAN_COUNTRY_NAMES.has(countryName));
+    const name = isAustria ? `${rawName} (AT)` : rawName;
     const key = normalizeText(name);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -148,7 +157,7 @@ async function remoteCities(key: string, query: string): Promise<CitySuggestion[
       url.searchParams.set("q", query);
       url.searchParams.set("lang", "de");
       url.searchParams.set("limit", String(REMOTE_LIMIT));
-      url.searchParams.set("bbox", GERMANY_BBOX);
+      url.searchParams.set("bbox", REGION_BBOX);
       const response = await fetch(url, {
         headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
         signal: AbortSignal.timeout(TIMEOUT_MS),

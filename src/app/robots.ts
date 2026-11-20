@@ -45,18 +45,11 @@ export default async function robots() {
       {
         userAgent: "*",
         allow: "/",
-        // El catálogo es público, pero indexarlo publicaría en Google el
-        // nombre y la ciudad de cada lector junto a los libros que ofrece:
-        // datos personales de terceros que nadie consintió. Se rastrea solo la
-        // portada, igual que anuncia el sitemap.
+        // Las páginas públicas con `noindex` deben seguir siendo rastreables:
+        // bloquearlas aquí impediría que los buscadores leyeran esa directiva.
         disallow: [
           "/api/",
           "/admin",
-          "/descubrir",
-          "/libro/",
-          "/obra/",
-          "/u/",
-          "/lectores",
           "/comunidad",
           "/clubes",
           "/estanteria",
@@ -67,7 +60,7 @@ export default async function robots() {
           "/restablecer",
         ],
       },
-      // Quien solo busca entrenar no lee nada: ni el catálogo ni la portada.
+      // Quien solo busca entrenar no lee nada, ni siquiera páginas noindex.
       { userAgent: AI_TRAINING_BOTS, disallow: "/" },
     ],
     sitemap: `${base}/sitemap.xml`,

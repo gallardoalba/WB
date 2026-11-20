@@ -46,6 +46,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         de: "Buch nicht gefunden",
         en: "Book not found",
       }),
+      robots: { index: false, follow: false },
     };
   }
   // Las ediciones comparten obra: la canónica es la primera, para no repartir
@@ -54,11 +55,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${book.title} — ${book.author}`,
     description: pick(locale, {
-      es: `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en toda Alemania.`,
-      de: `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in ganz Deutschland.`,
-      en: `Discussion and available copies of «${book.title}» by ${book.author} across Germany.`,
+      es: `Conversación y ejemplares disponibles de «${book.title}» de ${book.author} en Alemania y Austria.`,
+      de: `Gespräch und verfügbare Exemplare von «${book.title}» von ${book.author} in Deutschland und Österreich.`,
+      en: `Discussion and available copies of «${book.title}» by ${book.author} across Germany and Austria.`,
     }),
     alternates: { canonical: `/obra/${canonicalId}` },
+    robots: { index: false, follow: true },
     ...socialMetadata({
       locale,
       path: `/obra/${book.id}`,
@@ -203,7 +205,7 @@ export default async function Page({ params }: PageProps) {
         <div className="feed-header">
           <div>
             <strong id="copies-title">{t("Ejemplares disponibles")}</strong>
-            <span>{t("Este mismo libro en manos de otras personas de toda Alemania")}</span>
+            <span>{t("Este mismo libro en manos de otras personas de Alemania y Austria")}</span>
           </div>
         </div>
         {copies.length === 0 ? (

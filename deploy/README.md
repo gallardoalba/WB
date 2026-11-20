@@ -341,9 +341,11 @@ provide on its own:
   format is part of the key (`$wb_image_format`, three values at most) so a
   browser is not served the WebP stored for another. Only `GET`/`HEAD` are
   cached: uploading or deleting a cover (`PUT`/`DELETE`) still reaches the
-  application. To see what it does, look at the `X-Cache-Status` header (`HIT`,
-  `MISS`, `STALE`, `UPDATING`); to clear it,
-  `sudo rm -rf /var/cache/nginx/wb_images/*` and reload.
+  application. Both deployment scripts clear this cache after the new version
+  passes its health check, so legacy covers are fetched through metadata
+  sanitization. To see what it does, look at the `X-Cache-Status` header (`HIT`,
+  `MISS`, `STALE`, `UPDATING`); to clear it manually,
+  `sudo find /var/cache/nginx/wb_images -type f -delete`.
 - **HTTP/3** (`listen 443 quic` + `Alt-Svc`) with Debian's `http_v3_module`.
   UDP must be open: `sudo ufw allow 443/udp`. If the browser does not negotiate
   it, it continues over HTTP/2 with no change.

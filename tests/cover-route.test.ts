@@ -7,16 +7,44 @@
  * puede salirse de la carpeta de portadas.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
 
+import jpeg from "jpeg-js";
+import { toJpeg } from "../src/lib/cover-convert.ts";
 import { uploadedCoverResponse } from "../src/lib/cover-response.ts";
-import { statUploadedCover, uploadedCoverType } from "../src/lib/covers.ts";
+import {
+  readUploadedCover,
+  saveUploadedCover,
+  statUploadedCover,
+  uploadedCoverType,
+} from "../src/lib/covers.ts";
 
-/** Un JPG de mentira: cabecera válida y cuerpo de relleno por encima del mínimo. */
-const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4096, 0x20)]);
+/** JPG válido con metadatos de prueba, como una foto que sale de una cámara. */
+const pixels = Buffer.alloc(120 * 180 * 4);
+for (let index = 0; index < pixels.length; index += 4) {
+  pixels[index] = (index * 7) % 256;
+  pixels[index + 1] = (index * 13) % 256;
+  pixels[index + 2] = (index * 29) % 256;
+  pixels[index + 3] = 255;
+}
+const cleanJpeg = Buffer.from(jpeg.encode({ data: pixels, width: 120, height: 180 }, 90).data);
+const exif = Buffer.from("Exif\0\0GPS coordinates");
+const segment = Buffer.alloc(4);
+segment[0] = 0xff;
+segment[1] = 0xe1;
+segment.writeUInt16BE(exif.length + 2, 2);
+const JPEG = Buffer.concat([cleanJpeg.subarray(0, 2), segment, exif, cleanJpeg.subarray(2)]);
 
 let dir: string;
 const saved = process.env.WANDERBIBLIOTHEK_COVER_CACHE;
@@ -40,7 +68,7 @@ function call(bookId: string, headers?: Record<string, string>) {
   );
 }
 
-test("envía el fichero entero con su tipo y su caché", async () => {
+test("retira los metadatos de portadas antiguas antes de servirlas", async () => {
   const response = await call("bok_route");
 
   assert.equal(response.status, 200);
@@ -48,8 +76,68 @@ test("envía el fichero entero con su tipo y su caché", async () => {
   assert.equal(response.headers.get("cache-control"), "public, max-age=86400, must-revalidate");
 
   const body = Buffer.from(await response.arrayBuffer());
-  assert.equal(body.length, JPEG.length);
-  assert.deepEqual(body.subarray(0, 4), JPEG.subarray(0, 4));
+  assert.ok(body.length < JPEG.length, "el segmento EXIF se elimina del fichero");
+  assert.equal(body.includes("GPS coordinates"), false);
+  assert.deepEqual(jpeg.decode(body, { useTArray: true }).width, 120);
+  assert.equal(jpeg.decode(body, { useTArray: true }).height, 180);
+});
+
+test("no rechaza una portada válida que queda bajo 1 KB al retirar sus metadatos", () => {
+  const smallJpeg = Buffer.from(
+    jpeg.encode({ data: Buffer.alloc(4 * 4 * 4), width: 4, height: 4 }, 90).data,
+  );
+  const privateMetadata = Buffer.alloc(800, 0x41);
+  const metadataSegment = Buffer.alloc(4);
+  metadataSegment[0] = 0xff;
+  metadataSegment[1] = 0xe1;
+  metadataSegment.writeUInt16BE(privateMetadata.length + 2, 2);
+  const raw = Buffer.concat([
+    smallJpeg.subarray(0, 2),
+    metadataSegment,
+    privateMetadata,
+    smallJpeg.subarray(2),
+  ]);
+  assert.ok(raw.byteLength >= 1_000);
+
+  const sanitized = toJpeg(raw);
+  assert.ok(sanitized.byteLength < 1_000);
+  assert.ok(saveUploadedCover("bok_small", sanitized));
+  assert.equal(readUploadedCover("bok_small")?.data.byteLength, sanitized.byteLength);
+});
+
+test("guardar una portada reemplaza un enlace simbólico sin modificar su destino", () => {
+  const victimDir = mkdtempSync(path.join(tmpdir(), "wb-cover-victim-"));
+  const victim = path.join(victimDir, "victim.img");
+  const link = path.join(dir, "upload-bok_link.img");
+  const original = Buffer.from("contenido que no debe sobrescribirse");
+  writeFileSync(victim, original);
+
+  try {
+    symlinkSync(victim, link);
+    const saved = saveUploadedCover("bok_link", JPEG);
+
+    assert.ok(saved);
+    assert.deepEqual(readFileSync(victim), original);
+    assert.equal(lstatSync(link).isSymbolicLink(), false);
+    assert.deepEqual(readFileSync(link), saved.data);
+  } finally {
+    rmSync(victimDir, { recursive: true, force: true });
+  }
+});
+
+test("una portada antigua que no se puede limpiar no se sirve ni se reintenta", async () => {
+  // Antes de 1.0.15 se guardaba cualquier fichero que empezara por `FF D8 FF`
+  // y pasara de 1 KB, aunque estuviera truncado. Al limpiarla ahora falla, y
+  // eso no puede convertirse en un error en cada visita: se retira y la
+  // respuesta es la misma que la de una portada que no existe.
+  const roto = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4_000, 0x20)]);
+  writeFileSync(path.join(dir, "upload-bok_roto.img"), roto);
+
+  const response = await call("bok_roto");
+
+  assert.equal(response.status, 404);
+  assert.equal(readUploadedCover("bok_roto"), null);
+  assert.equal(existsSync(path.join(dir, "upload-bok_roto.img")), false);
 });
 
 test("un validador que coincide responde 304 sin cuerpo", async () => {

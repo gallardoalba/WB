@@ -21,9 +21,10 @@ import { isValidIsbn, normalizeIsbn } from "./text";
 /**
  * Ciudad: texto libre.
  *
- * El catálogo cubre Alemania, así que aquí solo se comprueba la forma; que la
- * ciudad exista lo resuelve `resolveCity()` contra OpenStreetMap al guardar (y
- * las del catálogo de siempre se reconocen sin red).
+ * El catálogo de distancias contiene una selección de ciudades de Alemania y
+ * Austria, así que aquí solo se comprueba la forma; que la ciudad exista lo
+ * resuelve `resolveCity()` contra OpenStreetMap al guardar (y las del catálogo
+ * de siempre se reconocen sin red).
  */
 const cityField = z
   .string("Escribe tu ciudad.")

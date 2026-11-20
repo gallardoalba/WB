@@ -20,7 +20,7 @@
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 
-import { statUploadedCover, uploadedCoverType } from "./covers";
+import { sanitizeUploadedCover, statUploadedCover, uploadedCoverType } from "./covers";
 
 /**
  * `If-None-Match` se compara en débil (RFC 9110): `W/"x"` también vale para
@@ -38,6 +38,15 @@ function matchesEtag(header: string | null, etag: string): boolean {
 }
 
 export function uploadedCoverResponse(bookId: string, request: Request): Response {
+  const existing = statUploadedCover(bookId);
+  if (!existing) {
+    return new Response(null, {
+      status: 404,
+      headers: { "cache-control": "public, max-age=60" },
+    });
+  }
+
+  sanitizeUploadedCover(bookId);
   const file = statUploadedCover(bookId);
   if (!file) {
     return new Response(null, {

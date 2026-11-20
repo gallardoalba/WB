@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { before, test } from "node:test";
 
+import jpeg from "jpeg-js";
+
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
 type CoversModule = typeof import("../src/lib/covers.ts");
@@ -24,11 +26,17 @@ function pngDe(bytes: number): Buffer {
   return buffer;
 }
 
-/** JPG de mentira: la firma `FF D8 FF` es lo único que se mira. */
-function jpegDe(bytes: number): Buffer {
-  const buffer = Buffer.alloc(bytes, 0x20);
-  Buffer.from([0xff, 0xd8, 0xff, 0xe0]).copy(buffer, 0);
-  return buffer;
+/** JPG válido con metadatos de relleno para superar el mínimo de subida. */
+function jpegDe(): Buffer {
+  const clean = Buffer.from(
+    jpeg.encode({ data: Buffer.alloc(8 * 8 * 4), width: 8, height: 8 }, 90).data,
+  );
+  const payload = Buffer.alloc(2_000 - clean.byteLength - 4, 0x20);
+  const segment = Buffer.alloc(4);
+  segment[0] = 0xff;
+  segment[1] = 0xe1;
+  segment.writeUInt16BE(payload.byteLength + 2, 2);
+  return Buffer.concat([clean.subarray(0, 2), segment, payload, clean.subarray(2)]);
 }
 
 function cacheNueva(): string {
@@ -39,19 +47,20 @@ function cacheNueva(): string {
 
 test("una portada subida se guarda y se lee como imagen", () => {
   const dir = cacheNueva();
-  assert.equal(covers.saveUploadedCover("../../etc", jpegDe(2_000)), null, "id raro");
+  assert.equal(covers.saveUploadedCover("../../etc", jpegDe()), null, "id raro");
   assert.equal(covers.saveUploadedCover("bok_1", Buffer.from("no soy una imagen")), null);
   // Solo JPG: un PNG con firma válida tampoco entra (lo dice la interfaz y lo
   // vuelve a comprobar el servidor por los primeros bytes).
   assert.equal(covers.saveUploadedCover("bok_1", pngDe(2_000)), null, "solo JPG");
 
-  const saved = covers.saveUploadedCover("bok_1", jpegDe(2_000));
+  const saved = covers.saveUploadedCover("bok_1", jpegDe());
   assert.equal(saved?.contentType, "image/jpeg");
+  assert.ok(saved && saved.data.length < 2_000, "se eliminan los metadatos");
   assert.deepEqual(readdirSync(dir), ["upload-bok_1.img"]);
 
   const read = covers.readUploadedCover("bok_1");
   assert.equal(read?.contentType, "image/jpeg");
-  assert.equal(read?.data.length, 2_000);
+  assert.deepEqual(read?.data, saved?.data);
 
   covers.removeUploadedCover("bok_1");
   assert.equal(covers.readUploadedCover("bok_1"), null);
@@ -59,7 +68,7 @@ test("una portada subida se guarda y se lee como imagen", () => {
 
 test("la limpieza de la caché no borra las portadas subidas", () => {
   const dir = cacheNueva();
-  covers.saveUploadedCover("bok_2", jpegDe(2_000));
+  covers.saveUploadedCover("bok_2", jpegDe());
   // Una portada cacheada y una marca de ausencia antiguas.
   writeFileSync(path.join(dir, "9788420412146.img"), pngDe(2_000));
   writeFileSync(path.join(dir, "9788420412146.miss"), "");

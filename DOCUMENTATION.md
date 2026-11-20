@@ -8,7 +8,7 @@ The running instance serves the same content in Spanish and German at `/techdoc`
 
 A modular monolith on Next.js 16 (App Router with Cache Components), strict TypeScript and SQLite through `better-sqlite3`. One single process: SQLite has one writer and the live notification bus lives in memory.
 
-No third-party services are required: the instance works without them. What the **server** does consult, and caches on disk, is Open Library and Google Books (covers), the DNB (MARC21 records), Photon and Nominatim (city suggestions and coordinates); with `INDEXNOW_KEY` it also talks to IndexNow. The browser only talks to this instance.
+No third-party services are required: the instance works without them. The **server** queries Open Library and the German National Library for bibliographic data, and Photon and Nominatim for city suggestions. Book covers are uploaded by users and served by this instance. Depending on configuration, the server may also use Brevo or a mail webhook, an error webhook, Cloudflare Turnstile, Mastodon and Web Push. The browser loads Cloudflare only when Turnstile is enabled and contacts its browser-selected push service only after the user activates Push.
 
 The code is AGPL-3.0 licensed.
 
@@ -22,7 +22,7 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v59), seed
+    db/                connection, base schema (v2), migrations (v3–v60), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -43,13 +43,13 @@ deploy/                systemd, nginx, environment template and guide
 
 ## Routes
 
-Internal pages require a session; without one they redirect to `/?auth=1&next=…`. The home page, the catalogue (`/descubrir`), the public work pages (`/werk/[id]`), the reading lists, the legal pages, the flows with their own link and the technical documentation are public. `robots.txt` blocks the app catalogue, the copy pages and the profiles so that readers' names and cities do not end up in search engines; the public work pages publish the title, the figures and the cities, never who owns a copy.
+Internal pages require a session; without one they redirect to `/?auth=1&next=…`. The home page, catalogue, public work pages, reading lists, legal pages, flows with their own link and technical documentation are public. Catalogues, works, lists, reader directories and profiles carry `noindex` and are omitted from the sitemap. They remain crawlable so compliant search engines can read the directive; `robots.txt` is not access control and removal from existing indexes may take time.
 
 | Route | Content |
 | --- | --- |
 | `/` | Public home page: hero, four figures and a single row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the filter itself lives in `/descubrir`, and the home page falls back to the whole catalogue when there is nothing in that language. |
 | `/descubrir` | Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a copy requires an account. |
-| `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; the URL search engines index. (`/buecher` redirects here to `/descubrir`.) |
+| `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; marked `noindex`. |
 | `/ofrecer` | Publish a copy; the ISBN fills in the bibliographic record. |
 | `/buscar` | Global search: works, reading circles, readers and lists. |
 | `/estanteria`, `/intercambios` | Private sections: own copies and requests with their next step. |
@@ -71,7 +71,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/health` | Service and database status. |
 | `/api/version` | Commit, image digest and build time this instance claims to serve. Public, with no personal data. |
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
-| `/sitemap.xml`, `/robots.txt` | Indexing: the sitemap publishes the home page, the work pages, the public reading lists and the info pages in all three languages (with `xhtml:link`); IndexNow pings Bing — and through it DuckDuckGo and Ecosia — whenever a book is listed. |
+| `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
 The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 21 of the 109 exported methods (14 of the 80 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
 
@@ -94,13 +94,13 @@ The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - Copy states: `available`, `reserved`, `given`, `paused`, `removed`.
 - Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.
 - Search through FTS5 maintained by triggers: `listings_fts` for the catalogue and `books_fts` for works; `unaccent()` folds accents so "Lucía" is found by typing "lucia".
-- `cities` holds the known cities with their coordinates (the German seed) and `city_distances` their distance matrix. The city is picked from a list of German municipalities supplied by OpenStreetMap (`searchCities()`, through Photon, which does allow suggestions while typing; if it does not answer, the local catalogue is offered instead) and checked on save with `resolveCity()`, which asks Nominatim, limited to Germany, and stores the name the map knows. Distance is secondary: a city outside that list shows no kilometres, and the radius filter is ignored rather than returning nothing.
+- `cities` holds a curated set of cities in Germany and Austria with their coordinates; `city_distances` stores distances for that set. `searchCities()` gets suggestions from OpenStreetMap through Photon, constrained to both countries, and falls back to the local catalogue if Photon is unavailable. `resolveCity()` checks the selected name with Nominatim, also limited to Germany and Austria. Austrian names carry `(AT)` to avoid collisions with German names. Other municipalities can still be selected, but do not have precomputed distances; the radius filter is ignored for them rather than returning no results.
 
 - `users.is_moderator` separates moderation from administration; `suspended_until` and `suspension_reason` make a suspension explainable and time-bound.
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v59). A new installation starts from `SCHEMA_V2` and its indexes and runs the 57 steps up to v59; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Nine steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind) and v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v60). A new installation starts from `SCHEMA_V2` and its indexes and runs the 58 steps up to v60; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Ten steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it) and v60 (the city-distance catalogue adds Austria while preserving existing German city names). The detail of every step lives in that file and in its git history.
 
 The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.
 
@@ -212,7 +212,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `TRANSPARENCY_SIGNING_KEY` | unset | Ed25519 private key (PKCS#8 in base64, or PEM) used to sign the daily catalogue snapshots. Without it, snapshots are published unsigned and marked as such. |
 | `APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE` | unset | Build identity published at `/api/version`. Filled by the release workflow (Docker build args) or by `deploy/deploy.sh` (`.build-info.json`). |
 
-The canonical template is `deploy/env.example`: every variable — the ones in this table and the detail ones (bot, backups, demo data, Google Books quota, first administrator) — is there, commented, with its default value.
+The canonical template is `deploy/env.example`: every variable — the ones in this table and the detail ones (bot, backups, demo data, first administrator) — is there, commented, with its default value.
 
 ## Tests and continuous integration
 

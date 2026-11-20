@@ -1912,6 +1912,30 @@ function migrateToV59(db: Db) {
 }
 
 /**
+ * v60: ampliar el catálogo de distancias a Austria sin cambiar las ciudades
+ * alemanas ya guardadas. Las ciudades austríacas llevan `(AT)` en el nombre.
+ */
+function migrateToV60(db: Db) {
+  const upsertCity = db.prepare(
+    "INSERT INTO cities (name, lat, lng) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET lat = excluded.lat, lng = excluded.lng",
+  );
+  const insertDistance = db.prepare(
+    "INSERT INTO city_distances (from_name, to_name, km) VALUES (?, ?, ?)",
+  );
+  db.transaction(() => {
+    for (const city of CITIES) {
+      upsertCity.run(city.name, city.lat, city.lng);
+    }
+    db.exec("DELETE FROM city_distances");
+    for (const row of cityDistances()) {
+      insertDistance.run(row.from, row.to, row.km);
+    }
+  })();
+
+  db.pragma("user_version = 60");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -2055,6 +2079,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 57) migrateToV57(db);
   if (userVersion(db) < 58) migrateToV58(db);
   if (userVersion(db) < 59) migrateToV59(db);
+  if (userVersion(db) < 60) migrateToV60(db);
 
   backfillSearchKeys(db);
 }

@@ -13,7 +13,7 @@ const MIN_CHARS = 2;
 /**
  * Campo de ciudad: se elige de una lista.
  *
- * Se escribe y aparece una lista de municipios alemanes que sale de
+ * Se escribe y aparece una lista de municipios de Alemania y Austria que sale de
  * OpenStreetMap (ver `city-search.ts`); al elegir uno se guarda su nombre tal y
  * como lo conoce el mapa. No se impide escribir a mano: quien teclea una
  * ciudad que la lista no trae (o la escribe antes de que llegue) puede enviar

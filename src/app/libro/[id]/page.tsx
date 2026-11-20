@@ -52,6 +52,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       en: `A copy of «${listing.title}» by ${listing.author}, available to exchange in ${listing.city}.`,
     }),
     alternates: { canonical: `/libro/${listing.id}` },
+    robots: { index: false, follow: true },
     ...socialMetadata({
       locale,
       path: `/libro/${listing.id}`,

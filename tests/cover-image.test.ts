@@ -152,6 +152,37 @@ function archivo(bytes: number, type = "image/jpeg") {
   return new File([new Uint8Array(bytes)], "portada", { type });
 }
 
+function archivoConOrientacion(orientation: number): File {
+  const tiff = new Uint8Array(26);
+  tiff.set([0x49, 0x49, 42, 0, 8, 0, 0, 0], 0);
+  tiff.set([1, 0, 0x12, 1, 3, 0, 1, 0, 0, 0, orientation, 0, 0, 0, 0, 0, 0, 0], 8);
+  const exif = new Uint8Array(6 + tiff.length);
+  exif.set([0x45, 0x78, 0x69, 0x66, 0, 0]);
+  exif.set(tiff, 6);
+  const segmentLength = exif.length + 2;
+  return new File(
+    [
+      new Uint8Array([
+        0xff,
+        0xd8,
+        0xff,
+        0xe1,
+        (segmentLength >> 8) & 0xff,
+        segmentLength & 0xff,
+        ...exif,
+        0xff,
+        0xda,
+        0,
+        2,
+        0xff,
+        0xd9,
+      ]),
+    ],
+    "portada.jpg",
+    { type: "image/jpeg" },
+  );
+}
+
 test("un JPG que ya cumple se sube tal cual, sin recomprimir", async () => {
   const estado = instalarDom({ bitmap: { width: 800, height: 1_200 } });
   const original = archivo(1_000);
@@ -161,6 +192,27 @@ test("un JPG que ya cumple se sube tal cual, sin recomprimir", async () => {
   assert.equal(resultado, original, "recomprimir sin necesidad solo pierde calidad");
   assert.equal(estado.dibujos.length, 0, "no se dibuja nada");
   assert.equal(estado.cierres, 1, "el mapa de bits se libera siempre");
+});
+
+test("un JPG con orientación EXIF se rasteriza antes de retirar sus metadatos", async () => {
+  const estado = instalarDom({ bitmap: { width: 800, height: 1_200 } });
+  const original = archivoConOrientacion(6);
+
+  const resultado = await prepareCover(original);
+
+  assert.notEqual(resultado, original);
+  assert.deepEqual(estado.dibujos.map(({ width, height }) => `${width}x${height}`), ["800x1200"]);
+  assert.equal(estado.cierres, 1);
+});
+
+test("un JPG con orientación EXIF normal conserva sus bytes originales", async () => {
+  const estado = instalarDom({ bitmap: { width: 800, height: 1_200 } });
+  const original = archivoConOrientacion(1);
+
+  const resultado = await prepareCover(original);
+
+  assert.equal(resultado, original);
+  assert.equal(estado.dibujos.length, 0);
 });
 
 test("una imagen que no es JPG se recomprime aunque ya quepa", async () => {

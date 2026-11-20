@@ -77,6 +77,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       en: `${profile.published} shared books by ${profile.user.name} in ${profile.user.city}.`,
     }),
     alternates: { canonical: `/u/${profile.user.id}` },
+    robots: { index: false, follow: false },
     ...socialMetadata({
       locale,
       path: `/u/${profile.user.id}`,

@@ -32,8 +32,17 @@ export type LegalConfig = {
   phone: string;
   /** Registro público (asociación, mercantil…) y su número, si aplica. */
   register: string;
+  emailProvider: "brevo" | "webhook" | null;
+  turnstileWidgetEnabled: boolean;
+  turnstileVerificationEnabled: boolean;
+  webPushEnabled: boolean;
+  mastodonEnabled: boolean;
+  mastodonLikesEnabled: boolean;
+  errorWebhookEnabled: boolean;
   complete: boolean;
 };
+
+const ENABLED_VALUES = new Set(["1", "on", "true", "yes", "sí", "si"]);
 
 export function legalConfig(env: Record<string, string | undefined> = process.env): LegalConfig {
   const controller = env.LEGAL_CONTROLLER?.trim() ?? "";
@@ -42,6 +51,13 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
   const vatId = env.LEGAL_VAT_ID?.trim() ?? "";
   const phone = env.LEGAL_PHONE?.trim() ?? "";
   const register = env.LEGAL_REGISTER?.trim() ?? "";
+  const emailProvider = env.MAIL_WEBHOOK_URL?.trim()
+    ? "webhook"
+    : env.BREVO_API_KEY?.trim() && env.MAIL_FROM?.trim()
+      ? "brevo"
+      : null;
+  const mastodonEnabled = Boolean(env.MASTODON_TOKEN?.trim());
+  const likesPerDay = Number.parseInt(env.MASTODON_LIKES_PER_DAY ?? "", 10);
   return {
     controller,
     address,
@@ -49,12 +65,22 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
     vatId,
     phone,
     register,
+    emailProvider,
+    turnstileWidgetEnabled: Boolean(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()),
+    turnstileVerificationEnabled: Boolean(env.TURNSTILE_SECRET?.trim()),
+    webPushEnabled: Boolean(env.VAPID_PUBLIC_KEY?.trim() && env.VAPID_PRIVATE_KEY?.trim()),
+    mastodonEnabled,
+    mastodonLikesEnabled:
+      mastodonEnabled &&
+      ENABLED_VALUES.has((env.MASTODON_LIKES ?? "").trim().toLowerCase()) &&
+      (!Number.isFinite(likesPerDay) || likesPerDay > 0),
+    errorWebhookEnabled: Boolean(env.ERROR_WEBHOOK_URL?.trim()),
     complete: Boolean(controller && address && contact),
   };
 }
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-09";
+const UPDATED = "2026-11-20";
 
 /**
  * Dirección de contacto tal y como se publica: `nombre[at]dominio[dot]tld`.
@@ -85,6 +111,65 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
   const responsible = config.complete
     ? [config.controller, config.address, maskContact(config.contact)].filter(Boolean)
     : [locale === "de" ? CONTROLLER_PLACEHOLDER_DE : CONTROLLER_PLACEHOLDER_ES];
+  const german = locale === "de";
+  const emailRecipient =
+    config.emailProvider === "brevo"
+      ? german
+        ? "E-Mail-Anbieter: Brevo (Sendinblue SAS) erhält Empfängeradresse, Betreff und Inhalt der E-Mail."
+        : "Correo electrónico: Brevo (Sendinblue SAS) recibe la dirección, el asunto y el contenido del mensaje."
+      : config.emailProvider === "webhook"
+        ? german
+          ? "E-Mail-Versand: Der konfigurierte Mail-Webhook erhält Empfängeradresse, Betreff und vollständigen Nachrichtentext; der Betreiber bestimmt den dahinterliegenden Anbieter."
+          : "Correo electrónico: el webhook configurado recibe la dirección, el asunto y el texto completo; quien administra el servicio elige el proveedor que hay detrás."
+        : null;
+  const optionalRecipients: string[] = [];
+  if (config.turnstileWidgetEnabled || config.turnstileVerificationEnabled) {
+    const turnstileDetails = [
+      ...(config.turnstileWidgetEnabled
+        ? [
+            german
+              ? "Der Browser lädt das Widget bei der Registrierung; Cloudflare erhält Verbindungsdaten."
+              : "El navegador carga el widget al registrarse y Cloudflare recibe datos de conexión.",
+          ]
+        : []),
+      ...(config.turnstileVerificationEnabled
+        ? [
+            german
+              ? "Die Serverprüfung sendet das Token an Cloudflare und kann die IP-Adresse enthalten."
+              : "La verificación del servidor envía el token a Cloudflare y puede incluir la dirección IP.",
+          ]
+        : []),
+    ];
+    optionalRecipients.push(`Cloudflare Turnstile: ${turnstileDetails.join(" ")}`);
+  }
+  if (config.webPushEnabled) {
+    optionalRecipients.push(
+      german
+        ? "Web Push: Erst nach Aktivierung und Browser-Berechtigung speichert der Server Endpunkt, Schlüssel und User-Agent. Der Push-Dienst des Browsers (z. B. Google/FCM, Mozilla, Apple oder Microsoft) erhält verschlüsselte Zustellinhalte und Zustellmetadaten und kann auch Verbindungsdaten des Browsers, einschließlich der IP-Adresse, verarbeiten."
+        : "Web Push: solo tras activarlo y conceder permiso, el servidor guarda el endpoint, las claves de suscripción y el agente de usuario. El servicio push del navegador (por ejemplo, Google/FCM, Mozilla, Apple o Microsoft) recibe el contenido cifrado y los metadatos de entrega, y también puede tratar datos de conexión del navegador, incluida la dirección IP.",
+    );
+  }
+  if (config.mastodonEnabled) {
+    optionalRecipients.push(
+      german
+        ? "Mastodon: Die konfigurierte Instanz erhält Beiträge zu Werken, die das Team veröffentlicht, mit Titel, Autor, öffentlicher URL und Cover; die Sichtbarkeit hängt von der Konfiguration ab."
+        : "Mastodon: la instancia configurada recibe publicaciones de obras anunciadas por el equipo, con título, autoría, URL pública y portada; la visibilidad depende de la configuración.",
+    );
+  }
+  if (config.mastodonLikesEnabled) {
+    optionalRecipients.push(
+      german
+        ? "Mastodon-Likes: Die Anwendung liest öffentliche Hashtag-Beiträge und Kontoprofile und kann passende öffentliche Beiträge über das konfigurierte Konto mit „Gefällt mir“ markieren."
+        : "Mastodon Likes: la aplicación consulta publicaciones públicas por hashtag y perfiles de cuentas, y puede marcar publicaciones públicas adecuadas con «me gusta» desde la cuenta configurada.",
+    );
+  }
+  if (config.errorWebhookEnabled) {
+    optionalRecipients.push(
+      german
+        ? "Fehler-Webhook: Der konfigurierte Endpunkt erhält redigierte Server-Fehlerdaten (Zeitpunkt, Nachricht, Stack und Kontext); E-Mail-Adressen, Tokens und Anfrageinhalte werden vor dem Versand redigiert."
+        : "Webhook de errores: el endpoint configurado recibe datos redactados de errores del servidor (fecha, mensaje, traza y contexto); se redactan correos, tokens y cuerpos de solicitudes antes del envío.",
+    );
+  }
 
   if (locale === "de") {
     return {
@@ -92,7 +177,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
       updated: UPDATED,
       intro: [
         "Diese Erklärung beschreibt, welche personenbezogenen Daten Wanderbibliothek verarbeitet, warum, wie lange und an wen sie übermittelt werden.",
-        "Grundlage sind die tatsächlichen Abläufe dieser Anwendung: Jede Angabe hier entspricht dem, was der Code speichert.",
+        "Sie beschreibt die Abläufe des Codes. Welche optionalen Dienste aktiv sind, wird aus der Konfiguration dieser Instanz abgeleitet; deren Betreiber muss konkrete Anbieter, Standorte, Rechtsgrundlagen und Übermittlungsmechanismen prüfen.",
       ],
       sections: [
         { heading: "1. Verantwortlicher", body: responsible },
@@ -101,10 +186,10 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           body: [
             "Konto: Name, E-Mail-Adresse, Stadt, kurze Biografie und Sprache. Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).",
             "Passwort: nur als scrypt-Hash gespeichert, niemals im Klartext. Sitzungen: ein zufälliges Token, in der Datenbank ebenfalls nur als Hash.",
-          "Bücher und Tauschvorgänge: Titel, Zustand, Stadt, Anfragen und Bewertungen. Notizen zum Exemplar sind freiwillig.",
-          "Nachrichten: werden im Browser verschlüsselt (siehe Punkt 7). Der Server speichert den verschlüsselten Text sowie die Metadaten (wer, mit wem, wann); unverschlüsselte Nachrichten nimmt er nicht an.",
+            "Bücher und Tauschvorgänge: Titel, Zustand, Stadt, Anfragen und Bewertungen. Notizen zum Exemplar sind freiwillig. Hochgeladene Cover werden öffentlich mit dem Werk verknüpft; Bildmetadaten werden vor dem Speichern oder Ausliefern entfernt.",
+            "Nachrichten: werden im Browser verschlüsselt (siehe Punkt 7). Der Server speichert den verschlüsselten Text sowie die Metadaten (wer, mit wem, wann); unverschlüsselte Nachrichten nimmt er nicht an.",
             "Moderation: Meldungen, Sanktionen mit Grund und Frist sowie Einsprüche samt Name der prüfenden Person, auch wenn sie von außen kommt. Rechtsgrundlage: berechtigtes Interesse am Schutz der Personen und am geordneten Zusammenleben (Art. 6 Abs. 1 lit. f DSGVO).",
-            "IP-Adresse: ausschließlich zur Begrenzung von Anfragen und zum Schutz vor Passwort-Angriffen, und nur als tagesaktueller Pseudonym gespeichert, nicht als Adresse.",
+            "IP-Adresse: Für Ratenbegrenzung und Schutz vor Passwortangriffen speichert die Anwendungsdatenbank nur ein tagesaktuelles Pseudonym, nicht die Adresse selbst. Server-Zugriffsprotokolle können die IP-Adresse enthalten (siehe Speicherdauer).",
             "E-Mail-Versand: Für Bestätigung, Passwort-Reset und Benachrichtigungen. Die Benachrichtigungen lassen sich im Konto abschalten.",
             "Die Angaben sind für die Nutzung erforderlich: Ohne Name, E-Mail-Adresse und Passwort kann kein Konto angelegt werden. Es gibt keine automatisierte Entscheidungsfindung und kein Profiling mit rechtlicher Wirkung.",
           ],
@@ -114,7 +199,11 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           body: [
             "Sitzungen: 14 Tage, höchstens 30 Tage ab Anmeldung.",
             "Bestätigungs- und Reset-Links: 24 Stunden bzw. 1 Stunde; sie sind einmalig gültig. Der Einspruchslink: 30 Tage.",
-            "Versandte E-Mails: 7 Tage nach Zustellung.",
+            "E-Mail-Warteschlange: erledigte oder fehlgeschlagene Aufträge bis zu 7 Tage, offene oder laufende bis zu 30 Tage ab Erstellung. Die Aufbewahrung beim E-Mail-Anbieter richtet sich nach dessen Bedingungen.",
+            "Falls die optionale Mastodon-Like-Funktion verwendet wurde: Status- und Kontokennung, URL, Hashtag, Sprache und Zeitpunkt werden nach 180 Tagen gelöscht.",
+            ...(config.webPushEnabled
+              ? ["Push-Abonnements: bis zur Abmeldung, Kontolöschung oder bis der Push-Dienst meldet, dass ein Endpunkt nicht mehr existiert; höchstens sechs Geräte je Konto."]
+              : []),
             "IP-Pseudonyme: höchstens 1 Tag.",
             "Benachrichtigungen: 90 Tage nach dem Lesen, spätestens 180 Tage nach Entstehung. Aktivität im öffentlichen Bereich und in Clubs: 180 Tage.",
             "Moderationsprotokoll: bis zu 730 Tage (konfigurierbar). Sanktionen: solange sie aktiv sind; Grund und Frist werden beim Aufheben gelöscht.",
@@ -127,22 +216,25 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         {
           heading: "4. Empfänger und Drittanbieter",
           body: [
-            "E-Mail-Anbieter: In diesem Dienst Brevo (Sendinblue SAS, Paris), der die Daten weisungsgebunden und innerhalb der EU verarbeitet; erhält Adresse und Inhalt der Benachrichtigungs-E-Mail, niemals den Inhalt verschlüsselter Nachrichten.",
-            "Buchcover: Die Bilder werden über unseren Server geladen und zwischengespeichert; die Open Library (Internet Archive) sieht dabei die IP des Servers und die ISBN, nicht die IP der Besucherin oder des Besuchers.",
-            "Weitere Buchdaten: zur Vervollständigung der bibliografischen Angaben fragt der Server die Deutsche Nationalbibliothek (services.dnb.de) und, als Ausweichquelle für Cover, Google Books (Google Ireland Ltd.); beide erhalten nur die ISBN und die IP des Servers.",
+            ...(emailRecipient ? [emailRecipient] : []),
+            "Bibliografische Daten: Der Server fragt die Deutsche Nationalbibliothek (services.dnb.de) und Open Library ab. Diese erhalten die ISBN und die IP des Servers, nicht die IP der besuchenden Person; Cover werden nicht von dort geladen.",
             "Ortsnamen: während des Tippens fragt der Server die Ortsliste bei Photon (Komoot GmbH) ab, einer Suche über die Daten von OpenStreetMap; anschließend gleicht er den gewählten Namen mit Nominatim (OpenStreetMap Foundation) ab, um Tippfehler zu erkennen. Übertragen wird nur der eingetippte Text bzw. der Ortsname, keine IP-Adresse der Besucherin oder des Besuchers.",
-            "Cloudflare Turnstile: nur wenn aktiviert, beim Registrieren.",
+            ...optionalRecipients,
             "Hosting: der Anbieter, bei dem dieser Dienst läuft.",
             "Es gibt keine Analyse-, Werbe- oder Tracking-Dienste und keine externen Schriftarten.",
-            "Drittlandbezug: Findet die Verarbeitung durch einen Dienstleister außerhalb des EWR statt (z. B. ein E-Mail-Anbieter in den USA), stützt sie sich auf die Standardvertragsklauseln der EU-Kommission oder einen Angemessenheitsbeschluss. Welcher Anbieter eingesetzt wird, ergibt sich aus der Konfiguration des Dienstes.",
+            "Internationale Übermittlungen: Die konkreten Empfänger und etwaige Übermittlungen außerhalb des EWR hängen von der Konfiguration ab. Der Betreiber dieser Instanz muss die eingesetzten Anbieter, deren Standorte und die jeweils geltenden Garantien angeben; der Anwendungscode kann diese Verträge nicht bestätigen.",
           ],
         },
         {
           heading: "5. Cookies und lokale Speicherung",
           body: [
-            "Zwei technisch notwendige Cookies: die Sitzung (HttpOnly, Secure, SameSite=Lax, 14 Tage) und, nur wenn die Sprache manuell gewechselt wird, die Spracheinstellung (1 Jahr). Keines dient Werbung oder Analyse und keines verlangt eine Einwilligung.",
-            "Im Browser gespeichert: gewähltes Design und Sprache, ob die Einführung gesehen wurde, sowie die Fingerabdrücke der Schlüssel der Gesprächspartner.",
-            "Die private Schlüsselhälfte für die Verschlüsselung liegt im IndexedDB des Browsers und lässt sich von JavaScript nicht auslesen.",
+            "Zwei Cookies: die Sitzung (HttpOnly, Secure, SameSite=Lax, 14 Tage) zur Anmeldung und, nur nach manuellem Sprachwechsel, die Spracheinstellung (1 Jahr). Keines dient Werbung oder Analyse. Ob eine Einwilligung für den Zugriff auf das Endgerät nötig ist, muss für jeden Zweck nach dem anwendbaren Recht beurteilt werden (in Deutschland § 25 TDDDG, in Österreich § 165 Abs. 3 TKG 2021). § 165 Abs. 3 TKG 2021 verpflichtet Anbieter von Diensten der Informationsgesellschaft außerdem, über verarbeitete personenbezogene Daten, Rechtsgrundlage, Zweck und Speicherdauer zu informieren. Die Erhebung solcher Daten setzt grundsätzlich eine aktive Einwilligung auf Basis klarer und umfassender Informationen voraus; technische Speicherung oder Zugriff bleiben insbesondere für die Nachrichtenübermittlung oder einen für einen ausdrücklich gewünschten Dienst unbedingt erforderlichen Zugriff möglich. Dieser Hinweis ersetzt keine erforderliche Information oder Einwilligung.",
+            "Im Browser bleiben das gewählte Design, die ausgeblendete Einführung und Checkliste sowie die Fingerabdrücke der Gesprächsschlüssel gespeichert, bis die Websitedaten gelöscht werden. Diese Werte werden nicht an den Server übertragen.",
+            "Für die Ende-zu-Ende-Verschlüsselung speichert der Browser einen nicht exportierbaren privaten Schlüssel in IndexedDB. Der Server erhält ihn nicht; die Anwendung kann ihn für Verschlüsselungsoperationen verwenden. Nach Kontolöschung bleibt der lokale Schlüssel bestehen, bis die Websitedaten im Browser gelöscht werden.",
+            "Der Service Worker wird in Produktion automatisch registriert, speichert keine Seitenantworten im Cache und dient der Push-Funktion. Push wird erst nach Aktivierung und Browser-Berechtigung abonniert; die Browser-Berechtigung allein ersetzt keine Information über die Datenverarbeitung.",
+            ...(config.webPushEnabled
+              ? ["Der Server speichert pro Push-Gerät Endpunkt, Zustellschlüssel und User-Agent. Die Inhalte werden für Web Push verschlüsselt; der Push-Dienst kann weiterhin Endpunkt, Zustellmetadaten und Verbindungsdaten des Browsers einschließlich IP-Adresse verarbeiten. Abmeldung und Kontolöschung entfernen das Abonnement; ungültige Endpunkte werden beim Versand gelöscht."]
+              : []),
           ],
         },
         {
@@ -151,7 +243,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "Das Profil (Name, Stadt, Biografie, Bücher) ist für angemeldete Personen sichtbar; daraus lebt die Gemeinschaft.",
             "Du kannst wählen, wer dein Profil sieht (die ganze Gemeinschaft, nur Personen, denen du folgst, oder niemand), ob deine Stadt gezeigt wird, ob die Reise deiner Exemplare erzählt wird (Städte und Monate, nie Personen), ob du Bewertungen und Kommentare mit deinem Namen oder als «eine Person aus der Gemeinschaft» signierst und wer dir direkt schreiben darf. Die genaue Stadt bleibt bei einem angenommenen Tausch sichtbar, sonst kann man sich nicht treffen.",
             "Startseite und Katalog lassen sich auch ohne Konto ansehen und durchblättern. Ohne Anmeldung zeigt jedes Exemplar nur Buchangaben und Stadt: nie, wer es anbietet, die Notiz oder das genaue Datum. Mit Anmeldung kann der Eintrag die Reise des Exemplars erzählen: Städte und Monate, nie Personen.",
-            "Suchmaschinen dürfen den Katalog und die Profile nicht indexieren (robots.txt).",
+            "Katalog, Werkseiten, Leselisten, Leserverzeichnis und Profile sind mit `noindex` gekennzeichnet und stehen nicht in der Sitemap. Suchmaschinen müssen die Seiten dafür abrufen können; `robots.txt` ist kein Zugriffsschutz. Die Kennzeichnung verhindert keine Einsicht in öffentliche Inhalte und eine Entfernung aus bereits bestehenden Suchergebnissen kann dauern.",
           ],
         },
         {
@@ -168,7 +260,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "Berichtigung: Name, Stadt und Biografie lassen sich jederzeit ändern.",
             "Löschung: „Konto löschen“ anonymisiert das Konto und entfernt Sitzungen, Benachrichtigungen, Listen, eigene Clubs, Blockierungen, Lesezeichen und persönliche Notizen. Nachrichten und Bewertungen bleiben mit anonymisiertem Autor erhalten, weil sie zum Verlauf anderer Personen gehören.",
             "Widerspruch gegen Benachrichtigungs-E-Mails: jederzeit im Konto.",
-            "Beschwerde: bei der für dich zuständigen Datenschutz-Aufsichtsbehörde deines Bundeslandes.",
+            "Beschwerde: bei der zuständigen Datenschutz-Aufsichtsbehörde. In Deutschland ist dies regelmäßig die Behörde des zuständigen Bundeslandes; in Österreich die Datenschutzbehörde (DSB).",
             "Einschränkung der Verarbeitung: Solange ein Widerspruch oder eine Löschung geprüft wird, können Sie die Verarbeitung einschränken lassen; melden Sie sich dafür bei der oben genannte Kontaktadresse.",
             "Widerruf: Eine erteilte Einwilligung – etwa in Benachrichtigungs-E-Mails – lässt sich jederzeit ohne Angabe von Gründen widerrufen, im Konto oder per E-Mail; die Rechtmäßigkeit der bisherigen Verarbeitung bleibt davon unberührt.",
           ],
@@ -200,7 +292,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
     updated: UPDATED,
     intro: [
       "Esta política describe qué datos personales trata Wanderbibliothek, para qué, durante cuánto tiempo y a quién se comunican.",
-      "Se basa en lo que hace realmente la aplicación: cada dato que se menciona aquí es el que el código guarda.",
+      "Describe los flujos del código. Los servicios opcionales se muestran según la configuración detectada en esta instalación; quien la administra debe comprobar los proveedores, ubicaciones, bases jurídicas y garantías de transferencia reales.",
     ],
     sections: [
       { heading: "1. Responsable del tratamiento", body: responsible },
@@ -209,10 +301,10 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         body: [
           "Cuenta: nombre, correo, ciudad, biografía breve e idioma. Base jurídica: ejecución del contrato (art. 6.1.b RGPD).",
           "Contraseña: solo se guarda su hash scrypt, nunca en claro. Sesiones: un token aleatorio que en la base también queda como hash.",
-          "Libros e intercambios: título, estado, ciudad, solicitudes y valoraciones. Las notas del ejemplar son voluntarias.",
+          "Libros e intercambios: título, estado, ciudad, solicitudes y valoraciones. Las notas del ejemplar son voluntarias. Las portadas que suben las personas usuarias se asocian públicamente a la obra; el servidor elimina los metadatos de imagen antes de guardarlas o servirlas.",
           "Mensajes: se cifran en el navegador (punto 7). El servidor guarda el texto cifrado y los metadatos (quién, con quién, cuándo); no acepta mensajes sin cifrar.",
           "Moderación: denuncias, sanciones con su motivo y plazo, y apelaciones con el nombre de quien las revisó, aunque venga de fuera. Base jurídica: interés legítimo en proteger a las personas y mantener la convivencia (art. 6.1.f RGPD).",
-          "Dirección IP: únicamente para limitar peticiones y frenar ataques de contraseña, y guardada como pseudónimo diario, no como dirección.",
+          "Dirección IP: para limitar peticiones y frenar ataques de contraseña, la base de datos de la aplicación guarda un pseudónimo diario, no la dirección. Los registros de acceso del servidor pueden conservar la IP (véase el plazo de conservación).",
           "Correo electrónico: para confirmar la cuenta, restablecer la contraseña y avisar de actividad. Los avisos se pueden desactivar en la cuenta.",
           "Estos datos son necesarios para prestar el servicio: sin nombre, correo y contraseña no se puede crear la cuenta. No hay decisiones automatizadas ni elaboración de perfiles con efectos jurídicos sobre la persona.",
         ],
@@ -222,7 +314,11 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         body: [
           "Sesiones: 14 días, con un máximo de 30 desde el acceso.",
           "Enlaces de confirmación y restablecimiento: 24 horas y 1 hora; son de un solo uso. El enlace de apelación: 30 días.",
-          "Correos enviados: 7 días tras la entrega.",
+          "Cola de correo: los trabajos terminados o fallidos se conservan hasta 7 días y los pendientes o en curso hasta 30 días desde su creación. La conservación del mensaje por el proveedor de correo depende de sus propias condiciones.",
+          "Si se ha usado la función opcional de likes de Mastodon: los identificadores de la publicación y la cuenta, la URL, el hashtag, el idioma y la fecha se eliminan a los 180 días.",
+          ...(config.webPushEnabled
+            ? ["Suscripciones Push: hasta que la persona se dé de baja, borre su cuenta o el servicio Push indique que el endpoint ya no existe; máximo seis dispositivos por cuenta."]
+            : []),
           "Pseudónimos de IP: como máximo 1 día.",
           "Avisos: 90 días tras leerse y 180 como máximo. Actividad pública y de clubes: 180 días.",
           "Auditoría de moderación: hasta 730 días (configurable). Sanciones: mientras estén activas; el motivo y el plazo se borran al levantarse la sanción.",
@@ -235,22 +331,25 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
       {
         heading: "4. Destinatarios y terceros",
         body: [
-          "Proveedor de correo: en este servicio, Brevo (Sendinblue SAS, París), que trata los datos por nuestra cuenta y dentro de la UE; recibe la dirección y el texto del aviso, nunca el contenido de los mensajes cifrados.",
-          "Portadas de libros: se descargan a través de nuestro servidor y se cachean; Open Library (Internet Archive) ve la IP del servidor y el ISBN, no la de quien navega.",
-          "Otros datos del libro: para completar la ficha, el servidor consulta la Deutsche Nationalbibliothek (services.dnb.de) y, como fuente alternativa de portadas, Google Books (Google Ireland Ltd.); ambos reciben solo el ISBN y la IP del servidor.",
+          ...(emailRecipient ? [emailRecipient] : []),
+          "Datos bibliográficos: el servidor consulta la Deutsche Nationalbibliothek (services.dnb.de) y Open Library. Reciben el ISBN y la IP del servidor, no la IP de quien navega; las portadas ya no se descargan de esos servicios.",
           "Nombres de municipio: mientras se escribe, el servidor pide la lista de municipios a Photon (Komoot GmbH), un buscador sobre los datos de OpenStreetMap; después contrasta el nombre elegido con Nominatim (OpenStreetMap Foundation) para detectar erratas. Se envía solo el texto escrito o el nombre del municipio, nunca la IP de quien navega.",
-          "Cloudflare Turnstile: solo si está activado, al registrarse.",
+          ...optionalRecipients,
           "Alojamiento: el proveedor donde se ejecuta el servicio.",
-          "No hay servicios de analítica, publicidad ni seguimiento, ni fuentes externas.",
-          "Transferencias internacionales: si un proveedor trata datos fuera del EEE (por ejemplo, un servicio de correo en Estados Unidos), se ampara en las cláusulas contractuales tipo de la Comisión Europea o en una decisión de adecuación. Qué proveedor se usa consta en la configuración del servicio.",
+          "No hay servicios de analítica, publicidad ni seguimiento, ni tipografías externas.",
+          "Transferencias internacionales: los destinatarios concretos y las transferencias fuera del EEE dependen de la configuración. Quien administra esta instalación debe indicar los proveedores empleados, sus ubicaciones y las garantías aplicables; el código no puede confirmar contratos ni mecanismos de transferencia.",
         ],
       },
       {
         heading: "5. Cookies y almacenamiento local",
         body: [
-          "Dos cookies técnicas: la de sesión (HttpOnly, Secure, SameSite=Lax, 14 días) y, solo si se cambia el idioma a mano, la de idioma (1 año). Ninguna sirve para publicidad ni analítica, y ninguna requiere consentimiento.",
-          "En el navegador se guardan el tema y el idioma elegidos, si ya viste la guía de primeros pasos y las huellas de las claves de tus interlocutores.",
-          "La mitad privada de la clave de cifrado vive en IndexedDB y JavaScript no puede extraerla.",
+          "Dos cookies técnicas: la de sesión (HttpOnly, Secure, SameSite=Lax, 14 días) para iniciar sesión y, solo tras cambiar el idioma manualmente, la preferencia de idioma (1 año). Ninguna sirve para publicidad ni analítica. La necesidad de consentimiento para acceder al dispositivo se debe valorar para cada finalidad según la ley aplicable (en Alemania, § 25 TDDDG; en Austria, § 165.3 TKG 2021). El § 165.3 TKG 2021 también obliga a los prestadores de servicios de la sociedad de la información a informar sobre los datos personales tratados, la base jurídica, la finalidad y el plazo de conservación. Por regla general, la obtención de esos datos requiere consentimiento activo basado en información clara y completa; la norma permite, entre otras, excepciones para transmitir un mensaje o para el acceso estrictamente necesario a un servicio solicitado expresamente. Este aviso no sustituye la información ni el consentimiento que sean necesarios.",
+          "En el navegador permanecen el tema elegido, la guía y la lista de inicio descartadas, y las huellas de las claves de mensajería hasta que se borren los datos del sitio. Estos valores no se envían al servidor.",
+          "Para el cifrado de extremo a extremo, el navegador guarda una clave privada no exportable en IndexedDB. El servidor no la recibe; la aplicación puede usarla para operaciones criptográficas. Tras borrar la cuenta, la clave local permanece hasta que se borren los datos del sitio en el navegador.",
+          "En producción se registra automáticamente un service worker; no guarda respuestas de páginas en caché y se usa para la función Push. La suscripción Push solo se crea tras activarla y conceder permiso en el navegador; ese permiso no sustituye la información sobre el tratamiento de datos.",
+          ...(config.webPushEnabled
+            ? ["El servidor guarda por dispositivo Push el endpoint, las claves de entrega y el agente de usuario. El contenido se cifra para Web Push, aunque el proveedor puede tratar el endpoint, los metadatos de entrega y datos de conexión del navegador, incluida la IP. La baja y el borrado de cuenta eliminan la suscripción; los endpoints inválidos se eliminan al enviar."]
+            : []),
         ],
       },
       {
@@ -259,7 +358,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "El perfil (nombre, ciudad, biografía, libros) es visible para personas con sesión iniciada: de ahí vive la comunidad.",
           "Puedes elegir quién ve tu perfil (toda la comunidad, solo a quienes sigues o nadie), si tu ciudad se enseña, si se cuenta el recorrido de tus ejemplares (ciudades y meses, nunca personas), si firmas reseñas y comentarios con tu nombre o como «una persona de la comunidad», y quién puede escribirte por mensaje directo. La ciudad exacta se sigue viendo en un intercambio aceptado, porque sin ella no se puede quedar.",
           "La portada y el catálogo se pueden ver y recorrer sin cuenta. Sin sesión, cada ejemplar muestra el libro y la ciudad: nunca quién lo publica, su nota ni la fecha exacta. Con sesión, la ficha puede contar el recorrido de la copia: ciudades y meses, nunca las personas.",
-          "Los buscadores no pueden indexar el catálogo ni los perfiles (robots.txt).",
+          "El catálogo, las fichas de obra, las listas, el directorio de lectores y los perfiles llevan la indicación `noindex` y no se incluyen en el sitemap. Los buscadores deben poder acceder a esas páginas para leerla; `robots.txt` no es un control de acceso. La indicación no impide consultar el contenido público y retirar resultados ya indexados puede tardar.",
         ],
       },
       {
@@ -276,7 +375,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Rectificación: nombre, ciudad y biografía se cambian cuando quieras.",
           "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, clubes propios, bloqueos, favoritos, notas personales y las claves de dispositivo publicadas. Los mensajes de intercambio y las valoraciones se conservan con el autor ya anonimizado porque forman parte del historial de otras personas; las conversaciones directas se borran enteras, también para la otra persona.",
           "Oposición a los correos de aviso: en cualquier momento desde la cuenta.",
-          "Reclamación: ante la autoridad de protección de datos de tu estado federado.",
+          "Reclamación: ante la autoridad de control de protección de datos competente. En Alemania, normalmente la del estado federado correspondiente; en Austria, la Datenschutzbehörde (DSB).",
           "Limitación del tratamiento: mientras se resuelve una oposición o un borrado, puedes pedir que se limite el tratamiento escribiendo a la dirección de contacto de arriba.",
           "Retirada del consentimiento: si diste tu consentimiento para algo, por ejemplo los correos de aviso, puedes retirarlo en cualquier momento sin dar motivos, desde la cuenta o por correo; la licitud del tratamiento anterior no queda afectada.",
         ],
@@ -321,7 +420,10 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
     return {
       title: "Impressum",
       updated: UPDATED,
-      intro: ["Angaben gemäß § 5 DDG."],
+      intro: [
+        "Angaben gemäß § 5 DDG.",
+        "Diese Vorlage geht von einem in Deutschland niedergelassenen Anbieter aus. Die Nutzung aus Österreich ändert den Sitz des Anbieters nicht. Ist der Anbieter in Österreich niedergelassen, sind die Angaben nach § 5 ECG und – falls das Angebot darunter fällt – die Offenlegungspflichten nach § 25 MedienG zu prüfen und gegebenenfalls zu ergänzen.",
+      ],
       sections: [
         { heading: "Diensteanbieter", body: details },
         {
@@ -342,7 +444,10 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
   return {
     title: "Aviso legal",
     updated: UPDATED,
-    intro: ["Datos identificativos del prestador del servicio."],
+    intro: [
+      "Datos identificativos del prestador del servicio conforme a la plantilla alemana.",
+      "Esta plantilla parte de un prestador establecido en Alemania. El uso desde Austria no cambia por sí solo el lugar de establecimiento. Si el prestador está establecido en Austria, deben revisarse las indicaciones del § 5 ECG y, si el servicio entra en su ámbito, las obligaciones de publicación del § 25 MedienG, y completarlas cuando corresponda.",
+    ],
     sections: [
       { heading: "Titular del servicio", body: details },
       {

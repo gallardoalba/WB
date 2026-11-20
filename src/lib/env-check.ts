@@ -209,15 +209,16 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
   }
 
   // Las páginas legales se alimentan de estas variables. Sin ellas, el aviso
-  // legal queda visiblemente incompleto, y el Impressum (§ 5 DDG) es
-  // obligatorio para un servicio abierto en Alemania.
+  // legal queda visiblemente incompleto. La plantilla actual está basada en
+  // Alemania (§ 5 DDG); en Austria el operador debe revisar el ECG y, si aplica,
+  // el MedienG.
   const legalMissing = ["LEGAL_CONTROLLER", "LEGAL_ADDRESS", "LEGAL_CONTACT_EMAIL"].filter(
     (key) => !has(env, key),
   );
   if (legalMissing.length > 0) {
     warn(
       legalMissing[0]!,
-      `Faltan datos del responsable (${legalMissing.join(", ")}): /privacidad y /aviso-legal se publican incompletos. El aviso legal es obligatorio en Alemania y la política de privacidad, exigible por el RGPD.`,
+      `Faltan datos del responsable (${legalMissing.join(", ")}): /privacidad y /aviso-legal se publican incompletos. La plantilla del aviso legal se basa en Alemania (§ 5 DDG); si el operador está establecido en Austria, debe revisar además el § 5 ECG y, cuando corresponda, el § 25 MedienG. La política de privacidad es exigible por el RGPD.`,
     );
   }
 
