@@ -165,6 +165,21 @@
   color: var(--coral);
 }
 
+/* El número va dentro de la pestaña: con muchos intercambios, saber cuántos
+   hay en cada cajón evita abrirlos a ciegas. */
+.exchange-tab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .exchange-archive:disabled {
   cursor: progress;
   opacity: 0.55;
@@ -238,6 +253,24 @@
   font-weight: 700;
 }
 
+/* La acción de abrir el intercambio deja de ser un icono mudo en escritorio.
+   En móvil se queda en el círculo de 44 px para no comerse el título. */
+.exchange-row > button.exchange-open {
+  width: auto;
+  min-width: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+}
+
+.exchange-open-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .status-chip {
   padding: 5px 9px;
   border-radius: 999px;
@@ -249,6 +282,7 @@
 .status-chip.pending { background: var(--status-pending-bg); color: var(--status-pending-ink); }
 .status-chip.accepted { background: var(--status-accepted-bg); color: var(--status-accepted-ink); }
 .status-chip.completed { background: var(--status-completed-bg); color: var(--status-completed-ink); }
+.status-chip.incident { background: var(--status-pending-bg); color: var(--status-pending-ink); }
 .status-chip.declined,
 .status-chip.cancelled,
 .status-chip.expired { background: var(--status-expired-bg); color: var(--status-expired-ink); }

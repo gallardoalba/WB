@@ -78,6 +78,7 @@ export function Dialog({
   onClose,
   title,
   description,
+  overline,
   icon,
   wide = false,
   className,
@@ -238,6 +239,7 @@ export function Dialog({
           <X size={19} />
         </button>
         {icon && <span className="dialog-icon">{icon}</span>}
+        {overline && <span className="overline">{overline}</span>}
         <h2 id={titleId}>{title}</h2>
         {description && (
           <p id={descriptionId} className="dialog-description">

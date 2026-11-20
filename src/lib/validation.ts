@@ -648,9 +648,15 @@ export const adminActionSchema = z.object({
     "hide_comment",
     "hide_club",
     "hide_club_post",
+    "cancel_request",
   ]),
   reason: z.string().trim().max(300).optional(),
   days: z.number().int().min(1).max(365).optional(),
+});
+
+/** Respuesta de la otra parte a una incidencia de entrega. */
+export const incidentResponseSchema = z.object({
+  response: z.string().trim().min(10).max(1000),
 });
 
 export const localeSchema = z.object({

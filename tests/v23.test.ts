@@ -12,12 +12,17 @@ before(async () => {
 });
 
 test("una incidencia de intercambio exige descripción y participantes", () => {
+  // La incidencia de entrega solo existe mientras el intercambio está aceptado:
+  // el seed completo ya no sirve para este caso.
+  const request = repo.createRequest("usr_ana", "lst_3");
+  repo.updateRequestStatus(request.id, "usr_lucia", "accepted");
+
   assert.throws(
     () =>
       repo.reportContent({
         reporterId: "usr_ana",
         targetType: "request",
-        targetId: "req_seed_1",
+        targetId: request.id,
         reason: "El libro no llegó",
         details: "corto",
       }),
@@ -27,7 +32,7 @@ test("una incidencia de intercambio exige descripción y participantes", () => {
   repo.reportContent({
     reporterId: "usr_ana",
     targetType: "request",
-    targetId: "req_seed_1",
+    targetId: request.id,
     reason: "El libro no llegó",
     details: "No llegó después de dos semanas y no hay respuesta.",
   });
@@ -36,7 +41,7 @@ test("una incidencia de intercambio exige descripción y participantes", () => {
     .listReports()
     .find((report) => report.targetType === "request");
   assert.ok(incident);
-  assert.match(incident!.targetLabel, /Gott und der Staat/);
+  assert.match(incident!.targetLabel, /Die Antiquiertheit des Menschen/);
   assert.equal(incident!.reason, "El libro no llegó");
 
   assert.throws(
@@ -44,7 +49,7 @@ test("una incidencia de intercambio exige descripción y participantes", () => {
       repo.reportContent({
         reporterId: "usr_diego",
         targetType: "request",
-        targetId: "req_seed_1",
+        targetId: request.id,
         reason: "El libro no llegó",
         details: "No participo en este intercambio, pero intento denunciarlo.",
       }),

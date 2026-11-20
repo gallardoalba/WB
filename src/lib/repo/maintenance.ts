@@ -58,6 +58,78 @@ export function expireStaleRequests(days = 14): number {
 
   return stale.length;
 }
+
+/**
+ * Recordatorio suave para intercambios aceptados que llevan días sin avanzar.
+ *
+ * No caduca ni libera el ejemplar: el libro puede estar en tránsito y cerrar el
+ * intercambio por inactividad sería peor que recordarlo. Se envía como mucho
+ * una vez cada `days` por intercambio; los avisos de tipo `accepted` de la
+ * bandeja sirven de marca (el título se guarda traducido, el tipo no) para no
+ * añadir otra columna ni otra migración. Se limita a 50 por pasada para que un
+ * histórico grande no genere una ráfaga de avisos de golpe.
+ */
+export function remindStaleAcceptedRequests(days = 7): number {
+  const db = getDb();
+  const stale = db
+    .prepare(
+      `SELECT r.id, r.listing_id, r.owner_id, r.requester_id,
+              r.owner_confirmed_at, r.requester_confirmed_at
+         FROM requests r
+        WHERE r.status = 'accepted'
+          AND r.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
+          AND NOT EXISTS (
+            SELECT 1 FROM notifications n
+             WHERE n.request_id = r.id
+               AND n.type = 'accepted'
+               AND n.created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
+          )
+        ORDER BY r.updated_at ASC
+        LIMIT 50`,
+    )
+    .all(`-${days} days`, `-${days} days`) as {
+    id: string;
+    listing_id: string;
+    owner_id: string;
+    requester_id: string;
+    owner_confirmed_at: string | null;
+    requester_confirmed_at: string | null;
+  }[];
+
+  if (stale.length === 0) return 0;
+
+  db.transaction(() => {
+    for (const request of stale) {
+      const title = listingTitle(request.listing_id);
+      // Solo se recuerda a quien aún no ha firmado: si una parte ya confirmó,
+      // la otra no necesita que le pidan lo mismo que ya hizo.
+      if (!request.owner_confirmed_at) {
+        notify({
+          userId: request.owner_id,
+          type: "accepted",
+          title: "Recordatorio: falta confirmar la entrega",
+          body: `«${title}» · Lleváis unos días sin confirmar la entrega. Si ya lo has entregado o enviado, confírmalo para cerrar el intercambio.`,
+          listingId: request.listing_id,
+          requestId: request.id,
+          link: `/intercambios?t=${request.id}`,
+        });
+      }
+      if (!request.requester_confirmed_at) {
+        notify({
+          userId: request.requester_id,
+          type: "accepted",
+          title: "Recordatorio: falta confirmar la recepción",
+          body: `«${title}» · Lleváis unos días sin confirmar la recepción. Si ya tienes el libro, confirma que lo has recibido.`,
+          listingId: request.listing_id,
+          requestId: request.id,
+          link: `/intercambios?t=${request.id}`,
+        });
+      }
+    }
+  })();
+
+  return stale.length;
+}
 export type MaintenanceReport = {
   expiredRequests: number;
   sessions: number;
@@ -73,6 +145,8 @@ export type MaintenanceReport = {
   expiredSuspensions: number;
   /** Apelaciones resueltas que se han tirado (retención: dos años). */
   appeals: number;
+  /** Intercambios aceptados a los que se ha recordado que falta confirmar. */
+  acceptedReminders: number;
   clubReminders: number;
   covers: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
@@ -150,6 +224,7 @@ export function runMaintenance(): MaintenanceReport {
     });
   }
 
+  const acceptedReminders = remindStaleAcceptedRequests();
   const clubReminders = notifyUpcomingMeetings();
   // Las portadas cacheadas se acumulan con cada ISBN visitado: se olvidan las
   // que nadie ha pedido en medio año.
@@ -180,6 +255,7 @@ export function runMaintenance(): MaintenanceReport {
     resolvedReports,
     expiredSuspensions: expiredSuspensions.length,
     appeals,
+    acceptedReminders,
     clubReminders,
     covers,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.

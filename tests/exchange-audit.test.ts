@@ -9,6 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
+import { DELIVERY_INCIDENT_REASON } from "../src/lib/domain.ts";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
@@ -51,6 +52,11 @@ const avisos = (userId: string) => repo.listNotifications(userId, { limit: 50 })
 
 function avisoConTitulo(userId: string, title: string) {
   return avisos(userId).find((aviso) => aviso.title === title);
+}
+
+/** Aviso de un intercambio concreto; evita encontrar el de otra prueba. */
+function avisoDeSolicitud(userId: string, requestId: string, title: string) {
+  return avisos(userId).find((aviso) => aviso.requestId === requestId && aviso.title === title);
 }
 
 const errorDe = (action: () => unknown): Error & { status?: number } => {
@@ -175,9 +181,250 @@ test("la primera confirmación avisa a la otra parte y no cierra el intercambio"
   assert.equal(estado(request.id, "usr_diego"), "accepted", "una sola firma no basta");
   assert.equal(estadoDelEjemplar(listing.id), "reserved", "el libro sigue reservado");
 
-  const aviso = avisoConTitulo("usr_diego", "Confirma la entrega");
+  const aviso = avisoConTitulo("usr_diego", "Confirma la recepción");
   assert.ok(aviso, "la otra parte tiene que enterarse de que falta su confirmación");
-  assert.match(aviso!.body, /ya ha confirmado/);
+  assert.match(aviso!.body, /Ya se ha entregado/);
+  assert.match(aviso!.body, /confirma que lo has recibido/);
+  assert.equal(aviso!.link, `/intercambios?t=${request.id}`);
+});
+
+test("si quien recibe confirma primero, el aviso pide la entrega y no la recepción", () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+
+  // El solicitante confirma la recepción; a la propietaria le toca la entrega.
+  repo.updateRequestStatus(request.id, "usr_diego", "completed");
+
+  const aviso = avisoConTitulo("usr_clara", "Confirma la entrega");
+  assert.ok(aviso, "quien entrega tiene que saber que falta su confirmación");
+  assert.match(aviso!.body, /Ya se ha confirmado la recepción/);
+  assert.match(aviso!.body, /Confirma tú la entrega/);
+  assert.doesNotMatch(aviso!.body, /Cuando lo recibas/);
+  assert.equal(aviso!.link, `/intercambios?t=${request.id}`);
+});
+
+test("un intercambio aceptado y parado recibe un recordatorio, una sola vez por semana", async () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE requests SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days') WHERE id = ?",
+    )
+    .run(request.id);
+  // El aviso de aceptación también tiene que ser antiguo: en la vida real se
+  // creó al aceptar, no ahora.
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE notifications SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days') WHERE request_id = ?",
+    )
+    .run(request.id);
+
+  const { remindStaleAcceptedRequests } = await import("../src/lib/repo/maintenance.ts");
+  assert.equal(remindStaleAcceptedRequests(7), 1);
+
+  const avisoDueno = avisoDeSolicitud(
+    "usr_clara",
+    request.id,
+    "Recordatorio: falta confirmar la entrega",
+  );
+  const avisoReceptor = avisoDeSolicitud(
+    "usr_diego",
+    request.id,
+    "Recordatorio: falta confirmar la recepción",
+  );
+  assert.ok(avisoDueno, "quien entrega tiene que recibir su recordatorio");
+  assert.ok(avisoReceptor, "quien recibe tiene que recibir el suyo");
+  assert.equal(avisoDueno!.link, `/intercambios?t=${request.id}`);
+  assert.equal(avisoReceptor!.link, `/intercambios?t=${request.id}`);
+  // El segundo pase no repite el aviso mientras siga dentro de la ventana.
+  assert.equal(remindStaleAcceptedRequests(7), 0);
+});
+
+test("el recordatorio solo se envía a quien aún no ha confirmado", async () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  // Quien recibe ya confirmó; solo falta la entrega de Clara.
+  repo.updateRequestStatus(request.id, "usr_diego", "completed");
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE requests SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days') WHERE id = ?",
+    )
+    .run(request.id);
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE notifications SET created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days') WHERE request_id = ?",
+    )
+    .run(request.id);
+
+  const firma = dbModule
+    .getDb()
+    .prepare("SELECT requester_confirmed_at FROM requests WHERE id = ?")
+    .get(request.id) as { requester_confirmed_at: string | null };
+  assert.ok(firma.requester_confirmed_at, "la recepción tiene que estar firmada");
+
+  const { remindStaleAcceptedRequests } = await import("../src/lib/repo/maintenance.ts");
+  assert.equal(remindStaleAcceptedRequests(7), 1);
+  assert.ok(
+    avisoDeSolicitud("usr_clara", request.id, "Recordatorio: falta confirmar la entrega"),
+  );
+  assert.equal(
+    avisoDeSolicitud("usr_diego", request.id, "Recordatorio: falta confirmar la recepción"),
+    undefined,
+  );
+});
+
+function incidencia() {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  repo.reportContent({
+    reporterId: "usr_diego",
+    targetType: "request",
+    targetId: request.id,
+    reason: DELIVERY_INCIDENT_REASON,
+    details: "El libro no ha llegado después de varias semanas.",
+  });
+  const report = repo
+    .listReports({ limit: 100 })
+    .find((item) => item.targetId === request.id && item.reason === DELIVERY_INCIDENT_REASON);
+  assert.ok(report, "la incidencia tiene que aparecer en la cola de moderación");
+  return { listing, request, report };
+}
+
+test("solo quien recibe puede abrir la incidencia y solo durante 60 días", () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  assert.equal(repo.getRequest(request.id, "usr_diego")?.incidentCanOpen, true);
+
+  const owner = errorDe(() =>
+    repo.reportContent({
+      reporterId: "usr_clara",
+      targetType: "request",
+      targetId: request.id,
+      reason: DELIVERY_INCIDENT_REASON,
+      details: "Quiero abrir una incidencia.",
+    }),
+  );
+  assert.equal(owner.status, 403);
+
+  repo.reportContent({
+    reporterId: "usr_diego",
+    targetType: "request",
+    targetId: request.id,
+    reason: DELIVERY_INCIDENT_REASON,
+    details: "El libro no ha llegado después de varias semanas.",
+  });
+  const duplicate = errorDe(() =>
+    repo.reportContent({
+      reporterId: "usr_diego",
+      targetType: "request",
+      targetId: request.id,
+      reason: DELIVERY_INCIDENT_REASON,
+      details: "Insisto: sigue sin llegar.",
+    }),
+  );
+  assert.equal(duplicate.status, 409);
+
+  // Fuera de la ventana de 60 días desde la aceptación ya no se abre.
+  const oldListing = nuevoEjemplar();
+  const oldRequest = repo.createRequest("usr_diego", oldListing.id);
+  repo.updateRequestStatus(oldRequest.id, "usr_clara", "accepted");
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE requests SET accepted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-61 days') WHERE id = ?",
+    )
+    .run(oldRequest.id);
+  assert.equal(repo.getRequest(oldRequest.id, "usr_diego")?.incidentCanOpen, false);
+  const late = errorDe(() =>
+    repo.reportContent({
+      reporterId: "usr_diego",
+      targetType: "request",
+      targetId: oldRequest.id,
+      reason: DELIVERY_INCIDENT_REASON,
+      details: "El libro no ha llegado.",
+    }),
+  );
+  assert.equal(late.status, 409);
+});
+
+test("quien recibe no puede abrir una incidencia después de confirmar la recepción", () => {
+  const listing = nuevoEjemplar();
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  repo.updateRequestStatus(request.id, "usr_diego", "completed");
+
+  assert.equal(estado(request.id, "usr_diego"), "accepted");
+  assert.equal(repo.getRequest(request.id, "usr_diego")?.incidentCanOpen, false);
+
+  const error = errorDe(() =>
+    repo.reportContent({
+      reporterId: "usr_diego",
+      targetType: "request",
+      targetId: request.id,
+      reason: DELIVERY_INCIDENT_REASON,
+      details: "El libro no ha llegado, aunque confirmé la recepción.",
+    }),
+  );
+  assert.equal(error.status, 409);
+  assert.match(error.message, /confirmar la recepción/);
+});
+
+test("una incidencia abierta bloquea completar y cancelar", () => {
+  const { request } = incidencia();
+  assert.equal(
+    errorDe(() => repo.updateRequestStatus(request.id, "usr_clara", "completed")).status,
+    409,
+  );
+  assert.equal(
+    errorDe(() => repo.updateRequestStatus(request.id, "usr_diego", "cancelled")).status,
+    409,
+  );
+  assert.equal(estado(request.id, "usr_diego"), "accepted");
+});
+
+test("la otra parte responde y su texto no se le enseña a quien denunció", () => {
+  const { request } = incidencia();
+
+  const reporterReply = errorDe(() =>
+    repo.submitIncidentResponse(request.id, "usr_diego", "Ya lo he contado al denunciar."),
+  );
+  assert.equal(reporterReply.status, 403);
+
+  repo.submitIncidentResponse(request.id, "usr_clara", "Lo envié con seguimiento el día 3.");
+  const reporterView = repo.listRequests("usr_diego").find((item) => item.id === request.id);
+  const ownerView = repo.listRequests("usr_clara").find((item) => item.id === request.id);
+  assert.equal(reporterView?.incidentOpen, true);
+  assert.equal(reporterView?.incidentResponded, true);
+  assert.equal(reporterView?.incidentResponse, null);
+  assert.equal(ownerView?.incidentCanRespond, true);
+  assert.equal(ownerView?.incidentResponse, "Lo envié con seguimiento el día 3.");
+});
+
+test("moderación puede cerrar la incidencia y desbloquear el intercambio", () => {
+  const { request, report } = incidencia();
+  repo.resolveReport("usr_admin", report.id, "dismiss");
+  const view = repo.listRequests("usr_diego").find((item) => item.id === request.id);
+  assert.equal(view?.incidentOpen, false);
+  assert.doesNotThrow(() => repo.updateRequestStatus(request.id, "usr_clara", "completed"));
+});
+
+test("moderación puede cancelar el intercambio y liberar el ejemplar", () => {
+  const { listing, request, report } = incidencia();
+  repo.resolveReport("usr_admin", report.id, "cancel_request");
+  assert.equal(estado(request.id, "usr_diego"), "cancelled");
+  assert.equal(estadoDelEjemplar(listing.id), "available");
+  assert.ok(
+    avisoDeSolicitud("usr_diego", request.id, "Incidencia resuelta: intercambio cancelado"),
+  );
 });
 
 test("con las dos confirmaciones el intercambio se cierra y el libro queda entregado", () => {
@@ -264,7 +511,7 @@ test("con una entrega confirmada ya no se puede cancelar el intercambio", () => 
   for (const quien of ["usr_clara", "usr_diego"] as const) {
     const error = errorDe(() => repo.updateRequestStatus(request.id, quien, "cancelled"));
     assert.equal(error.status, 409, `${quien} no debería poder cancelar`);
-    assert.match(error.message, /ya ha confirmado la entrega/);
+    assert.match(error.message, /ya ha confirmado la entrega o la recepción/);
   }
 
   // Y nada se ha movido: el ejemplar sigue reservado y la solicitud aceptada.
@@ -844,7 +1091,10 @@ test("el historial se pagina por cursor sin repetir ni saltarse filas", () => {
 
   const vistos: string[] = [];
   let cursor: { updatedAt: string; id: string } | undefined;
-  for (let pagina = 0; pagina < 20; pagina += 1) {
+  // El número de páginas depende de cuántos intercambios haya dejado la suite:
+  // un límite fijo se quedaba corto al añadir casos nuevos.
+  const paginasMaximas = Math.ceil(repo.countRequests("usr_clara") / 2) + 2;
+  for (let pagina = 0; pagina < paginasMaximas; pagina += 1) {
     const page = repo.listRequestsPage("usr_clara", { limit: 2, before: cursor });
     assert.ok(page.items.length <= 2, "la página respeta el límite");
     vistos.push(...page.items.map((request) => request.id));
