@@ -39,6 +39,36 @@ test("acepta clientes sin cabeceras de navegador", () => {
   assert.doesNotThrow(() => throttle.assertSameOrigin(post({ host: "localhost:3000" })));
 });
 
+test("en producción manda el host configurado, no el de la cabecera", () => {
+  // Un proxy mal puesto (o un envenenamiento de caché) puede reescribir `Host`;
+  // el origen aceptable es el que la instancia publica.
+  const env = process.env as Record<string, string | undefined>;
+  const previo = { nodeEnv: env.NODE_ENV, site: env.NEXT_PUBLIC_SITE_URL };
+  env.NODE_ENV = "production";
+  env.NEXT_PUBLIC_SITE_URL = "https://biblioteca.example.com";
+  try {
+    const mismo = post({
+      origin: "https://biblioteca.example.com",
+      host: "biblioteca.example.com",
+    });
+    assert.doesNotThrow(() => throttle.assertSameOrigin(mismo));
+
+    const hostFalsificado = post({
+      origin: "https://evil.example",
+      host: "evil.example",
+    });
+    assert.throws(
+      () => throttle.assertSameOrigin(hostFalsificado),
+      (error: unknown) => error instanceof Error && "status" in error && error.status === 403,
+    );
+  } finally {
+    if (previo.nodeEnv === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = previo.nodeEnv;
+    if (previo.site === undefined) delete env.NEXT_PUBLIC_SITE_URL;
+    else env.NEXT_PUBLIC_SITE_URL = previo.site;
+  }
+});
+
 test("sin TRUST_PROXY la IP es compartida y el XFF no sirve para saltarse la cuota", () => {
   delete process.env.TRUST_PROXY;
   assert.equal(throttle.clientIp(post({ "x-forwarded-for": "10.0.0.9" })), "direct");

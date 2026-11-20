@@ -99,9 +99,10 @@ test("en producción un secreto sin cifrar es un error de configuración", () =>
     assert.throws(() => box.decryptSecret("123456"), /sin cifrar/);
     assert.throws(() => box.decryptSecret("123456", "totp:usr_1"), /sin cifrar/);
 
-    // Con la bandera explícita (entornos de desarrollo) se sigue aceptando.
+    // La bandera de desarrollo no abre un agujero en producción: un secreto en
+    // claro se sigue rechazando (y `checkEnv()` impide arrancar con ella).
     process.env.WANDERBIBLIOTHEK_ALLOW_PLAINTEXT = "1";
-    assert.equal(box.decryptSecret("123456"), "123456");
+    assert.throws(() => box.decryptSecret("123456"), /sin cifrar/);
   } finally {
     delete process.env.WANDERBIBLIOTHEK_ALLOW_PLAINTEXT;
     if (previo === undefined) delete env.NODE_ENV;

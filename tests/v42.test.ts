@@ -102,6 +102,21 @@ test("sin clave no se guarda nada en claro, salvo con la bandera explícita", ()
   assert.equal(box.encryptSecret("secreto"), "secreto");
 });
 
+test("en producción la bandera de texto plano no sirve como escape", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const previo = env.NODE_ENV;
+  delete process.env.APP_ENCRYPTION_KEY;
+  process.env.WANDERBIBLIOTHEK_ALLOW_PLAINTEXT = "1";
+  env.NODE_ENV = "production";
+  box.resetSecretBoxCache();
+  try {
+    assert.throws(() => box.encryptSecret("secreto"), /APP_ENCRYPTION_KEY/);
+  } finally {
+    if (previo === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = previo;
+  }
+});
+
 test("una clave de longitud incorrecta es un error de configuración", () => {
   process.env.APP_ENCRYPTION_KEY = "1234";
   box.resetSecretBoxCache();

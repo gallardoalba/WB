@@ -37,6 +37,18 @@ test("un entorno completo y coherente no da problemas", () => {
   assert.deepEqual(checkEnv(complete()), []);
 });
 
+test("la bandera de texto plano no se admite en producción", () => {
+  // Dejaría los secretos TOTP y los datos de envío legibles en el fichero.
+  const issues = checkEnv(complete({ WANDERBIBLIOTHEK_ALLOW_PLAINTEXT: "1" }));
+  assert.deepEqual(keys(issues, "error"), ["WANDERBIBLIOTHEK_ALLOW_PLAINTEXT"]);
+
+  // El escape para entornos de prueba sigue siendo el del checker, no esa bandera.
+  assert.deepEqual(
+    checkEnv(complete({ WANDERBIBLIOTHEK_ALLOW_PLAINTEXT: "1", WANDERBIBLIOTHEK_SKIP_ENV_CHECK: "1" })),
+    [],
+  );
+});
+
 test("en producción faltan el correo, la URL y las dos claves", () => {
   const issues = checkEnv({ NODE_ENV: "production" });
   assert.deepEqual(keys(issues, "error").sort(), [

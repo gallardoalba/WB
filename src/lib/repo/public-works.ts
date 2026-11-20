@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { getDb } from "../db";
 import { normalizeCoverUrl } from "../text";
 
@@ -121,7 +123,7 @@ function toPublicWork(book: BookRow, cities: Map<string, number>): PublicWork {
  * así se agrupan ediciones, se suman ciudades y se ordena de una sola pasada,
  * sin una consulta por obra.
  */
-function catalogIndex(): { works: PublicWork[]; byBook: Map<string, PublicWork> } {
+function buildCatalogIndex(): { works: PublicWork[]; byBook: Map<string, PublicWork> } {
   const groups = new Map<string, BookRow[]>();
   for (const book of readBooks()) {
     const key = workGroupOf(book);
@@ -157,6 +159,38 @@ function catalogIndex(): { works: PublicWork[]; byBook: Map<string, PublicWork> 
   works.sort((a, b) => b.copies - a.copies || a.title.localeCompare(b.title, "de"));
   return { works, byBook };
 }
+
+type CatalogIndex = { works: PublicWork[]; byBook: Map<string, PublicWork> };
+
+/** Un minuto: la ficha, el feed y la tarjeta social comparten el mismo trabajo. */
+const CATALOG_CACHE_MS = 60_000;
+let cachedIndex: { at: number; index: CatalogIndex } | null = null;
+
+/** Tira la copia en proceso. La llama `invalidatePublicData()` al mutar. */
+export function invalidatePublicWorksCache(): void {
+  cachedIndex = null;
+}
+
+/**
+ * Índice del catálogo, reutilizado dentro de una misma representación.
+ *
+ * `generateMetadata` y la página piden la misma obra: sin esto cada visita a una
+ * ficha recorría el catálogo dos veces. `cache()` de React deduplica por
+ * petición y, fuera de un render (pruebas, scripts), se comporta como una
+ * llamada normal.
+ */
+const catalogIndex = cache((): CatalogIndex => {
+  // En producción se guarda un minuto: el barrido es O(catálogo) y es síncrono,
+  // así que una ráfaga de rastreadores lo pagaría entero en cada página. Fuera
+  // de producción se lee siempre, para que las pruebas vean lo que acaban de
+  // escribir.
+  if (process.env.NODE_ENV !== "production") return buildCatalogIndex();
+  const now = Date.now();
+  if (cachedIndex && now - cachedIndex.at < CATALOG_CACHE_MS) return cachedIndex.index;
+  const index = buildCatalogIndex();
+  cachedIndex = { at: now, index };
+  return index;
+});
 
 /** Obras con al menos un ejemplar disponible, de más ofertadas a menos. */
 export function listPublicWorks(options: { limit?: number; offset?: number } = {}): PublicWork[] {

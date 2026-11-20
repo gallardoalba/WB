@@ -38,6 +38,14 @@ function allowPlaintext(): boolean {
   return process.env.WANDERBIBLIOTHEK_ALLOW_PLAINTEXT === "1";
 }
 
+/**
+ * En producción no hay escape: ni la bandera vale. Un secreto sin cifrar es un
+ * fallo de configuración que hay que ver, y `checkEnv()` lo rechaza al arrancar.
+ */
+function plaintextPermitted(): boolean {
+  return process.env.NODE_ENV !== "production" && allowPlaintext();
+}
+
 /** Interpreta una clave de 32 bytes en hex o base64. */
 function parseKey(raw: string, variable: string): Buffer {
   const value = raw.trim();
@@ -94,7 +102,7 @@ export function resetSecretBoxCache(): void {
 export function encryptSecret(plain: string, context = ""): string {
   const ring = keyRing();
   if (!ring) {
-    if (!allowPlaintext()) {
+    if (!plaintextPermitted()) {
       throw new ApiError(
         500,
         "Falta APP_ENCRYPTION_KEY: no se puede guardar el secreto. Configúrala antes de usar la aplicación.",
@@ -121,7 +129,7 @@ export function decryptSecret(value: string, context = ""): string {
   // Texto plano heredado (bases de desarrollo creadas sin clave). Fuera de
   // desarrollo no se acepta: si la base trae un secreto sin cifrar, es un
   // fallo de configuración que hay que ver, no un valor que se pueda usar.
-  if (process.env.NODE_ENV === "production" && !allowPlaintext()) {
+  if (process.env.NODE_ENV === "production") {
     throw new ApiError(
       500,
       "Hay un secreto guardado sin cifrar. Cífralo con `npm run rotate:secrets` antes de usarlo en producción.",

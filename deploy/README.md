@@ -742,7 +742,17 @@ reference document is [`GOVERNANCE.md`](../GOVERNANCE.md).
   schema, the previous backup is the rollback path.
 - **Logs go to journald** (`journalctl -u wanderbibliothek`) on a host, and to
   `docker compose logs` in a container. With `ERROR_WEBHOOK_URL`, errors are also
-  forwarded to an external service.
+  forwarded to an external service. The privacy policy promises 14 days of
+  server logs, so install the retention that comes with the project instead of
+  trusting the distribution's default:
+
+  ```bash
+  sudo install -m 644 deploy/logrotate-wanderbibliothek /etc/logrotate.d/wanderbibliothek
+  sudo install -d /etc/systemd/journald.conf.d
+  sudo install -m 644 deploy/journald-14-days.conf \
+    /etc/systemd/journald.conf.d/90-wanderbibliothek.conf
+  sudo systemctl restart systemd-journald
+  ```
 - **The off-server backup is an `rsync`/`scp` to one of your machines**
   (`deploy/backup-pull.sh`). A copy in a bucket (S3, Backblaze B2, R2) requires
   an account and its keys; when those exist, the place it fits is
@@ -1122,7 +1132,7 @@ publish tells the truth (Art. 5(1)(e) and 13 GDPR/DSGVO):
 | Data | Where | Retained |
 |---|---|---|
 | Name, email, city, biography, language | `users` | Until the person deletes their account |
-| Password | `users.password_hash` (scrypt) | Same; never in plain text |
+| Password | `users.password_hash` (scrypt, parameters inside the hash) | Same; never in plain text |
 | Sessions | `sessions` | 14 sliding days, 30 at most |
 | Confirmation and reset links | `account_tokens` | 24 h / 1 h; single use |
 | Sent emails (body with links) | `jobs` (`kind = 'mail'`) | 7 days for delivered and lost ones |

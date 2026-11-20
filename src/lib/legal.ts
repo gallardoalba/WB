@@ -258,7 +258,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           body: [
             "Auskunft und Datenübertragbarkeit: „Daten herunterladen“ im Konto erzeugt eine JSON-Datei mit allen gespeicherten Angaben.",
             "Berichtigung: Name, Stadt und Biografie lassen sich jederzeit ändern.",
-            "Löschung: „Konto löschen“ anonymisiert das Konto und entfernt Sitzungen, Benachrichtigungen, Listen, eigene Clubs, Blockierungen, Lesezeichen und persönliche Notizen. Nachrichten und Bewertungen bleiben mit anonymisiertem Autor erhalten, weil sie zum Verlauf anderer Personen gehören.",
+            "Löschung: „Konto löschen“ anonymisiert das Konto und entfernt Sitzungen, Benachrichtigungen, Listen, eigene Clubs, Blockierungen, Lesezeichen, persönliche Notizen und Bewertungen — auch die erhaltenen. Nachrichten zu Tauschvorgängen bleiben mit anonymisiertem Autor erhalten, weil sie zum Verlauf anderer Personen gehören; Direktnachrichten werden vollständig gelöscht, auch für die andere Person.",
             "Widerspruch gegen Benachrichtigungs-E-Mails: jederzeit im Konto.",
             "Beschwerde: bei der zuständigen Datenschutz-Aufsichtsbehörde. In Deutschland ist dies regelmäßig die Behörde des zuständigen Bundeslandes; in Österreich die Datenschutzbehörde (DSB).",
             "Einschränkung der Verarbeitung: Solange ein Widerspruch oder eine Löschung geprüft wird, können Sie die Verarbeitung einschränken lassen; melden Sie sich dafür bei der oben genannte Kontaktadresse.",
@@ -373,7 +373,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         body: [
           "Acceso y portabilidad: «Descargar datos» en la cuenta genera un JSON con todo lo guardado.",
           "Rectificación: nombre, ciudad y biografía se cambian cuando quieras.",
-          "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, clubes propios, bloqueos, favoritos, notas personales y las claves de dispositivo publicadas. Los mensajes de intercambio y las valoraciones se conservan con el autor ya anonimizado porque forman parte del historial de otras personas; las conversaciones directas se borran enteras, también para la otra persona.",
+          "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, clubes propios, bloqueos, favoritos, notas personales, las claves de dispositivo publicadas y las valoraciones, también las recibidas. Los mensajes de intercambio se conservan con el autor ya anonimizado porque forman parte del historial de otras personas; las conversaciones directas se borran enteras, también para la otra persona.",
           "Oposición a los correos de aviso: en cualquier momento desde la cuenta.",
           "Reclamación: ante la autoridad de control de protección de datos competente. En Alemania, normalmente la del estado federado correspondiente; en Austria, la Datenschutzbehörde (DSB).",
           "Limitación del tratamiento: mientras se resuelve una oposición o un borrado, puedes pedir que se limite el tratamiento escribiendo a la dirección de contacto de arriba.",

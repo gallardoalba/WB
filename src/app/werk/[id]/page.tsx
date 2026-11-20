@@ -294,6 +294,26 @@ export default async function Page({ params }: PageProps) {
           }).replace(/</g, "\\u003c"),
         }}
       />
+      {/* La miga visible («Descubrir» → obra) también en datos estructurados:
+          es el rich result más barato que quedaba en las páginas indexables. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: t("Descubrir todos los libros"),
+                item: `${base}${localePath(locale, "/descubrir")}`,
+              },
+              { "@type": "ListItem", position: 2, name: work.title, item: `${base}${workPath}` },
+            ],
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
     </SiteShell>
   );
 }

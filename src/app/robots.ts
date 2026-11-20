@@ -57,6 +57,7 @@ export default async function robots() {
           "/cuenta",
           "/ofrecer",
           "/verificar",
+          "/verificacion",
           "/restablecer",
         ],
       },

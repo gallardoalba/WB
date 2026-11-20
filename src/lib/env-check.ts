@@ -111,6 +111,16 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
     );
   }
 
+  // La bandera existe para una base de desarrollo sin clave. En producción
+  // dejaría los secretos TOTP y los datos de envío legibles en el fichero (y en
+  // cualquier copia sin cifrar), así que se trata como configuración inválida.
+  if (has(env, "WANDERBIBLIOTHEK_ALLOW_PLAINTEXT")) {
+    error(
+      "WANDERBIBLIOTHEK_ALLOW_PLAINTEXT",
+      "No se admite en producción: guardaría secretos de 2FA y datos de envío sin cifrar. Configura APP_ENCRYPTION_KEY y retira la bandera.",
+    );
+  }
+
   // Claves antiguas para poder rotar sin perder los secretos ya guardados.
   const clavesAntiguas = (env.APP_ENCRYPTION_OLD_KEYS ?? "")
     .split(",")

@@ -88,9 +88,14 @@ function enqueueNotificationEmail(
   try {
     const db = getDb();
     const recipient = db
-      .prepare("SELECT email, email_notifications FROM users WHERE id = ?")
-      .get(input.userId) as { email: string; email_notifications: number } | undefined;
+      .prepare("SELECT email, email_notifications, email_verified_at FROM users WHERE id = ?")
+      .get(input.userId) as
+      | { email: string; email_notifications: number; email_verified_at: string | null }
+      | undefined;
     if (!recipient || recipient.email_notifications === 0) return;
+    // Sin correo confirmado no se envía nada: una dirección mal escrita en el
+    // registro haría que un tercero recibiera la actividad de esa cuenta.
+    if (!recipient.email_verified_at) return;
     // Tope anti-spam: como mucho 5 correos por hora y dirección.
     const recent = db
       .prepare(

@@ -147,7 +147,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         body: [
           "Access and data portability: “Download data” in the account produces a JSON file containing everything that is stored.",
           "Rectification: name, city and biography can be changed at any time.",
-          "Erasure: “Delete account” anonymises the account and removes sessions, notices, lists, your own clubs, blocks, favourites, personal notes and the published device keys. Exchange messages and ratings are kept with the author already anonymised, because they form part of other people’s history; direct conversations are deleted entirely, including for the other person.",
+          "Erasure: “Delete account” anonymises the account and removes sessions, notices, lists, your own clubs, blocks, favourites, personal notes, the published device keys and reviews, including those received. Exchange messages are kept with the author already anonymised, because they form part of other people’s history; direct conversations are deleted entirely, including for the other person.",
           "Objection to notification emails: at any time from the account.",
           "Complaint: to the competent data protection supervisory authority. In Germany, this is generally the authority for the relevant federal state; in Austria, it is the Austrian Data Protection Authority (Datenschutzbehörde, DSB).",
           "Restriction of processing: while an objection or an erasure is being examined, you may ask for processing to be restricted by writing to the contact address above.",
