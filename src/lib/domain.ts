@@ -299,6 +299,8 @@ export type RequestView = {
   status: RequestStatus;
   createdAt: string;
   updatedAt: string;
+  /** Cuándo se aceptó. Es la base de la ventana de 60 días para incidencias. */
+  acceptedAt: string | null;
   role: ViewerRole;
   listing: {
     id: string;
@@ -318,6 +320,20 @@ export type RequestView = {
   /** Confirmaciones de entrega: el intercambio se cierra cuando ambas son true. */
   confirmedByMe: boolean;
   confirmedByOther: boolean;
+  /**
+   * Incidencia abierta sobre este intercambio («el libro no llegó»).
+   * Mientras esté abierta, no se puede cerrar ni cancelar.
+   */
+  incidentOpen: boolean;
+  /** Quien pidió el libro puede abrir la incidencia ahora mismo. */
+  incidentCanOpen: boolean;
+  incidentReportedByMe: boolean;
+  /** La otra parte puede escribir su versión; quien denunció, no. */
+  incidentCanRespond: boolean;
+  incidentResponded: boolean;
+  /** Solo se entrega a la parte que puede responder; nunca al denunciante. */
+  incidentResponse: string | null;
+  incidentOpenedAt: string | null;
 };
 
 
@@ -437,6 +453,8 @@ export type AdminReportView = {
   targetLabel: string;
   reason: string;
   details: string;
+  /** Versión de la otra parte, si la ha escrito. */
+  response: string;
   createdAt: string;
   reporter: { id: string; name: string };
 };
@@ -801,6 +819,12 @@ export const REPORT_TARGETS = [
   "request",
 ] as const;
 export type ReportTarget = (typeof REPORT_TARGETS)[number];
+
+/** Motivo que abre una incidencia con efecto sobre el intercambio. */
+export const DELIVERY_INCIDENT_REASON = "El libro no llegó";
+
+/** Días desde la aceptación para poder abrir una incidencia de entrega. */
+export const INCIDENT_WINDOW_DAYS = 60;
 
 export const REPORT_REASONS = [
   "Spam o publicidad",

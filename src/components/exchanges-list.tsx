@@ -69,7 +69,17 @@ function nextAction(request: RequestView, t: (text: string) => string): string |
     return request.role === "owner" ? t("Acepta o rechaza la solicitud") : t("Esperando respuesta");
   }
   if (request.status === "accepted") {
-    if (!request.confirmedByMe) return t("Confirma la entrega");
+    if (request.incidentOpen) return t("Esperando a la moderación");
+    if (!request.confirmedByMe) {
+      if (request.confirmedByOther) {
+        return request.role === "owner"
+          ? t("Confirma tu entrega para cerrar el intercambio")
+          : t("Confirma que lo has recibido");
+      }
+      return request.role === "owner"
+        ? t("Confirma que lo has entregado")
+        : t("Confirma que lo has recibido");
+    }
     if (!request.confirmedByOther) return t("Esperando la confirmación de la otra parte");
     return null;
   }
@@ -132,9 +142,9 @@ export function ExchangesList({
     <>
       <div className="shelf-tabs exchange-tabs" role="group" aria-label={t("Filtrar intercambios")}>
         {([
-          ["active", "Activos"],
-          ["archived", "Archivados"],
-        ] as const).map(([value, label]) => (
+          ["active", "Activos", total],
+          ["archived", "Archivados", archivedTotal],
+        ] as const).map(([value, label, count]) => (
           <button
             key={value}
             type="button"
@@ -145,7 +155,7 @@ export function ExchangesList({
               setError("");
             }}
           >
-            {t(label)}
+            {t(label)} <span className="exchange-tab-count">{count}</span>
           </button>
         ))}
       </div>
@@ -207,8 +217,16 @@ export function ExchangesList({
                 </span>
                 {action && <span className="exchange-next">{action}</span>}
               </div>
-              <span className={`status-chip ${request.status}`}>
-                {t(REQUEST_STATUS_LABELS[request.status])}
+              <span
+                className={
+                  request.incidentOpen
+                    ? "status-chip incident"
+                    : `status-chip ${request.status}`
+                }
+              >
+                {request.incidentOpen
+                  ? t("Incidencia en revisión")
+                  : t(REQUEST_STATUS_LABELS[request.status])}
               </span>
               {archivable && (
                 <button
@@ -232,6 +250,7 @@ export function ExchangesList({
                 onClick={() => onOpen(request.id)}
               >
                 <MessageCircle size={18} />
+                <span className="exchange-open-label">{t("Abrir")}</span>
                 {request.unreadMessages > 0 && <span className="exchange-dot" aria-hidden="true" />}
               </button>
             </article>

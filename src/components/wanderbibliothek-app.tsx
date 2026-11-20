@@ -179,6 +179,7 @@ export default function WanderbibliothekApp({
   snapshot,
   openAuth = false,
   openNotifications = false,
+  openExchangeId = null,
   nextPath = null,
   buildCommit = null,
   buildCommitUrl = null,
@@ -187,6 +188,8 @@ export default function WanderbibliothekApp({
   snapshot: AppSnapshot;
   openAuth?: boolean;
   openNotifications?: boolean;
+  /** Intercambio al que lleva un aviso (`/intercambios?t=req_…`). */
+  openExchangeId?: string | null;
   nextPath?: string | null;
   /** Commit desplegado, tal y como lo publica `/api/version`. */
   buildCommit?: string | null;
@@ -252,10 +255,20 @@ export default function WanderbibliothekApp({
     if (openAuth) setAuthOpen(true);
   }
   const [notificationsOpen, setNotificationsOpen] = useState(openNotifications);
-  const [exchangeId, setExchangeId] = useState<string | null>(null);
+  const [exchangeId, setExchangeId] = useState<string | null>(openExchangeId);
   // Como en la vista previa: el diálogo se cierra con su propio estado para que
   // el ejemplar siga disponible mientras dura el fundido de salida.
-  const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [exchangeOpen, setExchangeOpen] = useState(Boolean(openExchangeId));
+  // Si un aviso enlaza con `?t=` mientras la lista ya está abierta, la prop
+  // cambia sin remontar la página: se ajusta durante el render, como `openAuth`.
+  const [exchangeProp, setExchangeProp] = useState(openExchangeId);
+  if (openExchangeId !== exchangeProp) {
+    setExchangeProp(openExchangeId);
+    if (openExchangeId) {
+      setExchangeId(openExchangeId);
+      setExchangeOpen(true);
+    }
+  }
   const [favoriteOverrides, setFavoriteOverrides] = useState<Record<string, boolean>>({});
   const [busyFavorite, setBusyFavorite] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
@@ -758,7 +771,12 @@ export default function WanderbibliothekApp({
     return false;
   }, [user, setAuthOpen]);
 
-  const exchangeRequest = exchangeId ? requests.find((item) => item.id === exchangeId) ?? null : null;
+  // Un aviso puede apuntar a un intercambio ya archivado: también se abre.
+  const exchangeRequest = exchangeId
+    ? requests.find((item) => item.id === exchangeId) ??
+      archivedRequests.find((item) => item.id === exchangeId) ??
+      null
+    : null;
 
   const isFavorite = (id: string, fallback: boolean) => favoriteOverrides[id] ?? fallback;
 
@@ -1663,7 +1681,7 @@ export default function WanderbibliothekApp({
                       <h3>{t("Quedad y confirmad")}</h3>
                       <p>
                         {t(
-                          "Acordáis la entrega en la conversación y la confirmáis las dos partes. El ejemplar pasa a la estantería de quien lo recibe y puede volver a circular.",
+                          "Acordáis la entrega en la conversación. Quien la hace confirma la entrega y quien recibe el libro confirma la recepción. El ejemplar pasa a la estantería de quien lo recibe y puede volver a circular.",
                         )}
                       </p>
                     </li>
@@ -1974,8 +1992,14 @@ export default function WanderbibliothekApp({
 
       {exchangeRequest && (
         <ExchangeDialog
+          // Cada intercambio es un contexto distinto: al cambiar de uno a otro
+          // no puede quedar armada la confirmación ni la valoración del anterior.
+          key={exchangeRequest.id}
           open={exchangeOpen}
-          onClose={() => setExchangeOpen(false)}
+          onClose={() => {
+            setExchangeOpen(false);
+            clearQueryParams("t");
+          }}
           request={exchangeRequest}
           onChanged={refresh}
         />

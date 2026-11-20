@@ -117,6 +117,9 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
     !rawNext.startsWith("/\\")
       ? rawNext
       : null;
+  // Un aviso puede enlazar al intercambio concreto (`/intercambios?t=req_…`).
+  // La vista sigue siendo la lista, que es la que contiene los datos.
+  const openExchangeId = view === "exchanges" ? primerValor(raw.t) : null;
 
   // El commit desplegado viaja al pie del armazón de cliente. Se lee aquí, en
   // el servidor, para que una instalación sin esa información diga `null` en
@@ -128,6 +131,7 @@ export async function renderAppView(routeView: View, raw: RawParams, path: strin
       snapshot={snapshot}
       openAuth={raw.auth === "1"}
       openNotifications={raw.notifications === "1"}
+      openExchangeId={openExchangeId}
       nextPath={nextPath}
       buildCommit={build.commit}
       buildCommitUrl={build.commitUrl}

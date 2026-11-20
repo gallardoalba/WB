@@ -1970,6 +1970,45 @@ function migrateToV61(db: Db) {
 }
 
 /**
+ * v62: la fecha de aceptación y la respuesta de la otra parte en una incidencia.
+ *
+ * `accepted_at` permite medir los 60 días para abrir una incidencia desde la
+ * aceptación real, no desde la solicitud. La respuesta se guarda en el mismo
+ * informe para que moderación oiga a las dos partes sin crear otro sistema.
+ */
+function migrateToV62(db: Db) {
+  const columns = (table: string) =>
+    (db.pragma(`table_info(${table})`) as { name: string }[]).map((column) => column.name);
+
+  const requestColumns = columns("requests");
+  if (!requestColumns.includes("accepted_at")) {
+    db.exec("ALTER TABLE requests ADD COLUMN accepted_at TEXT");
+    // Las solicitudes ya aceptadas o completadas no tienen una fecha exacta:
+    // `updated_at` es la mejor aproximación disponible.
+    db.exec(`
+      UPDATE requests
+         SET accepted_at = updated_at
+       WHERE accepted_at IS NULL AND status IN ('accepted', 'completed')
+    `);
+  }
+
+  const reportColumns = columns("reports");
+  if (!reportColumns.includes("response")) {
+    db.exec("ALTER TABLE reports ADD COLUMN response TEXT NOT NULL DEFAULT ''");
+  }
+  if (!reportColumns.includes("response_by")) {
+    db.exec("ALTER TABLE reports ADD COLUMN response_by TEXT");
+  }
+  if (!reportColumns.includes("response_at")) {
+    db.exec("ALTER TABLE reports ADD COLUMN response_at TEXT");
+  }
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS reports_target ON reports(target_type, target_id, status)",
+  );
+  db.pragma("user_version = 62");
+}
+
+/**
  * Bases anteriores a v2 guardaban `neighborhood`; el resto del código usa
  * `city` desde la v7.
  */
@@ -2119,6 +2158,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 59) migrateToV59(db);
   if (userVersion(db) < 60) migrateToV60(db);
   if (userVersion(db) < 61) migrateToV61(db);
+  if (userVersion(db) < 62) migrateToV62(db);
 
   backfillSearchKeys(db);
 }

@@ -72,12 +72,12 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               80 rutas agrupadas por dominio",
+            "    api/               81 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v61), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v62), seed",
             "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
@@ -145,7 +145,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 80 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 21 de los 109 métodos exportados (14 de los 80 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
+          text: "La API tiene 81 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 22 de los 110 métodos exportados (15 de los 81 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
         },
         {
           kind: "list",
@@ -182,11 +182,11 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan once pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla), la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada), la v58 (lo diferido deja de tener una tabla por cosa: \`jobs\` guarda estado, intentos, próximo intento y último error para cualquier trabajo, y el correo es un tipo más), la v59 (archivar un intercambio cerrado es cosa de cada parte: \`request_archives\` guarda una fila por persona y solicitud, así que una puede apartarlo sin que la otra deje de verlo) la v60 (amplía a Austria la matriz de distancias sin cambiar los nombres de ciudades alemanas ya guardados) y la v61 (retira las columnas muertas del envío y la entrega: direcciones postales antiguas y códigos que ninguna consulta leía). El detalle de cada paso está en ese fichero y en su historial de git.`,
+          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan doce pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla), la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada), la v58 (lo diferido deja de tener una tabla por cosa: \`jobs\` guarda estado, intentos, próximo intento y último error para cualquier trabajo, y el correo es un tipo más), la v59 (archivar un intercambio cerrado es cosa de cada parte: \`request_archives\` guarda una fila por persona y solicitud, así que una puede apartarlo sin que la otra deje de verlo), la v60 (amplía a Austria la matriz de distancias sin cambiar los nombres de ciudades alemanas ya guardados), la v61 (retira las columnas muertas del envío y la entrega: direcciones postales antiguas y códigos que ninguna consulta leía) y la v62 (registra cuándo se aceptó un intercambio y añade la respuesta de la otra parte a una incidencia de entrega). El detalle de cada paso está en ese fichero y en su historial de git.`,
         },
         {
           kind: "p",
-          text: "Las columnas antiguas de la entrega y del envío (`handover_*`, `ship_*`) siguen en la base para no borrar lo que se guardó en su momento, pero ya no las escribe ni las lee nadie: la entrega se acuerda en la conversación y cada parte confirma en la plataforma cuando tiene el libro.",
+          text: "La migración v61 retiró del esquema las columnas de entrega y envío (`handover_*`, `ship_*`) que ya no se usaban. La entrega se acuerda en la conversación y cada parte confirma en la plataforma cuando tiene el libro.",
         },
         {
           kind: "p",
@@ -512,12 +512,12 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               80 Routen, nach Domäne gruppiert",
+            "    api/               81 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v61), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v62), Seed",
             "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
@@ -585,7 +585,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 80 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 21 der 109 exportierten Methoden ab (14 der 80 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
+          text: "Die API besteht aus 81 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 22 der 110 exportierten Methoden ab (15 der 81 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
         },
         {
           kind: "list",
@@ -622,11 +622,11 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen elf Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen), die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben), die v58 (Aufgeschobenes hat nicht mehr eine Tabelle pro Sache: \`jobs\` hält Status, Versuche, nächsten Versuch und letzten Fehler für jede Aufgabe, und E-Mail ist eine Art davon), die v59 (einen abgeschlossenen Tausch archiviert jede Seite für sich: \`request_archives\` hält eine Zeile pro Person und Anfrage, sodass eine ihn weglegen kann, ohne dass die andere ihn aus den Augen verliert) die v60 (erweitert die Distanzmatrix um Österreich, ohne bereits gespeicherte deutsche Städtenamen zu ändern) und die v61 (entfernt die toten Spalten für Versand und Übergabe: alte Postanschriften und Codes, die keine Abfrage mehr liest). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
+          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen zwölf Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen), die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben), die v58 (Aufgeschobenes hat nicht mehr eine Tabelle pro Sache: \`jobs\` hält Status, Versuche, nächsten Versuch und letzten Fehler für jede Aufgabe, und E-Mail ist eine Art davon), die v59 (einen abgeschlossenen Tausch archiviert jede Seite für sich: \`request_archives\` hält eine Zeile pro Person und Anfrage, sodass eine ihn weglegen kann, ohne dass die andere ihn aus den Augen verliert), die v60 (erweitert die Distanzmatrix um Österreich, ohne bereits gespeicherte deutsche Städtenamen zu ändern), die v61 (entfernt die toten Spalten für Versand und Übergabe: alte Postanschriften und Codes, die keine Abfrage mehr liest) und die v62 (speichert den Annahmezeitpunkt eines Tauschs und die Antwort der anderen Seite auf eine Meldung wegen nicht zugestellter Bücher). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
         },
         {
           kind: "p",
-          text: "Die alten Spalten für Übergabe und Versand (`handover_*`, `ship_*`) bleiben in der Datenbank, damit nichts Gespeichertes verloren geht, aber kein Code schreibt oder liest sie mehr: die Übergabe wird im Gespräch vereinbart und jede Seite bestätigt in der Plattform, wenn sie das Buch hat.",
+          text: "Die Migration v61 hat die nicht mehr verwendeten Spalten für Übergabe und Versand (`handover_*`, `ship_*`) aus dem Schema entfernt. Die Übergabe wird im Gespräch vereinbart und jede Seite bestätigt in der Plattform, wenn sie das Buch hat.",
         },
         {
           kind: "p",

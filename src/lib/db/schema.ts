@@ -6,7 +6,7 @@
  * que lleva a las instalaciones antiguas hasta ese mismo estado.
  */
 
-export const SCHEMA_VERSION = 61;
+export const SCHEMA_VERSION = 62;
 
 /** Hash fijo de "demo1234": evita ejecutar scrypt al sembrar la base. */
 export const DEMO_PASSWORD_HASH =
@@ -106,7 +106,10 @@ CREATE TABLE IF NOT EXISTS reports (
   reason TEXT NOT NULL,
   details TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'open',
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  response TEXT NOT NULL DEFAULT '',
+  response_by TEXT,
+  response_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blocks (

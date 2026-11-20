@@ -43,6 +43,11 @@ type RequestRow = {
   owner_city_precision: string;
   owner_confirmed_at: string | null;
   requester_confirmed_at: string | null;
+  accepted_at: string | null;
+  incident_reporter_id: string | null;
+  incident_response: string | null;
+  incident_opened_at: string | null;
+  incident_can_open: number;
   message_count: number;
   last_message_at: string | null;
   unread_messages: number;
@@ -67,8 +72,16 @@ function archiveClause(filter: RequestArchiveFilter): string {
 }
 
 const REQUEST_SELECT = `
-  SELECT r.id, r.status, r.created_at, r.updated_at, r.listing_id,
+  SELECT r.id, r.status, r.created_at, r.updated_at, r.accepted_at, r.listing_id,
          r.owner_confirmed_at, r.requester_confirmed_at,
+         inc.reporter_id AS incident_reporter_id,
+         inc.response AS incident_response,
+         inc.created_at AS incident_opened_at,
+         CASE WHEN r.requester_id = @viewerId
+                   AND r.status = 'accepted'
+                   AND inc.id IS NULL
+                   AND datetime(COALESCE(r.accepted_at, r.created_at), '+60 days') >= datetime('now')
+              THEN 1 ELSE 0 END AS incident_can_open,
          b.title, b.author, b.cover_url, l.status AS listing_status,
          req.id AS requester_id, req.name AS requester_name, req.city AS requester_city,
          req.city_precision AS requester_city_precision,
@@ -89,6 +102,15 @@ const REQUEST_SELECT = `
   JOIN books b ON b.id = l.book_id
   JOIN users req ON req.id = r.requester_id
   JOIN users own ON own.id = r.owner_id
+  LEFT JOIN reports inc ON inc.id = (
+    SELECT rp.id FROM reports rp
+     WHERE rp.target_type = 'request'
+       AND rp.target_id = r.id
+       AND rp.status = 'open'
+       AND rp.reason = 'El libro no llegó'
+     ORDER BY rp.created_at DESC
+     LIMIT 1
+  )
 `;
 
 function toRequestView(row: RequestRow, viewerId: string): RequestView {
@@ -104,6 +126,7 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    acceptedAt: row.accepted_at,
     role: row.requester_id === viewerId ? "requester" : "owner",
     listing: {
       id: row.listing_id,
@@ -135,6 +158,19 @@ function toRequestView(row: RequestRow, viewerId: string): RequestView {
     confirmedByOther: Boolean(
       row.requester_id === viewerId ? row.owner_confirmed_at : row.requester_confirmed_at,
     ),
+    incidentOpen: Boolean(row.incident_reporter_id),
+    incidentCanOpen: Boolean(row.incident_can_open),
+    incidentReportedByMe: row.incident_reporter_id === viewerId,
+    incidentCanRespond:
+      Boolean(row.incident_reporter_id) && row.incident_reporter_id !== viewerId,
+    incidentResponded: Boolean(row.incident_response?.trim()),
+    // La versión de la otra parte es para moderación; no se le devuelve a
+    // quien abrió la incidencia.
+    incidentResponse:
+      row.incident_reporter_id && row.incident_reporter_id !== viewerId
+        ? row.incident_response
+        : null,
+    incidentOpenedAt: row.incident_opened_at,
   };
 }
 
@@ -340,6 +376,7 @@ export function createRequest(
         body: `${requester?.name ?? "Alguien"} quiere leer «${listingTitle(listingId)}».`,
         listingId,
         requestId: id,
+        link: `/intercambios?t=${id}`,
       });
     })();
   } catch (error) {
@@ -365,7 +402,7 @@ const STALE_REQUEST = "El intercambio ha cambiado mientras lo mirabas. Recarga e
 
 /** Ya hay una entrega confirmada: deshacer el intercambio ya no es una opción. */
 const CANCEL_AFTER_CONFIRMATION =
-  "Una de las dos personas ya ha confirmado la entrega: el intercambio no se puede cancelar.";
+  "Una de las dos personas ya ha confirmado la entrega o la recepción: el intercambio no se puede cancelar.";
 
 /**
  * Copia que estrena quien se queda el libro.
@@ -460,6 +497,21 @@ export function updateRequestStatus(
     throw new ApiError(409, CANCEL_AFTER_CONFIRMATION);
   }
   const role: ViewerRole = row.requester_id === userId ? "requester" : "owner";
+  // Una incidencia de entrega abierta congela el cierre: ni completar ni
+  // cancelar. La moderación sí puede resolverla con su propia acción.
+  if (target === "completed" || target === "cancelled") {
+    const incident = db
+      .prepare(
+        "SELECT 1 FROM reports WHERE target_type = 'request' AND target_id = ? AND status = 'open' AND reason = 'El libro no llegó'",
+      )
+      .get(requestId);
+    if (incident) {
+      throw new ApiError(
+        409,
+        "Hay una incidencia abierta sobre este intercambio. Espera a que la moderación la resuelva.",
+      );
+    }
+  }
   if (!canTransition(role, row.status, target)) {
     throw new ApiError(409, REQUEST_ERRORS[target] ?? "Ese cambio de estado no es válido.");
   }
@@ -516,6 +568,7 @@ export function updateRequestStatus(
           body: `«${listingTitle(row.listing_id)}»`,
           listingId: row.listing_id,
           requestId,
+          link: `/intercambios?t=${requestId}`,
         });
         if (receivedId) {
           notify({
@@ -525,16 +578,25 @@ export function updateRequestStatus(
             body: `«${listingTitle(row.listing_id)}»`,
             listingId: receivedId,
             requestId,
+            link: `/intercambios?t=${requestId}`,
           });
         }
       } else {
+        // El aviso cambia según lo que le toca hacer a quien lo recibe: al
+        // receptor se le pide el recibo; a quien entrega, la entrega. Antes el
+        // mismo texto («cuando lo recibas») se enviaba a las dos partes.
+        const otherRole = role === "owner" ? "requester" : "owner";
         notify({
           userId: otherId,
           type: "accepted",
-          title: "Confirma la entrega",
-          body: `«${listingTitle(row.listing_id)}» · La otra parte ya ha confirmado. Cuando lo recibas, confírmalo también.`,
+          title: otherRole === "requester" ? "Confirma la recepción" : "Confirma la entrega",
+          body:
+            otherRole === "requester"
+              ? `«${listingTitle(row.listing_id)}» · Ya se ha entregado. Cuando lo tengas, confirma que lo has recibido.`
+              : `«${listingTitle(row.listing_id)}» · Ya se ha confirmado la recepción. Confirma tú la entrega para cerrar el intercambio.`,
           listingId: row.listing_id,
           requestId,
+          link: `/intercambios?t=${requestId}`,
         });
       }
       return;
@@ -561,11 +623,15 @@ export function updateRequestStatus(
       const guard = target === "cancelled" || target === "declined"
         ? " AND owner_confirmed_at IS NULL AND requester_confirmed_at IS NULL"
         : "";
+      const acceptedAt = target === "accepted" ? ", accepted_at = ?" : "";
+      const params: unknown[] = [target, now];
+      if (target === "accepted") params.push(now);
+      params.push(requestId, row.status);
       const updated = db
         .prepare(
-          `UPDATE requests SET status = ?, updated_at = ? WHERE id = ? AND status = ?${guard}`,
+          `UPDATE requests SET status = ?, updated_at = ?${acceptedAt} WHERE id = ? AND status = ?${guard}`,
         )
-        .run(target, now, requestId, row.status);
+        .run(...params);
       if (updated.changes !== 1) {
         throw new ApiError(409, STALE_REQUEST);
       }
@@ -605,6 +671,7 @@ export function updateRequestStatus(
       body: `«${listingTitle(row.listing_id)}»`,
       listingId: row.listing_id,
       requestId,
+      link: `/intercambios?t=${requestId}`,
     });
   })();
 
@@ -862,6 +929,7 @@ function storeMessage(input: {
       title: "Nuevo mensaje en tu intercambio",
       body: `${user.name} te ha escrito. Abre la conversación para leerlo.`,
       requestId: input.requestId,
+      link: `/intercambios?t=${input.requestId}`,
     });
   })();
 

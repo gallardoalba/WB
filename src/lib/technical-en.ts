@@ -48,12 +48,12 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               80 route files grouped by domain",
+            "    api/               81 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v61), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v62), seed",
             "    repo/              SQL queries per domain; `repo.ts` only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -121,7 +121,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 80 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 21 of the 109 exported methods (14 of the 80 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
+          text: "The API has 81 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 22 of the 110 exported methods (15 of the 81 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
         },
         {
           kind: "list",
@@ -156,11 +156,11 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Eleven steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: \`request_archives\` keeps one row per person and request, so one side can put it away without the other losing sight of it) v60 (adds Austria to the distance matrix without changing existing German city names) and v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads). The detail of every step lives in that file and in its git history.`,
+          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Twelve steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: \`request_archives\` keeps one row per person and request, so one side can put it away without the other losing sight of it), v60 (adds Austria to the distance matrix without changing existing German city names), v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) and v62 (records when an exchange was accepted and adds the other party's response to a non-delivery report). The detail of every step lives in that file and in its git history.`,
         },
         {
           kind: "p",
-          text: "The old hand-over and shipping columns (`handover_*`, `ship_*`) stay in the database so that nothing stored is deleted, but no code writes or reads them any more: the hand-over is agreed in the conversation and each side confirms in the platform once it has the book.",
+          text: "Migration v61 removed the unused hand-over and shipping columns (`handover_*`, `ship_*`) from the schema. The hand-over is agreed in the conversation, and each side confirms in the platform once it has the book.",
         },
         {
           kind: "p",

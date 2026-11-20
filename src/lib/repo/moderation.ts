@@ -1,11 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { getDb, type Db } from "../db";
 import { ApiError } from "../errors";
-import type { AdminReportView, ListingStatus } from "../domain";
+import {
+  DELIVERY_INCIDENT_REASON,
+  INCIDENT_WINDOW_DAYS,
+  type AdminReportView,
+  type ListingStatus,
+} from "../domain";
 import { sendSuspensionEmail } from "../account-tokens";
 import { nowIso } from "./shared";
 import { getUserById } from "./users";
-import { notify } from "./notifications";
+import { listingStatusFor } from "../request-flow";
+import { listingTitle, notify } from "./notifications";
 
 export function reportContent(input: {
   reporterId: string;
@@ -29,6 +35,48 @@ export function reportContent(input: {
     .get(input.reporterId, input.targetType, input.targetId);
   if (existing) throw new ApiError(409, "Ya has denunciado este contenido.");
   assertReportableTarget(input.reporterId, input.targetType, input.targetId);
+  if (input.targetType === "request" && input.reason === DELIVERY_INCIDENT_REASON) {
+    const request = db
+      .prepare(
+        "SELECT requester_id, status, accepted_at, created_at FROM requests WHERE id = ?",
+      )
+      .get(input.targetId) as
+      | {
+          requester_id: string;
+          status: string;
+          accepted_at: string | null;
+          created_at: string;
+        }
+      | undefined;
+    if (!request) throw new ApiError(404, "El intercambio no existe.");
+    if (request.requester_id !== input.reporterId) {
+      throw new ApiError(403, "Solo quien recibe el libro puede abrir esta incidencia.");
+    }
+    if (request.status !== "accepted") {
+      throw new ApiError(
+        409,
+        "La incidencia de entrega solo puede abrirse mientras el intercambio está aceptado.",
+      );
+    }
+    const openedAt = new Date(request.accepted_at ?? request.created_at).getTime();
+    if (
+      Number.isFinite(openedAt) &&
+      Date.now() - openedAt > INCIDENT_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      throw new ApiError(
+        409,
+        `El plazo de ${INCIDENT_WINDOW_DAYS} días para abrir la incidencia ha terminado.`,
+      );
+    }
+    const alreadyOpen = db
+      .prepare(
+        "SELECT 1 FROM reports WHERE target_type = 'request' AND target_id = ? AND status = 'open' AND reason = ?",
+      )
+      .get(input.targetId, DELIVERY_INCIDENT_REASON);
+    if (alreadyOpen) {
+      throw new ApiError(409, "Ya hay una incidencia abierta sobre este intercambio.");
+    }
+  }
   if (
     (input.targetType === "message" || input.targetType === "request") &&
     input.details.trim().length < 10
@@ -52,6 +100,70 @@ export function reportContent(input: {
     input.details,
     nowIso(),
   );
+}
+
+/**
+ * Respuesta de la otra parte a una incidencia de entrega.
+ *
+ * Quien abrió la incidencia ya contó su versión en `details`; aquí se guarda la
+ * de la otra persona para que moderación lea las dos. El texto no se le enseña
+ * a quien denunció: solo se le avisa de que hay respuesta.
+ */
+export function submitIncidentResponse(
+  requestId: string,
+  userId: string,
+  response: string,
+): void {
+  const db = getDb();
+  const text = response.trim();
+  if (text.length < 10 || text.length > 1000) {
+    throw new ApiError(400, "Escribe entre 10 y 1000 caracteres.");
+  }
+  const report = db
+    .prepare(
+      `SELECT rp.id, rp.reporter_id, rq.listing_id, rq.requester_id, rq.owner_id
+         FROM reports rp
+         JOIN requests rq ON rq.id = rp.target_id
+        WHERE rp.target_type = 'request'
+          AND rp.target_id = ?
+          AND rp.status = 'open'
+          AND rp.reason = ?
+        ORDER BY rp.created_at DESC
+        LIMIT 1`,
+    )
+    .get(requestId, DELIVERY_INCIDENT_REASON) as
+    | {
+        id: string;
+        reporter_id: string;
+        listing_id: string;
+        requester_id: string;
+        owner_id: string;
+      }
+    | undefined;
+  if (!report) throw new ApiError(404, "No hay una incidencia abierta sobre este intercambio.");
+  if (report.reporter_id === userId) {
+    throw new ApiError(403, "Ya has contado tu versión al abrir la incidencia.");
+  }
+  if (userId !== report.requester_id && userId !== report.owner_id) {
+    throw new ApiError(404, "Ese intercambio no existe.");
+  }
+
+  const updated = db
+    .prepare(
+      "UPDATE reports SET response = ?, response_by = ?, response_at = ? WHERE id = ? AND status = 'open'",
+    )
+    .run(text, userId, nowIso(), report.id);
+  if (updated.changes !== 1) throw new ApiError(409, "La incidencia ya está resuelta.");
+
+  notify({
+    userId: report.reporter_id,
+    type: "moderation",
+    title: "La otra parte ha respondido a la incidencia",
+    body: `«${listingTitle(report.listing_id)}» · Moderación revisará las dos versiones.`,
+    listingId: report.listing_id,
+    requestId,
+    link: `/intercambios?t=${requestId}`,
+  });
 }
 
 /** Comprueba que el objetivo denunciado existe y que quien denuncia lo ve. */
@@ -146,7 +258,7 @@ export function listReports(
   const offset = options.offset ?? 0;
   const rows = getDb()
     .prepare(
-      `SELECT r.id, r.target_type, r.target_id, r.reason, r.details, r.created_at,
+      `SELECT r.id, r.target_type, r.target_id, r.reason, r.details, r.response, r.created_at,
               u.id AS reporter_id, u.name AS reporter_name,
               b.title AS listing_title,
               target_user.name AS user_name,
@@ -180,6 +292,7 @@ export function listReports(
     target_id: string;
     reason: string;
     details: string;
+    response: string;
     created_at: string;
     reporter_id: string;
     reporter_name: string;
@@ -209,6 +322,7 @@ export function listReports(
       row.target_id,
     reason: row.reason,
     details: row.details,
+    response: row.response,
     createdAt: row.created_at,
     reporter: { id: row.reporter_id, name: row.reporter_name },
   }));
@@ -227,7 +341,8 @@ export type AdminAction =
   | "suspend_user"
   | "hide_comment"
   | "hide_club"
-  | "hide_club_post";
+  | "hide_club_post"
+  | "cancel_request";
 export type ModerationAction =
   | "hide_listing"
   | "restore_listing"
@@ -238,7 +353,8 @@ export type ModerationAction =
   | "hide_club_post"
   | "restore_club_post"
   | "hide_club"
-  | "restore_club";
+  | "restore_club"
+  | "cancel_request";
 
 function applyModeration(
   db: Db,
@@ -247,6 +363,61 @@ function applyModeration(
   targetId: string,
   sanction: { reason?: string; days?: number } = {},
 ): { reason: string; until: string } | void {
+  if (action === "cancel_request") {
+    if (targetType !== "request") {
+      throw new ApiError(409, "Esta acción solo vale para intercambios.");
+    }
+    const request = db
+      .prepare(
+        "SELECT id, listing_id, requester_id, owner_id, status FROM requests WHERE id = ?",
+      )
+      .get(targetId) as
+      | {
+          id: string;
+          listing_id: string;
+          requester_id: string;
+          owner_id: string;
+          status: string;
+        }
+      | undefined;
+    if (!request) throw new ApiError(404, "El intercambio no existe.");
+    if (request.status === "completed") {
+      throw new ApiError(409, "Un intercambio completado no se puede cancelar.");
+    }
+    const updated = db
+      .prepare(
+        "UPDATE requests SET status = 'cancelled', updated_at = ? WHERE id = ? AND status IN ('pending', 'accepted')",
+      )
+      .run(nowIso(), targetId);
+    if (updated.changes !== 1) {
+      throw new ApiError(409, "El intercambio ya está cerrado.");
+    }
+    const otherAccepted = db
+      .prepare("SELECT 1 FROM requests WHERE listing_id = ? AND status = 'accepted' AND id <> ?")
+      .get(request.listing_id, targetId);
+    if (!otherAccepted) {
+      const listing = db
+        .prepare("SELECT status FROM listings WHERE id = ?")
+        .get(request.listing_id) as { status: ListingStatus };
+      db.prepare("UPDATE listings SET status = ? WHERE id = ?").run(
+        listingStatusFor(listing.status, "cancelled"),
+        request.listing_id,
+      );
+    }
+    for (const userId of [request.requester_id, request.owner_id]) {
+      notify({
+        userId,
+        type: "moderation",
+        title: "Incidencia resuelta: intercambio cancelado",
+        body: `«${listingTitle(request.listing_id)}» · La moderación ha revisado la incidencia y ha cancelado el intercambio.`,
+        listingId: request.listing_id,
+        requestId: targetId,
+        link: `/intercambios?t=${targetId}`,
+      });
+    }
+    return;
+  }
+
   if (action === "hide_club" || action === "restore_club") {
     if (targetType !== "club") throw new ApiError(409, "Esta acción solo vale para clubes.");
     const club = db
@@ -556,9 +727,15 @@ export function resolveReport(
 ): void {
   const db = getDb();
   const report = db
-    .prepare("SELECT id, target_type, target_id, status FROM reports WHERE id = ?")
+    .prepare("SELECT id, target_type, target_id, reason, status FROM reports WHERE id = ?")
     .get(reportId) as
-    | { id: string; target_type: string; target_id: string; status: string }
+    | {
+        id: string;
+        target_type: string;
+        target_id: string;
+        reason: string;
+        status: string;
+      }
     | undefined;
 
   if (!report) throw new ApiError(404, "La denuncia no existe.");
@@ -587,6 +764,42 @@ export function resolveReport(
     return applied;
   })();
   if (suspension) sendSuspensionNotice(report.target_id, suspension);
+
+  // Cerrar sin acción también es una resolución: las dos partes tienen que
+  // saber que el intercambio vuelve a estar operativo.
+  if (
+    action === "dismiss" &&
+    report.target_type === "request" &&
+    report.reason === DELIVERY_INCIDENT_REASON
+  ) {
+    const request = db
+      .prepare("SELECT requester_id, owner_id, listing_id, status FROM requests WHERE id = ?")
+      .get(report.target_id) as
+      | {
+          requester_id: string;
+          owner_id: string;
+          listing_id: string;
+          status: string;
+        }
+      | undefined;
+    if (request) {
+      const body =
+        request.status === "accepted"
+          ? "La moderación no ha encontrado motivos para cancelar el intercambio. Podéis seguir."
+          : "La moderación ha cerrado la incidencia.";
+      for (const userId of [request.requester_id, request.owner_id]) {
+        notify({
+          userId,
+          type: "moderation",
+          title: "Incidencia cerrada",
+          body: `«${listingTitle(request.listing_id)}» · ${body}`,
+          listingId: request.listing_id,
+          requestId: report.target_id,
+          link: `/intercambios?t=${report.target_id}`,
+        });
+      }
+    }
+  }
 }
 
 export type SuspendedUserView = {

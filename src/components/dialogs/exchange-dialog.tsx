@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Lock, MessageCircle, Send, Star, TriangleAlert } from "lucide-react";
+import Link from "next/link";
+import { Check, Lock, MessageCircle, Send, Star, TriangleAlert } from "lucide-react";
 import { Dialog } from "../dialog";
 import { api } from "@/lib/client-api";
 import {
+  DELIVERY_INCIDENT_REASON,
   REPORT_REASONS,
   REQUEST_STATUS_LABELS,
   type MessageView,
@@ -28,11 +30,15 @@ import { ACTION_LABELS, type BaseDialogProps } from "./shared";
 
 const EXCHANGE_STEPS = ["Solicitado", "Aceptado", "Entrega", "Valoración"] as const;
 
-const CONFIRM_STATUS_TEXT: Record<string, MessageKey> = {
+const CONFIRM_STATUS_TEXT: Record<"accepted" | "declined" | "cancelled", MessageKey> = {
+  accepted:
+    "Aceptas la solicitud: el ejemplar quedará reservado y las demás solicitudes pendientes dejarán de estar activas. Podréis acordar la entrega en la conversación.",
   declined: "Se rechaza esta solicitud. La persona podrá volver a pedir otro ejemplar.",
   cancelled: "Se cancela el intercambio y el ejemplar vuelve a estar disponible.",
-  completed: "Confirmas que la entrega se ha hecho. Si la otra parte ya confirmó, el intercambio se cierra.",
 };
+
+/** Estados en los que el intercambio ya no puede avanzar. */
+const CLOSED_NEGATIVE = new Set(["declined", "cancelled", "expired"]);
 
 type ThreadPayload = {
   messages: MessageView[];
@@ -145,7 +151,12 @@ export function ExchangeDialog({
   const [reportBusy, setReportBusy] = useState(false);
   const [incidentFeedback, setIncidentFeedback] = useState("");
   const [incidentError, setIncidentError] = useState("");
+  const [incidentReason, setIncidentReason] = useState<string>(REPORT_REASONS[0]);
   const [incidentBusy, setIncidentBusy] = useState(false);
+  const [incidentReply, setIncidentReply] = useState(request?.incidentResponse ?? "");
+  const [incidentReplyError, setIncidentReplyError] = useState("");
+  const [incidentReplyFeedback, setIncidentReplyFeedback] = useState("");
+  const [incidentReplySending, setIncidentReplySending] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -158,10 +169,50 @@ export function ExchangeDialog({
   const [confirmStatus, setConfirmStatus] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const lastSeenMessage = useRef<string | null>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const completionRef = useRef<HTMLElement>(null);
+  const incidentRef = useRef<HTMLDetailsElement>(null);
+  const previousStatus = useRef(request?.status);
   const requestId = request?.id ?? null;
 
+  // La confirmación no puede quedar escondida: al abrirse el panel, el foco
+  // entra en el botón que decide, no se queda en el disparador.
+  useEffect(() => {
+    if (confirmStatus) confirmRef.current?.focus();
+  }, [confirmStatus]);
+
+  // Al cerrarse el intercambio, el resumen y la valoración están arriba; si
+  // acaba de confirmarse mientras se leía el hilo, hay que llevarlos a la vista.
+  // Al abrir uno ya completado no se mueve el scroll: el título sigue a la vista.
+  useEffect(() => {
+    if (previousStatus.current !== "completed" && request?.status === "completed") {
+      completionRef.current?.scrollIntoView({ block: "nearest" });
+    }
+    previousStatus.current = request?.status;
+  }, [request?.status]);
+
+  /**
+   * Cerrar descarta cualquier decisión a medias. El diálogo sigue montado
+   * detrás del fundido y el padre lo reutiliza para el siguiente intercambio:
+   * una confirmación armada, una valoración escrita o una incidencia del libro
+   * anterior no pueden sobrevivir al cambio de contexto.
+   */
   function close() {
     setError("");
+    setConfirmStatus(null);
+    setRating("");
+    setReviewComment("");
+    setReviewError("");
+    setReportTarget(null);
+    setReportDetails("");
+    setIncidentFeedback("");
+    setIncidentError("");
+    setIncidentReason(REPORT_REASONS[0]);
+    setIncidentReply("");
+    setIncidentReplyError("");
+    setIncidentReplyFeedback("");
+    setAnnouncement("");
+    setHasOlder(false);
     onClose();
   }
 
@@ -361,6 +412,10 @@ export function ExchangeDialog({
 
   if (!request) return null;
 
+  // Valores estables para las funciones que se declaran más abajo: TypeScript
+  // no conserva el estrechamiento de `request` dentro de un cierre.
+  const requestStatus = request.status;
+  const requestReviewed = request.reviewed;
   const messages = thread?.requestId === requestId ? thread.messages : [];
   const loading = !error && thread?.requestId !== requestId;
   const canSend = Boolean(
@@ -371,17 +426,48 @@ export function ExchangeDialog({
       thread.peerKeys.length > 0 &&
       !thread.keyChanged,
   );
+  // Arriba solo quedan las decisiones de la solicitud (aceptar/rechazar).
+  // Confirmar la entrega vive junto a la conversación, que es donde se acuerda.
   const actions = allowedTargets(request.role, request.status).filter(
-    (target) =>
-      target !== "cancelled" && !(target === "completed" && request.confirmedByMe),
+    (target) => target !== "cancelled" && target !== "completed",
   );
+  const totalConfirmed =
+    (request.confirmedByMe ? 1 : 0) + (request.confirmedByOther ? 1 : 0);
+  const isOwner = request.role === "owner";
+  const canOpenIncident = request.incidentCanOpen;
   // Cancelar es la salida de emergencia del intercambio: vive al final del
   // diálogo y desaparece en cuanto alguna de las dos partes confirma la
   // entrega, porque a partir de ahí el libro ya cambió de manos.
   const canCancel =
     allowedTargets(request.role, request.status).includes("cancelled") &&
     !request.confirmedByMe &&
-    !request.confirmedByOther;
+    !request.confirmedByOther &&
+    !request.incidentOpen;
+  const closedNegative = CLOSED_NEGATIVE.has(requestStatus);
+  // El panel superior solo decide entre aceptar y rechazar. Cancelar y cerrar
+  // la entrega tienen sus propios paneles junto a sus botones.
+  const pendingDecision =
+    confirmStatus === "accepted" || confirmStatus === "declined" ? confirmStatus : null;
+  const handoverDetail =
+    requestStatus === "accepted" && totalConfirmed > 0
+      ? t("{n} de 2 confirmaciones", { n: totalConfirmed })
+      : null;
+
+  /**
+   * Estado de cada paso. El stepper no es decoración: «Solicitado» pendiente
+   * está en curso, no hecho, y «Entrega» puede estar a medias.
+   */
+  function stepState(index: number): "done" | "current" | "upcoming" {
+    if (requestStatus === "pending") return index === 0 ? "current" : "upcoming";
+    if (requestStatus === "accepted") {
+      return index < 2 ? "done" : index === 2 ? "current" : "upcoming";
+    }
+    if (requestStatus === "completed") {
+      if (index < 3) return "done";
+      return requestReviewed ? "done" : "current";
+    }
+    return index === 0 ? "done" : "upcoming";
+  }
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -461,6 +547,43 @@ export function ExchangeDialog({
       setError(caught instanceof Error ? caught.message : t("No se pudo enviar la denuncia."));
     } finally {
       setReportBusy(false);
+    }
+  }
+
+  /** Lleva a la incidencia con el motivo de un libro que no llegó ya elegido. */
+  function reportMissingBook() {
+    setIncidentReason(DELIVERY_INCIDENT_REASON);
+    const details = incidentRef.current;
+    if (!details) return;
+    details.open = true;
+    details.scrollIntoView({ block: "nearest" });
+    details.querySelector("textarea")?.focus();
+  }
+
+  async function sendIncidentReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!requestId) return;
+    const text = incidentReply.trim();
+    if (text.length < 10) {
+      setIncidentReplyError(t("Escribe entre 10 y 1000 caracteres."));
+      return;
+    }
+    setIncidentReplySending(true);
+    setIncidentReplyError("");
+    setIncidentReplyFeedback("");
+    try {
+      await api(`/api/requests/${requestId}/incident`, {
+        method: "POST",
+        body: { response: text },
+      });
+      setIncidentReplyFeedback(t("Respuesta enviada."));
+      onChanged();
+    } catch (caught) {
+      setIncidentReplyError(
+        caught instanceof Error ? caught.message : t("No se pudo enviar la respuesta."),
+      );
+    } finally {
+      setIncidentReplySending(false);
     }
   }
 
@@ -544,30 +667,155 @@ export function ExchangeDialog({
       overline={t("INTERCAMBIO")}
       icon={<MessageCircle size={20} />}
     >
+      {request.status === "completed" && (
+        <section
+          ref={completionRef}
+          className="exchange-complete"
+          aria-label={t("Intercambio completado")}
+        >
+          <p className="exchange-complete-title">
+            <Check size={16} aria-hidden /> {t("Intercambio completado")}
+          </p>
+          <p>
+            {request.role === "requester"
+              ? t("El libro ya está en tu estantería y puede volver a circular.")
+              : t("La otra persona ya tiene el libro en su estantería. Puede volver a circular.")}
+          </p>
+          {request.role === "requester" && (
+            <Link className="inline-link" href="/estanteria">
+              {t("Ver mi estantería")}
+            </Link>
+          )}
+          {request.reviewed ? (
+            <p className="action-feedback">
+              <Star size={14} /> {t("Ya has valorado este intercambio.")}
+            </p>
+          ) : (
+            <form className="review-form" onSubmit={submitReview}>
+              <strong>{t("¿Cómo fue el intercambio?")}</strong>
+              <div className="review-row">
+                <label htmlFor="review-rating">{t("Puntuación")}</label>
+                <select
+                  id="review-rating"
+                  value={rating}
+                  required
+                  onChange={(event) => setRating(event.target.value)}
+                >
+                  <option value="" disabled>
+                    {t("Elige una puntuación")}
+                  </option>
+                  {[5, 4, 3, 2, 1].map((value) => (
+                    <option key={value} value={value}>
+                      {t("{n} de 5", { n: value })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label htmlFor="review-comment">{t("Comentario (opcional)")}</label>
+              <textarea
+                id="review-comment"
+                rows={2}
+                maxLength={500}
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+              />
+              {reviewError && (
+                <p className="form-error" role="alert">
+                  {reviewError}
+                </p>
+              )}
+              <button className="primary-button small" type="submit" disabled={reviewSending}>
+                {reviewSending ? t("Enviando…") : t("Enviar valoración")}
+              </button>
+            </form>
+          )}
+        </section>
+      )}
+
+      {request.incidentOpen && (
+        <section className="exchange-incident" aria-label={t("Incidencia en revisión")}>
+          <p className="exchange-incident-title">
+            <TriangleAlert size={16} aria-hidden /> {t("Incidencia en revisión")}
+          </p>
+          <p>
+            {request.incidentReportedByMe
+              ? t("Tu incidencia está en revisión. Moderación revisará el caso; mientras tanto no se puede cerrar el intercambio.")
+              : t("Hay una incidencia abierta sobre este intercambio. Puedes contar tu versión; mientras tanto no se puede cerrar.")}
+          </p>
+          {request.incidentReportedByMe && request.incidentResponded && (
+            <p className="exchange-incident-reply">
+              {t("La otra parte ha respondido. Moderación revisará las dos versiones.")}
+            </p>
+          )}
+          {request.incidentCanRespond && (
+            <form className="exchange-incident-form" onSubmit={sendIncidentReply}>
+              <label htmlFor="incident-reply">{t("Cuenta qué pasó")}</label>
+              <textarea
+                id="incident-reply"
+                rows={3}
+                minLength={10}
+                maxLength={1000}
+                value={incidentReply}
+                onChange={(event) => setIncidentReply(event.target.value)}
+                required
+              />
+              {incidentReplyError && (
+                <p className="form-error" role="alert">
+                  {incidentReplyError}
+                </p>
+              )}
+              <div className="exchange-incident-actions">
+                <button
+                  className="secondary-button small"
+                  type="submit"
+                  disabled={incidentReplySending}
+                >
+                  {incidentReplySending
+                    ? t("Enviando…")
+                    : request.incidentResponded
+                      ? t("Guardar respuesta")
+                      : t("Enviar respuesta")}
+                </button>
+                {incidentReplyFeedback && (
+                  <span className="action-feedback" role="status">
+                    {incidentReplyFeedback}
+                  </span>
+                )}
+              </div>
+            </form>
+          )}
+          <button
+            type="button"
+            className="text-link exchange-incident-refresh"
+            onClick={onChanged}
+          >
+            {t("Actualizar estado")}
+          </button>
+        </section>
+      )}
+
       {actions.length > 0 && (
         <div className="exchange-actions">
           {actions.map((status) => (
             <button
               key={status}
               type="button"
-              className={status === "accepted" || status === "completed" ? "primary-button small" : "secondary-button small"}
+              className={status === "accepted" ? "primary-button small" : "secondary-button small"}
               disabled={busy}
-              // Aceptar no pregunta nada: es la acción esperada y la única que
-              // reserva el ejemplar. Rechazar, cancelar o cerrar la entrega sí
-              // cambian algo que la otra persona ya está esperando.
-              onClick={() => (status === "accepted" ? void applyStatus(status) : setConfirmStatus(status))}
+              // Aceptar reserva el ejemplar y retira las demás solicitudes
+              // pendientes; rechazar también cambia lo que la otra persona
+              // espera. Las dos decisiones se confirman antes de aplicarse.
+              onClick={() => setConfirmStatus(status)}
             >
-              {status === "completed"
-                ? t("Confirmar entrega")
-                : t(ACTION_LABELS[status] ?? status)}
+              {t(ACTION_LABELS[status] ?? status)}
             </button>
           ))}
         </div>
       )}
 
-      {confirmStatus && confirmStatus !== "cancelled" && (
+      {pendingDecision && (
         <div className="exchange-confirm" role="group" aria-label={t("CONFIRMAR ACCIÓN")}>
-          <p role="alert">{t(CONFIRM_STATUS_TEXT[confirmStatus] ?? "¿Confirmas esta acción?")}</p>
+          <p role="alert">{t(CONFIRM_STATUS_TEXT[pendingDecision])}</p>
           <div className="dialog-actions">
             <button
               type="button"
@@ -575,59 +823,57 @@ export function ExchangeDialog({
               onClick={() => setConfirmStatus(null)}
               disabled={busy}
             >
-              {t("Cancelar")}
+              {t("Ahora no")}
             </button>
             <button
+              ref={confirmRef}
               type="button"
               className="primary-button small"
-              onClick={() => void applyStatus(confirmStatus)}
+              onClick={() => void applyStatus(pendingDecision)}
               disabled={busy}
             >
-              {t("Confirmar")}
+              {busy
+                ? t("Confirmando…")
+                : pendingDecision === "accepted"
+                  ? t("Sí, aceptar")
+                  : t("Sí, rechazar")}
             </button>
           </div>
         </div>
       )}
 
-      {request.status === "accepted" && request.confirmedByMe && (
-        <p className="form-note" role="status">
-          {t("Has confirmado la entrega. El intercambio se cerrará cuando la otra persona también la confirme.")}
+      {/* Un fallo al aceptar o rechazar tiene que verse junto a esos botones,
+          no después del hilo: en un pendiente el hilo aún no existe. */}
+      {error && requestStatus === "pending" && (
+        <p className="form-error" role="alert">
+          {error}
         </p>
       )}
 
-      {request.status === "accepted" && !request.confirmedByMe && request.confirmedByOther && (
-        <p className="form-note" role="status">
-          {t("La otra parte ya ha confirmado la entrega. Confírmala también cuando tengas el libro.")}
-        </p>
-      )}
-
-      <div className="exchange-steps" aria-label={t("Estado del intercambio")}>
+      <ol className="exchange-steps" aria-label={t("Estado del intercambio")}>
         {EXCHANGE_STEPS.map((step, index) => {
-          const completed = request.status === "completed" ? 3 : request.status === "accepted" ? 2 : 1;
-          const reached =
-            index < completed || (index === completed && request.status === "completed" && request.reviewed);
-          const current =
-            (request.status === "pending" && index === 0) ||
-            (request.status === "accepted" && index === 2) ||
-            (request.status === "completed" && index === 3 && !request.reviewed);
+          const state = stepState(index);
           return (
-            <span
+            <li
               key={step}
-              className={
-                reached || (index === completed && request.status === "completed" && request.reviewed)
-                  ? "exchange-step done"
-                  : current
-                    ? "exchange-step current"
-                    : "exchange-step"
-              }
-              aria-current={current ? "step" : undefined}
+              className={`exchange-step ${state}`}
+              aria-current={state === "current" ? "step" : undefined}
             >
-              <i>{index + 1}</i>
-              {t(step)}
-            </span>
+              <i aria-hidden="true">{state === "done" ? <Check size={11} /> : index + 1}</i>
+              <span>{t(step)}</span>
+              {index === 2 && handoverDetail && (
+                <span className="exchange-step-detail">{handoverDetail}</span>
+              )}
+            </li>
           );
         })}
-      </div>
+      </ol>
+
+      {closedNegative && (
+        <p className="form-note" role="status">
+          {t("El intercambio no llegó a completarse.")}
+        </p>
+      )}
 
       <p className="encryption-note">
         <Lock size={13} aria-hidden /> {t("Cifrado de extremo a extremo · Huella de")}{" "}
@@ -657,7 +903,7 @@ export function ExchangeDialog({
         </p>
       </details>
 
-      {thread && !thread.ownKeyReady && (
+      {requestStatus === "accepted" && thread && !thread.ownKeyReady && (
         <div className="key-warning" role="alert">
           <p>
             {t(
@@ -670,7 +916,7 @@ export function ExchangeDialog({
         </div>
       )}
 
-      {thread?.keyChanged && (
+      {requestStatus === "accepted" && thread?.keyChanged && (
         <div className="key-warning" role="alert">
           <p>
             {t("La clave de {name} ha cambiado. Podría ser un dispositivo nuevo o alguien intentando leer la conversación. Verifica la huella con la otra persona antes de continuar.", { name: thread.peer.name })}
@@ -787,7 +1033,7 @@ export function ExchangeDialog({
         ))}
       </div>
 
-      {error && (
+      {error && requestStatus !== "pending" && (
         <p className="form-error" role="alert">
           {error}
         </p>
@@ -799,6 +1045,96 @@ export function ExchangeDialog({
             ? t("La otra persona todavía no ha activado el cifrado en su dispositivo. Podréis escribir en cuanto abra la aplicación una vez.")
             : t("Tu navegador no permite el cifrado de extremo a extremo.")}
         </p>
+      )}
+
+      {request.status === "accepted" && (
+        <section className="exchange-handover" aria-label={t("Confirmación de la entrega")}>
+          {request.confirmedByMe ? (
+            <p className="form-note exchange-handover-done" role="status">
+              {isOwner
+                ? t("Has confirmado la entrega. El intercambio se cerrará cuando la otra persona confirme que lo ha recibido.")
+                : t("Has confirmado la recepción. El intercambio se cerrará cuando la otra persona confirme la entrega.")}
+            </p>
+          ) : (
+            <>
+              <div className="exchange-handover-copy">
+                <strong>{isOwner ? t("¿Ya lo has entregado?") : t("¿Ya tienes el libro?")}</strong>
+                <p>
+                  {isOwner
+                    ? t("Confirma que ya lo has entregado o enviado. Cuando la otra persona confirme que lo ha recibido, el intercambio se cerrará.")
+                    : t("Confirma que ya tienes el libro en tus manos. Cuando las dos partes hayáis confirmado, el intercambio se cerrará.")}
+                </p>
+                {request.confirmedByOther && (
+                  <p className="exchange-handover-other">
+                    {isOwner
+                      ? t("La otra persona ya ha confirmado que lo recibió. Confirma tú la entrega para cerrar el intercambio.")
+                      : t("La otra persona ya ha confirmado la entrega. Cuando tengas el libro, confirma que lo has recibido.")}
+                  </p>
+                )}
+                {canOpenIncident && (
+                  <button type="button" className="exchange-handover-report" onClick={reportMissingBook}>
+                    {t("¿No ha llegado el libro?")}
+                  </button>
+                )}
+                {canOpenIncident && (
+                  <p className="form-hint exchange-handover-window">
+                    {t("Puedes abrir una incidencia hasta 60 días después de la aceptación.")}
+                  </p>
+                )}
+                {!isOwner && !request.incidentOpen && !canOpenIncident && (
+                  <p className="form-hint">
+                    {t("El plazo de 60 días para abrir la incidencia ha terminado.")}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setConfirmStatus("completed")}
+                disabled={busy || request.incidentOpen}
+              >
+                {isOwner ? t("He entregado el libro") : t("He recibido el libro")}
+              </button>
+            </>
+          )}
+          {confirmStatus === "completed" && (
+            <div className="exchange-confirm" role="group" aria-label={t("CONFIRMAR ACCIÓN")}>
+              <p role="alert">
+                {isOwner
+                  ? t("¿Confirmas que ya has entregado o enviado el libro? Si la otra persona ya confirmó la recepción, el intercambio se cerrará y no se podrá deshacer.")
+                  : t("¿Confirmas que ya tienes el libro? Si la otra persona ya confirmó la entrega, el intercambio se cerrará y no se podrá deshacer.")}
+              </p>
+              <div className="dialog-actions">
+                <button
+                  type="button"
+                  className="secondary-button small"
+                  onClick={() => setConfirmStatus(null)}
+                  disabled={busy}
+                >
+                  {t("Ahora no")}
+                </button>
+                <button
+                  ref={confirmRef}
+                  type="button"
+                  className="primary-button small"
+                  onClick={() => void applyStatus("completed")}
+                  disabled={busy}
+                >
+                  {busy
+                    ? t("Confirmando…")
+                    : isOwner
+                      ? t("Sí, lo he entregado")
+                      : t("Sí, lo he recibido")}
+                </button>
+              </div>
+            </div>
+          )}
+          {request.incidentOpen && (
+            <p className="form-note" role="status">
+              {t("El intercambio queda bloqueado hasta que la moderación resuelva la incidencia.")}
+            </p>
+          )}
+        </section>
       )}
 
       {request.status === "accepted" ? (
@@ -834,7 +1170,7 @@ export function ExchangeDialog({
       )}
 
       {request.status !== "pending" && (
-        <details className="report-box incident-box">
+        <details ref={incidentRef} className="report-box incident-box">
           <summary>
             <TriangleAlert size={14} /> {t("Problema con este intercambio")}
           </summary>
@@ -843,8 +1179,19 @@ export function ExchangeDialog({
               {t("Cuéntanos qué ha pasado. La moderación no puede leer los mensajes cifrados.")}
             </p>
             <label htmlFor="incident-reason">{t("Motivo")}</label>
-            <select id="incident-reason" name="reason" defaultValue={REPORT_REASONS[0]}>
-              {REPORT_REASONS.map((reason) => (
+            <select
+              id="incident-reason"
+              name="reason"
+              value={incidentReason}
+              onChange={(event) => setIncidentReason(event.target.value)}
+            >
+              {REPORT_REASONS.filter(
+                (reason) =>
+                  !(
+                    reason === DELIVERY_INCIDENT_REASON &&
+                    (isOwner || request.incidentOpen)
+                  ),
+              ).map((reason) => (
                 <option key={reason} value={reason}>
                   {t(reason)}
                 </option>
@@ -878,7 +1225,7 @@ export function ExchangeDialog({
               <p role="alert">
                 {request.status === "pending"
                   ? t("Se retira tu solicitud y el ejemplar vuelve a estar disponible para otras personas.")
-                  : t(CONFIRM_STATUS_TEXT["cancelled"] ?? "¿Confirmas esta acción?")}
+                  : t(CONFIRM_STATUS_TEXT.cancelled)}
               </p>
               <div className="dialog-actions">
                 <button
@@ -887,15 +1234,16 @@ export function ExchangeDialog({
                   onClick={() => setConfirmStatus(null)}
                   disabled={busy}
                 >
-                  {t("Cancelar")}
+                  {t("Ahora no")}
                 </button>
                 <button
+                  ref={confirmRef}
                   type="button"
                   className="primary-button small"
                   onClick={() => void applyStatus("cancelled")}
                   disabled={busy}
                 >
-                  {t("Confirmar")}
+                  {busy ? t("Confirmando…") : t("Sí, cancelar")}
                 </button>
               </div>
             </div>
@@ -912,50 +1260,6 @@ export function ExchangeDialog({
         </div>
       )}
 
-      {request.status === "completed" && request.reviewed && (
-        <p className="action-feedback">
-          <Star size={14} /> {t("Ya has valorado este intercambio.")}
-        </p>
-      )}
-      {request.status === "completed" && !request.reviewed && (
-        <form className="review-form" onSubmit={submitReview}>
-          <strong>{t("¿Cómo fue el intercambio?")}</strong>
-          <div className="review-row">
-            <label htmlFor="review-rating">{t("Puntuación")}</label>
-            <select
-              id="review-rating"
-              value={rating}
-              required
-              onChange={(event) => setRating(event.target.value)}
-            >
-              <option value="" disabled>
-                {t("Elige una puntuación")}
-              </option>
-              {[5, 4, 3, 2, 1].map((value) => (
-                <option key={value} value={value}>
-                  {t("{n} de 5", { n: value })}
-                </option>
-              ))}
-            </select>
-          </div>
-          <label htmlFor="review-comment">{t("Comentario (opcional)")}</label>
-          <textarea
-            id="review-comment"
-            rows={2}
-            maxLength={500}
-            value={reviewComment}
-            onChange={(event) => setReviewComment(event.target.value)}
-          />
-          {reviewError && (
-            <p className="form-error" role="alert">
-              {reviewError}
-            </p>
-          )}
-          <button className="primary-button small" type="submit" disabled={reviewSending}>
-            {reviewSending ? t("Enviando…") : t("Enviar valoración")}
-          </button>
-        </form>
-      )}
     </Dialog>
   );
 }

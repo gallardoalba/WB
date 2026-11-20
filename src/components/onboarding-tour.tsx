@@ -28,7 +28,7 @@ const STEPS = [
   {
     icon: Handshake,
     title: "Quedad y confirmad",
-    text: "Cuando se acepta una solicitud se abre una conversación cifrada de extremo a extremo. Acordáis dónde y cuándo —la plataforma no pide direcciones— y cada parte confirma al tener el libro en las manos. Desde ahí sigue circulando: queda en la estantería de quien lo tiene, en pausa, y puede volver a compartirse.",
+    text: "Cuando se acepta una solicitud se abre una conversación cifrada de extremo a extremo. Acordáis dónde y cuándo —la plataforma no pide direcciones—. Quien entrega el libro confirma la entrega y quien lo recibe confirma la recepción. Desde ahí sigue circulando: queda en la estantería de quien lo tiene, en pausa, y puede volver a compartirse.",
   },
   {
     icon: Route,

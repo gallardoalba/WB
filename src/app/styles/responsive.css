@@ -765,6 +765,15 @@
   font-size: 14px;
 }
 
+.admin-response {
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .admin-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1100,5 +1109,28 @@
   .topbar {
     column-gap: 8px;
     padding: 8px var(--space-2);
+  }
+}
+
+@media (max-width: 640px) {
+  /* La fila lleva portada, título, estado y hasta dos acciones. Sin esto, a
+     390 px el título quedaba en una columna de 50 px y se partía en letras:
+     la información ocupa el ancho de la fila y el estado y los botones bajan
+     a la segunda línea. */
+  .exchange-info {
+    flex: 1 1 calc(100% - 54px);
+  }
+}
+
+@media (max-width: 640px) {
+  .exchange-row > button.exchange-open {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    gap: 0;
+  }
+
+  .exchange-open-label {
+    display: none;
   }
 }

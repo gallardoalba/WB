@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeOff, ShieldOff, Check, X } from "lucide-react";
 import { api } from "@/lib/client-api";
-import type { AdminReportView } from "@/lib/domain";
+import { DELIVERY_INCIDENT_REASON, type AdminReportView } from "@/lib/domain";
 import type { MessageKey } from "@/lib/i18n";
 import { formatWhen } from "@/lib/text";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -17,7 +17,8 @@ type Action =
   | "suspend_user"
   | "hide_comment"
   | "hide_club"
-  | "hide_club_post";
+  | "hide_club_post"
+  | "cancel_request";
 
 const UNDO: Partial<Record<Action, string>> = {
   hide_listing: "restore_listing",
@@ -33,6 +34,7 @@ const CONFIRM_TITLE: Partial<Record<Action, MessageKey>> = {
   hide_comment: "¿Ocultar este comentario?",
   hide_club: "¿Ocultar este club?",
   hide_club_post: "¿Ocultar este mensaje del foro?",
+  cancel_request: "¿Cancelar este intercambio?",
 };
 
 const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
@@ -41,6 +43,8 @@ const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
   hide_comment: "Solo su autor podrá verlo.",
   hide_club: "Desaparecerá del directorio y del perfil de sus miembros.",
   hide_club_post: "Dejará de verse en el foro del club; solo su autor lo verá.",
+  cancel_request:
+    "El ejemplar volverá a estar disponible si no hay otro intercambio aceptado. No se puede deshacer.",
 };
 
 export function AdminReports({
@@ -115,7 +119,7 @@ export function AdminReports({
       setReason("");
       setDays(30);
     }
-    if (UNDO[action]) {
+    if (UNDO[action] || CONFIRM_TITLE[action]) {
       setConfirming({ report, action });
     } else {
       void act(report.id, action, report);
@@ -171,6 +175,11 @@ export function AdminReports({
               {report.reason} · {report.reporter.name} · {formatWhen(report.createdAt, locale)}
             </span>
             {report.details && <p>{report.details}</p>}
+            {report.response && (
+              <p className="admin-response">
+                <strong>{t("Respuesta de la otra parte")}:</strong> {report.response}
+              </p>
+            )}
           </div>
           <div className="admin-actions">
             <button
@@ -179,8 +188,21 @@ export function AdminReports({
               disabled={busyId === report.id}
               onClick={() => requestAction(report, "dismiss")}
             >
-              <X size={14} /> {t("Descartar")}
+              <X size={14} />{" "}
+              {report.targetType === "request" && report.reason === DELIVERY_INCIDENT_REASON
+                ? t("Mantener intercambio")
+                : t("Descartar")}
             </button>
+            {report.targetType === "request" && report.reason === DELIVERY_INCIDENT_REASON && (
+              <button
+                type="button"
+                className="secondary-button small danger"
+                disabled={busyId === report.id}
+                onClick={() => requestAction(report, "cancel_request")}
+              >
+                <X size={14} /> {t("Cancelar intercambio")}
+              </button>
+            )}
             {report.targetType === "listing" && (
               <button
                 type="button"
