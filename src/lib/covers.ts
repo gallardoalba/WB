@@ -45,6 +45,28 @@ export function coverCacheDir(): string {
 
 export type Cover = { data: Buffer; contentType: string };
 
+function writeCoverAtomically(file: string, data: Buffer): void {
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  let descriptor: number | null = null;
+  let ownsTemporary = false;
+  try {
+    descriptor = openSync(temporary, "wx", 0o600);
+    ownsTemporary = true;
+    try {
+      writeFileSync(descriptor, data);
+    } finally {
+      const opened = descriptor;
+      descriptor = null;
+      closeSync(opened);
+    }
+    renameSync(temporary, file);
+    ownsTemporary = false;
+  } finally {
+    if (descriptor !== null) closeSync(descriptor);
+    if (ownsTemporary && existsSync(temporary)) unlinkSync(temporary);
+  }
+}
+
 /** Tipo real de la imagen por sus primeros bytes; el `Content-Type` lo pone quien sube. */
 function sniffImageType(data: Buffer): string | null {
   if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return "image/jpeg";
@@ -117,13 +139,7 @@ export function sanitizeUploadedCover(bookId: string): void {
   }
 
   if (!sanitized.equals(original)) {
-    const temporary = `${file}.${randomUUID()}.tmp`;
-    try {
-      writeFileSync(temporary, sanitized, { mode: 0o600, flag: "wx" });
-      renameSync(temporary, file);
-    } finally {
-      if (existsSync(temporary)) unlinkSync(temporary);
-    }
+    writeCoverAtomically(file, sanitized);
   }
 
   sanitizedCovers.add(file);
@@ -171,7 +187,7 @@ export function saveUploadedCover(bookId: string, data: Buffer): Cover | null {
   const sanitized = stripJpegMetadata(data);
   if (sanitized.byteLength < MIN_STORED_BYTES || sanitized.byteLength > MAX_BYTES) return null;
   mkdirSync(coverCacheDir(), { recursive: true, mode: 0o700 });
-  writeFileSync(file, sanitized, { mode: 0o600 });
+  writeCoverAtomically(file, sanitized);
   sanitizedCovers.add(file);
   return { data: sanitized, contentType };
 }

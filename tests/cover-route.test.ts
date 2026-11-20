@@ -7,7 +7,14 @@
  * puede salirse de la carpeta de portadas.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
@@ -95,6 +102,26 @@ test("no rechaza una portada válida que queda bajo 1 KB al retirar sus metadato
   assert.ok(sanitized.byteLength < 1_000);
   assert.ok(saveUploadedCover("bok_small", sanitized));
   assert.equal(readUploadedCover("bok_small")?.data.byteLength, sanitized.byteLength);
+});
+
+test("guardar una portada reemplaza un enlace simbólico sin modificar su destino", () => {
+  const victimDir = mkdtempSync(path.join(tmpdir(), "wb-cover-victim-"));
+  const victim = path.join(victimDir, "victim.img");
+  const link = path.join(dir, "upload-bok_link.img");
+  const original = Buffer.from("contenido que no debe sobrescribirse");
+  writeFileSync(victim, original);
+
+  try {
+    symlinkSync(victim, link);
+    const saved = saveUploadedCover("bok_link", JPEG);
+
+    assert.ok(saved);
+    assert.deepEqual(readFileSync(victim), original);
+    assert.equal(lstatSync(link).isSymbolicLink(), false);
+    assert.deepEqual(readFileSync(link), saved.data);
+  } finally {
+    rmSync(victimDir, { recursive: true, force: true });
+  }
 });
 
 test("un validador que coincide responde 304 sin cuerpo", async () => {
