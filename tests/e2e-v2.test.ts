@@ -176,12 +176,24 @@ test("el paquete del dispositivo va firmado y se puede contrastar", async () => 
   };
   await assert.rejects(() => v2.verifyBundle(swappedKey), /no la firmó el dispositivo/);
 
-  // Con la identidad fijada de antes, un paquete legítimo de otro dispositivo se
+  // Con el par fijado de antes, un paquete legítimo de otro dispositivo se
   // rechaza aunque su firma sea válida.
   await assert.rejects(
-    () => v2.verifyBundle(fakeIdentity.bundle, alice.bundle.identityKey),
-    /no es la misma que antes/,
+    () => v2.verifyBundle(fakeIdentity.bundle, alice.keys),
+    /no es el que se conocía/,
   );
+
+  // Y el ataque que importa: el servidor conserva la identidad de Alice, pone
+  // su propia clave de firma y su propia clave de un solo uso, y se lo firma
+  // todo. Con la identidad anclada sola, esto pasaba.
+  const suyo = await newDevice("servidor-malicioso");
+  const fabricado: v2.DeviceBundle = {
+    ...suyo.bundle,
+    deviceId: alice.bundle.deviceId,
+    identityKey: alice.bundle.identityKey,
+  };
+  await assert.rejects(() => v2.verifyBundle(fabricado, alice.keys), /no es el que se conocía/);
+  await assert.rejects(() => v2.startVerifiedSession(alice.account, fabricado, alice.keys));
   await assert.rejects(
     () => v2.startVerifiedSession(alice.account, swapped),
     /no está firmado/,

@@ -198,25 +198,36 @@ export async function oneTimeKeyCapacity(): Promise<number> {
   return max;
 }
 
+/** Lo que el cliente recuerda de un dispositivo que ya vio. */
+export type PinnedDevice = { identityKey: string; signingKey: string };
+
 /**
  * Comprueba que un paquete servido por el servidor es del dispositivo que dice.
  *
- * La clave de identidad se compara con la que el cliente ya conoce del
- * dispositivo (`pinned`); sin ese anclaje, una firma válida solo demuestra que
- * alguien tiene *una* clave privada, no que sea la persona con la que se habla.
+ * Con `pinned` se exige **el par completo** —identidad y firma— y las firmas se
+ * verifican contra la clave fijada, no contra la que llega en el paquete. Es
+ * imprescindible: la firma del paquete se comprueba con la `signingKey` que el
+ * propio paquete trae, así que sin anclar esa clave el servidor puede quedarse
+ * con la identidad de la persona, poner una de firma suya, firmarse su propio
+ * paquete y la comprobación pasaría. Sin el anclaje, una firma válida solo
+ * demuestra que alguien tiene *una* clave privada.
  */
-export async function verifyBundle(bundle: DeviceBundle, pinned?: string): Promise<void> {
-  if (pinned && bundle.identityKey !== pinned) {
-    throw new Error("La clave de identidad del dispositivo no es la misma que antes.");
+export async function verifyBundle(bundle: DeviceBundle, pinned?: PinnedDevice): Promise<void> {
+  if (
+    pinned &&
+    (bundle.identityKey !== pinned.identityKey || bundle.signingKey !== pinned.signingKey)
+  ) {
+    throw new Error("El paquete del dispositivo no es el que se conocía.");
   }
+  const trust = pinned?.signingKey ?? bundle.signingKey;
   const bundleOk = await verifySignature(
-    bundle.signingKey,
+    trust,
     bundleMessage(bundle.deviceId, bundle.identityKey, bundle.signingKey),
     bundle.signature,
   );
   if (!bundleOk) throw new Error("El paquete del dispositivo no está firmado por su clave.");
   const keyOk = await verifySignature(
-    bundle.signingKey,
+    trust,
     oneTimeKeyMessage(bundle.deviceId, bundle.oneTimeKey.keyId, bundle.oneTimeKey.key),
     bundle.oneTimeKey.signature,
   );
@@ -246,7 +257,7 @@ export async function startSession(account: OlmAccount, bundle: DeviceBundle): P
 export async function startVerifiedSession(
   account: OlmAccount,
   bundle: DeviceBundle,
-  pinned?: string,
+  pinned?: PinnedDevice,
 ): Promise<OlmSession> {
   await verifyBundle(bundle, pinned);
   return startSession(account, bundle);

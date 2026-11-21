@@ -148,7 +148,12 @@ export async function publishDevice(
   assertSigned(input);
 
   const existing = getDevice(userId, input.deviceId, db);
-  const hasAnyDevice = listDevices(userId, db, { includeRevoked: true }).length > 0;
+  // Cuenta también la identidad de v1: una cuenta que ya cifra tiene algo que
+  // proteger, aunque todavía no haya publicado ningún dispositivo v2. Sin
+  // esto, una sesión robada instalaba el primer dispositivo v2 sin contraseña
+  // y recibía el tráfico futuro.
+  const hasAnyIdentity =
+    listDevices(userId, db, { includeRevoked: true }).length > 0 || hasPublishedKey(userId, db);
   const identityChanged =
     existing !== null &&
     (existing.identityKey !== input.identityKey || existing.signingKey !== input.signingKey);
@@ -157,7 +162,7 @@ export async function publishDevice(
   if (existing?.revokedAt) change = "reactivation";
   else if (identityChanged) change = "identity";
   else if (existing) change = "keys";
-  else change = hasAnyDevice ? "another" : "initial";
+  else change = hasAnyIdentity ? "another" : "initial";
 
   // El **primer** dispositivo de una cuenta es TOFU, igual que la primera clave
   // en v1: no hay nada anterior que proteger. Reponer claves tampoco pide
@@ -180,8 +185,20 @@ export async function publishDevice(
          signing_key = excluded.signing_key,
          bundle_signature = excluded.bundle_signature,
          updated_at = excluded.updated_at,
-         revoked_at = NULL`,
-    ).run(userId, input.deviceId, input.identityKey, input.signingKey, input.signature, now, now);
+         -- Solo una reactivación (con contraseña) devuelve el dispositivo a la
+         -- vida. Si la retirada se confirma entre la lectura y la escritura,
+         -- este CASE impide que una reposición la deshaga sin contraseña.
+         revoked_at = CASE WHEN ? = 1 THEN NULL ELSE device_keys.revoked_at END`,
+    ).run(
+      userId,
+      input.deviceId,
+      input.identityKey,
+      input.signingKey,
+      input.signature,
+      now,
+      now,
+      change === "reactivation" ? 1 : 0,
+    );
 
     if (identityChanged) {
       db.prepare("DELETE FROM device_one_time_keys WHERE user_id = ? AND device_id = ?").run(
@@ -219,6 +236,16 @@ export async function publishDevice(
     .get(userId, input.deviceId) as DeviceRow | undefined;
   if (!row) throw new ApiError(500, "No se pudo guardar el dispositivo.");
   return { device: toDevice(row), change };
+}
+
+/** ¿La cuenta ya publicó alguna identidad? Incluye la ranura v1 y la columna antigua. */
+function hasPublishedKey(userId: string, db: Db): boolean {
+  const slot = db.prepare("SELECT 1 AS hay FROM user_keys WHERE user_id = ? LIMIT 1").get(userId);
+  if (slot) return true;
+  const legacy = db
+    .prepare("SELECT 1 AS hay FROM users WHERE id = ? AND public_key_id IS NOT NULL")
+    .get(userId);
+  return Boolean(legacy);
 }
 
 async function assertPassword(

@@ -261,3 +261,50 @@ test("el camino completo: publicar, reclamar, verificar y conversar", async () =
   const otro = await device("intruso-dispositivo-01");
   await assert.rejects(() => v2.acceptSession(otro.account, deJuan.input.identityKey, primero));
 });
+
+test("una cuenta que ya cifraba con v1 no estrena dispositivo sin contraseña", async () => {
+  // El gate solo miraba `device_keys`: una sesión robada instalaba el primer
+  // dispositivo v2 de una cuenta que ya tenía clave v1 y recibía el tráfico
+  // futuro sin pedir nada.
+  const lucía = cuenta("Lucía Dispositivos");
+  repo.setPublicKey(lucía, { kty: "EC", crv: "P-256", x: "lucia-x", y: "lucia-y" }, "initial");
+
+  const real = await device(DEVICE_ID);
+  await assert.rejects(
+    () => repo.publishDevice(lucía, real.input),
+    (error: { status?: number }) => error.status === 428,
+    "la cuenta ya tenía identidad publicada",
+  );
+  const { change } = await repo.publishDevice(lucía, real.input, { password: PASSWORD });
+  assert.equal(change, "another");
+});
+
+test("reponer claves no devuelve a la vida un dispositivo retirado entre medias", async () => {
+  // La clasificación se lee antes de la transacción: si la retirada se confirma
+  // en medio, la escritura no puede deshacerla sin contraseña.
+  const marta = cuenta("Marta Dispositivos");
+  const real = await device(DEVICE_ID);
+  await repo.publishDevice(marta, real.input);
+
+  const { getDb } = await import("../src/lib/db/index.ts");
+  const conexion = getDb();
+  const original = conexion.transaction.bind(conexion);
+  // Simula la carrera: se revoca justo antes de escribir, una sola vez (la
+  // propia revocación también abre transacción).
+  let pendiente = true;
+  (conexion as unknown as { transaction: unknown }).transaction = (fn: () => unknown) => {
+    if (pendiente) {
+      pendiente = false;
+      repo.revokeDevice(marta, DEVICE_ID);
+    }
+    return original(fn);
+  };
+  try {
+    await repo.publishDevice(marta, replenish(real.account, DEVICE_ID, real.input, 2));
+  } finally {
+    (conexion as unknown as { transaction: unknown }).transaction = original;
+  }
+
+  const despues = repo.getDevice(marta, DEVICE_ID);
+  assert.ok(despues?.revokedAt, "sigue retirado: reponer no lo resucita");
+});

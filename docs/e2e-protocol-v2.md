@@ -70,8 +70,9 @@ Devices are published with:
 - `signing_key` (Ed25519, base64);
 - a **bundle signature**: Ed25519 over
   `wanderbibliothek:v2:bundle|<device_id>|<identity_key>|<signing_key>`;
-- up to 20 one-time keys, each one signed: Ed25519 over
-  `wanderbibliothek:v2:otk|<device_id>|<key_id>|<key>`.
+- up to 50 one-time keys per publication, each one signed: Ed25519 over
+  `wanderbibliothek:v2:otk|<device_id>|<key_id>|<key>`. The store keeps at most
+  100 per device (libolm's own cap) and drops the oldest beyond that.
 
 libolm does not sign one-time keys — X3DH signs a *signed prekey*, olm has no
 equivalent — so these signatures are the only thing that stops a server from
@@ -111,10 +112,15 @@ session.
    server deletes the key inside the same transaction: **a one-time key is
    handed out at most once**. Claiming is capped per caller *and* per target
    device, so nobody can drain a stranger's keys with a handful of accounts.
-3. Initiator **verifies** the bundle signature, the one-time-key signature and
-   — if it has seen the device before — that the identity key is the same one
-   (`startVerifiedSession`). A bundle that does not verify never opens a
-   session, and the client says so instead of silently falling back to v1.
+3. Initiator **verifies** the bundle signature and the one-time-key signature
+   with the device's signing key, and — if it has seen the device before —
+   requires the **pair** `(identity_key, signing_key)` to be the one it stored,
+   verifying against that stored key rather than the one that arrived
+   (`startVerifiedSession`). Pinning only the identity key is not enough: the
+   bundle signs itself, so a server that keeps the victim's identity key and
+   swaps in its own signing key would still produce a valid-looking bundle. A
+   bundle that does not verify never opens a session, and the client says so
+   instead of silently falling back to v1.
 4. Initiator builds the outbound session and sends a pre-key message.
 5. Responder builds the inbound session from the pre-key message, removes the
    used one-time key from its account, and replies with normal messages.
@@ -323,7 +329,7 @@ Shipped in this release:
 | Sealed record: padding to 256 and conversation inside the ciphertext | `src/lib/e2e-v2.ts` | `tests/e2e-v2.test.ts` |
 | Server-side Ed25519 verification of bundle and keys | `src/lib/ed25519.ts` | `tests/devices.test.ts` |
 | Device registry, gated publishing, one-time keys handed out once, pruning, revocation | `src/lib/repo/devices.ts`, migration v65 | `tests/devices.test.ts` |
-| `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | wrapper, quota and origin in `tests/route.test.ts`; the repository behind them in `tests/devices.test.ts` |
+| `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | the static scan in `tests/route.test.ts` (wrapper, quota and origin for every route file) plus the repository behind them in `tests/devices.test.ts` |
 | Device keys in the signed key directory | `src/lib/transparency.ts` | `tests/key-transparency.test.ts` |
 
 Not implemented yet, and therefore **not** claimed by the documentation:
