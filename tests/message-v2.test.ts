@@ -82,7 +82,12 @@ test("un mensaje v2 se guarda y se devuelve con su protocolo", async () => {
     },
   });
   assert.equal(mensaje.encrypted, true);
-  assert.equal(mensaje.keyId, deAna.deviceId, "el mensaje recuerda qué dispositivo lo firmó");
+  assert.equal(
+    mensaje.senderDeviceId,
+    deAna.deviceId,
+    "el mensaje recuerda qué dispositivo lo firmó",
+  );
+  assert.equal(mensaje.keyId, null, "y `keyId` se queda para la ranura de v1");
 
   const [guardado] = repo.listMessages(hilo, bruno).messages;
   assert.deepEqual(guardado?.envelopes, [

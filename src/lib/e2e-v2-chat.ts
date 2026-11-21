@@ -148,13 +148,18 @@ export async function encryptV2(input: {
   const current = await loadV2Session(input.userId).catch(() => null);
   if (!current) return null;
   try {
-    return await encryptForDevices({
+    const payload = await encryptForDevices({
       session: current,
       api: httpApi,
       conversation: input.conversation,
       text: input.text,
       peerUserId: input.peerUserId,
     });
+    // Las sesiones y las claves fijadas tienen que sobrevivir a la recarga: si
+    // no, cada mensaje vuelve a hacer un establecimiento y la fijación del par
+    // —y la de la clave del directorio— dura una página.
+    await store?.save(current.state);
+    return payload;
   } catch {
     // Un fallo aquí no debe impedir mandar el mensaje: se manda con v1 y la
     // conversación sigue. Sin sabotear el envío por un protocolo nuevo.
@@ -193,6 +198,7 @@ export async function decryptV2(input: {
       peerUserId: input.peerUserId,
       messages: withV2,
     });
+    await store?.save(current.state);
     return Object.fromEntries(decrypted.map((item) => [item.messageId, item.text]));
   } catch {
     return {};
@@ -228,25 +234,31 @@ export function forgetV2Session(): void {
 }
 
 /**
- * Cifra un mensaje del tablón para cada dispositivo de cada miembro.
+ * Resultado de intentar cifrar: «no hay dispositivo» no es un fallo.
  *
- * El servidor dice quiénes son; el cliente verifica cada paquete y abre una
- * sesión con cada aparato las veces que haga falta, porque no hay protocolo de
- * grupo. Si este navegador no tiene dispositivo, devuelve `null` y el mensaje
- * sale en claro como antes.
+ * La diferencia importa: sin dispositivo, publicar en claro es lo correcto (esa
+ * persona no puede hacer otra cosa). Si lo que falla es el cifrado —un paquete
+ * que no verifica, una clave agotada, la red—, seguir adelante publicaría el
+ * texto en claro, que es justo lo que el foro cifrado quiere evitar.
  */
+export type EncryptResult =
+  | { status: "ok"; payload: V2SendPayload }
+  | { status: "no-device" }
+  | { status: "error"; message: string };
+
+/** Cifra un mensaje del tablón para cada dispositivo de cada miembro. */
 export async function encryptClub(input: {
   userId: string;
   clubId: string;
   text: string;
-}): Promise<V2SendPayload | null> {
+}): Promise<EncryptResult> {
   const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current) return null;
+  if (!current) return { status: "no-device" };
   try {
     const response = await api<{
       devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
     }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-    return await encryptForClub({
+    const payload = await encryptForClub({
       session: current,
       api: httpApi,
       clubId: input.clubId,
@@ -254,12 +266,23 @@ export async function encryptClub(input: {
       text: input.text,
       devices: response.devices,
     });
-  } catch {
-    return null;
+    await store?.save(current.state);
+    return { status: "ok", payload };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "No se pudo cifrar el mensaje.",
+    };
   }
 }
 
-/** Descifra los mensajes del tablón que traigan sobre para este dispositivo. */
+/**
+ * Descifra los mensajes del tablón que traigan sobre para este dispositivo.
+ *
+ * Devuelve, por mensaje, el texto y **quién lo escribió según el registro
+ * firmado**. La interfaz compara ese autor con el que dice la fila: si no
+ * coinciden, el servidor está reatribuyendo un mensaje auténtico.
+ */
 export async function decryptClub(input: {
   userId: string;
   clubId: string;
@@ -268,7 +291,7 @@ export async function decryptClub(input: {
     senderDeviceId?: string | null;
     envelope?: { type: number | null; body: string } | null;
   }[];
-}): Promise<Record<string, string>> {
+}): Promise<Record<string, { text: string; senderUserId: string }>> {
   const current = await loadV2Session(input.userId).catch(() => null);
   if (!current || !store) return {};
   const conSobre = flatPosts(input.posts).filter((post) => post.envelope);
@@ -358,5 +381,6 @@ export async function revealClubPost(input: {
     method: "POST",
     body: { reason: input.reason, envelopes },
   });
+  await store?.save(current.state);
   return true;
 }

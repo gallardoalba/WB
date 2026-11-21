@@ -2247,6 +2247,24 @@ function migrateToV67(db: Db) {
   db.pragma("user_version = 67");
 }
 
+/**
+ * v68: qué dispositivo firmó cada mensaje, aparte de la clave de v1.
+ *
+ * `key_id` guarda la **ranura de v1** y el AAD de v1 se calcula con ella: al
+ * meter ahí el dispositivo de v2, un envío dual dejaba el sobre v1 ilegible para
+ * cualquier cliente antiguo. Son dos datos distintos y van en dos columnas.
+ */
+function migrateToV68(db: Db) {
+  const addColumn = (table: string, column: string, definition: string) => {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (columns.some((existing) => existing.name === column)) return;
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  };
+  addColumn("messages", "sender_device_id", "TEXT");
+  addColumn("dm_messages", "sender_device_id", "TEXT");
+  db.pragma("user_version = 68");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2383,6 +2401,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 65) migrateToV65(db);
   if (userVersion(db) < 66) migrateToV66(db);
   if (userVersion(db) < 67) migrateToV67(db);
+  if (userVersion(db) < 68) migrateToV68(db);
 
   backfillSearchKeys(db);
 }

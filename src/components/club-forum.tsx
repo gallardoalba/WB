@@ -127,19 +127,25 @@ export function ClubForum({ clubId, userId, initialPosts, initialHasMore, total 
       if (!bridge || cancelled) return;
       const decoded = await bridge
         .decryptClub({ userId, clubId, posts: initialPosts })
-        .catch((): Record<string, string> => ({}));
+        .catch((): Record<string, { text: string; senderUserId: string }> => ({}));
       if (cancelled || Object.keys(decoded).length === 0) return;
-      const fill = (post: ClubPostView): ClubPostView => ({
-        ...post,
-        body: decoded[post.id] ?? post.body,
-        replies: post.replies.map(fill),
-      });
+      const fill = (post: ClubPostView): ClubPostView => {
+        const abierto = decoded[post.id];
+        // Si el registro firmado dice que escribió otra persona, se descarta el
+        // texto: el servidor puede reatribuir un mensaje auténtico.
+        const atribuido = abierto && (!post.author.id || post.author.id === abierto.senderUserId);
+        return {
+          ...post,
+          body: atribuido ? abierto.text : t("Mensaje no verificado"),
+          replies: post.replies.map(fill),
+        };
+      };
       setPosts((current) => current.map(fill));
     })();
     return () => {
       cancelled = true;
     };
-  }, [clubId, userId, initialPosts]);
+  }, [clubId, userId, initialPosts, t]);
 
   const reset = () => {
     setError("");
@@ -169,8 +175,8 @@ export function ClubForum({ clubId, userId, initialPosts, initialHasMore, total 
    */
   async function cifrarParaElClub(text: string) {
     const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
-    if (!bridge) return null;
-    return bridge.encryptClub({ userId, clubId, text }).catch(() => null);
+    if (!bridge) return { status: "no-device" as const };
+    return bridge.encryptClub({ userId, clubId, text });
   }
 
   const [, publicar, publicando] = useActionState(async () => {
@@ -181,10 +187,16 @@ export function ClubForum({ clubId, userId, initialPosts, initialHasMore, total 
     }
     reset();
     try {
-      const v2 = await cifrarParaElClub(text);
+      const cifrado = await cifrarParaElClub(text);
+      // Si el cifrado falla, se aborta: publicar en claro sería justo lo que el
+      // foro cifrado evita, y el servidor lo rechazaría de todos modos.
+      if (cifrado.status === "error") {
+        setError(cifrado.message || t("No se pudo cifrar el mensaje."));
+        return null;
+      }
       const data = await api<{ post: ClubPostView }>(`/api/clubs/${clubId}/posts`, {
         method: "POST",
-        body: v2 ? { v2 } : { body: text },
+        body: cifrado.status === "ok" ? { v2: cifrado.payload } : { body: text },
       });
       setPosts((current) => [data.post, ...current]);
       setCount((current) => current + 1);
@@ -206,10 +218,17 @@ export function ClubForum({ clubId, userId, initialPosts, initialHasMore, total 
     setPending(true);
     reset();
     try {
-      const v2 = await cifrarParaElClub(text);
+      const cifrado = await cifrarParaElClub(text);
+      if (cifrado.status === "error") {
+        setError(cifrado.message || t("No se pudo cifrar la respuesta."));
+        return;
+      }
       const data = await api<{ post: ClubPostView }>(`/api/clubs/${clubId}/posts`, {
         method: "POST",
-        body: v2 ? { v2, parentId } : { body: text, parentId },
+        body:
+          cifrado.status === "ok"
+            ? { v2: cifrado.payload, parentId }
+            : { body: text, parentId },
       });
       setPosts((current) =>
         current.map((item) =>

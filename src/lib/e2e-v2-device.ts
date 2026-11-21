@@ -36,6 +36,8 @@ export type DeviceState = {
   directoryKey?: string | null;
   /** Dispositivos cuya inclusión en el directorio ya se comprobó. */
   verified?: string[];
+  /** `false` mientras el alta no se haya confirmado en el servidor. */
+  published?: boolean;
 };
 
 export type DeviceStore = {
@@ -118,6 +120,20 @@ export async function openDevice(input: {
   if (stored) {
     const account = await v2.unpickleAccount(stored.account, stored.pickleKey);
     const session = { state: stored, account };
+    // Un alta que se quedó a medias (publicada en el servidor pero sin llegar a
+    // guardarse el «publicado») se termina aquí.
+    if (stored.published === false) {
+      const keys = v2.deviceKeys(account, stored.deviceId);
+      await input.api.publish({
+        ...keys,
+        oneTimeKeys: v2.oneTimeKeys(account, stored.deviceId),
+        password: input.password,
+      });
+      v2.markKeysAsPublished(account);
+      stored.published = true;
+      stored.account = v2.pickleAccount(account, stored.pickleKey);
+      await input.store.save(stored);
+    }
     // Un dispositivo que se queda sin claves de un solo uso deja de poder abrir
     // sesiones nuevas: se repone al abrirlo, no cuando ya es tarde.
     await replenishIfLow(session, input.api, input.store);
@@ -126,11 +142,10 @@ export async function openDevice(input: {
 
   const deviceId = input.deviceId ?? newDeviceId();
   const account = await v2.createAccount();
-  const keys = v2.deviceKeys(account, deviceId);
-  const oneTimeKeys = v2.oneTimeKeys(account, deviceId);
-  await input.api.publish({ ...keys, oneTimeKeys, password: input.password });
-  v2.markKeysAsPublished(account);
 
+  // Se guarda **antes** de publicar: si el guardado falla después, quedaría un
+  // dispositivo activo en el servidor cuya clave privada no existe, y el alta
+  // siguiente pediría contraseña para nada.
   const pickleKey = randomSecret();
   const state: DeviceState = {
     userId: input.userId,
@@ -139,7 +154,17 @@ export async function openDevice(input: {
     sessions: {},
     pins: {},
     pickleKey,
+    published: false,
   };
+  await input.store.save(state);
+
+  const keys = v2.deviceKeys(account, deviceId);
+  const oneTimeKeys = v2.oneTimeKeys(account, deviceId);
+  await input.api.publish({ ...keys, oneTimeKeys, password: input.password });
+  v2.markKeysAsPublished(account);
+
+  state.published = true;
+  state.account = v2.pickleAccount(account, pickleKey);
   await input.store.save(state);
   return { state, account };
 }
@@ -181,7 +206,14 @@ export async function replenishIfLow(
   }
 }
 
-/** Repone claves de un solo uso si quedan pocas. */
+/**
+ * Repone claves de un solo uso si quedan pocas.
+ *
+ * Si el dispositivo ya tiene claves sin publicar —de un intento anterior que no
+ * llegó a guardarse— se publican **esas** y no se generan más: generar en cada
+ * intento acababa superando el tope que acepta el servidor y dejaba todos los
+ * envíos posteriores en 400 para siempre.
+ */
 export async function replenishKeys(
   session: Session,
   api: DeviceApi,
@@ -189,7 +221,9 @@ export async function replenishKeys(
 ): Promise<void> {
   if (pending > ONE_TIME_KEY_FLOOR) return;
   const account = session.account;
-  account.generate_one_time_keys(ONE_TIME_KEY_BATCH);
+  if (v2.oneTimeKeys(account, session.state.deviceId).length === 0) {
+    account.generate_one_time_keys(ONE_TIME_KEY_BATCH);
+  }
   const keys = v2.oneTimeKeys(account, session.state.deviceId);
   const { identityKey, signingKey } = v2.identityKeys(account);
   await api.publish({
@@ -516,25 +550,42 @@ export async function decryptClubPosts(input: {
     senderDeviceId?: string | null;
     envelope?: { type: number | null; body: string } | null;
   }[];
-}): Promise<Record<string, string>> {
+}): Promise<Record<string, { text: string; senderUserId: string }>> {
   const { session, api, conversation, devices, posts } = input;
-  const registry = new Map(devices.map((device) => [device.deviceId, device]));
-  const decoded: Record<string, string> = {};
+  const fromRegistry = new Map(devices.map((device) => [device.deviceId, device]));
+  const decoded: Record<string, { text: string; senderUserId: string }> = {};
 
   for (const post of posts) {
     if (!post.envelope) continue;
-    const sender = post.senderDeviceId ? registry.get(post.senderDeviceId) : undefined;
-    if (!sender) {
-      throw new Error("Un mensaje del club viene de un dispositivo que no está en el registro.");
+    const candidates = post.senderDeviceId
+      ? [fromRegistry.get(post.senderDeviceId)].filter((device) => device !== undefined)
+      : devices;
+
+    // Con un mensaje anónimo no se dice qué aparato lo escribió —eso
+    // identificaría a la persona—, así que se prueba con las sesiones que ya se
+    // tienen. Solo abre la correcta; el resto falla sin efecto.
+    let opened: { text: string; sender: (typeof devices)[number] } | null = null;
+    for (const candidate of candidates) {
+      if (!session.state.sessions[candidate.deviceId] && post.envelope.type !== 0) continue;
+      try {
+        const text = await openEnvelope(
+          session,
+          api,
+          candidate.userId,
+          candidate,
+          { type: post.envelope.type ?? 0, body: post.envelope.body },
+          conversation,
+        );
+        opened = { text, sender: candidate };
+        break;
+      } catch (error) {
+        if (post.senderDeviceId) throw error;
+      }
     }
-    decoded[post.id] = await openEnvelope(
-      session,
-      api,
-      sender.userId,
-      sender,
-      { type: post.envelope.type ?? 0, body: post.envelope.body },
-      conversation,
-    );
+    if (!opened) {
+      throw new Error("No se pudo identificar qué dispositivo escribió este mensaje del club.");
+    }
+    decoded[post.id] = { text: opened.text, senderUserId: opened.sender.userId };
   }
 
   session.state.account = v2.pickleAccount(session.account, session.state.pickleKey);

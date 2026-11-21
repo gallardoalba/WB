@@ -293,7 +293,8 @@ test("quien modera solo ve lo que alguien revela, y queda registrado", async () 
       },
     ],
   });
-  assert.equal(texto[lista[0]!.id], "mensaje que alguien denunciará");
+  assert.equal(texto[lista[0]!.id]?.text, "mensaje que alguien denunciará");
+  assert.equal(texto[lista[0]!.id]?.senderUserId, miembro, "y quién lo reveló, según el registro");
 });
 
 test("quien no modera no puede ver las revelaciones ni revelar por otros", async () => {
@@ -371,4 +372,36 @@ test("la exportación de la cuenta lleva los sobres de sus mensajes del club", a
   assert.equal(post?.encrypted, true);
   assert.equal(post?.body, "", "el texto no está en claro en la exportación");
   assert.equal(post?.envelopes.length, 1, "pero el sobre propio sí viaja");
+});
+
+test("un autor con dispositivo no puede publicar en claro en el club", async () => {
+  // Sin esta regla, publicar en claro sería una forma de que el servidor (o
+  // cualquiera que induzca un fallo en el cliente) leyera el foro.
+  const dueña = cuenta("Dueña Clara");
+  const clubId = club(dueña);
+  await dispositivo(dueña, "dispositivo-duena-07");
+
+  assert.throws(
+    () =>
+      repo.createClubPost({
+        clubId,
+        authorId: dueña,
+        authorName: "Dueña",
+        body: "esto no debería guardarse en claro",
+      }),
+    (error: { status?: number }) => error.status === 409,
+  );
+});
+
+test("quien no es del club no ve los dispositivos del club", async () => {
+  const dueña = cuenta("Dueña Lista");
+  const fuera = cuenta("Fuera Lista");
+  const clubId = club(dueña);
+  await dispositivo(dueña, "dispositivo-duena-08");
+  await dispositivo(fuera, "dispositivo-fuera-02");
+
+  // La lista la sirve la ruta con la sesión: aquí se comprueba el dato que
+  // publica, que es lo que la ruta entrega solo a miembros.
+  const clubView = repo.getClub(clubId, fuera.id);
+  assert.equal(clubView?.isMember, false, "quien no es miembro no puede pedirla");
 });

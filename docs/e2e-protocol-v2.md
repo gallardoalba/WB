@@ -133,28 +133,34 @@ peer to publish more; there is no fallback to an unauthenticated handshake.
 ```
 type: 0 | 1            # pre-key message | normal message
 body: base64           # libolm ciphertext (includes its own MAC and header)
-senderDeviceId: string # device that produced it
-senderKey: string      # libolm Ed25519 key of that device, base64
+recipientDeviceId: string  # device the envelope is for
 conversation: string   # "request:<id>" | "dm:<threadId>" | "club:<clubId>"
 ```
 
-The server stores one row per **recipient device** in `device_envelopes`
-(`conversation`, `sender_user_id`, `sender_device_id`, `recipient_device_id`,
-`type`, `body`, `created_at`) and validates shapes and sizes. It cannot open the
-body. The sender's identity key is **not** stored with the envelope: the
-receiver takes it from the signed device registry, which is what stops this
-server from inventing a sender.
+An envelope travels **inside the message it belongs to**, not in a separate
+mailbox: `message_envelopes` and `dm_message_envelopes` gained `protocol` (1 =
+v1 slot, 2 = v2 device) and `type`, and `club_post_envelopes` was created for the
+forum. Keeping one row per recipient device in the same tables is what lets the
+thread, the unread counters, the notifications, the export and the retention
+work for both protocols without a second copy of all of it.
 
-Transport:
+The row that holds the message keeps `sender_device_id` (a dedicated column, not
+the v1 `key_id`: the v1 associated data is derived from `key_id` and mixing them
+would make every v1 envelope unreadable). The sender's identity key is **not**
+stored with the envelope: the receiver takes it from the signed device registry,
+which is what stops this server from inventing a sender.
 
-| Endpoint | What it does |
-|---|---|
-| `POST /api/messages/v2` | Stores a batch for the devices of the other party. All or nothing: if any recipient device is gone, the whole batch is rejected with `409` |
-| `GET /api/messages/v2?device=&conversation=` | Pending envelopes for **one of your devices** |
-| `POST /api/messages/v2/ack` | Deletes the envelopes the client already decrypted |
+Server-side rules, all tested:
 
-`ACK` comes from the client after decryption, not from the `GET`: deleting on
-delivery would lose messages on a dropped connection.
+- the author participates in the thread; the recipients are that thread's other
+  party (or the club's members) and **only** them;
+- the sender device is the caller's own and is not revoked;
+- a suspended account neither sends nor receives;
+- once both sides have a v2 device, a v1-only message is **refused** (`409`):
+  the conversation cannot fall back to the protocol without forward secrecy
+  (§11);
+- in the club forum, an author who has a v2 device cannot publish plaintext
+  either — that is the whole point of encrypting the forum.
 
 What is encrypted is not the bare text but a sealed record:
 
@@ -198,6 +204,7 @@ ciphertext.
 |---|---|---|
 | Read message bodies | No: ratchet keys never leave devices | — |
 | Forge a message as another user | Fails the session MAC | Compromised **sender device** can still forge its own messages |
+| **Re**attribute an authentic message to someone else | The client resolves the author from the signed registry by `sender_device_id` and refuses a mismatch | A hostile server can still hide the message; it cannot make it appear to be from someone who never signed it (once the client checks, which the club forum does) |
 | Swap the one-time key handed to the initiator | The key is signed by the device and the client verifies it before opening a session | — |
 | Substitute a device identity key | The bundle is signed by the device, device keys are in the key-transparency set (§7) and safety numbers compare them | The signature proves a device key, not a person: only the transparency check or an out-of-band comparison binds it to the account |
 | Add a device to someone's account | Password for anything but the first device; notification to the owner; the device enters the committed set (§7) | A hostile operator can still add one and rely on nobody checking |
@@ -244,8 +251,10 @@ substitution visible to a client that checks it.
 
 ## 8. Clubs and moderation
 
-All club content is encrypted with **pairwise v2 sessions fanned out to each
-member device** (one envelope per device). This is not MLS: membership changes
+Club messages written from a browser with a v2 device are encrypted with
+**pairwise v2 sessions fanned out to each member device** (one envelope per
+device); an author without a device still writes plaintext, which is what the
+server refuses as soon as they publish one. This is not MLS: membership changes
 cost one session per pair, and a removed member keeps what they already
 received. MLS is the target for large clubs; the fan-out ships first because it
 reuses the audited ratchet instead of introducing a second group protocol.
@@ -258,6 +267,9 @@ Moderation without reading:
   log. Disclosure is explicit and attributable.
 - Moderators cannot decrypt anything else. A club whose rules require reading
   everything cannot be E2EE; that is a product decision, not a technical gap.
+- An anonymous post (signed as «Comunidad») does not reveal which device wrote
+  it: the device id maps to its owner through the club's device list, so it is
+  withheld and the receiver tries the sessions it already has.
 
 ## 9. Client trust
 
@@ -360,7 +372,7 @@ Shipped in this release:
 | Device registry, gated publishing, one-time keys handed out once, pruning, revocation | `src/lib/repo/devices.ts`, migration v65 | `tests/devices.test.ts` |
 | `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | the static scan in `tests/route.test.ts` (wrapper, quota and origin for every route file) plus the repository behind them in `tests/devices.test.ts` |
 | Device keys in the signed key directory | `src/lib/transparency.ts` | `tests/key-transparency.test.ts` |
-| Envelope transport: store, list by device, acknowledge, retention | `src/lib/repo/envelopes.ts`, `/api/messages/v2*` | `tests/envelopes.test.ts` |
+| Envelopes carried inside each message (v1 slot or v2 device), refused from outsiders | `src/lib/repo/shared.ts`, `requests.ts`, `direct.ts`, migration v66 | `tests/message-v2.test.ts` |
 | Client: open the device, send to every device, decrypt and acknowledge, pin peers | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
 | Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
@@ -382,10 +394,8 @@ moderation cannot read it — and decrypts its own envelopes on load.
 Not implemented yet, and therefore **not** claimed by the documentation:
 dropping v1 once the rollout ends, consistency proofs between consecutive roots
 and a witness that is not the operator (§7), MLS for large clubs, and the
-moderation panel that lists disclosures with their disclosure text (§8 lists the
-data and the API; the panel reads the v1 reports today). Until those ship, the interface keeps
-using v1 and the protections that depend on the ratchet — forward secrecy,
-sender authentication, anti-downgrade — are **not** in place in production.
+moderation panel that shows the disclosed text (the data and the endpoint exist;
+the panel still reads the v1 reports).
 
 ## 15. Change control
 

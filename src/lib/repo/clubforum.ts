@@ -7,6 +7,7 @@ import { writeAudit } from "./moderation";
 import { blockPair, isBlocked, nowIso } from "./shared";
 import { moderatesClub } from "./clubs";
 import { listClubEnvelopes, storeClubEnvelopes } from "./clubcrypto";
+import { assertClubNotDowngraded } from "./shared";
 import { assertVerified } from "./users";
 
 /* --------------------------- foro de los clubes ---------------------------- */
@@ -111,7 +112,10 @@ function toPostView(row: PostRow, viewerId: string, canModerate: boolean): ClubP
     // Un mensaje borrado conserva el hueco del hilo, nunca el texto.
     body: deleted ? "" : row.body,
     encrypted: row.encrypted === 1,
-    senderDeviceId: row.sender_device_id,
+    // Con firma comunitaria no se publica qué aparato escribió: el id de un
+    // dispositivo identifica a su dueño en la lista de dispositivos del club, y
+    // eso rompería el anonimato. El receptor prueba las sesiones que ya tiene.
+    senderDeviceId: anonymous ? null : row.sender_device_id,
     deleted,
     hidden: row.status === "hidden",
     createdAt: row.created_at,
@@ -339,6 +343,7 @@ export function createClubPost(input: {
 
   // Con sobres, el tablón no guarda el texto: vive dentro de ellos, uno por
   // dispositivo de cada miembro, y el servidor no puede abrirlos.
+  assertClubNotDowngraded(input.authorId, Boolean(input.v2));
   if (input.v2) {
     if (input.v2.envelopes.length === 0) {
       throw new ApiError(400, "Falta el sobre cifrado.");

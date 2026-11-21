@@ -811,6 +811,7 @@ export function listMessages(
   const rows = getDb()
     .prepare(
       `SELECT m.id, m.body, m.ciphertext, m.iv, m.key_id, m.encrypted, m.created_at,
+              m.sender_device_id,
               u.id AS sender_id, u.name AS sender_name
        FROM messages m JOIN users u ON u.id = m.sender_id
        WHERE m.request_id = @requestId
@@ -824,6 +825,7 @@ export function listMessages(
     ciphertext: string | null;
     iv: string | null;
     key_id: string | null;
+    sender_device_id: string | null;
     encrypted: number;
     created_at: string;
     sender_id: string;
@@ -844,6 +846,7 @@ export function listMessages(
       ciphertext: row.ciphertext,
       iv: row.iv,
       keyId: row.key_id,
+      senderDeviceId: row.sender_device_id,
       envelopes: envelopes.get(row.id) ?? [],
       encrypted: Boolean(row.encrypted),
       createdAt: row.created_at,
@@ -899,6 +902,7 @@ function storeMessage(input: {
   ciphertext: string | null;
   iv: string | null;
   keyId: string | null;
+  senderDeviceId: string | null;
   envelopes: MessageEnvelopeView[];
   v2: V2MessageInput | null;
 }): MessageView {
@@ -910,8 +914,9 @@ function storeMessage(input: {
 
   db.transaction(() => {
     db.prepare(
-      `INSERT INTO messages (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO messages
+         (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at, sender_device_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.requestId,
@@ -922,6 +927,7 @@ function storeMessage(input: {
       input.keyId,
       input.ciphertext || input.envelopes.length > 0 || input.v2 ? 1 : 0,
       now,
+      input.senderDeviceId,
     );
     // Un sobre por cada clave activa del destinatario. El mensaje no guarda el
     // texto: cada aparato abre el suyo con su clave privada.
@@ -960,6 +966,7 @@ function storeMessage(input: {
     ciphertext: input.ciphertext,
     iv: input.iv,
     keyId: input.keyId,
+    senderDeviceId: input.senderDeviceId,
     envelopes: input.envelopes,
     encrypted: Boolean(input.ciphertext) || input.envelopes.length > 0 || Boolean(input.v2),
     createdAt: now,
@@ -994,6 +1001,7 @@ export function addMessage(requestId: string, userId: string, body: string): Mes
     ciphertext: null,
     iv: null,
     keyId: null,
+    senderDeviceId: null,
     envelopes: [],
     v2: null,
   });
@@ -1049,7 +1057,10 @@ export function addEncryptedMessage(
     iv: usesV1 && envelopes.length === 0 ? input.iv ?? null : null,
     // En v2 el `key_id` del mensaje es el dispositivo que firma: el receptor lo
     // necesita para saber a qué paquete del registro pedir la clave.
-    keyId: input.v2 ? input.v2.senderDeviceId : (input.keyId ?? null),
+    // `keyId` se queda con la ranura de v1: el AAD de v1 se calcula con ella y
+    // el dispositivo de v2 va en su propia columna.
+    keyId: input.keyId ?? null,
+    senderDeviceId: input.v2?.senderDeviceId ?? null,
     envelopes,
     v2: input.v2 ?? null,
   });

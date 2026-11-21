@@ -146,7 +146,7 @@ async function recibir(
   const page = repo.listMessages(threadId, de.session.state.userId);
   const messages = page.messages.map((message) => ({
     id: message.id,
-    senderDeviceId: message.keyId ?? "",
+    senderDeviceId: message.senderDeviceId ?? message.keyId ?? "",
     envelopes: message.envelopes,
   }));
   return decryptThread({

@@ -394,6 +394,8 @@ export type DirectMessageView = {
   keyId: string | null;
   /** Un sobre por cada clave activa del destinatario; vacío en mensajes antiguos. */
   envelopes: MessageEnvelopeView[];
+  /** Dispositivo que firmó el mensaje (solo en v2). */
+  senderDeviceId?: string | null;
   encrypted: boolean;
   createdAt: string;
 };
@@ -559,6 +561,8 @@ export type MessageView = {
   keyId: string | null;
   /** Un sobre por cada clave activa del destinatario; vacío en mensajes antiguos. */
   envelopes: MessageEnvelopeView[];
+  /** Dispositivo que firmó el mensaje (solo en v2). */
+  senderDeviceId?: string | null;
   encrypted: boolean;
   createdAt: string;
   sender: { id: string; name: string };

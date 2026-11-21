@@ -165,6 +165,7 @@ type MessageRow = {
   ciphertext: string | null;
   iv: string | null;
   key_id: string | null;
+  sender_device_id: string | null;
   encrypted: number;
   created_at: string;
 };
@@ -181,6 +182,7 @@ function toMessageView(
     ciphertext: row.ciphertext,
     iv: row.iv,
     keyId: row.key_id,
+    senderDeviceId: row.sender_device_id,
     envelopes,
     encrypted: row.encrypted === 1,
     createdAt: row.created_at,
@@ -195,7 +197,7 @@ export function listDirectMessages(
 ): DirectMessageView[] {
   const rows = getDb()
     .prepare(
-      `SELECT id, sender_id, ciphertext, iv, key_id, encrypted, created_at
+      `SELECT id, sender_id, ciphertext, iv, key_id, encrypted, created_at, sender_device_id
          FROM dm_messages
         WHERE thread_id = ?
         ORDER BY created_at DESC
@@ -292,16 +294,19 @@ export function sendDirectMessage(
     }
     const id = `dmm_${randomUUID()}`;
     db.prepare(
-      `INSERT INTO dm_messages (id, thread_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at)
-       VALUES (?, ?, ?, '', ?, ?, ?, 1, ?)`,
+      `INSERT INTO dm_messages
+         (id, thread_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at, sender_device_id)
+       VALUES (?, ?, ?, '', ?, ?, ?, 1, ?, ?)`,
     ).run(
       id,
       row.id,
       viewerId,
       legacy ? input.ciphertext : null,
       legacy ? input.iv : null,
-      input.v2 ? input.v2.senderDeviceId : (input.keyId ?? null),
+      // `key_id` se queda con la ranura de v1: es lo que entra en el AAD de v1.
+      input.keyId ?? null,
       now,
+      input.v2?.senderDeviceId ?? null,
     );
     const insertEnvelope = db.prepare(
       `INSERT INTO dm_message_envelopes (message_id, key_id, ciphertext, iv, protocol, type)
