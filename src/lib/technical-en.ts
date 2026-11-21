@@ -15,7 +15,7 @@ import type { TechnicalDocument } from "./technical";
 
 export const EN: TechnicalDocument = {
   title: "Technical documentation",
-  updated: "2026-11-20",
+  updated: "2026-11-21",
   intro: [
     "How Wanderbibliothek is built: architecture, routes, data, security and operations. It is meant for anyone who is going to read the code, deploy it or audit what it stores.",
     "Everything described here is in the repository. If the code changes, this page changes with it.",
@@ -60,7 +60,7 @@ export const EN: TechnicalDocument = {
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
             "    route.ts           route wrapper: session, body, quota, errors",
             "tests/                 unit and integration test suite",
-            "e2e/                   browser tests with Playwright (9 spec files + Firefox/WebKit smoke)",
+            "e2e/                   browser tests with Playwright (11 spec files + Firefox/WebKit smoke)",
             "deploy/                systemd, nginx, environment template and guide",
           ],
         },
@@ -121,7 +121,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 81 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod schema for the body, the quota with origin guard and `handleApiError()` in a single place, but today it covers 22 of the 110 exported methods (15 of the 81 route files); the rest repeat that ceremony by hand pending migration. `tests/route.test.ts` checks against the files that no route is left without translating errors into JSON and that every mutation checks the origin — not that it already uses the wrapper.",
+          text: "The API has 81 route files under `src/app/api` with 110 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
         },
         {
           kind: "list",
@@ -156,7 +156,22 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Migrations are versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. Twelve steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether they came from an outside reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the page can tell it), v57 (the work becomes an entity: \`works\` holds a stable id, its key and its own record, and \`books.work_id\` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: \`jobs\` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: \`request_archives\` keeps one row per person and request, so one side can put it away without the other losing sight of it), v60 (adds Austria to the distance matrix without changing existing German city names), v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) and v62 (records when an exchange was accepted and adds the other party's response to a non-delivery report). The detail of every step lives in that file and in its git history.`,
+          text: `The schema is versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`. A published migration is never rewritten: every change adds a step that keeps the data, except for the columns or tables it removes on purpose.`,
+        },
+        {
+          kind: "list",
+          items: [
+            "v40: one key slot per platform and one encrypted envelope per key, instead of a single key per account.",
+            "v44: when an exchange closes, the receiver gets a copy of their own.",
+            "v52 and v53: moderation separated from administration, suspensions with a reason and a time limit, appeals reviewed by a different person, and a record of who reviewed them.",
+            "v57: the work becomes an entity (\`works\`), so grouping editions no longer means rewriting a derived string.",
+            "v58: \`jobs\` keeps deferred work —mail included— in one table with status, attempts and last error, instead of one table per thing.",
+            "v62: records when an exchange was accepted and adds the other party's response to a non-delivery report.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "The remaining steps —signed snapshots of the catalogue (v54), the copy's journey (v56), the per-person archive (v59), the addition of Austria (v60) or the removal of dead columns (v61)— do not change today's model. Each one is explained in its function in that file and in the git history.",
         },
         {
           kind: "p",
@@ -164,7 +179,11 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "An exchange never leaves the book orphaned: when it closes, the copy that was handed over stays `given` (it is the record) and the person who receives it gets **a copy of their own**, with the same edition and condition, in their city and paused (`listings.from_listing_id` and `from_request_id` keep the trail). From their shelf they can activate it and the book travels again; if moderation had removed the original copy, the new one still exists and nothing returns to the catalogue without its owner deciding so.",
+          text: "An exchange never leaves the book orphaned: when it closes, the copy that was handed over stays `given` (it is the record) and the person who receives it gets **a copy of their own**, with the same edition and condition, in their city and paused (`listings.from_listing_id` and `from_request_id` keep the trail).",
+        },
+        {
+          kind: "p",
+          text: "From their shelf they can activate it and the book travels again. If moderation had removed the original copy, the new one still exists and nothing returns to the catalogue without its owner deciding so.",
         },
         {
           kind: "p",
@@ -191,19 +210,23 @@ export const EN: TechnicalDocument = {
         {
           kind: "list",
           items: [
-            "Passwords with asynchronous `scrypt` and a unique salt, with the parameters stored in the hash itself (`scrypt$N,r,p$salt$hash`) so they can be raised later without locking anyone out; the previous format is still verified and rehashed at the next sign-in; sign-in always verifies a hash (against a decoy if the account does not exist), so the response time does not reveal which email addresses are registered.",
-            "Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per slot** (`web` and `android`); the sender stores one envelope per recipient key, so the browser and the app read the same message. Only the first key of an account is published without confirmation: as soon as one slot is taken, both replacing it and **adding a device** require the password, and every change raises a security notification. In the browser the identity is **one per account**: two accounts on the same device never share a key pair.",
+            "Passwords with asynchronous `scrypt` and a unique salt, with the parameters stored in the hash itself (`scrypt$N,r,p$salt$hash`) so they can be raised later without locking anyone out; the previous format is still verified and rehashed at the next sign-in.",
+            "Sign-in always verifies a hash (against a decoy if the account does not exist), so the response time does not reveal which email addresses are registered.",
+            "Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per platform slot** —today only `web`; the sender stores one envelope per recipient key, so any client with a published key reads the same message.",
+            "Only the first key of an account is published without confirmation: as soon as one slot is taken, both replacing it and **adding another** require the password, and every change raises a security notification. In the browser the identity is **one per account**: two accounts on the same device never share a key pair.",
             "A 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted and only its SHA-256 lives in the database.",
             "Two-step verification (TOTP per RFC 6238, ±1 step window and anti-replay) is mandatory for moderation and administration in production; the secrets are stored encrypted. Sanctions carry a reason and a duration (1–365 days), and the appeal is reviewed by a different team member.",
             "Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.",
-            "Every mutation goes through `guard()` (origin and quota) and `readJson()` requires `application/json` and cuts off bodies over 64 KB.",
+            "`route()` checks the origin on every mutation, whether or not a quota is declared; the quota can live in the wrapper or inside the handler when a route chains several layers (for instance, a short and a daily limit). `readJson()` requires `application/json` and cuts off bodies over 64 KB.",
             "CSP with nonce and `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and HSTS in production (`src/proxy.ts`).",
             "Directory `0700` and database `0600`; `npm run db:backup` uses the `.backup()` API of SQLite and encrypts with AES-256-GCM if `WANDERBIBLIOTHEK_BACKUP_KEY` is present.",
             "Registration with a honeypot, a minimum elapsed time and optional Cloudflare Turnstile; a generic message so that registered email addresses are not revealed.",
             "Single-use account tokens, hashed and with an expiry; changing the password revokes every session.",
-            "`GET /api/account/export` delivers all data as JSON, **envelopes included** (without them nothing could be decrypted outside the app); deleting the account anonymises the profile, withdraws its copies, deletes its device keys, direct conversations, reviews and club forum messages, and clears votes, likes and attendance; it keeps the exchange history without breaking other people's threads.",
+            "`GET /api/account/export` delivers all data as JSON, **envelopes included**: without them nothing could be decrypted outside the app.",
+            "Deleting the account anonymises the profile, withdraws its copies, deletes its device keys, direct conversations, reviews and club forum messages, and clears votes, likes and attendance; it keeps the exchange history without breaking other people's threads.",
             "An encrypted message is rejected when the envelope for one of the recipient's active devices is missing: that device could not read it and the failure would only show up days later.",
-            "What this encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.",
+            "What this encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery.",
+            "Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and every client, not a patch.",
           ],
         },
       ],
@@ -305,11 +328,15 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs the unit and integration suite with the Node test runner on SQLite in memory; `npm run test:e2e` adds 64 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
+          text: "`npm test` runs the unit and integration suite with the Node test runner on SQLite in memory; `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings; `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.",
+          text: "`npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings; `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI.",
+        },
+        {
+          kind: "p",
+          text: "Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy. The job only fails on **critical vulnerabilities that have a fix**: an advisory with no available patch cannot be solved at that moment, but is still recorded.",
         },
         {
           kind: "p",
@@ -341,10 +368,11 @@ export const EN: TechnicalDocument = {
             "`npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given), opens it read-only as the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.",
             "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
-            "Routes wrapped by `route()` leave a `[req] {…}` line and the `x-response-time` header; nginx logs **every application request** with the same `x-request-id`, which also returns to the client. Hand-written routes do not emit that line yet: the pending migration covers them. `/api/metrics` (administration or the maintenance token) returns p50/p95/p99 latency for those routes, memory, live streams, the state of the job queues and database/WAL size; with `?format=prometheus` it speaks the format a scraper understands. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "Every route leaves a `[req] {…}` line with the id, method, path, status and latency, and returns the `x-response-time` header; nginx logs **every application request** with the same `x-request-id`, which also returns to the client. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "`/api/metrics` (administration or the maintenance token) returns p50/p95/p99 latency, memory, live streams, the state of the job queues and database/WAL size; with `?format=prometheus` it speaks the format a scraper understands.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer, so scaling out requires PostgreSQL. The live channel does **not**: the in-memory bus only saves latency and the source of truth is a stamp polled from the database, so a second process keeps working (up to 15 s of delay between instances). A shared bus would remove that delay, not enable the deployment.",
-            "Ceiling measured with `npm run bench:sqlite`: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. The real limit is the duration of each transaction, not the number of visits.",
+            "Ceiling measured with `npm run bench:sqlite` on a temporary database with the same configuration as the application: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. These are figures from the machine that runs the measurement, not a production promise: the real limit is the duration of each transaction, not the number of visits.",
           ],
         },
         {

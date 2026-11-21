@@ -606,7 +606,7 @@ export function AccountSettings({
             )}
             {keys?.keys?.some((key) => key.platform === "android") && (
               <div>
-                <dt>{t("Aplicación móvil")}</dt>
+                <dt>{t("Clave de otro dispositivo")}</dt>
                 <dd>
                   <code className="secret-code">
                     {keys.keys
@@ -627,7 +627,7 @@ export function AccountSettings({
           <ul className="crypto-list">
             <li>{t("La clave privada no sale de este navegador: no se puede exportar, ni siquiera para la administración.")}</li>
             <li>{t("Ni quien administra la web puede leer el contenido: el panel solo muestra «mensaje cifrado».")}</li>
-            <li>{t("El navegador y la app tienen cada uno su clave: los mensajes nuevos se cifran una vez por dispositivo, así que los dos pueden leerlos.")}</li>
+            <li>{t("Los mensajes nuevos se cifran con la clave publicada de la cuenta: cualquier navegador que la tenga puede leerlos.")}</li>
           </ul>
 
           {keys !== null && !keyActive && !hasAnySlot && (
