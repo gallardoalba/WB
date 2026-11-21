@@ -27,7 +27,7 @@ test("con identidad conocida publica commit, imagen y enlace al árbol", async (
   process.env.APP_IMAGE = `ghcr.io/gallardoalba/wb@${DIGEST}`;
   process.env.APP_BUILD_TIME = "2026-11-15T10:20:30Z";
 
-  const response = await GET();
+  const response = await GET(new Request("http://localhost:3100/api/version"));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "public, max-age=60");
 
@@ -45,7 +45,7 @@ test("sin identidad no se inventa un commit", async () => {
   delete process.env.APP_IMAGE;
   delete process.env.APP_BUILD_TIME;
 
-  const response = await GET();
+  const response = await GET(new Request("http://localhost:3100/api/version"));
   assert.equal(response.status, 200);
   const body = (await response.json()) as Record<string, unknown>;
   assert.equal(body.commit, null);
@@ -60,7 +60,8 @@ test("una identidad con forma inválida se descarta", async () => {
   process.env.APP_IMAGE = "latest";
   process.env.APP_BUILD_TIME = "ayer";
 
-  const body = (await (await GET()).json()) as Record<string, unknown>;
+  const response = await GET(new Request("http://localhost:3100/api/version"));
+  const body = (await response.json()) as Record<string, unknown>;
   assert.equal(body.commit, null);
   assert.equal(body.image, null);
   assert.equal(body.builtAt, null);

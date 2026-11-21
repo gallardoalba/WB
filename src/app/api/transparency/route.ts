@@ -1,8 +1,8 @@
 import { connection } from "next/server";
-
-import { handleApiError, json } from "@/lib/api";
+import { json } from "@/lib/api";
 import { PAYLOAD_RETENTION_DAYS, listSnapshots } from "@/lib/transparency";
 import { clientKey, hasClientIp, hit } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
 /**
  * Instantáneas firmadas del catálogo público.
@@ -11,8 +11,9 @@ import { clientKey, hasClientIp, hit } from "@/lib/throttle";
  * raíz de Merkle, el hash del NDJSON y la firma Ed25519. Nada de personas sale
  * de aquí; el contenido se comprueba descargando `/api/transparency/export`.
  */
-export async function GET(request: Request) {
-  try {
+export const GET = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     // Depende de la base y del reloj: fuera del prerender.
     try {
       await connection();
@@ -47,7 +48,5 @@ export async function GET(request: Request) {
       200,
       { "cache-control": "public, max-age=60" },
     );
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

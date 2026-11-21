@@ -1,5 +1,4 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import {
   deleteClub,
@@ -11,10 +10,9 @@ import {
   updateClub,
 } from "@/lib/repo";
 import { invalidatePublicData } from "@/lib/revalidate";
-import { guard, hit } from "@/lib/throttle";
+import { hit } from "@/lib/throttle";
 import { clubUpdateSchema } from "@/lib/validation";
-
-type Context = { params: Promise<{ clubId: string }> };
+import { route } from "@/lib/route";
 
 /**
  * Ficha completa de un club en una sola respuesta: es lo que necesita la app
@@ -22,11 +20,11 @@ type Context = { params: Promise<{ clubId: string }> };
  * la votación solo se incluyen para quien es miembro (la API no debe filtrar
  * conversaciones a quien ya no pertenece al club).
  */
-export async function GET(request: Request, { params }: Context) {
-  try {
-    const user = await requireUser();
+export const GET = route<undefined, "user", { clubId: string }>(
+  {},
+  ({ params, user }) => {
     hit({ bucket: "clubs:detail", key: user.id, limit: 600, windowMs: 60 * 60 * 1000 });
-    const { clubId } = await params;
+    const { clubId } = params;
     const club = getClub(clubId, user.id);
     if (!club) throw new ApiError(404, "Ese club ya no está disponible.");
     const posts = club.isMember
@@ -45,16 +43,13 @@ export async function GET(request: Request, { params }: Context) {
       requests:
         club.isMine || club.isModerator ? listClubRequests(club.id, user.id) : [],
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ clubId: string }> }) {
-  try {
-    const user = await requireUser();
-    guard(request, { bucket: "club:edit", key: user.id, limit: 120, windowMs: 60 * 60 * 1000 });
-    const { clubId } = await params;
+export const PATCH = route<undefined, "user", { clubId: string }>(
+  { limit: { bucket: "club:edit", limit: 120, windowMs: 60 * 60 * 1000 } },
+  async ({ request, params, user }) => {
+    const { clubId } = params;
     const input = clubUpdateSchema.parse(await readJson(request));
     updateClub(user.id, clubId, {
       name: input.name,
@@ -69,23 +64,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ cl
       progressNote: input.progressNote,
     });
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ clubId: string }> },
-) {
-  try {
-    const user = await requireUser();
-    guard(request, { bucket: "club:delete", key: user.id, limit: 30, windowMs: 24 * 60 * 60 * 1000 });
-    const { clubId } = await params;
+export const DELETE = route<undefined, "user", { clubId: string }>(
+  { limit: { bucket: "club:delete", limit: 30, windowMs: 24 * 60 * 60 * 1000 } },
+  ({ params, user }) => {
+
+    const { clubId } = params;
     deleteClub(user.id, clubId);
     invalidatePublicData();
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

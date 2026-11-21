@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 import { after } from "next/server";
 import { sendSuspensionEmail } from "@/lib/account-tokens";
 import { processOutbox } from "@/lib/outbox";
-import { handleApiError, json, readJson } from "@/lib/api";
+import { json, readJson } from "@/lib/api";
 import { hasOpenAppeal, suspendedAccountByEmail } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { appealLinkSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /**
  * Pide otro enlace de apelación: el correo se pierde, acaba en spam o el token
@@ -13,8 +14,9 @@ import { appealLinkSchema } from "@/lib/validation";
  * cuenta suspendida no puede entrar, y la respuesta es siempre la misma para no
  * revelar si el correo corresponde a una cuenta sancionada.
  */
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     guard(request, {
       bucket: "account:appeal-link",
       key: "all",
@@ -48,7 +50,5 @@ export async function POST(request: Request) {
     }
 
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

@@ -1,23 +1,23 @@
 import { after } from "next/server";
 import { invalidatePublicData } from "@/lib/revalidate";
-import { handleApiError, json, readJson } from "@/lib/api";
-import { getSessionUser, requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { cityName } from "@/lib/city-name";
 import { announceBook } from "@/lib/mastodon";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
 import { siteUrl } from "@/lib/site";
 import { assertSameOrigin, clientKey, guard, hasClientIp, hit, publicaSinTope } from "@/lib/throttle";
 import { catalogParamsSchema, listingSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function GET(request: Request) {
-  try {
+export const GET = route<undefined, "optional">(
+  { auth: "optional" },
+  ({ request, user }) => {
     // La búsqueda es pública: se limita el ritmo para que no se pueda raspar.
     if (hasClientIp()) {
       hit({ bucket: "catalog:search:ip", key: clientKey(request), limit: 120, windowMs: 60_000 });
     } else {
       hit({ bucket: "catalog:search", key: "all", limit: 600, windowMs: 60_000 });
     }
-    const user = await getSessionUser();
     const url = new URL(request.url);
     // Mismo criterio que la página: un parámetro raro (`?page=0`, `?sort=x`)
     // se queda en el valor por defecto en vez de devolver 422. Así el enlace
@@ -25,14 +25,12 @@ export async function GET(request: Request) {
     const parsed = catalogParamsSchema.safeParse(Object.fromEntries(url.searchParams));
     const params = parsed.success ? parsed.data : catalogParamsSchema.parse({});
     return json(catalogPage(user?.id ?? null, params));
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function POST(request: Request) {
-  try {
-    const user = await requireUser();
+export const POST = route(
+  {},
+  async ({ request, user }) => {
     // Se valida **antes** de gastar cuota: un cuerpo inválido no es un
     // intento de publicar y no debe consumir el límite diario (si no, unos
     // cuantos formularios mal enviados dejan la cuenta sin poder publicar el
@@ -92,7 +90,5 @@ export async function POST(request: Request) {
     // en la misma ciudad, la persona que publica lo ve de inmediato.
     const demand = countBookWants(listing.bookId, user.city, user.id);
     return json({ listing, demand }, 201);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

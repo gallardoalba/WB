@@ -1,12 +1,10 @@
-import { handleApiError, json } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json } from "@/lib/api";
 import { getTotpState } from "@/lib/repo";
+import { route } from "@/lib/route";
 
-export async function GET() {
-  try {
-    const user = await requireUser();
+export const GET = route(
+  {},
+  ({ user }) => {
     return json(getTotpState(user.id));
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { after } from "next/server";
 import { sendVerificationEmail } from "@/lib/account-tokens";
 import { processOutbox } from "@/lib/outbox";
-import { handleApiError, json, readJson } from "@/lib/api";
+import { json, readJson } from "@/lib/api";
 import { assertHuman } from "@/lib/captcha";
 import { cityName } from "@/lib/city-name";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
@@ -12,9 +12,11 @@ import { hashPassword } from "@/lib/password";
 import { createUser } from "@/lib/repo";
 import { clientIp, clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { registerSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     // La cuota por IP solo tiene sentido si la IP es fiable (`TRUST_PROXY=1`);
     // si no, todas las peticiones comparten la clave y bloquearían el registro
     // de todo el sitio.
@@ -55,7 +57,5 @@ export async function POST(request: Request) {
       });
     });
     return json({ user }, 201);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

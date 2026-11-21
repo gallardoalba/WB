@@ -1,13 +1,15 @@
 import { assertTokenShape, consumeAccountToken } from "@/lib/account-tokens";
-import { handleApiError, json, readJson } from "@/lib/api";
+import { json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { markEmailVerified } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { tokenSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /** Confirma el correo con el token del enlace. */
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     guard(request, {
       bucket: "auth:verify",
       key: "all",
@@ -24,7 +26,5 @@ export async function POST(request: Request) {
     if (!userId) throw new ApiError(410, "El enlace ha caducado o ya se ha usado.");
     markEmailVerified(userId);
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

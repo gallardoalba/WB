@@ -1,5 +1,4 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import {
   changePublicKey,
@@ -8,8 +7,9 @@ import {
   listPublicKeyRecords,
   notify,
 } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+
 import { publicKeySchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /** Resumen de las ranuras activas, con la web como `keyId` de compatibilidad. */
 function keySummary(userId: string) {
@@ -39,24 +39,16 @@ function keySummary(userId: string) {
  * sesión robada no basta para instalar otra clave y leer los mensajes futuros.
  * Cada cambio queda en el historial y genera un aviso de seguridad.
  */
-export async function GET() {
-  try {
-    const user = await requireUser();
+export const GET = route(
+  {},
+  ({ user }) => {
     return json(keySummary(user.id));
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function PUT(request: Request) {
-  try {
-    const user = await requireUser();
-    guard(request, {
-      bucket: "account:keys",
-      key: user.id,
-      limit: 20,
-      windowMs: 24 * 60 * 60 * 1000,
-    });
+export const PUT = route(
+  { limit: { bucket: "account:keys", limit: 20, windowMs: 24 * 60 * 60 * 1000 } },
+  async ({ request, user }) => {
     const body = await readJson(request);
     const { platform, ...publicJwk } = publicKeySchema.parse(body);
     const password = (body as { password?: unknown }).password;
@@ -115,7 +107,5 @@ export async function PUT(request: Request) {
       previousKeyId: saved.previousKeyId,
       changed: saved.changed,
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

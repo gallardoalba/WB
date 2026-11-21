@@ -1,11 +1,12 @@
-import { handleApiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+
+
 import { exportAccountData } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
-export async function GET() {
-  try {
-    const user = await requireUser();
+export const GET = route(
+  {},
+  ({ user }) => {
     hit({ bucket: "account:export", key: user.id, limit: 5, windowMs: 60 * 60 * 1000 });
     const data = exportAccountData(user.id);
     return new Response(JSON.stringify(data, null, 2), {
@@ -16,7 +17,5 @@ export async function GET() {
         "x-robots-tag": "noindex",
       },
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

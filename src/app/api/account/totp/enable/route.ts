@@ -1,20 +1,17 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { destroyUserSessions, requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
+import { destroyUserSessions } from "@/lib/auth";
 import { enableTotp, getTotpState } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
 import { totpCodeSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function POST(request: Request) {
-  try {
-    const user = await requireUser();
-    guard(request, { bucket: "totp:enable", key: user.id, limit: 10, windowMs: 60 * 60 * 1000 });
+export const POST = route(
+  { limit: { bucket: "totp:enable", limit: 10, windowMs: 60 * 60 * 1000 } },
+  async ({ request, user }) => {
     const { code } = totpCodeSchema.parse(await readJson(request));
     enableTotp(user.id, code);
     // 2FA solo protege los inicios de sesión nuevos: si no se cierran las
     // sesiones anteriores, una sesión robada antes de activarlo sigue dentro.
     destroyUserSessions(user.id);
     return json(getTotpState(user.id));
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

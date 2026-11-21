@@ -1,26 +1,14 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { voteClubPoll } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
 import { clubPollVoteSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /** Un voto por miembro; se puede cambiar mientras la votación siga abierta. */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ clubId: string; pollId: string }> },
-) {
-  try {
-    const user = await requireUser();
-    guard(request, {
-      bucket: "club:poll:vote",
-      key: user.id,
-      limit: 120,
-      windowMs: 24 * 60 * 60 * 1000,
-    });
-    const { clubId } = await params;
+export const POST = route<undefined, "user", { clubId: string; pollId: string }>(
+  { limit: { bucket: "club:poll:vote", limit: 120, windowMs: 24 * 60 * 60 * 1000 } },
+  async ({ request, params, user }) => {
+    const { clubId } = params;
     const { optionId } = clubPollVoteSchema.parse(await readJson(request));
     return json({ poll: voteClubPoll(user.id, clubId, optionId) });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

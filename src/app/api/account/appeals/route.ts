@@ -1,16 +1,18 @@
 import { assertTokenShape, consumeAccountToken } from "@/lib/account-tokens";
-import { handleApiError, json, readJson } from "@/lib/api";
+import { json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { createAppeal } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { appealSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /**
  * Apelación desde el enlace del correo. No hay sesión: quien está suspendido
  * no puede entrar. El token es de un solo uso y caduca a los 30 días.
  */
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     guard(request, {
       bucket: "account:appeal",
       key: "all",
@@ -26,7 +28,5 @@ export async function POST(request: Request) {
     if (!userId) throw new ApiError(410, "El enlace ha caducado o ya se ha usado.");
     createAppeal(userId, message);
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

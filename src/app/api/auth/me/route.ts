@@ -1,19 +1,15 @@
-import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { handleApiError, json } from "@/lib/api";
-import { SESSION_COOKIE, sessionCookieOptions, userForToken } from "@/lib/auth";
+import { json } from "@/lib/api";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+import { route } from "@/lib/route";
 
-export async function GET(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  try {
-    const user = userForToken(token);
-    // La BD renueva la sesión de forma deslizante; hay que refrescar también la
-    // cookie del navegador o el usuario perdería la sesión a los 14 días.
-    if (user && token) {
-      (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
-    }
-    return json({ user });
-  } catch (error) {
-    return handleApiError(error);
+export const GET = route({ auth: "optional" }, async ({ user }) => {
+  // La BD renueva la sesión de forma deslizante; hay que refrescar también la
+  // cookie del navegador o el usuario perdería la sesión a los 14 días.
+  if (user) {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE)?.value;
+    if (token) cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions());
   }
-}
+  return json({ user });
+});

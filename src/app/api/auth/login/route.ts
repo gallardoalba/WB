@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { cookies } from "next/headers";
-import { handleApiError, json, readJson } from "@/lib/api";
+import { json, readJson } from "@/lib/api";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { DUMMY_PASSWORD_HASH, hashPassword, needsRehash, verifyPassword } from "@/lib/password";
@@ -17,9 +17,11 @@ import {
 } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { loginSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     // Pseudónimo diario de la IP: el limitador no guarda direcciones en claro.
     const ip = clientKey(request);
     // Tres capas: proceso (global), origen (IP, solo con proxy propio) y cuenta
@@ -126,7 +128,5 @@ export async function POST(request: Request) {
     // `router.refresh()`. La forma tiene que coincidir con la de
     // `/api/auth/register`, que ya devuelve un `SessionUser`.
     return json({ user: publicSessionUser(account) });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

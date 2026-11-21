@@ -1,8 +1,9 @@
 import { connection } from "next/server";
 import { getDb } from "@/lib/db";
+import { route } from "@/lib/route";
 import { hasClientIp } from "@/lib/throttle";
 
-export async function GET() {
+export const GET = route({ auth: "none" }, async () => {
   await connection();
   try {
     const db = getDb();
@@ -25,4 +26,4 @@ export async function GET() {
     console.error("[health] base de datos no disponible", error);
     return Response.json({ status: "error" }, { status: 503 });
   }
-}
+});

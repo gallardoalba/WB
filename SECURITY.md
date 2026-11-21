@@ -47,6 +47,19 @@ denial of service against a specific instance, social engineering, content
 published by other people (use the report button) and automated scanner results
 without demonstrated impact.
 
+## Encryption protocol and threat model
+
+Exchange and direct messages are end-to-end encrypted. The protocol, the
+adversaries it considers and the limitations that are **accepted on purpose**
+are written down in [`docs/e2e-protocol.md`](docs/e2e-protocol.md). The main
+one: there is **no forward secrecy** and no post-compromise security. A leaked
+device key decrypts every message that was encrypted to it, past and future;
+key rotation stops future exposure but does not rewrite history. Do not report
+that as a vulnerability unless the document's assumptions have changed. Reports
+about a concrete break of the documented design (key substitution that the
+safety number does not reveal, an envelope that crosses threads, plaintext in
+the database) are in scope.
+
 ## Good practice for self-hosters
 
 - Always serve over **HTTPS**: the session cookie is `__Host-` and the browser
