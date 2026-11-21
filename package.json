@@ -88,7 +88,7 @@
     "eslint-config-next": "16.4.5",
     "fast-check": "^4.10.2",
     "tailwindcss": "4.3.5",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "overrides": {
     "@typescript-eslint/typescript-estree": {
