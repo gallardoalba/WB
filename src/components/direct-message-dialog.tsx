@@ -64,6 +64,18 @@ function peerEntries(peer: DirectThreadView["peer"]): RecipientKey[] {
 }
 
 /**
+ * El protocolo v2 se carga aparte: arrastra libolm (WASM) y solo hace falta
+ * cuando este navegador tiene ya su dispositivo. Sin él, el hilo funciona con
+ * v1 exactamente igual que antes.
+ */
+let v2Module: Promise<typeof import("@/lib/e2e-v2-chat") | null> | null = null;
+async function getV2(): Promise<typeof import("@/lib/e2e-v2-chat") | null> {
+  v2Module ??= import("@/lib/e2e-v2-chat").catch(() => null);
+  const bridge = await v2Module;
+  return bridge && bridge.v2Supported() ? bridge : null;
+}
+
+/**
  * Trae el hilo y lo descifra en este navegador. Si la cuenta todavía no tiene
  * clave publicada se publica la de este navegador y se vuelve a pedir el hilo;
  * si ya hay otra distinta no se puede sustituir sin la contraseña y se avisa.
@@ -144,6 +156,24 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       if (text !== null) texts[message.id] = text;
     }),
   );
+
+  // Mientras conviven los protocolos, un mensaje puede traer solo sobre v2.
+  const v2Texts = await getV2()
+    .then((bridge) =>
+      bridge?.decryptV2({
+        userId: payload.me.id,
+        peerUserId: payload.peer.id,
+        conversation: conversationId,
+        messages: payload.messages.map((message) => ({
+          id: message.id,
+          senderDeviceId: message.keyId ?? "",
+          envelopes: message.envelopes,
+        })),
+      }),
+    )
+    .catch(() => undefined);
+  Object.assign(texts, v2Texts ?? {});
+
   return {
     payload,
     privateKey: identity.privateKey,
@@ -252,9 +282,22 @@ export function DirectMessageDialog({
           body,
           directAad(conversationId, meId, keyId),
         );
+        // El mismo texto en los dos formatos mientras convivan: v1 para las
+        // ranuras antiguas y v2 para los dispositivos. Nadie se queda sin leer
+        // por actualizar tarde.
+        const v2 = await getV2()
+          .then((bridge) =>
+            bridge?.encryptV2({
+              userId: meId,
+              peerUserId: peerId,
+              conversation: conversationId,
+              text: body,
+            }),
+          )
+          .catch(() => null);
         await api(`/api/direct/${peerId}`, {
           method: "POST",
-          body: { keyId, envelopes },
+          body: { keyId, envelopes, ...(v2 ? { v2 } : {}) },
         });
         setDraft("");
         await load();

@@ -1,0 +1,61 @@
+/**
+ * Número de seguridad de los dispositivos v2.
+ *
+ * Sirve para comprobar **fuera de banda** que las claves de la otra persona son
+ * las que son. Es la pieza que cubre el punto ciego que deja el anclaje: fijar
+ * la clave en el primer contacto protege de un cambio posterior, pero no de que
+ * el primer contacto ya venga sustituido. Comparar este número por una llamada,
+ * en persona o por otro canal lo cubre.
+ *
+ * Se calcula como en Signal: se ordenan los dos lados para que los dos calculen
+ * lo mismo, se concatenan los identificadores de todos los dispositivos con sus
+ * dos claves públicas y se itera SHA-512 5200 veces. La iteración encarece
+ * buscar una colisión por fuerza bruta de prefijo sin costar nada perceptible
+ * (unos milisegundos).
+ *
+ * Incluye **todos** los dispositivos de las dos partes: si alguien añade uno,
+ * el número cambia y la comparación anterior deja de valer, que es justo lo que
+ * se quiere.
+ */
+export type DeviceFingerprint = { deviceId: string; identityKey: string; signingKey: string };
+
+/** Iteraciones de la huella (las mismas que usa Signal). */
+const ROUNDS = 5200;
+/** Bytes que se convierten en dígitos: 6 caracteres por byte, 30 bytes = 60. */
+const DIGEST_BYTES = 30;
+
+function sideLines(devices: DeviceFingerprint[]): string {
+  return [...devices]
+    .sort((a, b) => a.deviceId.localeCompare(b.deviceId))
+    .map((device) => `${device.deviceId}|${device.identityKey}|${device.signingKey}`)
+    .join("\n");
+}
+
+/**
+ * Devuelve el número, o `null` si alguna de las dos partes no tiene ningún
+ * dispositivo: sin claves que comparar no hay nada que verificar.
+ */
+export async function v2SafetyNumber(
+  me: DeviceFingerprint[],
+  peer: DeviceFingerprint[],
+): Promise<string | null> {
+  if (me.length === 0 || peer.length === 0) return null;
+
+  // Ordenar los dos lados hace la huella independiente de quién la calcula.
+  const [first, second] = [sideLines(me), sideLines(peer)].sort();
+  let digest = new TextEncoder().encode(`${first}\u0000${second}`);
+  for (let round = 0; round < ROUNDS; round += 1) {
+    digest = new Uint8Array(await crypto.subtle.digest("SHA-512", digest));
+  }
+
+  // Dos dígitos por byte: 30 bytes son 60 dígitos, que se leen en doce grupos.
+  return [...digest.slice(0, DIGEST_BYTES)]
+    .map((byte) => String(byte % 100).padStart(2, "0"))
+    .join("");
+}
+
+/** El número en grupos de cinco, que es como se lee en voz alta. */
+export function formatSafetyNumber(value: string | null): string | null {
+  if (!value) return null;
+  return value.match(/.{1,5}/g)?.join(" ") ?? value;
+}

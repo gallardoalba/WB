@@ -226,8 +226,13 @@ Still missing, and not claimed anywhere else:
   two histories;
 - an external witness pinning key roots (the verifier already pins catalogue
   roots);
-- verification in the client before trusting a device, and safety numbers for
-  v2 devices.
+- verification in the client against the committed root before trusting a
+  device.
+
+What does exist is the out-of-band check: `v2SafetyNumber` hashes every device
+of both sides (`device_id|identity_key|signing_key`, sorted, iterated SHA-512
+5200 times) into the 60 digits the interface shows. Adding a device changes the
+number, so a comparison made before stops being valid — which is the point.
 
 Until the last one exists, the transparency log detects a substitution only the
 day someone diffs two roots; the bundle signature (§2) is what makes the
@@ -354,17 +359,19 @@ Shipped in this release:
 | Envelope transport: store, list by device, acknowledge, retention | `src/lib/repo/envelopes.ts`, `/api/messages/v2*` | `tests/envelopes.test.ts` |
 | Client: open the device, send to every device, decrypt and acknowledge, pin peers | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
-| Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, `src/components/dialogs/exchange-dialog.tsx` | `tests/e2e-v2-device.test.ts` |
+| Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
+| Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
+| v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |
 | libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |
 
 How far the interface goes: activating v2 in «Mi cuenta» publishes the device,
-and from then on exchanges **send both formats** (§11) and decrypt whatever
-arrives, so the rollout does not cut anyone off. Direct messages still send v1
-only.
+and from then on exchanges and direct messages **send both formats** (§11) and
+decrypt whatever arrives, so the rollout does not cut anyone off. The thread
+shows the device safety number (§7) next to the v1 one.
 
 Not implemented yet, and therefore **not** claimed by the documentation:
-dropping v1 once the rollout ends, safety numbers for v2 devices, club fan-out
-(§8), consistency proofs and client-side verification of the log (§7). Until those ship, the interface keeps
+dropping v1 once the rollout ends, club fan-out (§8), consistency proofs and
+client-side verification of the log (§7). Until those ship, the interface keeps
 using v1 and the protections that depend on the ratchet — forward secrecy,
 sender authentication, anti-downgrade — are **not** in place in production.
 

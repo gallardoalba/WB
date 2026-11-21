@@ -67,6 +67,8 @@ type Conversation = {
   keyChanged: boolean;
   /** Huella de seguridad de las dos cuentas, para comparar por otro canal. */
   safety: string | null;
+  /** Huella de los dispositivos v2, si este navegador tiene uno. */
+  v2Safety: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -248,6 +250,7 @@ export function ExchangeDialog({
         peer,
         keyChanged: false,
         safety: null,
+        v2Safety: null,
       };
     }
     // La ranura web es la de este navegador. Si está vacía se publica gratis;
@@ -281,6 +284,9 @@ export function ExchangeDialog({
       ...peerKeys.map((key) => key.publicJwk),
     ]);
     const decoded = await decodePayload(payload.messages, identity, peerKeys, conversationId);
+    const v2Safety = await getV2Module()
+      .then((bridge) => bridge?.safetyWith(me.id, peer.id))
+      .catch(() => null);
     // Lo que llegue cifrado con v2 se descifra con el dispositivo de este
     // navegador. Si falla —o no hay dispositivo— se queda lo de v1, sin ruido.
     const v2Decoded = await getV2Module()
@@ -309,6 +315,7 @@ export function ExchangeDialog({
       peer,
       keyChanged,
       safety,
+      v2Safety: v2Safety ?? null,
     };
   }
 
@@ -337,6 +344,7 @@ export function ExchangeDialog({
           peer: data.keys.peer,
           keyChanged: false,
           safety: null,
+          v2Safety: null,
         };
         try {
           prepared = await prepareConversation(data, requestId);
@@ -401,6 +409,7 @@ export function ExchangeDialog({
             peer: thread.peer,
             keyChanged: thread.keyChanged,
             safety: thread.safety,
+            v2Safety: thread.v2Safety,
           }
         : {
             peerKeys: [],
@@ -413,6 +422,7 @@ export function ExchangeDialog({
             peer: data.keys.peer,
             keyChanged: false,
             safety: null,
+            v2Safety: null,
           };
       const decoded = { ...prepared.decoded };
       if (prepared.privateKey && prepared.myKeyId) {
@@ -945,6 +955,16 @@ export function ExchangeDialog({
               )}
             </p>
             <code>{thread.safety}</code>
+          </>
+        )}
+        {thread?.v2Safety && (
+          <>
+            <p>
+              {t(
+                "Huella de los dispositivos (v2). Cambia cuando cualquiera de las dos personas añade un aparato: vuelve a compararla.",
+              )}
+            </p>
+            <code>{thread.v2Safety}</code>
           </>
         )}
         <p>

@@ -21,6 +21,7 @@ import {
   type ThreadMessage,
 } from "./e2e-v2-device";
 import { indexedDbStore, isSupported } from "./e2e-v2-idb";
+import { formatSafetyNumber, v2SafetyNumber } from "./e2e-v2-safety";
 
 /** La API real, tal y como la ven las rutas. */
 const httpApi: DeviceApi = {
@@ -176,6 +177,29 @@ export async function decryptV2(input: {
     return Object.fromEntries(decrypted.map((item) => [item.messageId, item.text]));
   } catch {
     return {};
+  }
+}
+
+/**
+ * Número de seguridad de los dispositivos de las dos partes.
+ *
+ * Se calcula con el registro **del servidor**: es lo que se compara por otro
+ * canal, así que tiene que reflejar lo que el servidor publica. Si alguien
+ * añade un dispositivo, el número cambia y la comparación anterior deja de
+ * valer.
+ */
+export async function safetyWith(
+  userId: string,
+  peerUserId: string,
+): Promise<string | null> {
+  try {
+    const [me, peer] = await Promise.all([
+      httpApi.listDevices(userId),
+      httpApi.listDevices(peerUserId),
+    ]);
+    return formatSafetyNumber(await v2SafetyNumber(me, peer));
+  } catch {
+    return null;
   }
 }
 
