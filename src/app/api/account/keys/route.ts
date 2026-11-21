@@ -28,8 +28,8 @@ function keySummary(userId: string) {
 /**
  * Claves públicas de cifrado de la cuenta.
  *
- * Cada dispositivo ocupa una ranura (`web`, `android`). El navegador y la app
- * generan su par ECDH P-256 y guardan la mitad privada en el dispositivo: aquí
+ * Cada plataforma ocupa una ranura (`web`; el esquema admite más). El cliente
+ * genera su par ECDH P-256 y guarda la mitad privada en el dispositivo: aquí
  * solo llega la pública. Sin la privada, ni el servidor ni quien administre la
  * base de datos pueden descifrar los mensajes.
  *

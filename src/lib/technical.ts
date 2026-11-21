@@ -35,7 +35,7 @@ export type TechnicalDocument = {
 };
 
 /** Fecha de la última revisión del texto. */
-const UPDATED = "2026-11-20";
+const UPDATED = "2026-11-21";
 
 const ES: TechnicalDocument = {
   title: "Documentación técnica",
@@ -84,7 +84,7 @@ const ES: TechnicalDocument = {
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
             "    route.ts           envoltorio de rutas: sesión, cuerpo, cuota, errores",
             "tests/                 pruebas unitarias y de integración",
-            "e2e/                   pruebas de navegador con Playwright (9 ficheros + humo en Firefox/WebKit)",
+            "e2e/                   pruebas de navegador con Playwright (11 ficheros + humo en Firefox/WebKit)",
             "deploy/                systemd, nginx, plantilla de entorno y guía",
           ],
         },
@@ -145,7 +145,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 81 ficheros de ruta en `src/app/api`. `route()` (`src/lib/route.ts`) aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota con guardia de origen y `handleApiError()`, pero hoy solo cubre 22 de los 110 métodos exportados (15 de los 81 ficheros de ruta): el resto repite ese ceremonial a mano y está pendiente de migrar. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede sin traducir errores a JSON y que toda mutación comprueba el origen, no que ya use el envoltorio.",
+          text: "La API tiene 81 ficheros de ruta en `src/app/api`, con 110 métodos exportados, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
         },
         {
           kind: "list",
@@ -182,7 +182,22 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Las migraciones se versionan con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Del historial importan doce pasos para entender el código de hoy: la v40 (una ranura de clave por dispositivo y un sobre cifrado por clave), la v44 (al cerrar un intercambio, quien lo recibe estrena su propia copia), la v52 (moderación separada de administración, suspensiones con motivo y plazo, y apelaciones), la v53 (quién revisó una apelación y si vino de fuera del equipo), la v54 (instantáneas firmadas del catálogo público), la v56 (el viaje del ejemplar: las copias heredan la procedencia y la ficha puede contarla), la v57 (la obra pasa a ser entidad: \`works\` guarda un id estable, su clave y su propia ficha, y \`books.work_id\` apunta a ella, así que agrupar ediciones ya no es reescribir una cadena derivada), la v58 (lo diferido deja de tener una tabla por cosa: \`jobs\` guarda estado, intentos, próximo intento y último error para cualquier trabajo, y el correo es un tipo más), la v59 (archivar un intercambio cerrado es cosa de cada parte: \`request_archives\` guarda una fila por persona y solicitud, así que una puede apartarlo sin que la otra deje de verlo), la v60 (amplía a Austria la matriz de distancias sin cambiar los nombres de ciudades alemanas ya guardados), la v61 (retira las columnas muertas del envío y la entrega: direcciones postales antiguas y códigos que ninguna consulta leía) y la v62 (registra cuándo se aceptó un intercambio y añade la respuesta de la otra parte a una incidencia de entrega). El detalle de cada paso está en ese fichero y en su historial de git.`,
+          text: `El esquema se versiona con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`. Una migración publicada no se reescribe: cada cambio añade un paso que conserva los datos, salvo las columnas o tablas que retira a propósito.`,
+        },
+        {
+          kind: "list",
+          items: [
+            "v40: una ranura de clave por plataforma y un sobre cifrado por clave, en lugar de una única clave por cuenta.",
+            "v44: al cerrar un intercambio, quien recibe el ejemplar estrena su propia copia.",
+            "v52 y v53: moderación separada de administración, sanciones con motivo y plazo, apelaciones revisadas por otra persona y registro de quién las revisó.",
+            "v57: la obra pasa a ser entidad (\`works\`), así que agrupar ediciones ya no es reescribir una cadena derivada.",
+            "v58: \`jobs\` reúne el trabajo diferido —el correo incluido— en una tabla con estado, intentos y último error, en lugar de una tabla por cosa.",
+            "v62: registra cuándo se aceptó un intercambio y añade la respuesta de la otra parte a una incidencia de entrega.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "El resto de pasos —instantáneas firmadas del catálogo (v54), el viaje del ejemplar (v56), el archivo por persona (v59), la ampliación a Austria (v60) o la retirada de columnas muertas (v61)— no cambia el modelo de hoy. Cada uno está explicado en su función de ese fichero y en el historial de git.",
         },
         {
           kind: "p",
@@ -190,7 +205,11 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Un intercambio no deja el libro huérfano: al cerrarse, el ejemplar entregado queda `given` (es el histórico) y quien lo recibe estrena **su propia copia**, con la misma edición y la misma condición, en su ciudad y en pausa (`listings.from_listing_id` y `from_request_id` guardan el rastro). Desde su estantería puede activarla y el libro vuelve a circular; si el ejemplar original lo había retirado la moderación, la copia nace igualmente y nada vuelve al catálogo sin que su dueño lo decida.",
+          text: "Un intercambio no deja el libro huérfano: al cerrarse, el ejemplar entregado queda `given` (es el histórico) y quien lo recibe estrena **su propia copia**, con la misma edición y la misma condición, en su ciudad y en pausa (`listings.from_listing_id` y `from_request_id` guardan el rastro).",
+        },
+        {
+          kind: "p",
+          text: "Desde su estantería puede activarla y el libro vuelve a circular. Si el ejemplar original lo había retirado la moderación, la copia nace igualmente y nada vuelve al catálogo sin que su dueño lo decida.",
         },
         {
           kind: "p",
@@ -217,19 +236,23 @@ const ES: TechnicalDocument = {
         {
           kind: "list",
           items: [
-            "Contraseñas con `scrypt` asíncrono y sal única, con los parámetros dentro del propio hash (`scrypt$N,r,p$sal$hash`) para poder subirlos sin dejar fuera a nadie; el formato anterior se sigue verificando y se renueva al entrar; el acceso verifica siempre un hash (contra un señuelo si la cuenta no existe), así que el tiempo de respuesta no revela qué correos están registrados.",
-            "Los mensajes de intercambio y directos van cifrados de extremo a extremo (ECDH P-256 + HKDF-SHA256 + AES-GCM). Cada cuenta publica **una clave por ranura** (`web` y `android`); el remitente guarda un sobre por cada clave del destinatario, así que el navegador y la app leen el mismo mensaje. Solo la primera clave de una cuenta se publica sin confirmación: en cuanto hay una ranura ocupada, tanto sustituirla como **añadir un dispositivo** exigen la contraseña, y cada cambio genera un aviso de seguridad. En el navegador la identidad es **una por cuenta**: dos cuentas en el mismo equipo nunca comparten par de claves.",
+            "Contraseñas con `scrypt` asíncrono y sal única, con los parámetros dentro del propio hash (`scrypt$N,r,p$sal$hash`), para poder subirlos sin dejar fuera a nadie; el formato anterior se sigue verificando y se renueva al entrar.",
+            "El acceso verifica siempre un hash (contra un señuelo si la cuenta no existe), así que el tiempo de respuesta no revela qué correos están registrados.",
+            "Los mensajes de intercambio y directos van cifrados de extremo a extremo (ECDH P-256 + HKDF-SHA256 + AES-GCM). Cada cuenta publica **una clave por ranura de plataforma** —hoy solo `web`—; el remitente guarda un sobre por cada clave del destinatario, así que cualquier cliente con clave publicada lee el mismo mensaje.",
+            "Solo la primera clave de una cuenta se publica sin confirmación: en cuanto hay una ranura ocupada, tanto sustituirla como **añadir otra** exigen la contraseña, y cada cambio genera un aviso de seguridad. En el navegador la identidad es **una por cuenta**: dos cuentas en el mismo equipo nunca comparten par de claves.",
             "Sesión de 256 bits en cookie `httpOnly` con `SameSite=Lax`; en producción solo se acepta el prefijo `__Host-` y en la base solo vive su SHA-256.",
             "Verificación en dos pasos (TOTP RFC 6238, ventana de ±1 paso y anti-replay) obligatoria para moderar y administrar en producción; los secretos se guardan cifrados. Las sanciones llevan motivo y plazo (1–365 días), y la apelación la revisa otra persona del equipo.",
             "Cuotas atómicas en base de datos por IP y por cuenta, con `429` y `Retry-After`.",
-            "Todas las mutaciones pasan por `guard()` (origen y cuota) y `readJson()` exige `application/json` y corta los cuerpos de más de 64 KB.",
+            "`route()` comprueba el mismo origen en toda mutación, declare o no cuota; la cuota puede ir en el envoltorio o dentro del manejador cuando la ruta encadena varias capas (por ejemplo, un tope corto y otro diario). `readJson()` exige `application/json` y corta los cuerpos de más de 64 KB.",
             "CSP con nonce y `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` y HSTS en producción (`src/proxy.ts`).",
             "Directorio `0700` y base `0600`; `npm run db:backup` usa la API `.backup()` de SQLite y cifra con AES-256-GCM si existe `WANDERBIBLIOTHEK_BACKUP_KEY`.",
             "Registro con honeypot, tiempo mínimo y Cloudflare Turnstile opcional; mensaje genérico para no revelar correos registrados.",
             "Tokens de cuenta de un solo uso, hasheados y con caducidad; cambiar la contraseña revoca todas las sesiones.",
-            "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje (sin ellos no se podría descifrar nada fuera de la aplicación), y borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo, sus conversaciones directas, sus reseñas, sus mensajes de foro y sus votos, likes y asistencias, y conserva el historial de intercambio sin romper los hilos ajenos.",
+            "`GET /api/account/export` entrega todos los datos en JSON, **incluidos los sobres** de cada mensaje: sin ellos no se podría descifrar nada fuera de la aplicación.",
+            "Borrar la cuenta anonimiza el perfil, retira sus ejemplares, borra sus claves de dispositivo, sus conversaciones directas, sus reseñas, sus mensajes de foro y sus votos, likes y asistencias, y conserva el historial de intercambio sin romper los hilos ajenos.",
             "Un mensaje cifrado se rechaza si falta el sobre de algún dispositivo activo del destinatario: el que se quedara fuera no podría leerlo y el fallo aparecería días después.",
-            "Lo que este cifrado **no** cubre, dicho sin adornos: cada mensaje se cifra con la clave de identidad de su ranura, **sin secreto hacia delante** (no hay ratchet), y no hay recuperación. Quien obtenga a la vez la base y la clave privada de un dispositivo puede leer lo que ese dispositivo recibió; perder el dispositivo o los datos del navegador es perder ese historial. Cambiarlo exige versionar el protocolo y los dos clientes, no un parche.",
+            "Lo que este cifrado **no** cubre, dicho sin adornos: cada mensaje se cifra con la clave de identidad de su ranura, **sin secreto hacia delante** (no hay ratchet), y no hay recuperación.",
+            "Quien obtenga a la vez la base y la clave privada de un dispositivo puede leer lo que ese dispositivo recibió; perder el dispositivo o los datos del navegador es perder ese historial. Cambiarlo exige versionar el protocolo y todos los clientes, no un parche.",
           ],
         },
       ],
@@ -331,11 +354,15 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta la suite unitaria y de integración con el runner de Node sobre SQLite en memoria; `npm run test:e2e` añade 64 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta la suite unitaria y de integración con el runner de Node sobre SQLite en memoria; `npm run test:e2e` añade 66 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. Dos pruebas de navegador son vallas y no funcionalidad: `e2e/accesibilidad.spec.ts` pasa **axe** (WCAG 2.0/2.1 A y AA) por la portada, el catálogo, una ficha y la ventana de acceso, y falla con lo que axe marca como `serious` o `critical`; `e2e/rendimiento.spec.ts` comprueba que una visita al catálogo cabe en un **presupuesto de bytes** y que ninguna imagen pasa de 250 KB, que es lo que impide volver a las portadas de 1,3 MB. El presupuesto se mide sobre el build de producción, así que solo corre en la CI. La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker, que además se escanea con Trivy: el trabajo se corta solo con vulnerabilidades **críticas y con parche**, porque un aviso sin corrección disponible no se puede arreglar en ese momento pero queda en el registro.",
+          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. Dos pruebas de navegador son vallas y no funcionalidad: `e2e/accesibilidad.spec.ts` pasa **axe** (WCAG 2.0/2.1 A y AA) por la portada, el catálogo, una ficha y la ventana de acceso, y falla con lo que axe marca como `serious` o `critical`; `e2e/rendimiento.spec.ts` comprueba que una visita al catálogo cabe en un **presupuesto de bytes** y que ninguna imagen pasa de 250 KB, que es lo que impide volver a las portadas de 1,3 MB. El presupuesto se mide sobre el build de producción, así que solo corre en la CI.",
+        },
+        {
+          kind: "p",
+          text: "La integración continua (`.github/workflows/ci.yml`) ejecuta `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, las pruebas de navegador y un build de la imagen Docker, que además se escanea con Trivy. El trabajo se corta solo con vulnerabilidades **críticas y con parche**: un aviso sin corrección disponible no se puede arreglar en ese momento, pero queda en el registro.",
         },
         {
           kind: "p",
@@ -367,10 +394,11 @@ const ES: TechnicalDocument = {
             "`npm run db:verify` es el ensayo de restauración: descifra la copia más reciente (o la que se le pase), la abre en solo lectura como lo haría la aplicación, ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del esquema y cuenta las tablas principales. Sale con error si la copia no se puede restaurar.",
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año), las apelaciones resueltas (2 años) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
-            "Las rutas envueltas por `route()` dejan una línea `[req] {…}` y la cabecera `x-response-time`; nginx registra **todas las peticiones a la aplicación** con el mismo `x-request-id`, que también vuelve al cliente. Las rutas escritas a mano aún no emiten esa línea: la migración pendiente las va cubriendo. En `/api/metrics` (administración o el token del mantenimiento) hay un resumen de latencia p50/p95/p99 de esas rutas, memoria, flujos en vivo, el estado de las colas de trabajo y el tamaño de la base y del WAL; con `?format=prometheus` sale en el formato que entiende un recolector. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "Toda ruta deja una línea `[req] {…}` con el id, el método, la ruta, el estado y la latencia, y devuelve la cabecera `x-response-time`; nginx registra **todas las peticiones a la aplicación** con el mismo `x-request-id`, que también vuelve al cliente. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "En `/api/metrics` (administración o el token del mantenimiento) hay un resumen de latencia p50/p95/p99, memoria, flujos en vivo, el estado de las colas de trabajo y el tamaño de la base y del WAL; con `?format=prometheus` sale en el formato que entiende un recolector.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor, así que escalar en horizontal exige PostgreSQL. El canal en vivo **no** lo exige: el bus en memoria solo ahorra latencia y la fuente de verdad es una marca que se consulta en la base, de modo que un segundo proceso sigue funcionando (con hasta 15 s de retraso entre instancias). Un bus compartido quitaría ese retraso, no habilitaría el despliegue.",
-            "Techo medido con `npm run bench:sqlite`: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. El límite real es la duración de cada transacción, no el número de visitas.",
+            "Techo medido con `npm run bench:sqlite` sobre una base temporal con la misma configuración que la aplicación: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. Son cifras del equipo donde se ejecuta la medición, no una promesa de producción: el límite real es la duración de cada transacción, no el número de visitas.",
           ],
         },
         {
@@ -524,7 +552,7 @@ const DE: TechnicalDocument = {
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
             "    route.ts           Routen-Wrapper: Sitzung, Body, Kontingent, Fehler",
             "tests/                 Unit- und Integrationstests",
-            "e2e/                   Browser-Tests mit Playwright (9 Dateien + Smoke in Firefox/WebKit)",
+            "e2e/                   Browser-Tests mit Playwright (11 Dateien + Smoke in Firefox/WebKit)",
             "deploy/                systemd, nginx, Umgebungsvorlage und Anleitung",
           ],
         },
@@ -585,7 +613,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 81 Route-Dateien unter `src/app/api`. `route()` (`src/lib/route.ts`) wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent mit Herkunftsprüfung und `handleApiError()` an, deckt aber heute nur 22 der 110 exportierten Methoden ab (15 der 81 Route-Dateien): der Rest wiederholt das von Hand und wartet auf die Migration. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route Fehler unübersetzt durchlässt und dass jede Mutation die Herkunft prüft — nicht, dass sie den Wrapper schon nutzt.",
+          text: "Die API besteht aus 81 Route-Dateien unter `src/app/api` mit 110 exportierten Methoden, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
         },
         {
           kind: "list",
@@ -622,7 +650,22 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: `Migrationen werden über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Für den heutigen Code zählen zwölf Schritte: die v40 (ein Schlüssel-Slot je Gerät und ein verschlüsselter Umschlag pro Schlüssel), die v44 (beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar), die v52 (Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche), die v53 (wer einen Einspruch geprüft hat und ob die Person von außerhalb des Teams kam), die v54 (signierte Momentaufnahmen des öffentlichen Katalogs), die v56 (die Reise des Exemplars: Kopien erben die Herkunft und die Seite kann sie erzählen), die v57 (das Werk wird eine Entität: \`works\` hält eine stabile Id, seinen Schlüssel und einen eigenen Eintrag, und \`books.work_id\` zeigt darauf; Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben), die v58 (Aufgeschobenes hat nicht mehr eine Tabelle pro Sache: \`jobs\` hält Status, Versuche, nächsten Versuch und letzten Fehler für jede Aufgabe, und E-Mail ist eine Art davon), die v59 (einen abgeschlossenen Tausch archiviert jede Seite für sich: \`request_archives\` hält eine Zeile pro Person und Anfrage, sodass eine ihn weglegen kann, ohne dass die andere ihn aus den Augen verliert), die v60 (erweitert die Distanzmatrix um Österreich, ohne bereits gespeicherte deutsche Städtenamen zu ändern), die v61 (entfernt die toten Spalten für Versand und Übergabe: alte Postanschriften und Codes, die keine Abfrage mehr liest) und die v62 (speichert den Annahmezeitpunkt eines Tauschs und die Antwort der anderen Seite auf eine Meldung wegen nicht zugestellter Bücher). Die Einzelheiten stehen in dieser Datei und in ihrer Git-Historie.`,
+          text: `Das Schema wird über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf. Eine veröffentlichte Migration wird nicht umgeschrieben: jede Änderung fügt eine Stufe hinzu, die die Daten erhält — außer den Spalten oder Tabellen, die sie bewusst entfernt.`,
+        },
+        {
+          kind: "list",
+          items: [
+            "v40: ein Schlüssel-Slot pro Plattform und ein verschlüsselter Umschlag pro Schlüssel statt eines einzigen Schlüssels je Konto.",
+            "v44: beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar.",
+            "v52 und v53: Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche, die eine andere Person prüft, und die Angabe, wer geprüft hat.",
+            "v57: das Werk wird eine Entität (\`works\`), Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben.",
+            "v58: \`jobs\` bündelt Aufgeschobenes — auch E-Mail — in einer Tabelle mit Status, Versuchen und letztem Fehler, statt einer Tabelle pro Sache.",
+            "v62: speichert den Annahmezeitpunkt eines Tauschs und ergänzt die Antwort der anderen Seite auf eine Meldung wegen nicht zugestellter Bücher.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "Die übrigen Stufen — signierte Momentaufnahmen des Katalogs (v54), die Reise des Exemplars (v56), das Archiv je Person (v59), die Erweiterung um Österreich (v60) oder das Entfernen toter Spalten (v61) — ändern das heutige Modell nicht. Jede ist in ihrer Funktion in dieser Datei und in der Git-Historie erklärt.",
         },
         {
           kind: "p",
@@ -630,7 +673,11 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Ein Tausch lässt das Buch nicht verwaisen: beim Abschluss bleibt das übergebene Exemplar `given` (das ist der Verlauf) und wer es bekommt, bekommt **ein eigenes Exemplar** – dieselbe Ausgabe, derselbe Zustand, in derselben Stadt und pausiert (`listings.from_listing_id` und `from_request_id` halten die Spur). Aus dem eigenen Regal lässt es sich aktivieren, und das Buch wandert weiter; hatte die Moderation das ursprüngliche Exemplar entfernt, entsteht die Kopie trotzdem und nichts kehrt ohne die Entscheidung der Person in den Katalog zurück.",
+          text: "Ein Tausch lässt das Buch nicht verwaisen: beim Abschluss bleibt das übergebene Exemplar `given` (das ist der Verlauf) und wer es bekommt, bekommt **ein eigenes Exemplar** – dieselbe Ausgabe, derselbe Zustand, in derselben Stadt und pausiert (`listings.from_listing_id` und `from_request_id` halten die Spur).",
+        },
+        {
+          kind: "p",
+          text: "Aus dem eigenen Regal lässt es sich aktivieren, und das Buch wandert weiter. Hatte die Moderation das ursprüngliche Exemplar entfernt, entsteht die Kopie trotzdem, und nichts kehrt ohne die Entscheidung der Person in den Katalog zurück.",
         },
         {
           kind: "p",
@@ -657,19 +704,23 @@ const DE: TechnicalDocument = {
         {
           kind: "list",
           items: [
-            "Passwörter mit asynchronem `scrypt` und eigenem Salt, mit den Parametern im Hash selbst (`scrypt$N,r,p$Salt$Hash`), damit sie später erhöht werden können, ohne jemanden auszusperren; das alte Format wird weiterhin geprüft und bei der nächsten Anmeldung erneuert; die Anmeldung prüft immer einen Hash (gegen einen Köder, wenn es das Konto nicht gibt), sodass die Antwortzeit nicht verrät, welche Adressen registriert sind.",
-            "Tausch- und Direktnachrichten sind Ende-zu-Ende verschlüsselt (ECDH P-256 + HKDF-SHA256 + AES-GCM). Jedes Konto veröffentlicht **einen Schlüssel pro Geräte-Slot** (`web` und `android`); der Absender speichert pro Empfängerschlüssel einen Umschlag, sodass Browser und App dieselbe Nachricht lesen. Nur der erste Schlüssel eines Kontos wird ohne Bestätigung veröffentlicht: Sobald ein Slot belegt ist, verlangt sowohl das Ersetzen als auch das **Hinzufügen eines Geräts** das Kontopasswort, und jede Änderung erzeugt einen Sicherheitshinweis. Im Browser gibt es **eine Identität pro Konto**: zwei Konten auf demselben Gerät teilen nie ein Schlüsselpaar.",
+            "Passwörter mit asynchronem `scrypt` und eigenem Salt, mit den Parametern im Hash selbst (`scrypt$N,r,p$Salt$Hash`), damit sie später erhöht werden können, ohne jemanden auszusperren; das alte Format wird weiterhin geprüft und bei der nächsten Anmeldung erneuert.",
+            "Die Anmeldung prüft immer einen Hash (gegen einen Köder, wenn es das Konto nicht gibt), sodass die Antwortzeit nicht verrät, welche Adressen registriert sind.",
+            "Tausch- und Direktnachrichten sind Ende-zu-Ende verschlüsselt (ECDH P-256 + HKDF-SHA256 + AES-GCM). Jedes Konto veröffentlicht **einen Schlüssel pro Plattform-Slot** — derzeit nur `web`; der Absender speichert pro Empfängerschlüssel einen Umschlag, sodass jeder Client mit veröffentlichtem Schlüssel dieselbe Nachricht liest.",
+            "Nur der erste Schlüssel eines Kontos wird ohne Bestätigung veröffentlicht: Sobald ein Slot belegt ist, verlangen sowohl das Ersetzen als auch das **Hinzufügen eines weiteren** das Kontopasswort, und jede Änderung erzeugt einen Sicherheitshinweis. Im Browser gibt es **eine Identität pro Konto**: zwei Konten auf demselben Gerät teilen nie ein Schlüsselpaar.",
             "Sitzung mit 256 Bit im `httpOnly`-Cookie und `SameSite=Lax`; in Produktion wird nur das Präfix `__Host-` akzeptiert, und in der Datenbank liegt nur ihr SHA-256.",
             "Zweiter Faktor (TOTP nach RFC 6238, Fenster ±1 Schritt, Anti-Replay) ist für Moderation und Verwaltung in Produktion Pflicht; die Geheimnisse liegen verschlüsselt. Sanktionen haben Grund und Frist (1–365 Tage), und über den Einspruch entscheidet eine andere Person im Team.",
             "Atomare Kontingente in der Datenbank je IP und je Konto, mit `429` und `Retry-After`.",
-            "Alle schreibenden Zugriffe laufen über `guard()` (Herkunft und Kontingent), und `readJson()` verlangt `application/json` und kappt Bodys über 64 KB.",
+            "`route()` prüft bei jedem schreibenden Zugriff die Herkunft, ob ein Kontingent deklariert ist oder nicht; das Kontingent kann im Wrapper liegen oder im Handler, wenn eine Route mehrere Stufen verkettet (etwa eine kurze und eine tägliche Grenze). `readJson()` verlangt `application/json` und kappt Bodys über 64 KB.",
             "CSP mit Nonce und `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` und HSTS in Produktion (`src/proxy.ts`).",
             "Verzeichnis `0700` und Datenbank `0600`; `npm run db:backup` nutzt die `.backup()`-API von SQLite und verschlüsselt mit AES-256-GCM, wenn `WANDERBIBLIOTHEK_BACKUP_KEY` gesetzt ist.",
             "Registrierung mit Honeypot, Mindestzeit und optionalem Cloudflare Turnstile; die Antwort ist allgemein gehalten, um keine Adressen zu verraten.",
             "Konto-Tokens sind einmalig, gehasht und befristet; ein Passwortwechsel beendet alle Sitzungen.",
-            "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht (ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln); das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel, die Direktgespräche, die Rezensionen, die Forumsbeiträge sowie Stimmen, Likes und Teilnahmen und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
+            "`GET /api/account/export` liefert alle Daten als JSON, **einschließlich der Umschläge** jeder Nachricht: ohne sie ließe sich außerhalb der Anwendung nichts entschlüsseln.",
+            "Das Löschen des Kontos anonymisiert das Profil, zieht die eigenen Exemplare zurück, löscht die Geräteschlüssel, die Direktgespräche, die Rezensionen, die Forumsbeiträge sowie Stimmen, Likes und Teilnahmen und bewahrt den Tauschverlauf, ohne fremde Gespräche zu zerreißen.",
             "Eine verschlüsselte Nachricht wird abgelehnt, wenn der Umschlag für ein aktives Gerät der anderen Person fehlt: Das übergangene Gerät könnte sie nicht lesen, und der Fehler würde erst Tage später auffallen.",
-            "Was diese Verschlüsselung **nicht** abdeckt, ohne Beschönigung: Jede Nachricht wird mit dem Identitätsschlüssel ihrer Slot verschlüsselt, **ohne Forward Secrecy** (kein Ratchet), und es gibt keine Wiederherstellung. Wer gleichzeitig die Datenbank und den privaten Schlüssel eines Geräts erlangt, kann lesen, was dieses Gerät empfangen hat; ein verlorenes Gerät oder gelöschte Browserdaten bedeuten verlorene Historie. Das zu ändern verlangt eine versionierte Änderung des Protokolls und beider Clients, keinen Patch.",
+            "Was diese Verschlüsselung **nicht** abdeckt, ohne Beschönigung: Jede Nachricht wird mit dem Identitätsschlüssel ihres Slots verschlüsselt, **ohne Forward Secrecy** (kein Ratchet), und es gibt keine Wiederherstellung.",
+            "Wer gleichzeitig die Datenbank und den privaten Schlüssel eines Geräts erlangt, kann lesen, was dieses Gerät empfangen hat; ein verlorenes Gerät oder gelöschte Browserdaten bedeuten verlorene Historie. Das zu ändern verlangt eine versionierte Änderung des Protokolls und aller Clients, keinen Patch.",
           ],
         },
       ],
@@ -771,11 +822,15 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt die Unit- und Integrationstests mit dem Node-Testrunner auf SQLite im Speicher aus, und `npm run test:e2e` ergänzt 64 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt die Unit- und Integrationstests mit dem Node-Testrunner auf SQLite im Speicher aus, und `npm run test:e2e` ergänzt 66 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Zwei Browser-Tests sind Leitplanken und keine Funktion: `e2e/accesibilidad.spec.ts` schickt **axe** (WCAG 2.0/2.1 A und AA) über Startseite, Katalog, eine Exemplarseite und den Anmeldedialog und scheitert an allem, was axe als `serious` oder `critical` meldet; `e2e/rendimiento.spec.ts` prüft, dass ein Katalogbesuch in ein **Byte-Budget** passt und kein Bild über 250 KB geht — der Riegel gegen die 1,3-MB-Originale. Das Budget wird am Produktions-Build gemessen und läuft daher nur in der CI. Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images aus, das zusätzlich mit Trivy geprüft wird: der Job bricht nur bei **kritischen Schwachstellen mit Patch** ab, denn eine Warnung ohne verfügbare Korrektur lässt sich in dem Moment nicht beheben, bleibt aber im Protokoll.",
+          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Zwei Browser-Tests sind Leitplanken und keine Funktion: `e2e/accesibilidad.spec.ts` schickt **axe** (WCAG 2.0/2.1 A und AA) über Startseite, Katalog, eine Exemplarseite und den Anmeldedialog und scheitert an allem, was axe als `serious` oder `critical` meldet; `e2e/rendimiento.spec.ts` prüft, dass ein Katalogbesuch in ein **Byte-Budget** passt und kein Bild über 250 KB geht — der Riegel gegen die 1,3-MB-Originale. Das Budget wird am Produktions-Build gemessen und läuft daher nur in der CI.",
+        },
+        {
+          kind: "p",
+          text: "Die Continuous Integration (`.github/workflows/ci.yml`) führt `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, die Browser-Tests und einen Build des Docker-Images aus, das zusätzlich mit Trivy geprüft wird. Der Job bricht nur bei **kritischen Schwachstellen mit Patch** ab: eine Warnung ohne verfügbare Korrektur lässt sich in dem Moment nicht beheben, bleibt aber im Protokoll.",
         },
         {
           kind: "p",
@@ -807,10 +862,11 @@ const DE: TechnicalDocument = {
             "`npm run db:verify` ist die Wiederherstellungsprobe: entschlüsselt die neueste Sicherung (oder die übergebene), öffnet sie schreibgeschützt wie die Anwendung, führt `integrity_check` und `foreign_key_check` aus, prüft die Schemaversion und zählt die wichtigsten Tabellen. Bricht mit Fehler ab, wenn die Sicherung sich nicht wiederherstellen lässt.",
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr), entschiedene Einsprüche (2 Jahre) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
-            "Von `route()` umschlossene Routen hinterlassen eine `[req] {…}`-Zeile und die Kopfzeile `x-response-time`; nginx protokolliert **jede Anfrage an die Anwendung** mit derselben `x-request-id`, die auch an den Client zurückgeht. Handgeschriebene Routen erzeugen diese Zeile noch nicht: die ausstehende Migration deckt sie nach und nach ab. `/api/metrics` (Administration oder das Wartungstoken) liefert p50/p95/p99-Latenz dieser Routen, Speicher, offene Streams, den Zustand der Arbeitswarteschlangen sowie Größe von Datenbank und WAL; mit `?format=prometheus` im Format, das ein Collector versteht. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "Jede Route hinterlässt eine `[req] {…}`-Zeile mit Id, Methode, Pfad, Status und Latenz und gibt die Kopfzeile `x-response-time` zurück; nginx protokolliert **jede Anfrage an die Anwendung** mit derselben `x-request-id`, die auch an den Client zurückgeht. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "`/api/metrics` (Administration oder das Wartungstoken) liefert p50/p95/p99-Latenz, Speicher, offene Streams, den Zustand der Arbeitswarteschlangen sowie Größe von Datenbank und WAL; mit `?format=prometheus` im Format, das ein Collector versteht.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, horizontale Skalierung verlangt also PostgreSQL. Der Live-Kanal nicht: der Bus im Speicher spart nur Latenz, und die Quelle der Wahrheit ist eine Marke, die aus der Datenbank gelesen wird, sodass ein zweiter Prozess weiter funktioniert (bis zu 15 s Verzögerung zwischen Instanzen). Ein gemeinsamer Bus würde diese Verzögerung beseitigen, nicht den Betrieb ermöglichen.",
-            "Gemessene Obergrenze mit `npm run bench:sqlite`: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
+            "Gemessene Obergrenze mit `npm run bench:sqlite` auf einer temporären Datenbank mit derselben Konfiguration wie die Anwendung: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Das sind Werte des Rechners, auf dem gemessen wird, kein Versprechen für den Produktivbetrieb: die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
           ],
         },
         {
