@@ -644,15 +644,23 @@
    superior. Centrar una columna de 74ch en un marco de 1040 px dejaba dos
    márgenes grandes y la lectura, encajonada. */
 .legal-shell {
-  width: min(1320px, 100%);
+  width: 100%;
+}
+
+/* Desde el punto en que la documentación pone el índice al lado, su columna
+   mide el marco menos esos 262 px (230 de índice y 32 de separación). La
+   página legal iguala ese ancho para que las dos se lean igual; por debajo,
+   las dos ocupan el marco entero y no hace falta corregir nada. */
+@media (min-width: 1120px) {
+  .legal-shell {
+    width: min(1178px, calc(100% - 262px));
+  }
 }
 
 .legal-doc {
-  /* La misma medida que la documentación técnica: 88 caracteres. El bloque se
-     centra en el marco para que el texto no quede pegado a la izquierda con un
-     vacío grande a la derecha. */
-  max-width: 88ch;
-  margin-inline: auto;
+  /* Ocupa el marco entero: es el mismo ancho que la columna de la
+     documentación, así que las dos páginas se leen igual. */
+  max-width: none;
   /* La prosa se lee a 16 px: 14 era el tamaño de la interfaz densa y estas
      páginas se leen seguidas, no se hojean. */
   font-size: var(--text-base);
