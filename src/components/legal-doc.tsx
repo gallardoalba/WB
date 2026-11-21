@@ -21,7 +21,7 @@ export function LegalDoc({
 }) {
   const t = (text: string) => translate(locale, text);
   return (
-    <main className="page-shell">
+    <main className="page-shell legal-shell">
       <div className="page-topbar">
         <Link className="back-link" href="/">
           <ArrowLeft size={16} /> {t("Inicio")}

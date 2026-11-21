@@ -2,9 +2,12 @@
    Documentación técnica (/techdoc)
    ============================================================ */
 
-/* Más ancha que las páginas legales: aquí hay tablas de rutas y variables. */
+/* Más ancha que las páginas legales: aquí hay tablas de rutas y variables.
+   Con 1180 px la columna de texto se quedaba en 730 px y las tablas de rutas
+   apretaban la segunda columna; el límite está ahora en la prosa, no en el
+   marco, así que la página aprovecha el ancho sin líneas de 120 caracteres. */
 .doc-shell {
-  width: min(1180px, 100%);
+  width: min(1440px, 100%);
 }
 
 .doc-layout {
@@ -54,7 +57,10 @@
 
 .tech-doc {
   min-width: 0;
-  max-width: 82ch;
+  /* Sin tope propio: el ancho lo reparten la prosa (más abajo) y los bloques
+     que de verdad lo necesitan —tablas y código—, que ocupan la columna
+     entera. Antes el tope cortaba también las tablas. */
+  max-width: none;
 }
 
 .tech-doc h1 {
@@ -81,6 +87,9 @@
   color: var(--ink-soft);
   font-size: var(--text-base);
   line-height: 1.65;
+  /* La medida de lectura se queda aquí: por encima de ~90 caracteres la vista
+     pierde el principio de la línea siguiente. */
+  max-width: 88ch;
 }
 
 .tech-doc p {
@@ -230,7 +239,7 @@
 /* Con sitio, el índice se queda a la izquierda y acompaña al desplazar. */
 @media (min-width: 1120px) {
   .doc-layout {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: 230px minmax(0, 1fr);
     gap: var(--space-6);
   }
 
