@@ -126,7 +126,7 @@ their consequences are commented in the file itself; the summary:
 | `TRUST_PROXY=1` | All requests share the global quota: one client can exhaust the site's login |
 | `WANDERBIBLIOTHEK_DB` | The database is created inside the release and lost on the next deployment |
 | `WANDERBIBLIOTHEK_BACKUP_KEY` | The backup is stored in plain text with emails, password hashes and messages inside, and that backup leaves the server |
-| `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | `/privacidad` and `/aviso-legal` show a notice that data is missing; the Impressum is mandatory in Germany |
+| `LEGAL_CONTROLLER` / `LEGAL_ADDRESS` / `LEGAL_CONTACT_EMAIL` | `/datenschutz` and `/aviso-legal` show a notice that data is missing; the Impressum is mandatory in Germany |
 
 On startup, `[env]` also warns (without blocking) about errors that would only
 be noticed weeks later: a `MAINTENANCE_TOKEN` shorter than 24 characters,
@@ -156,7 +156,7 @@ enough.
 
 1. **Account**: brevo.com. The company is Sendinblue SAS (Paris) and data is
    processed in the EU. Even so, before assuming there is nothing to declare in
-   `/privacidad`, review the data-processing agreement, its sub-processors and
+   `/datenschutz`, review the data-processing agreement, its sub-processors and
    access from outside the EEA: the European headquarters does not decide
    everything.
 2. **Authenticate the domain**: *Senders, Domains & Dedicated IPs → Domains* →
@@ -1185,7 +1185,7 @@ and registration requires **declaring that you are 16 or older**.
 
 Three decisions remain yours:
 
-1. **Controller data.** `/privacidad` and `/aviso-legal` already exist, in
+1. **Controller data.** `/datenschutz` and `/aviso-legal` already exist, in
    Spanish and German, with what the code actually does. They are completed with
    `LEGAL_CONTROLLER`, `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` and, where
    applicable, `LEGAL_VAT_ID`; without them the pages show a visible notice that
@@ -1208,7 +1208,7 @@ encryption key never leaves the browser.
 
 ## 13. Legal checklist before opening
 
-The application publishes `/privacidad` and `/aviso-legal` with what the code
+The application publishes `/datenschutz` and `/aviso-legal` with what the code
 actually does, but there are decisions that **only the person operating the
 service can make**. `npm run smoke` fails if the legal pages are incomplete, so
 this checklist cannot be silently forgotten.

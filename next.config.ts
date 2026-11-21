@@ -39,6 +39,12 @@ const nextConfig: NextConfig = {
       { source: "/documentacion", destination: "/techdoc", permanent: true },
       { source: "/es/documentacion", destination: "/es/techdoc", permanent: true },
       { source: "/en/documentacion", destination: "/en/techdoc", permanent: true },
+      // La política de privacidad vivió en `/privacidad` hasta noviembre de
+      // 2026 y pasa a `/datenschutz`, en alemán como el resto de la instancia
+      // por defecto. Los enlaces ya repartidos siguen funcionando con un 301.
+      { source: "/privacidad", destination: "/datenschutz", permanent: true },
+      { source: "/es/privacidad", destination: "/es/datenschutz", permanent: true },
+      { source: "/en/privacidad", destination: "/en/datenschutz", permanent: true },
     ];
   },
   /**

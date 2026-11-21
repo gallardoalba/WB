@@ -139,7 +139,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         heading: "7. Encrypted messages",
         body: [
           "Messages are encrypted end to end (ECDH P-256 + AES-GCM). Neither the server nor whoever administers it can read them.",
-          "The price of this: if the browser’s storage is lost, old messages cannot be recovered.",
+          "If the browser’s storage is lost, old messages cannot be recovered: the server does not hold the key.",
         ],
       },
       {
@@ -168,7 +168,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
       },
       {
         heading: "11. Changes",
-        body: ["If the processing changes, this text is updated. The date above states the version."],
+        body: ["If the processing changes, this text is updated."],
       },
     ],
   };

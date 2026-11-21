@@ -62,7 +62,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
 | `/cuenta` | Settings: profile, notifications, password, encryption, second factor, journey visibility, welcome tour, export and deletion. |
 | `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
-| `/privacidad`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
+| `/datenschutz`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
 | `/techdoc` | Technical documentation page (Spanish and German). |
 | `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
@@ -208,7 +208,7 @@ Without `APP_ENCRYPTION_KEY` no secret is ever stored in plain text: creating on
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | unset | Enable Cloudflare Turnstile on registration. Read at request time (not baked into the bundle); the secret without the public key refuses to start, because every sign-up would be rejected. |
 | `REQUIRE_EMAIL_VERIFICATION` | unset | `1` requires a confirmed address to publish, request, comment and write. |
 | `AUDIT_RETENTION_DAYS` | `730` | Days `admin_audit` is kept (0 = forever). |
-| `LEGAL_*` | unset | Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`. |
+| `LEGAL_*` | unset | Controller, address, contact and optional details for `/datenschutz` and `/aviso-legal`. |
 | `TRANSPARENCY_SIGNING_KEY` | unset | Ed25519 private key (PKCS#8 in base64, or PEM) used to sign the daily catalogue snapshots. Without it, snapshots are published unsigned and marked as such. |
 | `APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE` | unset | Build identity published at `/api/version`. Filled by the release workflow (Docker build args) or by `deploy/deploy.sh` (`.build-info.json`). |
 

@@ -130,7 +130,7 @@ export async function SiteShell({
             >
               <Link href={href("/descubrir")}>{t("Descubrir todos los libros")}</Link>
               <FooterSeparator />
-              <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
+              <Link href={href("/datenschutz")}>{t("Privacidad")}</Link>
               <FooterSeparator />
               <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
               <FooterSeparator />

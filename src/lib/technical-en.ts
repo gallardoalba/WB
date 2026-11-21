@@ -70,15 +70,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The three dictionaries do not travel together: `i18n.ts` is only imported on the server and the layout hands the client provider only the texts of the active language (Spanish is the source and arrives empty). They are indexed by a 32-bit `messageId` instead of by the source text: the key takes at most ten digits and the Spanish text does not travel.",
-        },
-        {
-          kind: "p",
           text: "`getDb()` intercepts `prepare` in order to reuse compiled statements (FIFO cache of 400 per connection). Public aggregates are served with `use cache` and the `public-data` tag, which the routes that mutate invalidate.",
-        },
-        {
-          kind: "p",
-          text: "Rendering does not read `Date.now()` or `new Date()`: Next treats it as an unstable value when prerendering. Notification, maintenance and limiter timestamps are set by SQLite with `strftime('%Y-%m-%dT%H:%M:%fZ','now')`.",
         },
       ],
     },
@@ -94,13 +86,13 @@ export const EN: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Content"],
           rows: [
-            ["`/`", "Public home page: full-width header, four figures and a row of books in the interface language (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter (that lives in `/descubrir`) and falls back to the whole catalogue when there is nothing in that language."],
+            ["`/`", "Public home page: four figures and a row of books in the interface language (`BOOK_LANGUAGE_BY_LOCALE`); with no books in that language it shows the whole catalogue."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public work page with JSON-LD `Book`/`Offer`, marked `noindex`."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
             ["`/buscar`", "Global search: works, clubs, readers and lists."],
             ["`/estanteria`, `/intercambios`", "Private sections: own copies and requests with their next step."],
-            ["`/comunidad`", "Overview with tabs (conversations, activity, clubs, readers, lists) and scope in `?scope=`."],
+            ["`/comunidad`", "Community: conversations, activity, clubs, readers and lists, with `?scope=`."],
             ["`/lectores`", "Directory with search, city and sorting by proximity or activity."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubs by city: requests, current read, voting, attendance and private forum."],
             ["`/listas`, `/listas/[listId]`", "Reading lists: readable without a session (the signature only appears if its owner authorises it) and only their owner edits them."],
@@ -109,7 +101,7 @@ export const EN: TechnicalDocument = {
             ["`/u/[id]`", "Public profile: biography, figures, reviews, shelf and following."],
             ["`/cuenta`", "Settings: profile, notifications, password, encryption, second factor, export and deletion."],
             ["`/admin`", "Community moderation; requires an active second factor."],
-            ["`/privacidad`, `/aviso-legal`", "Privacy policy (art. 13 GDPR) and legal notice (§ 5 DDG)."],
+            ["`/datenschutz`, `/aviso-legal`", "Privacy policy (art. 13 GDPR) and legal notice (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "Email confirmation and a new password from the link."],
             ["`/techdoc`", "This page."],
             ["`/projekt`", "What the project is, why it exists, that it is non-commercial and what it demonstrates."],
@@ -135,7 +127,7 @@ export const EN: TechnicalDocument = {
             "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person, from the team or, with their name recorded, from another instance.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic record (DNB and Open Library). The cover is streamed from disk as it is read —no copy in memory—, and a 304 does not open the image; the browser also asks `/_next/image` for the reduced WebP version, so a 220 px card does not download the 1600 px JPEG. The URL carries a version (`?v=…`): replacing the cover changes it, and no cache serves the old one. The nginx vhost also caches these images at the edge (`proxy_cache`), so Node stops sending cover bytes on repeat visits.",            "`/api/cities?q=`: town suggestions for the city picker (OpenStreetMap through Photon), without a session because the city is chosen during registration.",            "`/api/cron/maintenance`: scheduled tasks, with `MAINTENANCE_TOKEN`. It retries pending deliveries and purges old rows.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic record (DNB and Open Library). The cover is streamed from disk without copying it into memory, carries a version in the URL (`?v=…`) so no cache serves the old one, and nginx keeps it at the edge.",
           ],
         },
       ],
@@ -151,31 +143,12 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 maintained by triggers: `listings_fts` for the catalogue and `books_fts` for works; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds a curated set of cities in Germany and Austria with their coordinates; `city_distances` stores distances for that set. `searchCities()` gets suggestions from OpenStreetMap through Photon, constrained to both countries, and falls back to the local catalogue if Photon is unavailable. `resolveCity()` checks the selected name with Nominatim, also limited to Germany and Austria. Austrian names carry `(AT)` to avoid collisions with German names. Other municipalities can still be selected, but do not have precomputed distances.",
+            "`cities` holds a curated set of cities in Germany and Austria with their coordinates, and `city_distances` the distance matrix between them; Austrian names carry `(AT)` so they are not confused with German namesakes. `searchCities()` gets suggestions from OpenStreetMap through Photon and `resolveCity()` checks the name with Nominatim, both limited to those two countries. Other municipalities can be used, but have no precomputed distance.",
           ],
         },
         {
           kind: "p",
-          text: `The schema is versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`. A published migration is never rewritten: every change adds a step that keeps the data, except for the columns or tables it removes on purpose.`,
-        },
-        {
-          kind: "list",
-          items: [
-            "v40: one key slot per platform and one encrypted envelope per key, instead of a single key per account.",
-            "v44: when an exchange closes, the receiver gets a copy of their own.",
-            "v52 and v53: moderation separated from administration, suspensions with a reason and a time limit, appeals reviewed by a different person, and a record of who reviewed them.",
-            "v57: the work becomes an entity (\`works\`), so grouping editions no longer means rewriting a derived string.",
-            "v58: \`jobs\` keeps deferred work —mail included— in one table with status, attempts and last error, instead of one table per thing.",
-            "v62: records when an exchange was accepted and adds the other party's response to a non-delivery report.",
-          ],
-        },
-        {
-          kind: "p",
-          text: "The remaining steps —signed snapshots of the catalogue (v54), the copy's journey (v56), the per-person archive (v59), the addition of Austria (v60) or the removal of dead columns (v61)— do not change today's model. Each one is explained in its function in that file and in the git history.",
-        },
-        {
-          kind: "p",
-          text: "Migration v61 removed the unused hand-over and shipping columns (`handover_*`, `ship_*`) from the schema. The hand-over is agreed in the conversation, and each side confirms in the platform once it has the book.",
+          text: `The schema is versioned with \`PRAGMA user_version\` (current: v${SCHEMA_VERSION}). A new installation starts from \`SCHEMA_V2\` and its indexes and runs the ${SCHEMA_VERSION - 2} steps up to v${SCHEMA_VERSION}; existing ones climb the ladder in \`src/lib/db/migrations.ts\`, which keeps the data. A published migration is never rewritten: every change adds a step. The full path, step by step, is in that file and in its git history.`,
         },
         {
           kind: "p",
@@ -187,7 +160,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Messages are encrypted end to end (see **Security**): the database stores the envelope and the key fingerprint, and the API rejects plain text (422).",
+          text: "The hand-over is agreed in the conversation, and each side confirms in the platform once it has the book.",
         },
         {
           kind: "list",
@@ -281,10 +254,6 @@ export const EN: TechnicalDocument = {
             ["Export or delete the account", "No", "No", "Only its owner", "No"],
           ],
         },
-        {
-          kind: "p",
-          text: "`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy and exchange tests cover the remaining roles.",
-        },
       ],
     },
     {
@@ -311,7 +280,7 @@ export const EN: TechnicalDocument = {
             ["`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`", "unset", "Enable Cloudflare Turnstile on registration."],
             ["`REQUIRE_EMAIL_VERIFICATION`", "unset", "`1` requires a confirmed address to publish, request, comment and write."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Days `admin_audit` is kept (0 = forever)."],
-            ["`LEGAL_*`", "unset", "Controller, address, contact and optional details for `/privacidad` and `/aviso-legal`."],
+            ["`LEGAL_*`", "unset", "Controller, address, contact and optional details for `/datenschutz` and `/aviso-legal`."],
             ["`TRANSPARENCY_SIGNING_KEY`", "unset", "Ed25519 key (PKCS#8 in base64 or PEM) that signs the daily catalogue snapshot. Without it, snapshots are published unsigned and marked as such."],
             ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "unset", "Build identity published by `/api/version`; filled by the release workflow or `deploy/deploy.sh`."],
           ],
@@ -340,11 +309,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Every run publishes a CycloneDX SBOM (`npm sbom`) with the production dependencies: when an advisory lands, it tells whether that version was ever deployed. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a variable named like a key): it runs locally and in CI without any service, and it does not replace reviewing the git history. Static analysis (CodeQL with the `security-extended` queries) lives in `.github/workflows/codeql.yml`, also scheduled on Mondays so new queries are picked up.",
-        },
-        {
-          kind: "p",
-          text: "CI also audits development dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.",
+          text: "Every run publishes a CycloneDX SBOM (`npm sbom`) with the production dependencies: when an advisory lands, it tells whether that version was ever deployed. `tests/no-secrets.test.ts` looks for credentials in the working tree, locally and in CI, without any service, and does not replace reviewing the git history. Static analysis (CodeQL with the `security-extended` queries) lives in `.github/workflows/codeql.yml`.",
         },
         {
           kind: "code",
@@ -372,7 +337,6 @@ export const EN: TechnicalDocument = {
             "`/api/metrics` (administration or the maintenance token) returns p50/p95/p99 latency, memory, live streams, the state of the job queues and database/WAL size; with `?format=prometheus` it speaks the format a scraper understands.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer, so scaling out requires PostgreSQL. The live channel does **not**: the in-memory bus only saves latency and the source of truth is a stamp polled from the database, so a second process keeps working (up to 15 s of delay between instances). A shared bus would remove that delay, not enable the deployment.",
-            "Ceiling measured with `npm run bench:sqlite` on a temporary database with the same configuration as the application: about 100 000 single writes/s, over 200 000/s in a batch, about 300 000 reads/s by primary key and 2 000/s in a filter without an index over 5 000 rows. These are figures from the machine that runs the measurement, not a production promise: the real limit is the duration of each transaction, not the number of visits.",
           ],
         },
         {
@@ -406,8 +370,6 @@ export const EN: TechnicalDocument = {
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` and `deploy/env.example`: the application listens on `127.0.0.1:3000` and nginx terminates TLS, with `/api/requests/` unbuffered so that the SSE channel is not cut.",
             "`deploy/wanderbibliothek-maintenance.timer` (every 15 minutes) and `deploy/wanderbibliothek-backup.timer` (every 6 hours).",
             "There is also a multi-stage `Dockerfile` and `docker-compose.yml` with production dependencies only; the image build is validated in continuous integration.",
-            "If a required setting is missing from the configuration, the process starts but answers 500 to everything with the reason in the log, instead of appearing to work.",
-            "`tsx` is a production dependency: `admin:create`, `db:backup`, `user:verify` and `smoke` use it, also inside the image with `npm ci --omit=dev`.",
           ],
         },
       ],
@@ -421,11 +383,10 @@ export const EN: TechnicalDocument = {
           items: [
             "A single shell (`SiteShell`) for the internal pages; the home page is the exception and leaves the catalogue at the full available width.",
             "Colours come from tokens (`src/app/styles/tokens.css`): outside that file there are no literals, so the light and the dark mode share the same markup.",
-            "Four breakpoints (480, 768, 1120 and 1400/1800 px), a spacing scale from 4 to 48 px and controls at 40 px, 44 on mobile.",
             "Dialogs with trapped focus, closing on `Escape` and focus restoration; a “Skip to content” link, `aria-current` in the navigation, filters with `aria-pressed` and errors with `role=\"alert\"`.",
-            "What is not visible on load does not travel in the initial bundle: the sign-in dialog, the exchange dialog (crypto and QR), the publishing form, notifications and the community and exchanges views are fetched with `next/dynamic` when they open. Browser crypto is imported when the key is published, not at startup. Beware of `dynamic` for something always mounted: without `loading`, its download suspends the whole tree and the page takes long to respond (covered by `e2e/app.spec.ts` through the heart button’s focus).",
+            "What is not visible on load does not travel in the initial bundle: the sign-in dialog, the exchange dialog, the publishing form, notifications and the community and exchanges views are fetched with `next/dynamic` when they open, and browser crypto is imported when the key is published, not at startup.",
             "Minimum AA contrast, type from 12 px, 44 px touch targets on mobile and `prefers-reduced-motion` respected: the animations (in `styles/motion.css`) only move `opacity` and `transform`, and switch off entirely with that setting.",
-            "The interface is trilingual: the switcher wins, storing the `wanderbibliothek-locale` cookie and, if there is a session, the account preference for notifications and mail; without a preference the browser language (`Accept-Language`) decides, and German if none of the three matches.",
+            "The interface is trilingual and every language has its URL: German stays without a prefix (`/werk/x`) and Spanish and English are published under `/es/…` and `/en/…`, with their own `hreflang` and canonical. Inside a URL with a prefix the prefix wins; otherwise the switcher with its cookie and the account preference; with no preference `Accept-Language` decides and, if none of the three matches, German.",
           ],
         },
       ],

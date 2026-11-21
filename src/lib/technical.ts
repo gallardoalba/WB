@@ -94,15 +94,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "No viajan los tres diccionarios: `i18n.ts` solo se importa en el servidor y el layout entrega al proveedor de cliente únicamente los textos del idioma activo (el castellano es el origen y llega vacío). Van indexados por un identificador de 32 bits (`messageId`) en vez de por el texto origen: la clave ocupa como mucho diez dígitos y el texto castellano no viaja.",
-        },
-        {
-          kind: "p",
           text: "`getDb()` intercepta `prepare` para reutilizar sentencias compiladas (caché FIFO de 400 por conexión). Los agregados públicos se sirven con `use cache` y la etiqueta `public-data`, que invalidan las rutas que mutan.",
-        },
-        {
-          kind: "p",
-          text: "El renderizado no lee `Date.now()` ni `new Date()`: Next lo trata como valor inestable al prerenderizar. Las marcas de tiempo de avisos, mantenimiento y limitadores las pone SQLite con `strftime('%Y-%m-%dT%H:%M:%fZ','now')`.",
         },
       ],
     },
@@ -118,13 +110,13 @@ const ES: TechnicalDocument = {
           kind: "table",
           head: ["Ruta", "Contenido"],
           rows: [
-            ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros en el idioma de la interfaz (`BOOK_LANGUAGE_BY_LOCALE`); la portada no enseña el filtro, que sí está en `/descubrir`, y si no hay libros en ese idioma enseña el catálogo entero."],
+            ["`/`", "Portada pública: cuatro cifras y una fila de libros en el idioma de la interfaz (`BOOK_LANGUAGE_BY_LOCALE`); si no hay libros en ese idioma, enseña el catálogo entero."],
             ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
             ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`, marcada `noindex`."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
             ["`/buscar`", "Buscador global: obras, clubes, lectores y listas."],
             ["`/estanteria`, `/intercambios`", "Secciones privadas: ejemplares propios y solicitudes con su siguiente paso."],
-            ["`/comunidad`", "Espacio con pestañas (conversaciones, actividad, clubes, lectores, listas) y ámbito en `?scope=`."],
+            ["`/comunidad`", "Comunidad: conversaciones, actividad, clubes, lectores y listas, con `?scope=`."],
             ["`/lectores`", "Directorio con búsqueda, ciudad y orden por cercanía o actividad."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubes por ciudad: solicitudes, lectura en curso, votación, asistencia y foro privado."],
             ["`/listas`, `/listas/[listId]`", "Listas de lectura: se leen sin sesión (la firma solo aparece si su autor la autoriza) y solo las edita su dueño."],
@@ -133,7 +125,7 @@ const ES: TechnicalDocument = {
             ["`/u/[id]`", "Perfil público: biografía, métricas, reseñas, estantería y seguimiento."],
             ["`/cuenta`", "Ajustes: perfil, avisos, contraseña, cifrado, segundo factor, exportación y borrado."],
             ["`/admin`", "Moderación de la comunidad; exige el segundo factor activo."],
-            ["`/privacidad`, `/aviso-legal`", "Política de privacidad (art. 13 RGPD) y aviso legal (§ 5 DDG)."],
+            ["`/datenschutz`, `/aviso-legal`", "Política de privacidad (art. 13 RGPD) y aviso legal (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "Confirmación de correo y contraseña nueva desde el enlace."],
             ["`/techdoc`", "Esta página."],
             ["`/projekt`", "Qué es el proyecto, por qué existe, que no tiene ánimo de lucro y qué demuestra."],
@@ -159,7 +151,7 @@ const ES: TechnicalDocument = {
             "`/api/account/*`: perfil, idioma, contraseña, claves de cifrado, TOTP, exportación y borrado.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: apelaciones con token de un solo uso; el enlace se puede pedir de nuevo con el correo de la cuenta y la revisión la hace otra persona, del equipo o, con su nombre registrado, de otra instancia.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: denuncias, moderación, comentarios y avisos.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: portadas y ficha bibliográfica (DNB y Open Library). La portada se envía desde disco en cuanto se lee —sin copiarla a memoria— y un 304 que no abre la imagen; el navegador pide además la versión reducida y en WebP a `/_next/image`, así que una tarjeta de 220 px no descarga el JPG de 1600 px. La URL lleva una versión (`?v=…`): al sustituir la portada cambia, y ninguna caché enseña la anterior. El vhost de nginx cachea además esas imágenes en el borde (`proxy_cache`), así que Node no envía bytes de portada en las visitas repetidas.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: portadas y ficha bibliográfica (DNB y Open Library). La portada se envía desde disco sin copiarla a memoria, lleva una versión en la URL (`?v=…`) para que ninguna caché enseñe la anterior y nginx la guarda en el borde.",
             "`/api/cities?q=`: sugerencias de municipio para el selector de ciudad (OpenStreetMap por Photon), sin sesión porque la ciudad se elige ya en el registro.",
             "`/api/cron/maintenance`: tareas programadas, con `MAINTENANCE_TOKEN`: reintenta los envíos pendientes y purga lo viejo.",
           ],
@@ -177,31 +169,12 @@ const ES: TechnicalDocument = {
             "Estados de ejemplar: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Estados de solicitud: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Búsqueda con FTS5 mantenida por disparadores: `listings_fts` para el catálogo y `books_fts` para las obras; `unaccent()` pliega las tildes para que «Lucía» se encuentre escribiendo «lucia».",
-            "`cities` guarda una selección de ciudades de Alemania y Austria con sus coordenadas; `city_distances` contiene la matriz para esa selección. `searchCities()` pide sugerencias a OpenStreetMap mediante Photon, limitado a ambos países, y ofrece el catálogo local si Photon no responde. `resolveCity()` comprueba el nombre con Nominatim, también limitado a Alemania y Austria. Las ciudades austríacas llevan `(AT)` para distinguirlas de posibles homónimos alemanes. Se pueden usar otros municipios, pero no tienen distancia precalculada.",
+            "`cities` guarda una selección de ciudades de Alemania y Austria con sus coordenadas, y `city_distances` la matriz de distancias entre ellas; las austríacas llevan `(AT)` para no confundirlas con homónimos alemanes. `searchCities()` pide sugerencias a OpenStreetMap (Photon) y `resolveCity()` valida el nombre con Nominatim, ambos limitados a esos dos países. Se pueden usar otros municipios, pero sin distancia precalculada.",
           ],
         },
         {
           kind: "p",
-          text: `El esquema se versiona con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`. Una migración publicada no se reescribe: cada cambio añade un paso que conserva los datos, salvo las columnas o tablas que retira a propósito.`,
-        },
-        {
-          kind: "list",
-          items: [
-            "v40: una ranura de clave por plataforma y un sobre cifrado por clave, en lugar de una única clave por cuenta.",
-            "v44: al cerrar un intercambio, quien recibe el ejemplar estrena su propia copia.",
-            "v52 y v53: moderación separada de administración, sanciones con motivo y plazo, apelaciones revisadas por otra persona y registro de quién las revisó.",
-            "v57: la obra pasa a ser entidad (\`works\`), así que agrupar ediciones ya no es reescribir una cadena derivada.",
-            "v58: \`jobs\` reúne el trabajo diferido —el correo incluido— en una tabla con estado, intentos y último error, en lugar de una tabla por cosa.",
-            "v62: registra cuándo se aceptó un intercambio y añade la respuesta de la otra parte a una incidencia de entrega.",
-          ],
-        },
-        {
-          kind: "p",
-          text: "El resto de pasos —instantáneas firmadas del catálogo (v54), el viaje del ejemplar (v56), el archivo por persona (v59), la ampliación a Austria (v60) o la retirada de columnas muertas (v61)— no cambia el modelo de hoy. Cada uno está explicado en su función de ese fichero y en el historial de git.",
-        },
-        {
-          kind: "p",
-          text: "La migración v61 retiró del esquema las columnas de entrega y envío (`handover_*`, `ship_*`) que ya no se usaban. La entrega se acuerda en la conversación y cada parte confirma en la plataforma cuando tiene el libro.",
+          text: `El esquema se versiona con \`PRAGMA user_version\` (actual: v${SCHEMA_VERSION}). Una instalación nueva nace con \`SCHEMA_V2\` y sus índices y recorre los ${SCHEMA_VERSION - 2} escalones hasta la v${SCHEMA_VERSION}; las existentes suben por la escalera de \`src/lib/db/migrations.ts\`, que conserva los datos. Una migración publicada no se reescribe: cada cambio añade un paso. El recorrido completo, paso a paso, está en ese fichero y en su historial de git.`,
         },
         {
           kind: "p",
@@ -213,7 +186,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Los mensajes van cifrados de extremo a extremo (ver **Seguridad**): la base guarda el sobre y la huella de la clave, y el API rechaza el texto plano (422).",
+          text: "La entrega se acuerda en la conversación y cada parte confirma en la plataforma cuando tiene el libro.",
         },
         {
           kind: "list",
@@ -307,10 +280,6 @@ const ES: TechnicalDocument = {
             ["Exportar o borrar la cuenta", "No", "No", "Solo su titular", "No"],
           ],
         },
-        {
-          kind: "p",
-          text: "`tests/authorization.test.ts` recorre esta tabla con un dueño, una tercera cuenta y un seguimiento unilateral; las pruebas de clubes, privacidad e intercambios cubren el resto de papeles.",
-        },
       ],
     },
     {
@@ -337,7 +306,7 @@ const ES: TechnicalDocument = {
             ["`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`", "sin definir", "Activan Cloudflare Turnstile en el registro."],
             ["`REQUIRE_EMAIL_VERIFICATION`", "sin definir", "`1` exige el correo confirmado para publicar, solicitar, comentar y escribir."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Días que se conserva `admin_audit` (0 = para siempre)."],
-            ["`LEGAL_*`", "sin definir", "Titular, dirección, contacto y datos opcionales de `/privacidad` y `/aviso-legal`."],
+            ["`LEGAL_*`", "sin definir", "Titular, dirección, contacto y datos opcionales de `/datenschutz` y `/aviso-legal`."],
             ["`TRANSPARENCY_SIGNING_KEY`", "sin definir", "Clave Ed25519 (PKCS#8 en base64 o PEM) que firma la instantánea diaria del catálogo. Sin ella se publican sin firma y así se indica."],
             ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "sin definir", "Identidad del build que publica `/api/version`; la rellena el workflow de release o `deploy/deploy.sh`."],
           ],
@@ -366,11 +335,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Cada ejecución publica un SBOM en CycloneDX (`npm sbom`) con las dependencias de producción: ante un aviso, dice si esa versión llegó a desplegarse. `tests/no-secrets.test.ts` escanea el árbol de trabajo buscando credenciales (claves de Brevo, tokens de GitHub, claves privadas, claves de 32 bytes asignadas a una variable con nombre de clave): corre en local y en el CI sin depender de ningún servicio, y no sustituye a revisar el historial de git. El análisis estático (CodeQL con las consultas `security-extended`) va aparte en `.github/workflows/codeql.yml`, también programado los lunes para recoger consultas nuevas.",
-        },
-        {
-          kind: "p",
-          text: "El CI audita también las dependencias de desarrollo (`npm audit` completo): ESLint, TypeScript y Playwright construyen lo que se publica. Y el `override` de `minimatch@11` en `package.json` está porque `@typescript-eslint/typescript-estree` resolvía una versión con un aviso de ReDoS; solo afecta a la cadena de ESLint, no al runtime, y se puede retirar cuando esa dependencia lo traiga por sí sola.",
+          text: "Cada ejecución publica un SBOM en CycloneDX (`npm sbom`) con las dependencias de producción: ante un aviso, dice si esa versión llegó a desplegarse. `tests/no-secrets.test.ts` busca credenciales en el árbol de trabajo, en local y en el CI, sin depender de ningún servicio, y no sustituye a revisar el historial de git. El análisis estático (CodeQL con las consultas `security-extended`) va aparte en `.github/workflows/codeql.yml`.",
         },
         {
           kind: "code",
@@ -398,7 +363,6 @@ const ES: TechnicalDocument = {
             "En `/api/metrics` (administración o el token del mantenimiento) hay un resumen de latencia p50/p95/p99, memoria, flujos en vivo, el estado de las colas de trabajo y el tamaño de la base y del WAL; con `?format=prometheus` sale en el formato que entiende un recolector.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor, así que escalar en horizontal exige PostgreSQL. El canal en vivo **no** lo exige: el bus en memoria solo ahorra latencia y la fuente de verdad es una marca que se consulta en la base, de modo que un segundo proceso sigue funcionando (con hasta 15 s de retraso entre instancias). Un bus compartido quitaría ese retraso, no habilitaría el despliegue.",
-            "Techo medido con `npm run bench:sqlite` sobre una base temporal con la misma configuración que la aplicación: unas 100 000 escrituras/s sueltas, más de 200 000/s en lote, unas 300 000 lecturas/s por clave primaria y 2 000/s en un filtro sin índice sobre 5 000 filas. Son cifras del equipo donde se ejecuta la medición, no una promesa de producción: el límite real es la duración de cada transacción, no el número de visitas.",
           ],
         },
         {
@@ -432,8 +396,6 @@ const ES: TechnicalDocument = {
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` y `deploy/env.example`: la aplicación escucha en `127.0.0.1:3000` y nginx pone el TLS, con `/api/requests/` sin buffering para que el canal SSE no se corte.",
             "`deploy/wanderbibliothek-maintenance.timer` (cada 15 minutos) y `deploy/wanderbibliothek-backup.timer` (cada 6 horas).",
             "También hay `Dockerfile` y `docker-compose.yml` multi-etapa con solo dependencias de producción; el build de la imagen se valida en la integración continua.",
-            "Si falta una variable obligatoria en la configuración, el proceso arranca pero responde 500 a todo con el motivo en el log, en lugar de parecer que funciona.",
-            "`tsx` es dependencia de producción: lo usan `admin:create`, `db:backup`, `user:verify` y `smoke`, también dentro de la imagen con `npm ci --omit=dev`.",
           ],
         },
       ],
@@ -447,11 +409,10 @@ const ES: TechnicalDocument = {
           items: [
             "Un solo armazón (`SiteShell`) para las páginas internas; la portada es la excepción y deja el catálogo a todo el ancho libre.",
             "Los colores salen de tokens (`src/app/styles/tokens.css`): fuera de ese fichero no hay literales, así que el modo claro y el oscuro comparten el mismo marcado.",
-            "Cuatro breakpoints (480, 768, 1120 y 1400/1800 px), escala de espacio de 4 a 48 px y controles de 40 px, 44 en móvil.",
             "Diálogos con foco atrapado, cierre con `Escape` y restauración del foco; enlace «Saltar al contenido», `aria-current` en la navegación, filtros con `aria-pressed` y errores con `role=\"alert\"`.",
-            "Lo que no se ve al cargar no viaja en el paquete inicial: el diálogo de acceso, el de intercambio (criptografía y QR), el formulario de publicación, las notificaciones y las vistas de comunidad e intercambios se descargan con `next/dynamic` cuando se abren. La criptografía del navegador se importa al publicar la clave, no al arrancar. Ojo con `dynamic` en algo que se monta siempre: sin `loading`, su descarga suspende el árbol entero y la página tarda en responder (lo cubre `e2e/app.spec.ts` con el foco del corazón).",
+            "Lo que no se ve al cargar no viaja en el paquete inicial: el diálogo de acceso, el de intercambio, el formulario de publicación, las notificaciones y las vistas de comunidad e intercambios se descargan con `next/dynamic` cuando se abren, y la criptografía del navegador se importa al publicar la clave, no al arrancar.",
             "Contraste mínimo AA, tipografía desde 12 px, objetivos táctiles de 44 px en móvil y `prefers-reduced-motion` respetado: las animaciones (en `styles/motion.css`) solo mueven `opacity` y `transform`, y se apagan enteras con esa preferencia.",
-            "La interfaz es trilingüe y cada idioma tiene su propia URL: el alemán va sin prefijo (`/werk/x`) y el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios. Así se identifica el idioma correcto en las páginas cuyo indexado está permitido. Dentro de una URL con prefijo manda el prefijo; si no lo hay manda el selector, que guarda la cookie `wanderbibliothek-locale` y, si hay sesión, la preferencia de la cuenta para los avisos y el correo; sin preferencia se usa el idioma del navegador (`Accept-Language`) y, si no hay ninguno de los tres, el alemán.",
+            "La interfaz es trilingüe y cada idioma tiene su URL: el alemán va sin prefijo (`/werk/x`) y el castellano y el inglés se publican en `/es/…` y `/en/…`, con `hreflang` y canonical propios. Dentro de una URL con prefijo manda el prefijo; si no, el selector con su cookie y la preferencia de la cuenta; sin preferencia, `Accept-Language` y, en último término, el alemán.",
           ],
         },
       ],
@@ -562,15 +523,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Es reisen nicht alle drei Wörterbücher: `i18n.ts` wird nur auf dem Server importiert, und das Layout gibt dem Client-Provider nur die Texte der aktiven Sprache (Spanisch ist die Ausgangssprache und wird nicht mitgeschickt). Sie sind über eine 32-Bit-Kennung (`messageId`) adressiert statt über den Quelltext: der Schlüssel ist höchstens zehn Ziffern lang und der spanische Text reist nicht mit.",
-        },
-        {
-          kind: "p",
           text: "`getDb()` hängt sich in `prepare` und verwendet kompilierte Anweisungen weiter (FIFO-Cache mit 400 Einträgen je Verbindung). Öffentliche Aggregate laufen über `use cache` mit dem Tag `public-data`, das die schreibenden Routen entwerten.",
-        },
-        {
-          kind: "p",
-          text: "Das Rendering liest weder `Date.now()` noch `new Date()`: Next wertet das beim Vorab-Rendern als instabilen Wert. Zeitstempel für Hinweise, Wartung und Limits setzt SQLite mit `strftime('%Y-%m-%dT%H:%M:%fZ','now')`.",
         },
       ],
     },
@@ -586,13 +539,13 @@ const DE: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Inhalt"],
           rows: [
-            ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher in der Sprache der Oberfläche (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht (der steht in `/descubrir`), und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
+            ["`/`", "Öffentliche Startseite: vier Kennzahlen und eine Reihe Bücher in der Sprache der Oberfläche (`BOOK_LANGUAGE_BY_LOCALE`); ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
             ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`, mit `noindex` gekennzeichnet."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
             ["`/buscar`", "Globale Suche: Werke, Clubs, Leser:innen und Listen."],
             ["`/estanteria`, `/intercambios`", "Private Bereiche: eigene Exemplare und Anfragen mit dem nächsten Schritt."],
-            ["`/comunidad`", "Bereich mit Tabs (Gespräche, Aktivität, Clubs, Leser:innen, Listen) und Umfang über `?scope=`."],
+            ["`/comunidad`", "Community: Gespräche, Aktivität, Clubs, Leser:innen und Listen, mit `?scope=`."],
             ["`/lectores`", "Verzeichnis mit Suche, Stadt und Sortierung nach Nähe oder Aktivität."],
             ["`/clubes`, `/clubes/[clubId]`", "Clubs je Stadt: Anfragen, laufende Lektüre, Abstimmung, Teilnahme und privates Forum."],
             ["`/listas`, `/listas/[listId]`", "Leselisten: ohne Sitzung lesbar (die Unterschrift erscheint nur mit Zustimmung), bearbeitbar nur von der Eigentümerin."],
@@ -601,7 +554,7 @@ const DE: TechnicalDocument = {
             ["`/u/[id]`", "Öffentliches Profil: Biografie, Kennzahlen, Rezensionen, Regal und Folgen."],
             ["`/cuenta`", "Einstellungen: Profil, Hinweise, Passwort, Verschlüsselung, zweiter Faktor, Export und Löschung."],
             ["`/admin`", "Moderation der Community; verlangt einen aktiven zweiten Faktor."],
-            ["`/privacidad`, `/aviso-legal`", "Datenschutzerklärung (Art. 13 DSGVO) und Impressum (§ 5 DDG)."],
+            ["`/datenschutz`, `/aviso-legal`", "Datenschutzerklärung (Art. 13 DSGVO) und Impressum (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "E-Mail bestätigen und neues Passwort über den Link setzen."],
             ["`/techdoc`", "Diese Seite."],
             ["`/projekt`", "Was das Projekt ist, warum es existiert, dass es keinen kommerziellen Zweck hat und was es zeigt."],
@@ -627,7 +580,7 @@ const DE: TechnicalDocument = {
             "`/api/account/*`: Profil, Sprache, Passwort, Verschlüsselungsschlüssel, TOTP, Export und Löschung.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: Einsprüche mit Einmal-Token; der Link lässt sich mit der E-Mail des Kontos neu anfordern, und geprüft wird von einer anderen Person, aus dem Team oder, mit Namen protokolliert, aus einer anderen Instanz.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: Meldungen, Moderation, Kommentare und Hinweise.",
-            "`/api/cover/*`, `/api/isbn/[isbn]`: Cover und bibliografische Daten (DNB und Open Library). Das Cover wird beim Lesen von der Platte gestreamt —ohne es in den Speicher zu kopieren—, und ein 304 öffnet das Bild nicht; der Browser holt zusätzlich die verkleinerte WebP-Fassung über `/_next/image`, sodass eine 220-Pixel-Karte nicht das 1600-Pixel-JPG lädt. Die URL trägt eine Version (`?v=…`): wird das Cover ersetzt, ändert sie sich und kein Cache zeigt das alte. Der nginx-Vhost legt diese Bilder zusätzlich am Rand ab (`proxy_cache`), sodass Node bei wiederholten Besuchen keine Cover-Bytes mehr sendet.",
+            "`/api/cover/*`, `/api/isbn/[isbn]`: Cover und bibliografische Daten (DNB und Open Library). Das Cover wird beim Lesen von der Platte gestreamt, ohne es in den Speicher zu kopieren, trägt eine Version in der URL (`?v=…`), damit kein Cache das alte zeigt, und wird von nginx am Rand abgelegt.",
             "`/api/cities?q=`: Ortsvorschläge für die Stadtauswahl (OpenStreetMap über Photon), ohne Sitzung, weil die Stadt schon bei der Registrierung gewählt wird.",
             "`/api/cron/maintenance`: geplante Aufgaben mit `MAINTENANCE_TOKEN`: wiederholt ausstehende Zustellungen und räumt Altes auf.",
           ],
@@ -645,31 +598,12 @@ const DE: TechnicalDocument = {
             "Zustände eines Exemplars: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Zustände einer Anfrage: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Suche über FTS5, von Triggern gepflegt: `listings_fts` für den Katalog und `books_fts` für die Werke; `unaccent()` faltet Akzente, damit „Lucía“ auch als „lucia“ gefunden wird.",
-            "`cities` enthält eine Auswahl von Städten in Deutschland und Österreich samt Koordinaten; `city_distances` enthält die Distanzmatrix für diese Auswahl. `searchCities()` holt Vorschläge über Photon von OpenStreetMap, begrenzt auf beide Länder, und nutzt bei einem Ausfall den lokalen Katalog. `resolveCity()` prüft den Namen mit Nominatim, ebenfalls auf Deutschland und Österreich begrenzt. Österreichische Städtenamen tragen `(AT)`, um mögliche deutsche Namensvetter zu unterscheiden. Andere Gemeinden können genutzt werden, haben aber keine vorberechnete Entfernung.",
+            "`cities` enthält eine Auswahl von Städten in Deutschland und Österreich samt Koordinaten, `city_distances` die Distanzmatrix zwischen ihnen; österreichische Namen tragen `(AT)`, um sie nicht mit deutschen Namensvettern zu verwechseln. `searchCities()` holt Vorschläge über Photon von OpenStreetMap und `resolveCity()` prüft den Namen mit Nominatim, beide auf diese zwei Länder begrenzt. Andere Gemeinden lassen sich nutzen, haben aber keine vorberechnete Entfernung.",
           ],
         },
         {
           kind: "p",
-          text: `Das Schema wird über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf. Eine veröffentlichte Migration wird nicht umgeschrieben: jede Änderung fügt eine Stufe hinzu, die die Daten erhält — außer den Spalten oder Tabellen, die sie bewusst entfernt.`,
-        },
-        {
-          kind: "list",
-          items: [
-            "v40: ein Schlüssel-Slot pro Plattform und ein verschlüsselter Umschlag pro Schlüssel statt eines einzigen Schlüssels je Konto.",
-            "v44: beim Abschluss eines Tauschs bekommt die empfangende Seite ein eigenes Exemplar.",
-            "v52 und v53: Moderation getrennt von Verwaltung, Sperren mit Grund und Frist, Einsprüche, die eine andere Person prüft, und die Angabe, wer geprüft hat.",
-            "v57: das Werk wird eine Entität (\`works\`), Ausgaben zu gruppieren heißt damit nicht mehr, eine abgeleitete Zeichenkette umzuschreiben.",
-            "v58: \`jobs\` bündelt Aufgeschobenes — auch E-Mail — in einer Tabelle mit Status, Versuchen und letztem Fehler, statt einer Tabelle pro Sache.",
-            "v62: speichert den Annahmezeitpunkt eines Tauschs und ergänzt die Antwort der anderen Seite auf eine Meldung wegen nicht zugestellter Bücher.",
-          ],
-        },
-        {
-          kind: "p",
-          text: "Die übrigen Stufen — signierte Momentaufnahmen des Katalogs (v54), die Reise des Exemplars (v56), das Archiv je Person (v59), die Erweiterung um Österreich (v60) oder das Entfernen toter Spalten (v61) — ändern das heutige Modell nicht. Jede ist in ihrer Funktion in dieser Datei und in der Git-Historie erklärt.",
-        },
-        {
-          kind: "p",
-          text: "Die Migration v61 hat die nicht mehr verwendeten Spalten für Übergabe und Versand (`handover_*`, `ship_*`) aus dem Schema entfernt. Die Übergabe wird im Gespräch vereinbart und jede Seite bestätigt in der Plattform, wenn sie das Buch hat.",
+          text: `Das Schema wird über \`PRAGMA user_version\` versioniert (aktuell: v${SCHEMA_VERSION}). Eine neue Installation startet mit \`SCHEMA_V2\` und seinen Indizes und steigt die ${SCHEMA_VERSION - 2} Stufen bis v${SCHEMA_VERSION} hinauf; bestehende steigen über die Leiter in \`src/lib/db/migrations.ts\` auf, die die Daten erhält. Eine veröffentlichte Migration wird nicht umgeschrieben: jede Änderung fügt eine Stufe hinzu. Der ganze Weg steht Schritt für Schritt in dieser Datei und in ihrer Git-Historie.`,
         },
         {
           kind: "p",
@@ -681,7 +615,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Nachrichten sind Ende-zu-Ende verschlüsselt (siehe **Sicherheit**): die Datenbank speichert den Umschlag und den Schlüssel-Fingerabdruck, und die API lehnt Klartext ab (422).",
+          text: "Die Übergabe wird im Gespräch vereinbart und jede Seite bestätigt in der Plattform, wenn sie das Buch hat.",
         },
         {
           kind: "list",
@@ -775,10 +709,6 @@ const DE: TechnicalDocument = {
             ["Konto exportieren oder löschen", "Nein", "Nein", "Nur die Inhaberin", "Nein"],
           ],
         },
-        {
-          kind: "p",
-          text: "`tests/authorization.test.ts` geht diese Tabelle mit einer Eigentümerin, einem dritten Konto und einseitigem Folgen durch; die Club-, Datenschutz- und Tausch-Tests decken die übrigen Rollen ab.",
-        },
       ],
     },
     {
@@ -805,7 +735,7 @@ const DE: TechnicalDocument = {
             ["`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`", "nicht gesetzt", "Aktivieren Cloudflare Turnstile bei der Registrierung."],
             ["`REQUIRE_EMAIL_VERIFICATION`", "nicht gesetzt", "`1` verlangt eine bestätigte Adresse zum Einstellen, Anfragen, Kommentieren und Schreiben."],
             ["`AUDIT_RETENTION_DAYS`", "`730`", "Tage, die `admin_audit` aufbewahrt wird (0 = dauerhaft)."],
-            ["`LEGAL_*`", "nicht gesetzt", "Betreiber, Anschrift, Kontakt und optionale Angaben für `/privacidad` und `/aviso-legal`."],
+            ["`LEGAL_*`", "nicht gesetzt", "Betreiber, Anschrift, Kontakt und optionale Angaben für `/datenschutz` und `/aviso-legal`."],
             ["`TRANSPARENCY_SIGNING_KEY`", "nicht gesetzt", "Ed25519-Schlüssel (PKCS#8 in Base64 oder PEM), der die tägliche Katalog-Momentaufnahme signiert. Ohne ihn werden sie unsigniert veröffentlicht und als solche gekennzeichnet."],
             ["`APP_COMMIT_SHA` / `APP_BUILD_TIME` / `APP_IMAGE`", "nicht gesetzt", "Build-Identität, die `/api/version` veröffentlicht; gefüllt vom Release-Workflow oder von `deploy/deploy.sh`."],
           ],
@@ -834,11 +764,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Jeder Lauf veröffentlicht eine SBOM in CycloneDX (`npm sbom`) mit den Produktionsabhängigkeiten: bei einer Warnung zeigt sie, ob diese Version je ausgeliefert wurde. `tests/no-secrets.test.ts` durchsucht den Arbeitsbaum nach Zugangsdaten (Brevo-Schlüssel, GitHub-Token, private Schlüssel, 32-Byte-Schlüssel, die einer Variablen mit Schlüsselnamen zugewiesen sind): läuft lokal und in der CI, ohne Dienst, und ersetzt nicht die Prüfung der git-Historie. Die statische Analyse (CodeQL mit `security-extended`) liegt separat in `.github/workflows/codeql.yml`, ebenfalls montags geplant, um neue Abfragen mitzunehmen.",
-        },
-        {
-          kind: "p",
-          text: "Die CI prüft auch die Entwicklungsabhängigkeiten (vollständiges `npm audit`): ESLint, TypeScript und Playwright bauen, was veröffentlicht wird. Das `minimatch@11`-`override` in `package.json` steht dort, weil `@typescript-eslint/typescript-estree` eine Version mit einer ReDoS-Warnung auflöste; es betrifft nur die ESLint-Kette, nicht die Laufzeit, und lässt sich entfernen, sobald diese Abhängigkeit sie selbst mitbringt.",
+          text: "Jeder Lauf veröffentlicht eine SBOM in CycloneDX (`npm sbom`) mit den Produktionsabhängigkeiten: bei einer Warnung zeigt sie, ob diese Version je ausgeliefert wurde. `tests/no-secrets.test.ts` sucht Zugangsdaten im Arbeitsbaum, lokal und in der CI, ohne Dienst, und ersetzt nicht die Prüfung der git-Historie. Die statische Analyse (CodeQL mit `security-extended`) liegt separat in `.github/workflows/codeql.yml`.",
         },
         {
           kind: "code",
@@ -866,7 +792,6 @@ const DE: TechnicalDocument = {
             "`/api/metrics` (Administration oder das Wartungstoken) liefert p50/p95/p99-Latenz, Speicher, offene Streams, den Zustand der Arbeitswarteschlangen sowie Größe von Datenbank und WAL; mit `?format=prometheus` im Format, das ein Collector versteht.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
             "Nur eine Instanz: SQLite hat einen einzigen Schreiber, horizontale Skalierung verlangt also PostgreSQL. Der Live-Kanal verlangt es **nicht**: der Bus im Speicher spart nur Latenz, und die Quelle der Wahrheit ist eine Marke, die aus der Datenbank gelesen wird, sodass ein zweiter Prozess weiter funktioniert (bis zu 15 s Verzögerung zwischen Instanzen). Ein gemeinsamer Bus würde diese Verzögerung beseitigen, nicht den Betrieb ermöglichen.",
-            "Gemessene Obergrenze mit `npm run bench:sqlite` auf einer temporären Datenbank mit derselben Konfiguration wie die Anwendung: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Das sind Werte des Rechners, auf dem gemessen wird, kein Versprechen für den Produktivbetrieb: die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
           ],
         },
         {
@@ -900,8 +825,6 @@ const DE: TechnicalDocument = {
             "`deploy/wanderbibliothek.service`, `deploy/nginx.conf` und `deploy/env.example`: die Anwendung lauscht auf `127.0.0.1:3000`, nginx macht das TLS, und `/api/requests/` läuft ohne Buffering, damit der SSE-Kanal nicht abreißt.",
             "`deploy/wanderbibliothek-maintenance.timer` (alle 15 Minuten) und `deploy/wanderbibliothek-backup.timer` (alle 6 Stunden).",
             "Alternativ `Dockerfile` und `docker-compose.yml`, mehrstufig und nur mit Produktionsabhängigkeiten; der Image-Build wird in der CI geprüft.",
-            "Fehlt eine Pflichtvariable in der Konfiguration, startet der Prozess zwar, antwortet aber auf alles mit 500 und dem Grund im Log, statt funktionsfähig zu wirken.",
-            "`tsx` ist eine Produktionsabhängigkeit: `admin:create`, `db:backup`, `user:verify` und `smoke` brauchen es, auch im Image mit `npm ci --omit=dev`.",
           ],
         },
       ],
@@ -915,11 +838,10 @@ const DE: TechnicalDocument = {
           items: [
             "Eine einzige Struktur (`SiteShell`) für die internen Seiten; die Startseite ist die Ausnahme und überlässt dem Katalog die volle Breite.",
             "Farben kommen aus Tokens (`src/app/styles/tokens.css`): außerhalb dieser Datei gibt es keine Literale, deshalb teilen helles und dunkles Thema dasselbe Markup.",
-            "Vier Breakpoints (480, 768, 1120 und 1400/1800 px), Abstandsstaffel von 4 bis 48 px und Bedienelemente mit 40 px, mobil 44 px.",
             "Dialoge mit gefangenem Fokus, Schließen per `Escape` und Fokus-Rückgabe; Sprunglink „Zum Inhalt“, `aria-current` in der Navigation, Filter mit `aria-pressed` und Fehler mit `role=\"alert\"`.",
-            "Was beim Laden nicht zu sehen ist, reist nicht im Startpaket: Anmeldedialog, Tauschdialog (Kryptografie und QR), Veröffentlichungsformular, Benachrichtigungen sowie Community- und Tauschansicht kommen per `next/dynamic`, wenn sie geöffnet werden. Die Browser-Kryptografie wird beim Veröffentlichen des Schlüssels geladen, nicht beim Start. Vorsicht bei `dynamic` für etwas, das immer eingebunden ist: ohne `loading` suspensiert sein Laden den ganzen Baum und die Seite reagiert spät (abgedeckt von `e2e/app.spec.ts` über den Fokus des Herzens).",
+            "Was beim Laden nicht zu sehen ist, reist nicht im Startpaket: Anmeldedialog, Tauschdialog, Veröffentlichungsformular, Benachrichtigungen sowie Community- und Tauschansicht kommen per `next/dynamic`, wenn sie geöffnet werden, und die Browser-Kryptografie wird beim Veröffentlichen des Schlüssels geladen, nicht beim Start.",
             "Mindestkontrast AA, Schrift ab 12 px, Touch-Ziele mit 44 px auf dem Handy und `prefers-reduced-motion` wird respektiert: die Animationen (in `styles/motion.css`) bewegen nur `opacity` und `transform` und entfallen mit dieser Einstellung ganz.",
-            "Die Oberfläche ist dreisprachig und jede Sprache hat ihre eigene URL: Deutsch ist die Vorgabe und bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/`, jeweils mit eigenem `hreflang` und Canonical. So lässt sich die Sprache auf Seiten erkennen, deren Indexierung erlaubt ist. Innerhalb einer URL mit Präfix gilt das Präfix; sonst gilt der Umschalter, der das Cookie `wanderbibliothek-locale` setzt und mit Sitzung die Kontoeinstellung für Hinweise und E-Mails speichert; ohne Vorliebe entscheidet die Sprache des Browsers (`Accept-Language`) und, wenn keine der drei passt, Deutsch.",
+            "Die Oberfläche ist dreisprachig und jede Sprache hat ihre URL: Deutsch bleibt ohne Präfix (`/werk/x`), Spanisch und Englisch erscheinen unter `/es/…` und `/en/…`, jeweils mit eigenem `hreflang` und Canonical. Innerhalb einer URL mit Präfix gilt das Präfix; sonst der Umschalter mit seinem Cookie und die Kontoeinstellung; ohne Vorliebe entscheidet `Accept-Language` und, wenn keine der drei passt, Deutsch.",
           ],
         },
       ],
