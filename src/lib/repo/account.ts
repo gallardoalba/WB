@@ -349,20 +349,38 @@ export function exportAccountData(userId: string) {
     )
     .all(userId, userId, userId, userId, userId);
 
+  // Los mensajes del club que escribió, con los sobres de **sus** dispositivos:
+  // sin ellos la exportación no serviría para leerlos cuando van cifrados.
   const clubPosts = db
     .prepare(
-      `SELECT p.id, p.club_id, c.name AS club, p.body, p.status, p.created_at
+      `SELECT p.id, p.club_id, c.name AS club, p.body, p.status, p.created_at,
+              p.encrypted,
+              (SELECT json_group_array(json_object(
+                        'deviceId', e.recipient_device_id,
+                        'type', e.type,
+                        'body', e.body))
+                 FROM club_post_envelopes e
+                WHERE e.post_id = p.id AND e.recipient_user_id = p.author_id) AS envelopes
          FROM club_posts p JOIN clubs c ON c.id = p.club_id
         WHERE p.author_id = ? ORDER BY p.created_at DESC`,
     )
-    .all(userId);
+    .all(userId) as {
+    id: string;
+    club_id: string;
+    club: string;
+    body: string;
+    status: string;
+    created_at: string;
+    encrypted: number;
+    envelopes: string | null;
+  }[];
 
   return {
     exportedAt: nowIso(),
     // Los mensajes cifrados van como sobre (`ciphertext` + `iv`): solo se
     // pueden leer en el dispositivo que conserva la clave privada.
     encryptionNote:
-      "Los mensajes con encrypted = 1 están cifrados de extremo a extremo; el servidor no puede descifrarlos. Los sobres (`messageEnvelopes` y `directEnvelopes`) traen uno por dispositivo y solo se abren con la clave privada de ese dispositivo.",
+      "Los mensajes con encrypted = 1 están cifrados de extremo a extremo; el servidor no puede descifrarlos. Los sobres (`messageEnvelopes`, `directEnvelopes` y los de `clubPosts`) traen uno por dispositivo y solo se abren con la clave privada de ese dispositivo.",
     user,
     listings,
     requests,
@@ -388,7 +406,11 @@ export function exportAccountData(userId: string) {
     readingListItems,
     clubsOwned,
     clubMemberships,
-    clubPosts,
+    clubPosts: clubPosts.map((post) => ({
+      ...post,
+      encrypted: post.encrypted === 1,
+      envelopes: post.envelopes ? (JSON.parse(post.envelopes) as unknown[]) : [],
+    })),
     directThreads,
     directMessages,
     directEnvelopes,

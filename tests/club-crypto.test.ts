@@ -340,3 +340,35 @@ test("quien no modera no puede ver las revelaciones ni revelar por otros", async
     (error: { status?: number }) => error.status === 403,
   );
 });
+
+test("la exportación de la cuenta lleva los sobres de sus mensajes del club", async () => {
+  // Sin ellos, quien se va del servicio no podría leer lo que escribió.
+  const dueña = cuenta("Dueña Exporta");
+  const clubId = club(dueña);
+  const deDueña = await dispositivo(dueña, "dispositivo-duena-06");
+
+  const devices = repo.listClubDevices(clubId);
+  const { senderDeviceId, envelopes } = await encryptForClub({
+    session: sesion(dueña, deDueña) as never,
+    api: api(),
+    clubId,
+    conversation: `club:${clubId}`,
+    text: "lo que escribí y quiero llevarme",
+    devices,
+  });
+  repo.createClubPost({
+    clubId,
+    authorId: dueña,
+    authorName: "Dueña",
+    body: "",
+    v2: { senderDeviceId, envelopes },
+  });
+
+  const exported = repo.exportAccountData(dueña) as {
+    clubPosts: { encrypted: boolean; body: string; envelopes: { body: string }[] }[];
+  };
+  const [post] = exported.clubPosts;
+  assert.equal(post?.encrypted, true);
+  assert.equal(post?.body, "", "el texto no está en claro en la exportación");
+  assert.equal(post?.envelopes.length, 1, "pero el sobre propio sí viaja");
+});
