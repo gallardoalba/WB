@@ -39,6 +39,8 @@ const EXPECTED_TABLES = [
   "club_post_likes",
   "club_posts",
   "clubs",
+  "device_keys",
+  "device_one_time_keys",
   "dm_message_envelopes",
   "dm_messages",
   "dm_reads",

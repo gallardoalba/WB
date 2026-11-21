@@ -799,3 +799,27 @@ export const appealResolutionSchema = z.object({
   // libre de conflicto y acude a otra instancia o a una persona de confianza.
   externalReviewer: z.string().trim().max(120, "El nombre es demasiado largo.").optional(),
 });
+
+/**
+ * Claves públicas de un dispositivo (protocolo v2).
+ *
+ * libolm entrega base64 sin relleno de 32 bytes (43 caracteres). Se valida la
+ * forma y el tamaño: el servidor no tiene forma de comprobar que una clave es
+ * buena, pero sí de rechazar basura antes de guardarla.
+ */
+const olmKey = z
+  .string()
+  .regex(/^[A-Za-z0-9+/]{43}$/, "La clave del dispositivo no es válida.");
+
+export const deviceIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");
+
+export const publishDeviceSchema = z.object({
+  identityKey: olmKey,
+  signingKey: olmKey,
+  oneTimeKeys: z
+    .array(z.object({ keyId: olmKey, key: olmKey }))
+    .max(50, "Demasiadas claves de un solo uso de golpe.")
+    .default([]),
+});

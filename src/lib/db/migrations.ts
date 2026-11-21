@@ -2108,6 +2108,47 @@ function migrateToV64(db: Db) {
   db.pragma("user_version = 64");
 }
 
+/**
+ * v65: registro de dispositivos y sus claves de un solo uso.
+ *
+ * El protocolo v2 necesita una identidad **por dispositivo**, no por ranura de
+ * plataforma: publicar desde otro navegador ya no sustituye la clave anterior.
+ * La tabla guarda solo material público (identidad Curve25519, firma Ed25519);
+ * las claves privadas no salen del dispositivo. Las claves de un solo uso se
+ * entregan de una en una y se borran en la misma transacción, así que el
+ * servidor no puede reutilizarlas.
+ */
+function migrateToV65(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_keys (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL,
+      identity_key TEXT NOT NULL,
+      signing_key TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      revoked_at TEXT,
+      PRIMARY KEY (user_id, device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS device_keys_user ON device_keys(user_id);
+
+    CREATE TABLE IF NOT EXISTS device_one_time_keys (
+      user_id TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      key_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, device_id, key_id),
+      FOREIGN KEY (user_id, device_id) REFERENCES device_keys(user_id, device_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS device_one_time_keys_pending
+      ON device_one_time_keys(user_id, device_id, created_at);
+  `);
+  db.pragma("user_version = 65");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2241,6 +2282,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 62) migrateToV62(db);
   if (userVersion(db) < 63) migrateToV63(db);
   if (userVersion(db) < 64) migrateToV64(db);
+  if (userVersion(db) < 65) migrateToV65(db);
 
   backfillSearchKeys(db);
 }

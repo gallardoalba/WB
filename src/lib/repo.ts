@@ -20,6 +20,7 @@ export * from "./repo/clubforum";
 export * from "./repo/clubpolls";
 export * from "./repo/comments";
 export * from "./repo/direct";
+export * from "./repo/devices";
 export * from "./repo/lists";
 export * from "./repo/profile";
 export * from "./repo/public-works";
