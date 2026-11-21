@@ -158,3 +158,34 @@ test("dos instantáneas en el mismo milisegundo no desordenan la cadena", () => 
   const proof = transparency.keyInclusion(id)!;
   assert.ok(proof.line.includes(repo.getPublicKeyRecord(id)!.keyId));
 });
+
+test("las claves de dispositivo entran en el directorio firmado", async () => {
+  // Sin esto, la especificación prometía que una sustitución de dispositivo «se
+  // detecta por transparencia» cuando las claves de dispositivo no estaban en
+  // ninguna instantánea.
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Eva Dispositivos");
+  const account = await v2.createAccount(2);
+  const deviceId = "eva-dispositivo-01";
+  const signed = v2.deviceKeys(account, deviceId);
+  await repo.publishDevice(id, { ...signed, oneTimeKeys: v2.oneTimeKeys(account, deviceId) });
+
+  const lineas = transparency.keyDirectoryLines(getDb());
+  const propia = lineas.find((line) => line.startsWith(`${id}|device:${deviceId}|`));
+  assert.ok(propia, "el dispositivo debe estar en el directorio");
+  assert.ok(propia.includes(signed.identityKey), "con su clave de identidad, para poder compararla");
+
+  // Fecha posterior a la del caso anterior, que fija una marca en el futuro:
+  // «la última» es por fecha y luego por orden de inserción.
+  const snapshot = transparency.createKeySnapshot(getDb(), {
+    key: keyPair(),
+    now: "2027-01-01T00:00:00.000Z",
+  });
+  const proof = transparency.keyInclusion(id, `device:${deviceId}`)!;
+  assert.equal(proof.snapshotId, snapshot.id);
+  assert.equal(
+    transparency.verifyMerkleBranch(proof.line, proof.index, proof.branch, proof.root),
+    true,
+    "y con prueba de inclusión contra la raíz firmada",
+  );
+});

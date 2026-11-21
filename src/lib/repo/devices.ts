@@ -165,7 +165,7 @@ export async function publishDevice(
   // dispositivo. Todo lo demás sí: añadir un dispositivo más, cambiar su
   // identidad o reactivar uno retirado.
   if (change === "another" || change === "identity" || change === "reactivation") {
-    await assertPassword(userId, options.password, change);
+    await assertPassword(userId, options.password, change, db);
   }
 
   const now = new Date().toISOString();
@@ -225,6 +225,7 @@ async function assertPassword(
   userId: string,
   password: string | undefined,
   change: PublishChange,
+  db: Db,
 ): Promise<void> {
   const reason: Record<"another" | "identity" | "reactivation", string> = {
     another: "Confirma tu contraseña para añadir otro dispositivo de cifrado.",
@@ -236,7 +237,7 @@ async function assertPassword(
       details: { passwordRequired: true, change },
     });
   }
-  const row = getDb()
+  const row = db
     .prepare("SELECT password_hash FROM users WHERE id = ?")
     .get(userId) as { password_hash: string } | undefined;
   const valid = row ? await verifyPassword(password, row.password_hash) : false;

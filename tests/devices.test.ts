@@ -227,3 +227,37 @@ test("la tabla de claves pendientes tiene tope", async () => {
   const { device: saved } = await repo.publishDevice(hugo, real.input);
   assert.equal(saved.oneTimeKeys, repo.MAX_ONE_TIME_KEYS);
 });
+
+test("el camino completo: publicar, reclamar, verificar y conversar", async () => {
+  // Es la prueba que faltaba: cada pieza por separado pasaba, pero nadie unía
+  // lo que publica el servidor con lo que el cliente acepta. Si la firma del
+  // paquete no llegara intacta al cliente, aquí se rompe.
+  const iris = cuenta("Iris Dispositivos");
+  const juan = cuenta("Juan Dispositivos");
+  const deIris = await device("iris-dispositivo-01", 2);
+  const deJuan = await device("juan-dispositivo-02", 2);
+  await repo.publishDevice(iris, deIris.input);
+  await repo.publishDevice(juan, deJuan.input);
+
+  // Juan quiere escribir a Iris: pide su dispositivo y reclama una clave.
+  const [listado] = repo.listDevices(iris);
+  assert.equal(listado?.deviceId, "iris-dispositivo-01");
+  const bundle = repo.claimOneTimeKey(iris, "iris-dispositivo-01");
+  assert.ok(bundle?.oneTimeKey);
+
+  const sesion = await v2.startVerifiedSession(deJuan.account, {
+    ...bundle,
+    oneTimeKey: bundle.oneTimeKey,
+  });
+  const primero = v2.encrypt(sesion, { conversation: "request:rq_9", text: "¿Quedamos?" });
+
+  // Iris recibe el mensaje de pre-clave y responde.
+  const entrante = await v2.acceptSession(deIris.account, deJuan.input.identityKey, primero);
+  assert.equal(v2.decrypt(entrante, primero, "request:rq_9"), "¿Quedamos?");
+  const respuesta = v2.encrypt(entrante, { conversation: "request:rq_9", text: "El jueves" });
+  assert.equal(v2.decrypt(sesion, respuesta, "request:rq_9"), "El jueves");
+
+  // Y nadie más puede aceptar ese mensaje: la clave ya se gastó.
+  const otro = await device("intruso-dispositivo-01");
+  await assert.rejects(() => v2.acceptSession(otro.account, deJuan.input.identityKey, primero));
+});
