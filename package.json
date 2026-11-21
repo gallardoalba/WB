@@ -61,6 +61,7 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@matrix-org/olm": "^3.2.15",
     "better-sqlite3": "^13.0.3",
     "jpeg-js": "^0.4.4",
     "lucide-react": "^1.66.0",
