@@ -312,7 +312,7 @@ test("el cliente rechaza un dispositivo cuya prueba no cuadra con la raíz", asy
   const bruno = cuenta("Bruno Prueba");
   const hilo = intercambio(ana, bruno);
   const deAna = await abrir(ana, "dispositivo-de-ana-07");
-  const deBruno = await abrir(bruno, "dispositivo-de-bruno-7");
+  await abrir(bruno, "dispositivo-de-bruno-7");
 
   const snapshot = transparency.createKeySnapshot(db.getDb(), { key, now: "2027-06-01T00:00:00.000Z" });
   const cabecera = {

@@ -12,7 +12,9 @@
  */
 import { api } from "./client-api";
 import {
+  decryptClubPosts,
   decryptThread,
+  encryptForClub,
   encryptForDevices,
   openDevice,
   type DeviceApi,
@@ -223,4 +225,138 @@ export async function safetyWith(
 /** Descarta la sesión en memoria (al cerrar sesión o cambiar de cuenta). */
 export function forgetV2Session(): void {
   session = null;
+}
+
+/**
+ * Cifra un mensaje del tablón para cada dispositivo de cada miembro.
+ *
+ * El servidor dice quiénes son; el cliente verifica cada paquete y abre una
+ * sesión con cada aparato las veces que haga falta, porque no hay protocolo de
+ * grupo. Si este navegador no tiene dispositivo, devuelve `null` y el mensaje
+ * sale en claro como antes.
+ */
+export async function encryptClub(input: {
+  userId: string;
+  clubId: string;
+  text: string;
+}): Promise<V2SendPayload | null> {
+  const current = await loadV2Session(input.userId).catch(() => null);
+  if (!current) return null;
+  try {
+    const response = await api<{
+      devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+    }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
+    return await encryptForClub({
+      session: current,
+      api: httpApi,
+      clubId: input.clubId,
+      conversation: `club:${input.clubId}`,
+      text: input.text,
+      devices: response.devices,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Descifra los mensajes del tablón que traigan sobre para este dispositivo. */
+export async function decryptClub(input: {
+  userId: string;
+  clubId: string;
+  posts: {
+    id: string;
+    senderDeviceId?: string | null;
+    envelope?: { type: number | null; body: string } | null;
+  }[];
+}): Promise<Record<string, string>> {
+  const current = await loadV2Session(input.userId).catch(() => null);
+  if (!current || !store) return {};
+  const conSobre = flatPosts(input.posts).filter((post) => post.envelope);
+  if (conSobre.length === 0) return {};
+  try {
+    const response = await api<{
+      devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+    }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
+    const decoded = await decryptClubPosts({
+      session: current,
+      api: httpApi,
+      conversation: `club:${input.clubId}`,
+      devices: response.devices,
+      posts: conSobre,
+    });
+    await store.save(current.state);
+    return decoded;
+  } catch {
+    return {};
+  }
+}
+
+/** Respuestas incluidas: el tablón las devuelve anidadas. */
+function flatPosts(
+  posts: {
+    id: string;
+    senderDeviceId?: string | null;
+    envelope?: { type: number | null; body: string } | null;
+    replies?: unknown[];
+  }[],
+): {
+  id: string;
+  senderDeviceId?: string | null;
+  envelope?: { type: number | null; body: string } | null;
+}[] {
+  const flat: {
+    id: string;
+    senderDeviceId?: string | null;
+    envelope?: { type: number | null; body: string } | null;
+  }[] = [];
+  for (const post of posts) {
+    flat.push(post);
+    const replies = post.replies as typeof posts | undefined;
+    if (Array.isArray(replies)) flat.push(...flatPosts(replies));
+  }
+  return flat;
+}
+
+/**
+ * Revela un mensaje a quien modera el club.
+ *
+ * El cliente re-cifra el texto que **ya descifró** para el dispositivo de cada
+ * moderador y lo manda con un motivo. Es la única forma de que quien modera vea
+ * el contenido, y queda registrado.
+ */
+export async function revealClubPost(input: {
+  userId: string;
+  clubId: string;
+  postId: string;
+  text: string;
+  reason: string;
+}): Promise<boolean> {
+  const current = await loadV2Session(input.userId).catch(() => null);
+  if (!current) return false;
+  const devices = await api<{
+    devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+  }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
+
+  // Solo los aparatos de quien modera: dueño y moderadores del club. El
+  // servidor lo vuelve a comprobar; aquí se evita mandar de más.
+  const moderators = await api<{ moderators: { id: string }[] }>(
+    `/api/clubs/${encodeURIComponent(input.clubId)}/moderators`,
+  ).catch(() => null);
+  const allowed = new Set(moderators?.moderators.map((moderator) => moderator.id) ?? []);
+  const targets = devices.devices.filter((device) => allowed.has(device.userId));
+  if (targets.length === 0) return false;
+
+  const { envelopes } = await encryptForClub({
+    session: current,
+    api: httpApi,
+    clubId: input.clubId,
+    conversation: `club:${input.clubId}`,
+    text: input.text,
+    devices: targets,
+  });
+  await api(`/api/clubs/${encodeURIComponent(input.clubId)}/posts/${encodeURIComponent(input.postId)}/reveal`, {
+    method: "POST",
+    body: { reason: input.reason, envelopes },
+  });
+  return true;
 }

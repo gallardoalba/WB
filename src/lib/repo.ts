@@ -16,6 +16,7 @@ export * from "./repo/alerts";
 export * from "./repo/appeals";
 export * from "./repo/catalog";
 export * from "./repo/clubs";
+export * from "./repo/clubcrypto";
 export * from "./repo/clubforum";
 export * from "./repo/clubpolls";
 export * from "./repo/comments";

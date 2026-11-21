@@ -424,3 +424,119 @@ async function acceptFromRegistry(
   });
   return opened;
 }
+
+/**
+ * Cifra un mensaje del foro de un club para **cada dispositivo de cada
+ * miembro**.
+ *
+ * Es reparto pairwise: no hay protocolo de grupo, así que cuesta una sesión por
+ * pareja. El servidor dice quiénes son los miembros y sus dispositivos; el
+ * cliente decide a quién cifra y verifica cada paquete antes de abrir sesión,
+ * igual que en un mensaje directo.
+ */
+export async function encryptForClub(input: {
+  session: Session;
+  api: DeviceApi;
+  clubId: string;
+  conversation: string;
+  text: string;
+  devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+}): Promise<{ senderDeviceId: string; envelopes: OutgoingEnvelope[] }> {
+  const { session, api, conversation, text, devices } = input;
+  if (devices.length === 0) throw new Error("El club no tiene ningún dispositivo activo.");
+
+  const envelopes: OutgoingEnvelope[] = [];
+  for (const device of devices) {
+    const existing = session.state.sessions[device.deviceId];
+    let sessionFor: v2.OlmSession;
+    if (existing) {
+      sessionFor = await v2.unpickleSession(existing, session.state.pickleKey);
+    } else {
+      sessionFor = await v2.startVerifiedSession(
+        session.account,
+        {
+          deviceId: device.deviceId,
+          identityKey: device.identityKey,
+          signingKey: device.signingKey,
+          signature: await bundleSignatureFor(api, device),
+          oneTimeKey: await (async () => {
+            const bundle = await api.claim(device.userId, device.deviceId);
+            if (
+              bundle.identityKey !== device.identityKey ||
+              bundle.signingKey !== device.signingKey
+            ) {
+              throw new Error("El paquete reclamado no coincide con el del registro.");
+            }
+            return bundle.oneTimeKey;
+          })(),
+        },
+        session.state.pins[device.deviceId],
+      );
+    }
+
+    const envelope = v2.encrypt(sessionFor, { conversation, text });
+    envelopes.push({
+      recipientDeviceId: device.deviceId,
+      type: envelope.type,
+      body: envelope.body,
+    });
+    session.state.sessions[device.deviceId] = v2.pickleSession(sessionFor, session.state.pickleKey);
+    session.state.pins[device.deviceId] ??= {
+      identityKey: device.identityKey,
+      signingKey: device.signingKey,
+    };
+    if (existing) v2.forgetSession(sessionFor);
+  }
+
+  return { senderDeviceId: session.state.deviceId, envelopes };
+}
+
+/** El paquete firmado tal y como lo publica el registro. */
+async function bundleSignatureFor(
+  api: DeviceApi,
+  device: { userId: string; deviceId: string },
+): Promise<string> {
+  const devices = await api.listDevices(device.userId);
+  return devices.find((entry) => entry.deviceId === device.deviceId)?.bundleSignature ?? "";
+}
+
+/**
+ * Descifra los mensajes del tablón que traigan sobre para este dispositivo.
+ *
+ * El remitente se toma del registro firmado y se contrasta con la clave fijada:
+ * si el servidor cambia la autoría, el mensaje se rechaza.
+ */
+export async function decryptClubPosts(input: {
+  session: Session;
+  api: DeviceApi;
+  conversation: string;
+  devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+  posts: {
+    id: string;
+    senderDeviceId?: string | null;
+    envelope?: { type: number | null; body: string } | null;
+  }[];
+}): Promise<Record<string, string>> {
+  const { session, api, conversation, devices, posts } = input;
+  const registry = new Map(devices.map((device) => [device.deviceId, device]));
+  const decoded: Record<string, string> = {};
+
+  for (const post of posts) {
+    if (!post.envelope) continue;
+    const sender = post.senderDeviceId ? registry.get(post.senderDeviceId) : undefined;
+    if (!sender) {
+      throw new Error("Un mensaje del club viene de un dispositivo que no está en el registro.");
+    }
+    decoded[post.id] = await openEnvelope(
+      session,
+      api,
+      sender.userId,
+      sender,
+      { type: post.envelope.type ?? 0, body: post.envelope.body },
+      conversation,
+    );
+  }
+
+  session.state.account = v2.pickleAccount(session.account, session.state.pickleKey);
+  return decoded;
+}

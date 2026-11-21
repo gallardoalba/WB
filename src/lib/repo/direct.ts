@@ -5,6 +5,7 @@ import type { DirectMessageView, DirectThreadView, MessageEnvelopeView } from ".
 import { notify } from "./notifications";
 import { getUserById, listPublicKeyRecords, toPublicKeyEntries } from "./users";
 import {
+  assertNotDowngraded,
   assertV2Envelopes,
   FALTAN_SOBRES,
   isBlocked,
@@ -270,6 +271,7 @@ export function sendDirectMessage(
     throw new ApiError(400, "Falta el sobre cifrado.");
   }
   if (!usesV1 && !input.v2) throw new ApiError(400, "Falta el sobre cifrado.");
+  assertNotDowngraded(viewerId, peerId, Boolean(input.v2));
   // Sin sobres es un cliente anterior a la v40: se guarda su único sobre en
   // las columnas de siempre para que su historial siga leyéndose.
   const legacy = usesV1 && envelopes.length === 0;

@@ -259,13 +259,70 @@ export const commentLikeSchema = z.object({
 });
 
 /** Mensaje del foro de un club: texto y, si es respuesta, el mensaje padre. */
-export const clubPostSchema = z.object({
-  body: trimmed(2, 800, "El mensaje"),
-  parentId: z
+/**
+ * Un mensaje del tablón, en claro (v1) o cifrado (v2).
+ *
+ * Con `v2` el texto no viaja en `body`: va dentro de un sobre por dispositivo
+ * de cada miembro, y el servidor no puede abrirlos.
+ */
+/** Identificador del dispositivo v2: 16–64 caracteres seguros para una URL. */
+export const deviceIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");
+
+/**
+ * Sobres del protocolo v2 dentro de un mensaje.
+ *
+ * El cuerpo es el mensaje de libolm y no se mira: se acota el tamaño y la forma
+ * para que un envío no sea un vertedero. El servidor comprueba aparte que el
+ * dispositivo del remitente es suyo y que los destinatarios son de la otra
+ * parte, porque aquí no se sabe de quién es cada id.
+ */
+const deviceEnvelopeFields = z.object({
+  recipientDeviceId: deviceIdSchema,
+  type: z.union([z.literal(0), z.literal(1)]),
+  body: z
     .string()
-    .min(1, "Falta el mensaje al que respondes.")
-    .max(80, "Ese identificador no es válido.")
-    .optional(),
+    .min(1)
+    .max(64 * 1024, "El sobre es demasiado grande.")
+    .regex(/^[A-Za-z0-9+/=]+$/, "El sobre no es válido."),
+});
+
+export const clubPostSchema = z
+  .object({
+    body: trimmed(2, 800, "El mensaje").optional(),
+    parentId: z
+      .string()
+      .min(1, "Falta el mensaje al que respondes.")
+      .max(80, "Ese identificador no es válido.")
+      .optional(),
+    v2: z
+      .object({
+        senderDeviceId: deviceIdSchema,
+        envelopes: z
+          .array(deviceEnvelopeFields)
+          .min(1, "Falta el sobre cifrado.")
+          .max(200, "Demasiados dispositivos en un solo mensaje."),
+      })
+      .optional(),
+  })
+  .refine((value) => Boolean(value.v2) || Boolean(value.body), {
+    message: "Escribe un mensaje.",
+    path: ["body"],
+  });
+
+/**
+ * Revelar un mensaje del club a quien lo modera.
+ *
+ * `reason` no es burocracia: la revelación queda en el registro con nombre y
+ * motivo, y quien modera necesita saber qué está mirando y por qué.
+ */
+export const clubRevealSchema = z.object({
+  reason: trimmed(5, 500, "El motivo"),
+  envelopes: z
+    .array(deviceEnvelopeFields)
+    .min(1, "Falta el contenido revelado.")
+    .max(50, "Demasiados dispositivos en una revelación."),
 });
 
 export const clubPostLikeSchema = z.object({
@@ -441,29 +498,6 @@ const envelopeFields = {
  * (`envelopes`); los clientes anteriores a la v40 mandaban un único sobre en
  * `ciphertext`/`iv`, y se sigue aceptando para no romper una pestaña abierta.
  */
-/** Identificador del dispositivo v2: 16–64 caracteres seguros para una URL. */
-export const deviceIdSchema = z
-  .string()
-  .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");
-
-/**
- * Sobres del protocolo v2 dentro de un mensaje.
- *
- * El cuerpo es el mensaje de libolm y no se mira: se acota el tamaño y la forma
- * para que un envío no sea un vertedero. El servidor comprueba aparte que el
- * dispositivo del remitente es suyo y que los destinatarios son de la otra
- * parte, porque aquí no se sabe de quién es cada id.
- */
-const deviceEnvelopeFields = z.object({
-  recipientDeviceId: deviceIdSchema,
-  type: z.union([z.literal(0), z.literal(1)]),
-  body: z
-    .string()
-    .min(1)
-    .max(64 * 1024, "El sobre es demasiado grande.")
-    .regex(/^[A-Za-z0-9+/=]+$/, "El sobre no es válido."),
-});
-
 export const encryptedMessageSchema = z
   .object({
     keyId: envelopeFields.keyId.optional(),

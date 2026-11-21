@@ -6,6 +6,7 @@ import { notify } from "./notifications";
 import { writeAudit } from "./moderation";
 import { blockPair, isBlocked, nowIso } from "./shared";
 import { moderatesClub } from "./clubs";
+import { listClubEnvelopes, storeClubEnvelopes } from "./clubcrypto";
 import { assertVerified } from "./users";
 
 /* --------------------------- foro de los clubes ---------------------------- */
@@ -26,6 +27,8 @@ import { assertVerified } from "./users";
 type ClubRow = { id: string; name: string; owner_id: string };
 
 type PostRow = {
+  encrypted: number;
+  sender_device_id: string | null;
   id: string;
   club_id: string;
   parent_id: string | null;
@@ -86,7 +89,8 @@ const POST_FILTER = `
 `;
 
 const POST_SELECT = `
-  SELECT p.id, p.club_id, p.parent_id, p.body, p.status, p.created_at, p.author_id,
+  SELECT p.id, p.club_id, p.parent_id, p.body, p.status, p.created_at, p.author_id, p.encrypted,
+         p.sender_device_id,
          u.name AS author_name, u.city AS author_city,
          u.city_precision AS author_city_precision, u.sign_as AS author_sign_as,
          (SELECT COUNT(*) FROM club_post_likes pl WHERE pl.post_id = p.id) AS likes,
@@ -106,6 +110,8 @@ function toPostView(row: PostRow, viewerId: string, canModerate: boolean): ClubP
     id: row.id,
     // Un mensaje borrado conserva el hueco del hilo, nunca el texto.
     body: deleted ? "" : row.body,
+    encrypted: row.encrypted === 1,
+    senderDeviceId: row.sender_device_id,
     deleted,
     hidden: row.status === "hidden",
     createdAt: row.created_at,
@@ -133,7 +139,7 @@ export type ClubForumPage = { posts: ClubPostView[]; hasMore: boolean; total: nu
 export function listClubPosts(
   clubId: string,
   viewer: { id: string; isAdmin: boolean } | null,
-  options: { beforeId?: string | null; limit?: number } = {},
+  options: { beforeId?: string | null; limit?: number; deviceId?: string | null } = {},
 ): ClubForumPage {
   const db = getDb();
   if (!viewer) throw new ApiError(401, "Entra en tu cuenta para leer el foro del club.");
@@ -206,11 +212,27 @@ export function listClubPosts(
       .get({ clubId, viewerId }) as { value: number }
   ).value;
 
+  // Si el cliente dice qué dispositivo es, cada mensaje cifrado lleva su sobre:
+  // el de ese aparato y ningún otro.
+  const deviceId = options.deviceId ?? null;
+  const envelopes = deviceId ? listClubEnvelopes(club.id, viewerId, deviceId) : [];
+  const byPost = new Map(envelopes.map((envelope) => [envelope.postId, envelope]));
+  const withEnvelope = (post: ClubPostView): ClubPostView => {
+    const envelope = byPost.get(post.id);
+    return {
+      ...post,
+      envelope: envelope ? { type: envelope.type, body: envelope.body } : null,
+      replies: post.replies.map(withEnvelope),
+    };
+  };
+
   return {
-    posts: page.map((row) => ({
-      ...toPostView(row, viewerId, canModerate),
-      replies: repliesByRoot.get(row.id) ?? [],
-    })),
+    posts: page.map((row) =>
+      withEnvelope({
+        ...toPostView(row, viewerId, canModerate),
+        replies: repliesByRoot.get(row.id) ?? [],
+      }),
+    ),
     hasMore: rows.length > limit,
     total,
   };
@@ -254,7 +276,9 @@ function announce(db: Db, club: ClubRow, authorId: string, authorName: string, b
           AND u.is_suspended = 0 AND m.user_id <> ?`,
     )
     .all(club.id, authorId) as { user_id: string }[];
-  const excerpt = body.length > 90 ? `${body.slice(0, 89)}…` : body;
+  // Un mensaje cifrado llega sin cuerpo: el aviso dice que hay algo nuevo, no
+  // inventa un extracto vacío entre comillas.
+  const excerpt = body === "" ? "hay un mensaje nuevo." : body.length > 90 ? `${body.slice(0, 89)}…` : body;
   for (const member of members) {
     if (notifiedRecently(db, member.user_id, club.id)) continue;
     if (isBlocked(authorId, member.user_id) || isBlocked(member.user_id, authorId)) continue;
@@ -276,6 +300,8 @@ export function createClubPost(input: {
   body: string;
   authorName?: string;
   parentId?: string | null;
+  /** Cuando el mensaje va cifrado, el texto no está en `body` sino aquí. */
+  v2?: { senderDeviceId: string; envelopes: { recipientDeviceId: string; type: number; body: string }[] };
 }): ClubPostView {
   const db = getDb();
   const club = visibleClub(db, input.clubId);
@@ -311,12 +337,38 @@ export function createClubPost(input: {
     input.authorName ??
     (authorRow?.sign_as === "community" ? "Comunidad" : (authorRow?.name ?? "Alguien"));
 
+  // Con sobres, el tablón no guarda el texto: vive dentro de ellos, uno por
+  // dispositivo de cada miembro, y el servidor no puede abrirlos.
+  if (input.v2) {
+    if (input.v2.envelopes.length === 0) {
+      throw new ApiError(400, "Falta el sobre cifrado.");
+    }
+    const suyo = db
+      .prepare(
+        `SELECT 1 AS hay FROM device_keys
+          WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL`,
+      )
+      .get(input.authorId, input.v2.senderDeviceId);
+    if (!suyo) throw new ApiError(409, "Publica este dispositivo antes de escribir en el club.");
+  }
+
   const id = `cpost_${randomUUID()}`;
   db.transaction(() => {
     db.prepare(
-      `INSERT INTO club_posts (id, club_id, author_id, parent_id, body, status, created_at)
-       VALUES (?, ?, ?, ?, ?, 'visible', ?)`,
-    ).run(id, input.clubId, input.authorId, parent?.id ?? null, input.body, nowIso());
+      `INSERT INTO club_posts
+         (id, club_id, author_id, parent_id, body, status, created_at, encrypted, sender_device_id)
+       VALUES (?, ?, ?, ?, ?, 'visible', ?, ?, ?)`,
+    ).run(
+      id,
+      input.clubId,
+      input.authorId,
+      parent?.id ?? null,
+      input.v2 ? "" : input.body,
+      nowIso(),
+      input.v2 ? 1 : 0,
+      input.v2?.senderDeviceId ?? null,
+    );
+    if (input.v2) storeClubEnvelopes(id, input.clubId, input.v2.envelopes);
 
     if (parent) {
       // Responder avisa solo a quien escribió: el resto del club ya tiene el
@@ -326,19 +378,24 @@ export function createClubPost(input: {
           userId: parent.author_id,
           type: "club",
           title: `${authorName} respondió a tu mensaje`,
-          body: `«${club.name}»: ${input.body.length > 90 ? `${input.body.slice(0, 89)}…` : input.body}`,
+          body: input.v2
+            ? `«${club.name}»: tienes una respuesta nueva.`
+            : `«${club.name}»: ${input.body.length > 90 ? `${input.body.slice(0, 89)}…` : input.body}`,
           link: `/clubes/${club.id}#c-${id}`,
         });
       }
     } else {
-      announce(db, club, input.authorId, authorName, input.body);
+      announce(db, club, input.authorId, authorName, input.v2 ? "" : input.body);
     }
   })();
 
   const row = db
     .prepare(`${POST_SELECT} WHERE p.id = @id`)
     .get({ id, viewerId: input.authorId }) as PostRow;
-  return toPostView(row, input.authorId, club.owner_id === input.authorId);
+  const view = toPostView(row, input.authorId, club.owner_id === input.authorId);
+  if (!input.v2) return view;
+  const [mine] = listClubEnvelopes(input.clubId, input.authorId, input.v2.senderDeviceId);
+  return { ...view, envelope: mine ? { type: mine.type, body: mine.body } : null };
 }
 
 /**

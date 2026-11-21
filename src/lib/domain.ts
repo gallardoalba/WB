@@ -738,7 +738,14 @@ export type ClubPostReportView = {
  */
 export type ClubPostView = {
   id: string;
+  /** Vacío en un mensaje cifrado: el texto vive en `envelope`. */
   body: string;
+  /** `true` cuando el mensaje va cifrado de extremo a extremo. */
+  encrypted?: boolean;
+  /** Sobre v2 de **este** dispositivo, si el mensaje va cifrado. */
+  envelope?: { type: number | null; body: string } | null;
+  /** Dispositivo de quien lo escribió: hace falta para elegir la sesión. */
+  senderDeviceId?: string | null;
   createdAt: string;
   author: { id: string; name: string; city: string };
   /** La persona firma como comunidad: no se enseña su identidad. */

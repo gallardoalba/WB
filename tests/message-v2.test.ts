@@ -235,3 +235,42 @@ test("el hilo directo acepta v2 con las mismas reglas", async () => {
   assert.equal(mensajes[0]?.id, enviado.id);
   assert.deepEqual(mensajes[0]?.envelopes.map((envelope) => envelope.protocol), [2]);
 });
+
+test("con dispositivos en los dos lados, un mensaje solo v1 se rechaza", async () => {
+  // La regla anti-degradación: donde los dos pueden usar v2, el servidor no
+  // acepta que la conversación se quede en v1 sin forward secrecy.
+  const ana = cuenta("Ana Degrada");
+  const bruno = cuenta("Bruno Degrada");
+  await dispositivo(ana, "dispositivo-de-ana-09");
+  await dispositivo(bruno, "dispositivo-de-bruno-9");
+  const hilo = intercambio(ana, bruno);
+  const claveAna = repo.setPublicKey(ana, { kty: "EC", crv: "P-256", x: "e".repeat(43), y: "f".repeat(43) });
+  const claveBruno = repo.setPublicKey(bruno, { kty: "EC", crv: "P-256", x: "g".repeat(43), y: "h".repeat(43) });
+
+  assert.throws(
+    () =>
+      repo.addEncryptedMessage(hilo, ana, {
+        keyId: claveAna.keyId,
+        envelopes: [{ keyId: claveBruno.keyId, ciphertext: "solo-v1", iv: "iv" }],
+      }),
+    (error: { status?: number }) => error.status === 409,
+    "no se acepta un mensaje sin sobres v2 cuando los dos tienen dispositivo",
+  );
+});
+
+test("sin dispositivo en el remitente, v1 sigue valiendo", async () => {
+  // Quien no tiene dispositivo no puede hacer más: se le deja escribir en v1
+  // para no dejarlo mudo, pero en cuanto publique uno la regla se aplica.
+  const ana = cuenta("Ana Vieja");
+  const bruno = cuenta("Bruno Nuevo");
+  await dispositivo(bruno, "dispositivo-de-bruno-10");
+  const hilo = intercambio(ana, bruno);
+  const claveAna = repo.setPublicKey(ana, { kty: "EC", crv: "P-256", x: "i".repeat(43), y: "j".repeat(43) });
+  const claveBruno = repo.setPublicKey(bruno, { kty: "EC", crv: "P-256", x: "k".repeat(43), y: "l".repeat(43) });
+
+  const mensaje = repo.addEncryptedMessage(hilo, ana, {
+    keyId: claveAna.keyId,
+    envelopes: [{ keyId: claveBruno.keyId, ciphertext: "v1-permitido", iv: "iv" }],
+  });
+  assert.equal(mensaje.encrypted, true);
+});

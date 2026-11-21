@@ -366,3 +366,38 @@ export function assertV2Envelopes(
     }
   }
 }
+
+/**
+ * ¿Los dos lados pueden hablar v2?
+ *
+ * Se usa para la regla anti-degradación: si el remitente tiene un dispositivo
+ * activo y el destinatario también, el mensaje **tiene** que llevar sobres v2.
+ * Sin esto, el servidor podría aceptar un mensaje solo v1 en un hilo donde los
+ * dos podían hacer las cosas bien, y ese mensaje no tendría forward secrecy ni
+ * remitente autenticado.
+ */
+export function bothHaveV2Devices(a: string, b: string): boolean {
+  const db = getDb();
+  const one = db.prepare(
+    `SELECT 1 AS hay FROM device_keys d
+      JOIN users u ON u.id = d.user_id
+     WHERE d.user_id = ? AND d.revoked_at IS NULL AND u.is_suspended = 0
+     LIMIT 1`,
+  );
+  return Boolean(one.get(a)) && Boolean(one.get(b));
+}
+
+/**
+ * Rechaza un mensaje que se queda en v1 cuando los dos lados podían usar v2.
+ *
+ * El cliente que ya manda los dos formatos no se entera; el que se quedó atrás
+ * recibe un error explicable en vez de degradar la conversación en silencio.
+ */
+export function assertNotDowngraded(senderId: string, peerId: string, hasV2: boolean): void {
+  if (hasV2) return;
+  if (!bothHaveV2Devices(senderId, peerId)) return;
+  throw new ApiError(
+    409,
+    "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
+  );
+}

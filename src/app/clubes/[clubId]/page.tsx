@@ -376,6 +376,7 @@ export default async function Page({ params, searchParams }: PageProps) {
           <SectionBoundary>
             <ClubForum
               clubId={club.id}
+              userId={viewer.id}
               initialPosts={forum.posts}
               initialHasMore={forum.hasMore}
               total={forum.total}

@@ -2181,6 +2181,72 @@ function migrateToV66(db: Db) {
   db.pragma("user_version = 66");
 }
 
+/**
+ * v67: el foro del club, cifrado de extremo a extremo.
+ *
+ * Un mensaje del tablón se cifra **una vez por dispositivo de cada miembro**
+ * (reparto pairwise sobre el ratchet de v2), así que el servidor guarda un sobre
+ * por destinatario y no puede leer nada. `club_posts.body` se queda vacío en los
+ * mensajes cifrados: el texto vive dentro de los sobres.
+ *
+ * La moderación no recibe acceso general. Cuando alguien denuncia un mensaje
+ * puede **revelarlo**: su cliente vuelve a cifrar el contenido para el
+ * dispositivo de cada moderador y queda registrado quién lo reveló, cuándo y por
+ * qué. Es una decisión explícita y atribuible, no una puerta trasera.
+ */
+function migrateToV67(db: Db) {
+  const columns = db.prepare("PRAGMA table_info(club_posts)").all() as { name: string }[];
+  const addColumn = (column: string, definition: string) => {
+    if (columns.some((existing) => existing.name === column)) return;
+    db.exec(`ALTER TABLE club_posts ADD COLUMN ${column} ${definition}`);
+  };
+  addColumn("encrypted", "INTEGER NOT NULL DEFAULT 0");
+  // Qué dispositivo firmó el mensaje: el receptor lo necesita para saber con qué
+  // sesión del ratchet lo abre. No es un dato privado —ya viaja en el registro—
+  // y sin él habría que probar todas las sesiones.
+  addColumn("sender_device_id", "TEXT");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS club_post_envelopes (
+      post_id TEXT NOT NULL REFERENCES club_posts(id) ON DELETE CASCADE,
+      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_device_id TEXT NOT NULL,
+      type INTEGER,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (post_id, recipient_device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS club_post_envelopes_inbox
+      ON club_post_envelopes(recipient_user_id, recipient_device_id, post_id);
+
+    CREATE TABLE IF NOT EXISTS club_post_disclosures (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES club_posts(id) ON DELETE CASCADE,
+      reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      read_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS club_post_disclosures_post
+      ON club_post_disclosures(post_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS club_post_disclosure_envelopes (
+      disclosure_id TEXT NOT NULL REFERENCES club_post_disclosures(id) ON DELETE CASCADE,
+      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_device_id TEXT NOT NULL,
+      type INTEGER,
+      body TEXT NOT NULL,
+      PRIMARY KEY (disclosure_id, recipient_device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS club_post_disclosure_envelopes_inbox
+      ON club_post_disclosure_envelopes(recipient_user_id, recipient_device_id);
+  `);
+  db.pragma("user_version = 67");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2316,6 +2382,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 64) migrateToV64(db);
   if (userVersion(db) < 65) migrateToV65(db);
   if (userVersion(db) < 66) migrateToV66(db);
+  if (userVersion(db) < 67) migrateToV67(db);
 
   backfillSearchKeys(db);
 }

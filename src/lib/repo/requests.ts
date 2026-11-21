@@ -16,6 +16,7 @@ import { canTransition, listingStatusFor } from "../request-flow";
 import { normalizeCoverUrl, normalizeText } from "../text";
 import {
   areBlocked,
+  assertNotDowngraded,
   assertV2Envelopes,
   FALTAN_SOBRES,
   messageEnvelopesFor,
@@ -1037,6 +1038,7 @@ export function addEncryptedMessage(
     }
   }
   if (!usesV1 && !input.v2) throw new ApiError(400, "Falta el sobre cifrado.");
+  assertNotDowngraded(userId, otherId, Boolean(input.v2));
 
   return storeMessage({
     requestId,

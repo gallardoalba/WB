@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useLayoutEffect, useState, type FormEvent } from "react";
+import { useActionState, useEffect, useLayoutEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Heart, MessagesSquare, Reply, Trash2, TriangleAlert } from "lucide-react";
 import { api } from "@/lib/client-api";
@@ -10,6 +10,8 @@ import { useI18n } from "./i18n-provider";
 
 type Props = {
   clubId: string;
+  /** Quien mira: hace falta para descifrar lo que venga en v2. */
+  userId: string;
   initialPosts: ClubPostView[];
   initialHasMore: boolean;
   total: number;
@@ -100,7 +102,7 @@ const MAX_LENGTH = 800;
  * el hilo de un libro (un nivel de respuestas y «me gusta») pero sin mensajes
  * privados: todo lo escrito aquí lo lee el club entero.
  */
-export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props) {
+export function ClubForum({ clubId, userId, initialPosts, initialHasMore, total }: Props) {
   const { t, locale } = useI18n();
   const [posts, setPosts] = useState(initialPosts);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -112,6 +114,32 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  /**
+   * Un mensaje cifrado llega sin texto: el servidor solo tiene sobres. Aquí se
+   * descifra el de **este** dispositivo y se rellena el cuerpo. Si no hay
+   * dispositivo o el mensaje es de v1, no se toca nada.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
+      if (!bridge || cancelled) return;
+      const decoded = await bridge
+        .decryptClub({ userId, clubId, posts: initialPosts })
+        .catch((): Record<string, string> => ({}));
+      if (cancelled || Object.keys(decoded).length === 0) return;
+      const fill = (post: ClubPostView): ClubPostView => ({
+        ...post,
+        body: decoded[post.id] ?? post.body,
+        replies: post.replies.map(fill),
+      });
+      setPosts((current) => current.map(fill));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId, userId, initialPosts]);
 
   const reset = () => {
     setError("");
@@ -134,6 +162,17 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
    * lleva React. El estado devuelto no se usa porque los avisos van a
    * `feedback`/`error`, compartidos con responder y borrar.
    */
+  /**
+   * El foro puede ir cifrado: si este navegador tiene dispositivo v2, el
+   * mensaje sale con un sobre por aparato de cada miembro y el servidor no ve
+   * el texto. Si no lo tiene, se envía en claro como hasta ahora.
+   */
+  async function cifrarParaElClub(text: string) {
+    const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
+    if (!bridge) return null;
+    return bridge.encryptClub({ userId, clubId, text }).catch(() => null);
+  }
+
   const [, publicar, publicando] = useActionState(async () => {
     const text = body.trim();
     if (text.length < 2) {
@@ -142,9 +181,10 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
     }
     reset();
     try {
+      const v2 = await cifrarParaElClub(text);
       const data = await api<{ post: ClubPostView }>(`/api/clubs/${clubId}/posts`, {
         method: "POST",
-        body: { body: text },
+        body: v2 ? { v2 } : { body: text },
       });
       setPosts((current) => [data.post, ...current]);
       setCount((current) => current + 1);
@@ -166,9 +206,10 @@ export function ClubForum({ clubId, initialPosts, initialHasMore, total }: Props
     setPending(true);
     reset();
     try {
+      const v2 = await cifrarParaElClub(text);
       const data = await api<{ post: ClubPostView }>(`/api/clubs/${clubId}/posts`, {
         method: "POST",
-        body: { body: text, parentId },
+        body: v2 ? { v2, parentId } : { body: text, parentId },
       });
       setPosts((current) =>
         current.map((item) =>

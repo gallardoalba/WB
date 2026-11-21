@@ -366,18 +366,24 @@ Shipped in this release:
 | Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
 | Client check that a device is in the signed directory (inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
 | One-time keys replenished on their own when the device runs low | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
+| Club forum encrypted per member device, with moderation by disclosure | `src/lib/repo/clubcrypto.ts`, `POST /api/clubs/:id/posts`, `…/posts/:postId/reveal` | `tests/club-crypto.test.ts` |
+| Anti-downgrade: once both sides have a device, a v1-only message is refused | `src/lib/repo/shared.ts`, requests and direct messages | `tests/message-v2.test.ts` |
 | Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
 | v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |
 | libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |
 
-How far the interface goes: activating v2 in «Mi cuenta» publishes the device,
-and from then on exchanges and direct messages **send both formats** (§11) and
-decrypt whatever arrives, so the rollout does not cut anyone off. The thread
-shows the device safety number (§7) next to the v1 one.
+How far the interface goes: activating v2 in «Mi cuenta» publishes the device.
+Exchanges and direct messages **send both formats** (§11) and decrypt whatever
+arrives, so the rollout does not cut anyone off; the thread shows the device
+safety number (§7) next to the v1 one. The club forum sends **only v2** when the
+device exists — there is no v1 copy, because the whole point is that the
+moderation cannot read it — and decrypts its own envelopes on load.
 
 Not implemented yet, and therefore **not** claimed by the documentation:
-dropping v1 once the rollout ends, club fan-out (§8), consistency proofs and
-client-side verification of the log (§7). Until those ship, the interface keeps
+dropping v1 once the rollout ends, consistency proofs between consecutive roots
+and a witness that is not the operator (§7), MLS for large clubs, and the
+moderation panel that lists disclosures with their disclosure text (§8 lists the
+data and the API; the panel reads the v1 reports today). Until those ship, the interface keeps
 using v1 and the protections that depend on the ratchet — forward secrecy,
 sender authentication, anti-downgrade — are **not** in place in production.
 
