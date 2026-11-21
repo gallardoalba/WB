@@ -45,7 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/projekt", "yearly", 0.4),
     entry("/normas", "yearly", 0.4),
     entry("/techdoc", "monthly", 0.4),
-    entry("/privacidad", "yearly", 0.3),
+    entry("/datenschutz", "yearly", 0.3),
     entry("/aviso-legal", "yearly", 0.3),
   ];
 }

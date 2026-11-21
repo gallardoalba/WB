@@ -57,7 +57,7 @@ async function main() {
   await expectStatus("/sitemap.xml", 200);
   await expectStatus("/api/health", 200);
   // Páginas legales: sin ellas el servicio no debería abrirse al público.
-  await expectStatus("/privacidad", 200);
+  await expectStatus("/datenschutz", 200);
   const privacy = await expectStatus("/aviso-legal", 200);
   const legalHtml = await privacy.text();
   record(

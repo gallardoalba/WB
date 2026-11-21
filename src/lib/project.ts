@@ -164,7 +164,7 @@ const ES = (contact: string): TechnicalDocument => ({
           kind: "links",
           items: [
             { label: "Issues", href: ISSUES, note: "Incidencias y propuestas." },
-            { label: "Privacidad", href: "/privacidad", note: "Qué datos se tratan y durante cuánto tiempo." },
+            { label: "Privacidad", href: "/datenschutz", note: "Qué datos se tratan y durante cuánto tiempo." },
             { label: "Aviso legal", href: "/aviso-legal", note: "Quién responde de esta instancia." },
           ],
         },
@@ -321,7 +321,7 @@ const DE = (contact: string): TechnicalDocument => ({
           kind: "links",
           items: [
             { label: "Issues", href: ISSUES, note: "Issues und Vorschläge." },
-            { label: "Datenschutz", href: "/privacidad", note: "Welche Daten wie lange verarbeitet werden." },
+            { label: "Datenschutz", href: "/datenschutz", note: "Welche Daten wie lange verarbeitet werden." },
             { label: "Impressum", href: "/aviso-legal", note: "Wer für diese Instanz verantwortlich ist." },
           ],
         },
@@ -478,7 +478,7 @@ const EN = (contact: string): TechnicalDocument => ({
           kind: "links",
           items: [
             { label: "Issues", href: ISSUES, note: "Issues and proposals." },
-            { label: "Privacy", href: "/privacidad", note: "Which data is processed and for how long." },
+            { label: "Privacy", href: "/datenschutz", note: "Which data is processed and for how long." },
             { label: "Legal notice", href: "/aviso-legal", note: "Who is responsible for this instance." },
           ],
         },

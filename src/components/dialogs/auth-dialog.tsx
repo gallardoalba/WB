@@ -248,7 +248,7 @@ export function AuthDialog({
               <input id="age-confirmed" type="checkbox" name="ageConfirmed" required />
               <label htmlFor="age-confirmed">
                 {t("Confirmo que tengo al menos 16 años.")}{" "}
-                <Link href="/privacidad" target="_blank" rel="noreferrer">
+                <Link href="/datenschutz" target="_blank" rel="noreferrer">
                   {t("Política de privacidad")}
                 </Link>
               </label>

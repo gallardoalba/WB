@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       locale,
       "Qué datos trata Wanderbibliothek, durante cuánto tiempo y con quién se comparten.",
     ),
-    alternates: alternatesFor(locale, "/privacidad"),
+    alternates: alternatesFor(locale, "/datenschutz"),
   };
 }
 

@@ -228,7 +228,7 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
   if (legalMissing.length > 0) {
     warn(
       legalMissing[0]!,
-      `Faltan datos del responsable (${legalMissing.join(", ")}): /privacidad y /aviso-legal se publican incompletos. La plantilla del aviso legal se basa en Alemania (§ 5 DDG); si el operador está establecido en Austria, debe revisar además el § 5 ECG y, cuando corresponda, el § 25 MedienG. La política de privacidad es exigible por el RGPD.`,
+      `Faltan datos del responsable (${legalMissing.join(", ")}): /datenschutz y /aviso-legal se publican incompletos. La plantilla del aviso legal se basa en Alemania (§ 5 DDG); si el operador está establecido en Austria, debe revisar además el § 5 ECG y, cuando corresponda, el § 25 MedienG. La política de privacidad es exigible por el RGPD.`,
     );
   }
 
