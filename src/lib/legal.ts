@@ -250,7 +250,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           heading: "7. Verschlüsselte Nachrichten",
           body: [
             "Nachrichten werden Ende-zu-Ende verschlüsselt (ECDH P-256 + AES-GCM). Betreiber und Server können sie nicht lesen.",
-            "Der Preis dafür: Geht der Browser-Speicher verloren, sind alte Nachrichten nicht wiederherstellbar.",
+            "Geht der Browser-Speicher verloren, sind alte Nachrichten nicht wiederherstellbar: der Server hat den Schlüssel nicht.",
           ],
         },
         {
@@ -280,7 +280,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         {
           heading: "11. Änderungen",
           body: [
-            "Wenn sich die Verarbeitung ändert, wird dieser Text aktualisiert. Das Datum oben nennt den Stand.",
+            "Wenn sich die Verarbeitung ändert, wird dieser Text aktualisiert.",
           ],
         },
       ],
@@ -365,7 +365,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         heading: "7. Mensajes cifrados",
         body: [
           "Los mensajes se cifran de extremo a extremo (ECDH P-256 + AES-GCM). Ni el servidor ni quien lo administra pueden leerlos.",
-          "El precio: si se pierden los datos del navegador, los mensajes antiguos no se pueden recuperar.",
+          "Si se pierden los datos del navegador, los mensajes antiguos no se pueden recuperar: el servidor no tiene la clave.",
         ],
       },
       {
@@ -394,7 +394,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
       },
       {
         heading: "11. Cambios",
-        body: ["Si cambia el tratamiento, se actualiza este texto. La fecha de arriba indica la versión."],
+        body: ["Si cambia el tratamiento, se actualiza este texto."],
       },
     ],
   };
