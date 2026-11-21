@@ -47,6 +47,7 @@ import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { MastodonLink } from "./mastodon-link";
+import { FooterSeparator } from "./footer-sep";
 import { BRAND, BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { SiteSearch } from "./site-search";
 import { LinkHint } from "./link-hint";
@@ -1773,22 +1774,27 @@ export default function WanderbibliothekApp({
           )}
 
           <footer className="page-footer">
-            <span>{t("Hecho para que las historias sigan viajando.")}</span>
+            <span>{t("Hecho para que las historias sigan viajando.")}{" "}</span>
             {user && (
-              <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
-                <Link href={href("/clubes")} className="link-pending">
-                  {t("Clubes")}
-                  <LinkHint />
-                </Link>
-                <Link href={href("/lectores")} className="link-pending">
-                  {t("Lectores")}
-                  <LinkHint />
-                </Link>
-                <Link href={href("/listas")} className="link-pending">
-                  {t("Listas")}
-                  <LinkHint />
-                </Link>
-              </nav>
+              <>
+                <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
+                  <Link href={href("/clubes")} className="link-pending">
+                    {t("Clubes")}
+                    <LinkHint />
+                  </Link>
+                  <FooterSeparator />
+                  <Link href={href("/lectores")} className="link-pending">
+                    {t("Lectores")}
+                    <LinkHint />
+                  </Link>
+                  <FooterSeparator />
+                  <Link href={href("/listas")} className="link-pending">
+                    {t("Listas")}
+                    <LinkHint />
+                  </Link>
+                </nav>
+                <FooterSeparator />
+              </>
             )}
             {/* Sin sesión también: la política de privacidad hay que poder
                 leerla antes de crear la cuenta, y la documentación técnica
@@ -1801,24 +1807,32 @@ export default function WanderbibliothekApp({
                 {t("Descubrir todos los libros")}
                 <LinkHint />
               </Link>
+              <FooterSeparator />
               <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
+              <FooterSeparator />
               <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
+              <FooterSeparator />
               <Link href={href("/projekt")}>{t("El proyecto")}</Link>
+              <FooterSeparator />
               <Link href={href("/normas")}>{t("Normas")}</Link>
+              <FooterSeparator />
               <Link href={href("/techdoc")}>{t("Documentación")}</Link>
+              <FooterSeparator />
               <MastodonLink />
             </nav>
+            <FooterSeparator />
             {buildCommit && buildCommitUrl ? (
               <span className="footer-build">
                 {t("Código desplegado")}{" "}
                 <a href={buildCommitUrl} target="_blank" rel="noreferrer">
                   {buildCommit.slice(0, 7)}
                 </a>
+                {"."}{" "}
               </span>
             ) : null}
             <span>
-              <i className="footer-dot" /> {t("Comunidad abierta")} · {stats.cities}{" "}
-              {t("ciudades de")} {REGION}
+              {t("Comunidad abierta")} · {stats.cities}{" "}
+              {t(stats.cities === 1 ? "ciudad de" : "ciudades de")} {REGION}
             </span>
           </footer>
         </div>

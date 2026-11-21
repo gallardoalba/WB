@@ -611,7 +611,15 @@
 .footer-links {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 4px;
+}
+
+/* Separador del pie: el hueco de `gap` no existe cuando el pie se copia o se
+   registra; el punto sí, y deja las secciones legibles sin depender del CSS. */
+.footer-sep {
+  color: var(--muted-2);
+  font-size: 13px;
+  line-height: 1;
 }
 
 .footer-links a {

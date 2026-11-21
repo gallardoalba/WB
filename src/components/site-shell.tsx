@@ -17,6 +17,7 @@ import { LocaleSwitcher } from "./locale-switcher";
 import { RepositoryLink } from "./repository-link";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { MastodonLink } from "./mastodon-link";
+import { FooterSeparator } from "./footer-sep";
 
 /**
  * Shell de las páginas internas: misma barra lateral, misma cabecera, mismo
@@ -114,34 +115,45 @@ export async function SiteShell({
           {children}
 
           <footer className="page-footer">
-            <span>{t("Hecho para que las historias sigan viajando.")}</span>
+            <span>{t("Hecho para que las historias sigan viajando.")}{" "}</span>
             <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
               <Link href={href("/clubes")}>{t("Clubes")}</Link>
+              <FooterSeparator />
               <Link href={href("/lectores")}>{t("Lectores")}</Link>
+              <FooterSeparator />
               <Link href={href("/listas")}>{t("Listas")}</Link>
             </nav>
+            <FooterSeparator />
             <nav
               className="footer-links legal-links"
               aria-label={t("Información y documentación")}
             >
               <Link href={href("/descubrir")}>{t("Descubrir todos los libros")}</Link>
+              <FooterSeparator />
               <Link href={href("/privacidad")}>{t("Privacidad")}</Link>
+              <FooterSeparator />
               <Link href={href("/aviso-legal")}>{t("Aviso legal")}</Link>
+              <FooterSeparator />
               <Link href={href("/projekt")}>{t("El proyecto")}</Link>
+              <FooterSeparator />
               <Link href={href("/normas")}>{t("Normas")}</Link>
+              <FooterSeparator />
               <Link href={href("/techdoc")}>{t("Documentación")}</Link>
+              <FooterSeparator />
               <MastodonLink />
             </nav>
+            <FooterSeparator />
             {build.commit && build.commitUrl ? (
               <span className="footer-build">
                 {t("Código desplegado")}{" "}
                 <a href={build.commitUrl} target="_blank" rel="noreferrer">
                   {shortCommit(build.commit)}
                 </a>
+                {"."}{" "}
               </span>
             ) : null}
             <span>
-              <i className="footer-dot" /> {t("Comunidad abierta")} · {regionName(locale)}
+              {t("Comunidad abierta")} · {regionName(locale)}
             </span>
           </footer>
         </div>
