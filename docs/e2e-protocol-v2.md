@@ -16,9 +16,11 @@ read the text, but:
   sender id the server can write);
 - anyone who talks to you is visible to the server, with times and volumes.
 
-That is acceptable for a book club. It is not acceptable for a movement: the
-adversary is assumed to have legal power over the operator, technical ability
-to compromise it, and physical access to devices.
+The threat model assumed here is a **hostile server**: whoever runs it —or
+whoever can compel or compromise them— has legal power over the operator,
+technical ability to reach the database, and physical access to devices that
+are seized. Under that assumption the three points above are not acceptable,
+and the fix is not a stronger cipher alone.
 
 **v2 changes the model, not just the algorithms.** The ratchet is not written
 here: it is [libolm](https://gitlab.matrix.org/matrix-org/olm) (Audited,
