@@ -12,9 +12,16 @@
  */
 import type { DeviceState, DeviceStore } from "./e2e-v2-device";
 
-const DB_NAME = "wanderbibliothek-e2e";
-/** v1 abrió la base en la versión 1 con el almacén `identity`. */
-const DB_VERSION = 2;
+/**
+ * Base **propia**, no la de v1.
+ *
+ * Compartir `wanderbibliothek-e2e` obligaba a subir su versión, y v1 abre la
+ * suya con la versión 1: en cuanto esta la hubiera actualizado, la identidad de
+ * v1 dejaba de abrirse (`VersionError`) y la conversación se quedaba muda. Dos
+ * bases separadas no se pisan.
+ */
+const DB_NAME = "wanderbibliothek-e2e-v2";
+const DB_VERSION = 1;
 const DEVICE_STORE = "device-v2";
 const KEY_STORE = "device-key-v2";
 
@@ -30,7 +37,6 @@ function openDatabase(): Promise<IDBDatabase> {
     const open = indexedDB.open(DB_NAME, DB_VERSION);
     open.onupgradeneeded = () => {
       const db = open.result;
-      // Solo se crean los que falten: la base la comparte la identidad de v1.
       if (!db.objectStoreNames.contains(DEVICE_STORE)) db.createObjectStore(DEVICE_STORE);
       if (!db.objectStoreNames.contains(KEY_STORE)) db.createObjectStore(KEY_STORE);
     };

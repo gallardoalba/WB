@@ -55,11 +55,6 @@ class FakeTransaction {
 class FakeDatabase {
   readonly stores = new Map<string, FakeStore>();
 
-  constructor() {
-    // Como la base de v1: ya existe con el almacén de la identidad.
-    this.stores.set("identity", new FakeStore());
-  }
-
   get objectStoreNames() {
     return { contains: (name: string) => this.stores.has(name) };
   }
@@ -83,7 +78,7 @@ async function withFakeIndexedDb<T>(run: (db: FakeDatabase) => Promise<T>): Prom
       const request = new FakeRequest();
       queueMicrotask(() => {
         (request as unknown as { result: FakeDatabase }).result = database;
-        if (version > 1) request.onupgradeneeded?.();
+        request.onupgradeneeded?.();
         request.onsuccess?.();
       });
       return request;
@@ -141,11 +136,12 @@ test("la clave local no se puede exportar y no se comparte entre almacenes", asy
   });
 });
 
-test("sin registro devuelve null y la base de v1 sigue intacta", async () => {
+test("sin registro devuelve null y no toca la base de la identidad v1", async () => {
   await withFakeIndexedDb(async (db) => {
     const store = indexedDbStore();
     assert.equal(await store.load("usr_nadie"), null);
-    assert.ok(db.stores.has("identity"), "el almacén de la identidad de v1 no se toca");
+    // Base propia: la de v1 (`wanderbibliothek-e2e`, versión 1) ni se abre.
+    assert.equal(db.stores.has("identity"), false, "nada de la identidad de v1 aquí");
     assert.ok(db.stores.has("device-v2"));
     assert.ok(db.stores.has("device-key-v2"));
   });
