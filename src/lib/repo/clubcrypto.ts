@@ -27,8 +27,26 @@ import { notify } from "./notifications";
 /** Un sobre de v2: `type` 0 es pre-clave, 1 es mensaje del ratchet. */
 export type ClubEnvelope = { recipientDeviceId: string; type: number; body: string };
 
-/** Tope de dispositivos por envío: un club grande se reparte en varios. */
-export const MAX_CLUB_ENVELOPES = 200;
+/**
+ * Tope de sobres por mensaje del club.
+ *
+ * Con `MAX_DEVICES_PER_ACCOUNT` aparatos por persona, 400 sobres dan para unos
+ * cien miembros. Un club que lo supere no puede cifrar por aparato: se dice con
+ * un mensaje claro en vez de fallar de forma opaca, y la salida es reducir
+ * miembros o aparatos —o pasar a MLS, que es la pieza que falta para clubes
+ * grandes—.
+ */
+export const MAX_CLUB_ENVELOPES = 400;
+
+/** ¿El club cabe en un mensaje cifrado por aparato? */
+export function clubFitsEncryption(clubId: string, db: Db = getDb()): {
+  devices: number;
+  limit: number;
+  fits: boolean;
+} {
+  const devices = listClubDevices(clubId, db).length;
+  return { devices, limit: MAX_CLUB_ENVELOPES, fits: devices <= MAX_CLUB_ENVELOPES };
+}
 
 export type ClubDevice = {
   userId: string;
@@ -85,6 +103,12 @@ export function listClubDevices(clubId: string, db: Db = getDb()): ClubDevice[] 
 function assertEnvelopes(clubId: string, envelopes: ClubEnvelope[], db: Db): void {
   if (envelopes.length > MAX_CLUB_ENVELOPES) {
     throw new ApiError(413, "Demasiados dispositivos en un solo mensaje.");
+  }
+  if (listClubDevices(clubId, db).length > MAX_CLUB_ENVELOPES) {
+    throw new ApiError(
+      409,
+      "Este club ha crecido por encima de lo que admite el cifrado por aparato. Pide a quien lo lleva que retire miembros inactivos o aparatos, o divide el club.",
+    );
   }
   const allowed = new Set(listClubDevices(clubId, db).map((device) => device.deviceId));
   const seen = new Set<string>();
@@ -356,4 +380,19 @@ export function markDisclosureRead(disclosureId: string, moderatorId: string): b
     disclosureId,
   );
   return true;
+}
+
+/** Días que se conserva una revelación: el mismo plazo que la auditoría. */
+export const DISCLOSURE_RETENTION_DAYS = 730;
+
+/**
+ * Purga las revelaciones antiguas.
+ *
+ * Guardan texto libre de quien denuncia —quién lo dijo y por qué— además de los
+ * sobres, así que no se conservan para siempre: a los dos años se borran, que es
+ * el plazo que ya se aplica a la auditoría de moderación y a las apelaciones.
+ */
+export function purgeOldDisclosures(db: Db = getDb(), days = DISCLOSURE_RETENTION_DAYS): number {
+  const limite = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  return db.prepare("DELETE FROM club_post_disclosures WHERE created_at < ?").run(limite).changes;
 }

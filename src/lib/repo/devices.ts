@@ -25,6 +25,17 @@ import { verifyPassword } from "../password";
 /** Tope de claves de un solo uso por dispositivo: el máximo de libolm. */
 export const MAX_ONE_TIME_KEYS = 100;
 
+/**
+ * Tope de dispositivos por cuenta.
+ *
+ * Cada mensaje se cifra una vez por aparato del destinatario y, en un club, una
+ * vez por aparato de **cada** miembro: el coste de un mensaje crece con este
+ * número. Cinco es de sobra para una persona (móvil, portátil, tableta y dos
+ * navegadores) y mantiene el fan-out de un club dentro de lo razonable en un
+ * servidor pequeño.
+ */
+export const MAX_DEVICES_PER_ACCOUNT = 5;
+
 export type DeviceKey = {
   deviceId: string;
   identityKey: string;
@@ -173,6 +184,8 @@ export async function publishDevice(
     await assertPassword(userId, options.password, change, db);
   }
 
+  if (change === "another") assertDeviceRoom(userId, db);
+
   const now = new Date().toISOString();
   db.transaction(() => {
     db.prepare(
@@ -246,6 +259,27 @@ function hasPublishedKey(userId: string, db: Db): boolean {
     .prepare("SELECT 1 AS hay FROM users WHERE id = ? AND public_key_id IS NOT NULL")
     .get(userId);
   return Boolean(legacy);
+}
+
+/**
+ * Un dispositivo más no puede pasar del tope.
+ *
+ * No es una limitación arbitraria: cada aparato que se añade multiplica el
+ * trabajo y el almacenamiento de todos los mensajes que recibe, y en un club lo
+ * multiplica por cada miembro. Se cuentan los activos; los retirados no ocupan
+ * sitio hasta que se reactivan, y eso ya pide contraseña.
+ */
+function assertDeviceRoom(userId: string, db: Db): void {
+  const row = db
+    .prepare(
+      "SELECT COUNT(*) AS total FROM device_keys WHERE user_id = ? AND revoked_at IS NULL",
+    )
+    .get(userId) as { total: number };
+  if (row.total < MAX_DEVICES_PER_ACCOUNT) return;
+  throw new ApiError(
+    409,
+    `Puedes tener como mucho ${MAX_DEVICES_PER_ACCOUNT} dispositivos activos. Retira uno desde «Mi cuenta» antes de añadir otro.`,
+  );
 }
 
 async function assertPassword(

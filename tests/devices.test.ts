@@ -312,3 +312,26 @@ test("reponer claves no devuelve a la vida un dispositivo retirado entre medias"
   const despues = repo.getDevice(marta, DEVICE_ID);
   assert.ok(despues?.revokedAt, "sigue retirado: reponer no lo resucita");
 });
+
+test("no se pueden acumular dispositivos sin tope", async () => {
+  // Cada aparato multiplica el coste de cada mensaje que se cifra para esa
+  // persona (y, en un club, el de todos los miembros).
+  const nora = cuenta("Nora Tope");
+  for (let index = 1; index <= repo.MAX_DEVICES_PER_ACCOUNT; index += 1) {
+    const real = await device(`dispositivo-de-nora-${index}`);
+    await repo.publishDevice(nora, real.input, { password: PASSWORD });
+  }
+  assert.equal(repo.listDevices(nora).length, repo.MAX_DEVICES_PER_ACCOUNT);
+
+  const extra = await device("dispositivo-de-nora-extra");
+  await assert.rejects(
+    () => repo.publishDevice(nora, extra.input, { password: PASSWORD }),
+    (error: { status?: number; message?: string }) =>
+      error.status === 409 && /como mucho/.test(error.message ?? ""),
+  );
+
+  // Retirar uno deja sitio otra vez.
+  repo.revokeDevice(nora, "dispositivo-de-nora-1");
+  const { change } = await repo.publishDevice(nora, extra.input, { password: PASSWORD });
+  assert.equal(change, "another");
+});

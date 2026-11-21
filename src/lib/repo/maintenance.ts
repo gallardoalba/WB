@@ -2,6 +2,7 @@ import { dbMetrics, getDb, type DbMetrics } from "../db";
 import { DELIVERY_INCIDENT_REASON } from "../domain";
 import { pruneCoverCache } from "../covers";
 import { notifyUpcomingMeetings } from "./clubs";
+import { purgeOldDisclosures } from "./clubcrypto";
 import { listingTitle, notify } from "./notifications";
 import { expireDueSuspensions } from "./users";
 
@@ -160,6 +161,8 @@ export type MaintenanceReport = {
   acceptedReminders: number;
   clubReminders: number;
   covers: number;
+  /** Revelaciones de club antiguas que se han borrado. */
+  disclosures: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
   db: DbMetrics;
 };
@@ -220,6 +223,10 @@ export function runMaintenance(): MaintenanceReport {
   // acuerde. El acceso también lo comprueba, por si el cron va con retraso.
   // Las apelaciones resueltas guardan texto libre: mismo plazo que la
   // auditoría (dos años) y nunca se tocan las abiertas.
+  // Las revelaciones llevan texto libre de quien denuncia y los sobres de un
+  // mensaje concreto: mismo plazo que la auditoría.
+  const disclosures = purgeOldDisclosures(db);
+
   const appeals = changes(
     "DELETE FROM appeals WHERE status <> 'open' AND created_at < ?",
     daysAgo(730),
@@ -269,6 +276,7 @@ export function runMaintenance(): MaintenanceReport {
     acceptedReminders,
     clubReminders,
     covers,
+    disclosures,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.
     db: dbMetrics(),
   };

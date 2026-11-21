@@ -271,6 +271,22 @@ Moderation without reading:
   it: the device id maps to its owner through the club's device list, so it is
   withheld and the receiver tries the sessions it already has.
 
+### Cost of the fan-out, and its caps
+
+One message in a club of *m* members with *d* devices each is *m·d* envelopes:
+roughly 20–30 KB and the same number of rows. That is fine for the clubs this
+software is built for and bad for a thousand-person group, so the limits are
+explicit rather than silent:
+
+| Limit | Value | What happens at the limit |
+|---|---|---|
+| Devices per account | 5 | Adding another returns `409` with the way out: retire one |
+| Envelopes per club message | 400 (≈100 members) | The post is refused with `409` that names the remedy |
+| Disclosure retention | 2 years | `runMaintenance` purges older ones |
+
+MLS is what removes the *m·d* factor (§8); until then these caps are the honest
+answer for a small server.
+
 ## 9. Client trust
 
 Anything the server serves runs with the user's keys. Mitigations: strict CSP
@@ -379,6 +395,9 @@ Shipped in this release:
 | Client check that a device is in the signed directory (inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
 | One-time keys replenished on their own when the device runs low | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Club forum encrypted per member device, with moderation by disclosure | `src/lib/repo/clubcrypto.ts`, `POST /api/clubs/:id/posts`, `…/posts/:postId/reveal` | `tests/club-crypto.test.ts` |
+| Caps that keep the fan-out affordable: 5 devices per account, 400 envelopes per club message | `src/lib/repo/devices.ts`, `clubcrypto.ts` | `tests/devices.test.ts`, `tests/club-crypto.test.ts` |
+| Device state serialised across tabs (`navigator.locks`), re-read inside the lock | `src/lib/e2e-v2-chat.ts` | `tests/e2e-v2-locks.test.ts` |
+| libolm copied to `/olm/` only if it matches the package's own `checksums.txt` | `scripts/olm-assets.ts` | `tests/olm-integrity.test.ts` |
 | Anti-downgrade: once both sides have a device, a v1-only message is refused | `src/lib/repo/shared.ts`, requests and direct messages | `tests/message-v2.test.ts` |
 | Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
 | v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |

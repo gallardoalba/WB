@@ -405,3 +405,101 @@ test("quien no es del club no ve los dispositivos del club", async () => {
   const clubView = repo.getClub(clubId, fuera);
   assert.equal(clubView?.isMember, false, "quien no es miembro no puede pedirla");
 });
+
+test("un club por encima del tope lo dice con claridad, no falla a oscuras", async () => {
+  const dueña = cuenta("Dueña Tope");
+  const clubId = club(dueña);
+  const deDueña = await dispositivo(dueña, "dispositivo-duena-09");
+
+  const capacidad = repo.clubFitsEncryption(clubId);
+  assert.equal(capacidad.fits, true);
+  assert.equal(capacidad.limit, repo.MAX_CLUB_ENVELOPES);
+
+  // Se simulan los aparatos de un club que ya no cabe: las filas se insertan
+  // directamente porque el tope por cuenta impide crearlos publicando.
+  const conexion = db.getDb();
+  const insertar = conexion.prepare(
+    `INSERT OR IGNORE INTO device_keys
+       (user_id, device_id, identity_key, signing_key, bundle_signature, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, '2026-01-01', '2026-01-01')`,
+  );
+  conexion.transaction(() => {
+    for (let index = 0; index <= repo.MAX_CLUB_ENVELOPES; index += 1) {
+      insertar.run(
+        dueña,
+        `dispositivo-masivo-${index.toString().padStart(4, "0")}`,
+        deDueña.signed.identityKey,
+        deDueña.signed.signingKey,
+        deDueña.signed.signature,
+      );
+    }
+  })();
+
+  assert.equal(repo.clubFitsEncryption(clubId).fits, false, "ya no cabe");
+
+  // Y el mensaje de error explica qué hacer, en vez de un 413 opaco.
+  assert.throws(
+    () =>
+      repo.createClubPost({
+        clubId,
+        authorId: dueña,
+        authorName: "Dueña",
+        body: "",
+        v2: {
+          senderDeviceId: deDueña.deviceId,
+          envelopes: [{ recipientDeviceId: deDueña.deviceId, type: 1, body: "AAAA" }],
+        },
+      }),
+    (error: { status?: number; message?: string }) =>
+      error.status === 409 && /retire miembros|ha crecido/.test(error.message ?? ""),
+  );
+});
+
+test("las revelaciones antiguas se purgan a los dos años", async () => {
+  const dueña = cuenta("Dueña Purga");
+  const miembro = cuenta("Miembro Purga");
+  const clubId = club(dueña);
+  unir(clubId, miembro);
+  const deDueña = await dispositivo(dueña, "dispositivo-duena-10");
+  const deMiembro = await dispositivo(miembro, "dispositivo-miembro-4");
+
+  const devices = repo.listClubDevices(clubId);
+  const { senderDeviceId, envelopes } = await encryptForClub({
+    session: sesion(dueña, deDueña) as never,
+    api: api(),
+    clubId,
+    conversation: `club:${clubId}`,
+    text: "mensaje revelado",
+    devices,
+  });
+  const post = repo.createClubPost({
+    clubId,
+    authorId: dueña,
+    authorName: "Dueña",
+    body: "",
+    v2: { senderDeviceId, envelopes },
+  });
+  const revelado = await encryptForClub({
+    session: sesion(miembro, deMiembro) as never,
+    api: api(),
+    clubId,
+    conversation: `club:${clubId}`,
+    text: "mensaje revelado",
+    devices: devices.filter((device) => device.deviceId === deDueña.deviceId),
+  });
+  const disclosure = repo.discloseClubPost({
+    clubId,
+    postId: post.id,
+    reporterId: miembro,
+    reason: "para probar la purga",
+    envelopes: revelado.envelopes,
+  });
+
+  // Recién creada no se toca.
+  assert.equal(repo.purgeOldDisclosures(db.getDb(), 730), 0);
+  db.getDb()
+    .prepare("UPDATE club_post_disclosures SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
+    .run(disclosure.id);
+  assert.equal(repo.purgeOldDisclosures(db.getDb(), 730), 1);
+  assert.deepEqual(repo.listDisclosures(clubId, dueña, deDueña.deviceId), []);
+});

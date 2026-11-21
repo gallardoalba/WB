@@ -11,6 +11,7 @@
  * no queden ranuras v1 se quita la mitad vieja sin tocar la interfaz.
  */
 import { api } from "./client-api";
+import * as v2 from "./e2e-v2";
 import {
   decryptClubPosts,
   decryptThread,
@@ -82,6 +83,43 @@ export function v2Supported(): boolean {
 }
 
 /**
+ * Serializa el acceso al dispositivo entre **pestañas**.
+ *
+ * El estado (la cuenta de libolm y sus sesiones) se guarda entero: dos pestañas
+ * que cifran a la vez se pisan el ratchet y, a partir de ahí, los mensajes
+ * dejan de abrirse sin ningún error visible. `navigator.locks` da un cerrojo por
+ * cuenta dentro del navegador; donde no exista, se sigue sin él en vez de
+ * romper la mensajería.
+ */
+export async function withLock<T>(userId: string, run: () => Promise<T>): Promise<T> {
+  const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+  if (!locks?.request) return run();
+  return locks.request(`wanderbibliothek:e2e-v2:${userId}`, run);
+}
+
+/**
+ * Ejecuta una operación con el estado **más reciente** del almacén y lo guarda
+ * al terminar, todo dentro del cerrojo.
+ *
+ * Releer dentro del cerrojo es lo que hace que la segunda pestaña no escriba
+ * encima de lo que hizo la primera: la copia en memoria puede estar vieja.
+ */
+async function withSession<T>(userId: string, run: (session: Session) => Promise<T>): Promise<T> {
+  if (!store) throw new Error("Sin almacén de dispositivo.");
+  return withLock(userId, async () => {
+    const state = await store.load(userId);
+    if (!state) throw new Error("no-device");
+    const account = await v2.unpickleAccount(state.account, state.pickleKey);
+    const current: Session = { state, account };
+    const result = await run(current);
+    await store.save(current.state);
+    // La copia en memoria deja de ser fiable: la próxima lectura la recarga.
+    session = null;
+    return result;
+  });
+}
+
+/**
  * Abre el dispositivo si ya existe. **No lo crea**: publicar la identidad de
  * este navegador es una decisión de la persona (y puede pedir contraseña), así
  * que no ocurre al abrir un hilo.
@@ -145,21 +183,18 @@ export async function encryptV2(input: {
   conversation: string;
   text: string;
 }): Promise<V2SendPayload | null> {
-  const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current) return null;
   try {
-    const payload = await encryptForDevices({
-      session: current,
-      api: httpApi,
-      conversation: input.conversation,
-      text: input.text,
-      peerUserId: input.peerUserId,
-    });
-    // Las sesiones y las claves fijadas tienen que sobrevivir a la recarga: si
-    // no, cada mensaje vuelve a hacer un establecimiento y la fijación del par
-    // —y la de la clave del directorio— dura una página.
-    await store?.save(current.state);
-    return payload;
+    // El cerrojo relee y guarda: las sesiones y las claves fijadas sobreviven a
+    // la recarga y a la otra pestaña.
+    return await withSession(input.userId, (current) =>
+      encryptForDevices({
+        session: current,
+        api: httpApi,
+        conversation: input.conversation,
+        text: input.text,
+        peerUserId: input.peerUserId,
+      }),
+    );
   } catch {
     // Un fallo aquí no debe impedir mandar el mensaje: se manda con v1 y la
     // conversación sigue. Sin sabotear el envío por un protocolo nuevo.
@@ -190,16 +225,16 @@ export async function decryptV2(input: {
   );
   if (withV2.length === 0) return {};
   try {
-    const decrypted = await decryptThread({
-      session: current,
-      api: httpApi,
-      store: store ?? undefined,
-      conversation: input.conversation,
-      peerUserId: input.peerUserId,
-      messages: withV2,
+    return await withSession(input.userId, async (fresh) => {
+      const decrypted = await decryptThread({
+        session: fresh,
+        api: httpApi,
+        conversation: input.conversation,
+        peerUserId: input.peerUserId,
+        messages: withV2,
+      });
+      return Object.fromEntries(decrypted.map((item) => [item.messageId, item.text]));
     });
-    await store?.save(current.state);
-    return Object.fromEntries(decrypted.map((item) => [item.messageId, item.text]));
   } catch {
     return {};
   }
@@ -255,18 +290,19 @@ export async function encryptClub(input: {
   const current = await loadV2Session(input.userId).catch(() => null);
   if (!current) return { status: "no-device" };
   try {
-    const response = await api<{
-      devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
-    }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-    const payload = await encryptForClub({
-      session: current,
-      api: httpApi,
-      clubId: input.clubId,
-      conversation: `club:${input.clubId}`,
-      text: input.text,
-      devices: response.devices,
+    const payload = await withSession(input.userId, async (fresh) => {
+      const response = await api<{
+        devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+      }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
+      return encryptForClub({
+        session: fresh,
+        api: httpApi,
+        clubId: input.clubId,
+        conversation: `club:${input.clubId}`,
+        text: input.text,
+        devices: response.devices,
+      });
     });
-    await store?.save(current.state);
     return { status: "ok", payload };
   } catch (error) {
     return {
@@ -297,18 +333,18 @@ export async function decryptClub(input: {
   const conSobre = flatPosts(input.posts).filter((post) => post.envelope);
   if (conSobre.length === 0) return {};
   try {
-    const response = await api<{
-      devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
-    }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-    const decoded = await decryptClubPosts({
-      session: current,
-      api: httpApi,
-      conversation: `club:${input.clubId}`,
-      devices: response.devices,
-      posts: conSobre,
+    return await withSession(input.userId, async (fresh) => {
+      const response = await api<{
+        devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+      }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
+      return decryptClubPosts({
+        session: fresh,
+        api: httpApi,
+        conversation: `club:${input.clubId}`,
+        devices: response.devices,
+        posts: conSobre,
+      });
     });
-    await store.save(current.state);
-    return decoded;
   } catch {
     return {};
   }
