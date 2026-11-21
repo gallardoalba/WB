@@ -138,8 +138,23 @@ senderKey: string      # libolm Ed25519 key of that device, base64
 conversation: string   # "request:<id>" | "dm:<threadId>" | "club:<clubId>"
 ```
 
-The server stores `{senderDeviceId, senderKey, type, body, conversation}` per
-recipient device and validates shapes and sizes. It cannot open the body.
+The server stores one row per **recipient device** in `device_envelopes`
+(`conversation`, `sender_user_id`, `sender_device_id`, `recipient_device_id`,
+`type`, `body`, `created_at`) and validates shapes and sizes. It cannot open the
+body. The sender's identity key is **not** stored with the envelope: the
+receiver takes it from the signed device registry, which is what stops this
+server from inventing a sender.
+
+Transport:
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/messages/v2` | Stores a batch for the devices of the other party. All or nothing: if any recipient device is gone, the whole batch is rejected with `409` |
+| `GET /api/messages/v2?device=&conversation=` | Pending envelopes for **one of your devices** |
+| `POST /api/messages/v2/ack` | Deletes the envelopes the client already decrypted |
+
+`ACK` comes from the client after decryption, not from the `GET`: deleting on
+delivery would lose messages on a dropped connection.
 
 What is encrypted is not the bare text but a sealed record:
 
@@ -166,6 +181,8 @@ ciphertext.
 ## 5. Replay, order and deletion
 
 - libolm rejects a message key that was already used (replay).
+- An envelope is deleted when the client acknowledges it, and never before; the
+  maintenance cron purges unclaimed envelopes after 30 days.
 - Out-of-order messages are kept as skipped keys, capped per session; beyond
   the cap the oldest are dropped and those messages are unrecoverable by
   design.
@@ -321,7 +338,8 @@ strong as Signal": the ratchet is comparable, and the layer around it is not.
 
 ## 14. Where the implementation stands
 
-Shipped in this release:
+Shipped in this release (server and client library; the interface still sends
+with v1):
 
 | Piece | Where | Tested in |
 |---|---|---|
@@ -331,11 +349,14 @@ Shipped in this release:
 | Device registry, gated publishing, one-time keys handed out once, pruning, revocation | `src/lib/repo/devices.ts`, migration v65 | `tests/devices.test.ts` |
 | `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | the static scan in `tests/route.test.ts` (wrapper, quota and origin for every route file) plus the repository behind them in `tests/devices.test.ts` |
 | Device keys in the signed key directory | `src/lib/transparency.ts` | `tests/key-transparency.test.ts` |
+| Envelope transport: store, list by device, acknowledge, retention | `src/lib/repo/envelopes.ts`, `/api/messages/v2*` | `tests/envelopes.test.ts` |
+| Client: open the device, send to every device, decrypt and acknowledge, pin peers | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
+| Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
 
-Not implemented yet, and therefore **not** claimed by the documentation:
-sending and receiving v2 envelopes from the interface, dual-read on the client,
-safety numbers for v2 devices, club fan-out (§8), consistency proofs and
-client-side verification of the log (§7). Until those ship, the interface keeps
+Not implemented yet, and therefore **not** claimed by the documentation: the
+interface still sends and reads with v1 (the client library exists but nothing
+in the UI calls it), dual-read, safety numbers for v2 devices, club fan-out
+(§8), consistency proofs and client-side verification of the log (§7). Until those ship, the interface keeps
 using v1 and the protections that depend on the ratchet — forward secrecy,
 sender authentication, anti-downgrade — are **not** in place in production.
 

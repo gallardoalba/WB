@@ -2,6 +2,7 @@ import { dbMetrics, getDb, type DbMetrics } from "../db";
 import { DELIVERY_INCIDENT_REASON } from "../domain";
 import { pruneCoverCache } from "../covers";
 import { notifyUpcomingMeetings } from "./clubs";
+import { ENVELOPE_RETENTION_DAYS, purgeOldEnvelopes } from "./envelopes";
 import { listingTitle, notify } from "./notifications";
 import { expireDueSuspensions } from "./users";
 
@@ -160,6 +161,8 @@ export type MaintenanceReport = {
   acceptedReminders: number;
   clubReminders: number;
   covers: number;
+  /** Sobres v2 sin recoger que se han descartado. */
+  envelopes: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
   db: DbMetrics;
 };
@@ -225,6 +228,10 @@ export function runMaintenance(): MaintenanceReport {
     daysAgo(730),
   );
 
+  // Los sobres v2 que nadie recogió no se guardan para siempre: el cuerpo está
+  // cifrado, pero la fila ya dice quién escribe a quién y en qué hilo.
+  const envelopes = purgeOldEnvelopes(db, ENVELOPE_RETENTION_DAYS);
+
   const expiredSuspensions = expireDueSuspensions();
   for (const userId of expiredSuspensions) {
     notify({
@@ -269,6 +276,7 @@ export function runMaintenance(): MaintenanceReport {
     acceptedReminders,
     clubReminders,
     covers,
+    envelopes,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.
     db: dbMetrics(),
   };

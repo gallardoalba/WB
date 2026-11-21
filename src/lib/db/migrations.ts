@@ -2156,6 +2156,44 @@ function migrateToV65(db: Db) {
   db.pragma("user_version = 65");
 }
 
+/**
+ * v66: sobres del protocolo v2, uno por dispositivo destinatario.
+ *
+ * El servidor guarda el cuerpo tal cual y no puede abrirlo. Lo que sí decide es
+ * **a quién** se lo entrega: cada fila nombra un dispositivo concreto, así que
+ * un mensaje para un dispositivo no se sirve a otro de la misma cuenta.
+ *
+ * `sender_device_id` va aparte de la cuenta porque el receptor necesita saber
+ * qué dispositivo firmó el pre-clave; la clave de identidad no se guarda aquí:
+ * el receptor la saca del registro de dispositivos y la verifica, que es lo que
+ * impide que este servidor invente remitentes.
+ */
+function migrateToV66(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_envelopes (
+      id TEXT PRIMARY KEY,
+      conversation TEXT NOT NULL,
+      sender_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sender_device_id TEXT NOT NULL,
+      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_device_id TEXT NOT NULL,
+      type INTEGER NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS device_envelopes_inbox
+      ON device_envelopes(recipient_user_id, recipient_device_id, created_at);
+
+    CREATE INDEX IF NOT EXISTS device_envelopes_conversation
+      ON device_envelopes(conversation, created_at);
+
+    CREATE INDEX IF NOT EXISTS device_envelopes_created
+      ON device_envelopes(created_at);
+  `);
+  db.pragma("user_version = 66");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2290,6 +2328,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 63) migrateToV63(db);
   if (userVersion(db) < 64) migrateToV64(db);
   if (userVersion(db) < 65) migrateToV65(db);
+  if (userVersion(db) < 66) migrateToV66(db);
 
   backfillSearchKeys(db);
 }
