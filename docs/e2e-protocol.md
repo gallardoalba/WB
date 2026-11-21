@@ -23,8 +23,10 @@ security (see §6, decisions D1-D5).
 
 ## 2. Identity keys
 
-- Each account has one ECDH P-256 key pair **per device slot**. The browser
-  uses the `web` slot. Pairs are generated on the client.
+- Each account has one ECDH P-256 key pair **per platform slot**. The browser
+  uses the `web` slot. Pairs are generated on the client. A slot is a platform,
+  not a device: the same account opened in two browsers is one slot, and two
+  accounts on one machine never share a pair.
 - The private half never leaves the device. In the browser it is stored in
   IndexedDB as a **non-extractable** `CryptoKey`, in a record per account
   (`identity-v2:<userId>`): neither page JavaScript nor the server can export

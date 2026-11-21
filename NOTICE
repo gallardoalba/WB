@@ -33,6 +33,13 @@ dos pesos se retiraron junto con la regla `@font-face` que los cargaba.
 Iconos de [lucide](https://lucide.dev) (licencia ISC), como dependencia
 (`lucide-react`).
 
+## Criptografía
+
+El ratchet del protocolo v2 es [libolm](https://gitlab.matrix.org/matrix-org/olm)
+(`@matrix-org/olm`), la implementación del Double Ratchet que usa Matrix,
+distribuida bajo **Apache-2.0**. No se modifica: se llama desde
+`src/lib/e2e-v2.ts`.
+
 ## Dependencias
 
 El resto de dependencias (Next.js, React, better-sqlite3, zod, qrcode…) se

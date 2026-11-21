@@ -48,12 +48,12 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               83 route files grouped by domain",
+            "    api/               86 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v64), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v65), seed",
             "    repo/              SQL queries per domain; repo.ts only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -113,7 +113,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 83 route files under `src/app/api` with 112 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
+          text: "The API has 86 route files under `src/app/api` with 116 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
         },
         {
           kind: "list",
@@ -186,6 +186,7 @@ export const EN: TechnicalDocument = {
             "Passwords with asynchronous `scrypt` and a unique salt, with the parameters stored in the hash itself (`scrypt$N,r,p$salt$hash`) so they can be raised later without locking anyone out; the previous format is still verified and rehashed at the next sign-in.",
             "Sign-in always verifies a hash (against a decoy if the account does not exist), so the response time does not reveal which email addresses are registered.",
             "Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per platform slot** —today only `web`; the sender stores one envelope per recipient key, so any client with a published key reads the same message.",
+            "On top of that sits a v2 protocol in progress (`docs/e2e-protocol-v2.md`): identity **per device** instead of per slot, one-time keys the server hands out exactly once, and libolm's Double Ratchet. That buys forward secrecy — a device compromised today does not open yesterday's messages — and authenticates the sender inside the session. The server already publishes, lists, revokes and hands out those keys (`/api/account/devices`, `/api/users/:id/devices`); the interface still sends with v1 until the v2 client ships.",
             "Only the first key of an account is published without confirmation: as soon as one slot is taken, both replacing it and **adding another** require the password, and every change raises a security notification. In the browser the identity is **one per account**: two accounts on the same device never share a key pair.",
             "A 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted and only its SHA-256 lives in the database.",
             "Two-step verification (TOTP per RFC 6238, ±1 step window and anti-replay) is mandatory for moderation and administration in production; the secrets are stored encrypted. Sanctions carry a reason and a duration (1–365 days), and the appeal is reviewed by a different team member.",

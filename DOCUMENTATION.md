@@ -17,18 +17,18 @@ The code is AGPL-3.0 licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               83 route files grouped by domain
+    api/               86 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v64), seed
+    db/                connection, base schema (v2), migrations (v3–v65), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 968 unit and integration tests (124 files)
+tests/                 1002 unit and integration tests (128 files)
 e2e/                   66 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 83 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 112 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
+The API has 86 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 116 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -100,7 +100,7 @@ The API has 83 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v64). A new installation starts from `SCHEMA_V2` and its indexes and runs the 62 steps up to v64; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Fourteen steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it) v60 (the city-distance catalogue adds Austria while preserving existing German city names) v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) v62 (dated acceptance for delivery incidents, plus the responder’s version on a report) v63 (a signed snapshot of the key directory, so a substituted key can be proven against a published root) and v64 (drops the `(AT)` marker from Austrian cities that cannot be confused with a German one). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v65). A new installation starts from `SCHEMA_V2` and its indexes and runs the 63 steps up to v65; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Fifteen steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it) v60 (the city-distance catalogue adds Austria while preserving existing German city names) v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) v62 (dated acceptance for delivery incidents, plus the responder’s version on a report) v63 (a signed snapshot of the key directory, so a substituted key can be proven against a published root) v64 (drops the `(AT)` marker from Austrian cities that cannot be confused with a German one) and v65 (the v2 end-to-end protocol: `device_keys` holds each device's public bundle and `device_one_time_keys` the keys handed out once per session). The detail of every step lives in that file and in its git history.
 
 The v61 migration removed the unused hand-over and shipping columns (`handover_*`, `ship_*`). The hand-over is agreed in the conversation, and each side confirms in the platform once it has the book.
 
@@ -216,7 +216,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 968 unit and integration tests in 124 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 1002 unit and integration tests in 128 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
