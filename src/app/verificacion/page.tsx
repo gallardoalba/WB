@@ -6,11 +6,11 @@ import { getLocale } from "@/lib/i18n-server";
 export const instant = false;
 
 /**
- * Página de servicio para la app Android.
+ * Página de servicio para clientes que no tienen dominio propio.
  *
  * Cloudflare Turnstile valida el dominio de la página que incrusta el widget, y
- * un `WebView` con contenido local no tiene dominio. Por eso la app abre esta
- * página del propio servidor y recibe el token por una interfaz JavaScript.
+ * un `WebView` con contenido local no tiene dominio. Por eso un cliente abre
+ * esta página del propio servidor y recibe el token por una interfaz JavaScript.
  *
  * No se indexa ni se enlaza desde ningún sitio: quien llegue desde el navegador
  * tiene el registro normal en la portada.
@@ -29,7 +29,7 @@ export default async function Page() {
         <h1>{t("Verificación humana")}</h1>
         <p>
           {t(
-            "Esta página la usa la aplicación para Android al crear una cuenta. Si has llegado desde el navegador, ve al registro desde la portada.",
+            "Esta página solo sirve para completar la verificación humana desde otro cliente. Si has llegado desde el navegador, ve al registro desde la portada.",
           )}
         </p>
         <TurnstileBridge siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null} />
