@@ -87,9 +87,9 @@
   color: var(--ink-soft);
   font-size: var(--text-base);
   line-height: 1.65;
-  /* La medida de lectura se queda aquí: por encima de ~90 caracteres la vista
-     pierde el principio de la línea siguiente. */
-  max-width: 88ch;
+  /* Sin tope propio: la prosa llega hasta donde llegan las tablas y el código.
+     Un ancho distinto para cada bloque partía la página en dos columnas
+     visuales y obligaba a saltar de una a otra al leer. */
 }
 
 .tech-doc p {
