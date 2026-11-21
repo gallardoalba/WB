@@ -803,13 +803,22 @@ export const appealResolutionSchema = z.object({
 /**
  * Claves públicas de un dispositivo (protocolo v2).
  *
- * libolm entrega base64 sin relleno de 32 bytes (43 caracteres). Se valida la
- * forma y el tamaño: el servidor no tiene forma de comprobar que una clave es
- * buena, pero sí de rechazar basura antes de guardarla.
+ * libolm entrega base64 sin relleno: 43 caracteres para una clave de 32 bytes y
+ * 86 para una firma Ed25519 de 64 bytes. El identificador de una clave de un
+ * solo uso es corto y lleva su propio contador (`AAAAAw`), así que **no** se
+ * valida con el patrón de las claves. Se comprueba la forma y el tamaño: el
+ * servidor no puede saber si una clave es buena, pero sí rechazar basura antes
+ * de guardarla, y la firma Ed25519 sí se verifica (ver `lib/ed25519.ts`).
  */
-const olmKey = z
+const olmKey = z.string().regex(/^[A-Za-z0-9+/]{43}$/, "La clave del dispositivo no es válida.");
+
+const olmSignature = z
   .string()
-  .regex(/^[A-Za-z0-9+/]{43}$/, "La clave del dispositivo no es válida.");
+  .regex(/^[A-Za-z0-9+/]{86}$/, "La firma del dispositivo no es válida.");
+
+const oneTimeKeyId = z
+  .string()
+  .regex(/^[A-Za-z0-9+/]{1,16}$/, "El identificador de la clave no es válido.");
 
 export const deviceIdSchema = z
   .string()
@@ -818,8 +827,21 @@ export const deviceIdSchema = z
 export const publishDeviceSchema = z.object({
   identityKey: olmKey,
   signingKey: olmKey,
+  signature: olmSignature,
   oneTimeKeys: z
-    .array(z.object({ keyId: olmKey, key: olmKey }))
+    .array(
+      z.object({
+        keyId: oneTimeKeyId,
+        key: olmKey,
+        signature: olmSignature,
+      }),
+    )
     .max(50, "Demasiadas claves de un solo uso de golpe.")
     .default([]),
+  /**
+   * Contraseña para dar de alta un dispositivo más, sustituir la identidad de
+   * uno existente o reactivar uno retirado. No hace falta para reponer claves
+   * de un solo uso, que es la operación corriente.
+   */
+  password: z.string().max(200, "La contraseña es demasiado larga.").optional(),
 });

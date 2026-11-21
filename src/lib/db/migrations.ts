@@ -2114,9 +2114,14 @@ function migrateToV64(db: Db) {
  * El protocolo v2 necesita una identidad **por dispositivo**, no por ranura de
  * plataforma: publicar desde otro navegador ya no sustituye la clave anterior.
  * La tabla guarda solo material público (identidad Curve25519, firma Ed25519);
- * las claves privadas no salen del dispositivo. Las claves de un solo uso se
- * entregan de una en una y se borran en la misma transacción, así que el
- * servidor no puede reutilizarlas.
+ * las claves privadas no salen del dispositivo.
+ *
+ * `bundle_signature` y `signature` son firmas Ed25519 del propio dispositivo
+ * sobre su paquete y sobre cada clave de un solo uso. libolm no las firma, así
+ * que son lo único que impide que el servidor cambie la clave que entrega y se
+ * quede en medio del establecimiento. Las claves de un solo uso se entregan de
+ * una en una y se borran en la misma transacción, así que el servidor no puede
+ * reutilizarlas.
  */
 function migrateToV65(db: Db) {
   db.exec(`
@@ -2125,6 +2130,7 @@ function migrateToV65(db: Db) {
       device_id TEXT NOT NULL,
       identity_key TEXT NOT NULL,
       signing_key TEXT NOT NULL,
+      bundle_signature TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       revoked_at TEXT,
@@ -2138,6 +2144,7 @@ function migrateToV65(db: Db) {
       device_id TEXT NOT NULL,
       key_id TEXT NOT NULL,
       key TEXT NOT NULL,
+      signature TEXT NOT NULL,
       created_at TEXT NOT NULL,
       PRIMARY KEY (user_id, device_id, key_id),
       FOREIGN KEY (user_id, device_id) REFERENCES device_keys(user_id, device_id) ON DELETE CASCADE
