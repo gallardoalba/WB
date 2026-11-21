@@ -532,15 +532,33 @@ function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
  * Llevan la cuenta, la ranura, la huella y la fecha de alta; **no** la clave
  * pública, que ya viaja en `user_keys` y haría el fichero enorme. El orden es
  * por cuenta y ranura, que es estable.
+ *
+ * Desde el protocolo v2 entran también los **dispositivos**: sin ellos, un
+ * servidor hostil podría añadir un dispositivo a una cuenta y quedar en medio
+ * de todas las conversaciones sin que nada lo delatara, porque la clave de un
+ * dispositivo no estaba comprometida en ningún sitio. La ranura de un
+ * dispositivo es `device:<id>` y su huella, la clave de identidad.
  */
 export function keyDirectoryLines(db: Db = getDb()): string[] {
-  const rows = db
+  const slots = db
     .prepare(
       `SELECT user_id, platform, key_id, updated_at FROM user_keys
         ORDER BY user_id, platform`,
     )
     .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
-  return rows.map((row) => `${row.user_id}|${row.platform}|${row.key_id}|${row.updated_at}`);
+  const devices = db
+    .prepare(
+      `SELECT user_id, device_id, identity_key, updated_at FROM device_keys
+        ORDER BY user_id, device_id`,
+    )
+    .all() as { user_id: string; device_id: string; identity_key: string; updated_at: string }[];
+
+  return [
+    ...slots.map((row) => `${row.user_id}|${row.platform}|${row.key_id}|${row.updated_at}`),
+    ...devices.map(
+      (row) => `${row.user_id}|device:${row.device_id}|${row.identity_key}|${row.updated_at}`,
+    ),
+  ];
 }
 
 export function keySnapshotMessage(
