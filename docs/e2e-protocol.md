@@ -1,6 +1,6 @@
 # End-to-end encryption: protocol and threat model
 
-Protocol version: `wanderbibliothek:v1` (release 1.0.19 onwards).
+Protocol version: `wanderbibliothek:v1` (release 1.0.20 onwards).
 Scope: message bodies of an accepted book exchange (`requestId`) and direct
 messages between two accounts (`dm:<threadId>`). Club posts, comments,
 notifications and listings are not end-to-end encrypted.
@@ -29,9 +29,11 @@ security (see §6, decisions D1-D5).
   IndexedDB as a **non-extractable** `CryptoKey`, in a record per account
   (`identity-v2:<userId>`): neither page JavaScript nor the server can export
   it. Two accounts on the same browser never share a pair.
-- `keyId` is `base64url(SHA-256(canonical JWK))` (43 characters). The client and
-  the server compute it with the same rule (`keyIdFromJwk`), and the server
-  rejects an envelope whose `keyId` is not the fingerprint of the published key.
+- `keyId` is `base64url(SHA-256("<kty>.<crv>.<x>.<y>"))` (43 characters): the
+  canonical fields of the JWK joined by dots, without JSON punctuation. The
+  client and the server compute it with the same rule (`keyIdFromJwk`), and the
+  server rejects an envelope whose `keyId` is not the fingerprint of the
+  published key.
 
 ### Publication and rotation
 
@@ -139,8 +141,8 @@ would arrive as `wanderbibliothek:v2` with dual-read support.
 **D2 - No key transparency. TOFU + pinning + safety number.**
 A malicious server can answer with different public keys to two parties. The
 safety number differs, so a comparison detects it; a change after first contact
-is detected by the client pin (`b2p-key-pin:<userId>:<platform>`) and shown as
-`keyChanged`. Nothing prevents the substitution automatically: the control is
+is detected by the client pin (`b2p-key-pin:<userId>` for the `web` slot,
+`b2p-key-pin:<userId>:<platform>` for any other) and shown as `keyChanged`. Nothing prevents the substitution automatically: the control is
 the out-of-band comparison.
 
 **D3 - No cryptographic sender authentication.**
