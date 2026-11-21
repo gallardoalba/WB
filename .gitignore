@@ -63,3 +63,6 @@ AGENTS.md
 
 # Ayudante local de despliegue de producción.
 /deploy-production.sh
+
+# libolm servido en tiempo de ejecución (lo copia scripts/olm-assets.ts)
+/public/olm/

@@ -78,11 +78,32 @@ export function AccountSettings({
   const [localKeyId, setLocalKeyId] = useState<string | null>(null);
   const [keyPassword, setKeyPassword] = useState("");
   const [keyBusy, setKeyBusy] = useState(false);
+  const [v2Active, setV2Active] = useState(false);
+  const [v2Busy, setV2Busy] = useState(false);
+  const [v2Password, setV2Password] = useState("");
+  const [v2NeedsPassword, setV2NeedsPassword] = useState(false);
+  const [v2Msg, setV2Msg] = useState("");
+  const [v2Error, setV2Error] = useState("");
   const [keyMsg, setKeyMsg] = useState("");
   const [keyError, setKeyError] = useState("");
 
   const [alertOn, setAlertOn] = useState(alertsOn);
   const [alertBusy, setAlertBusy] = useState(false);
+
+  // El dispositivo v2 no se crea solo: publicar la identidad de este navegador
+  // es una decisión (y puede pedir contraseña), así que aquí solo se mira si ya
+  // existe para poder decirlo.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
+      const active = bridge ? await bridge.hasV2Device(user.id).catch(() => false) : false;
+      if (!cancelled) setV2Active(active);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,6 +240,38 @@ export function AccountSettings({
       );
     } finally {
       setKeyBusy(false);
+    }
+  }
+
+  /**
+   * Publica el dispositivo v2 de este navegador.
+   *
+   * Si el servidor pide contraseña —la cuenta ya tenía identidad— se muestra el
+   * campo y se reintenta; no se guarda nada a medias.
+   */
+  async function activateV2Device() {
+    setV2Busy(true);
+    setV2Error("");
+    setV2Msg("");
+    try {
+      const bridge = await import("@/lib/e2e-v2-chat");
+      await bridge.activateV2(user.id, v2Password || undefined);
+      setV2Active(true);
+      setV2NeedsPassword(false);
+      setV2Password("");
+      setV2Msg(t("Cifrado v2 activado en este navegador."));
+    } catch (caught) {
+      const status = (caught as { status?: number }).status;
+      if (status === 428) {
+        setV2NeedsPassword(true);
+        setV2Error(t("Confirma tu contraseña para publicar este dispositivo."));
+      } else {
+        setV2Error(
+          caught instanceof Error ? caught.message : t("No se pudo activar el cifrado v2."),
+        );
+      }
+    } finally {
+      setV2Busy(false);
     }
   }
 
@@ -675,6 +728,57 @@ export function AccountSettings({
               </button>
             </form>
           )}
+          <div className="v2-device">
+            <h4>{t("Cifrado de nueva generación (v2)")}</h4>
+            <p className="form-hint">
+              {t(
+                "Cada dispositivo tiene su propia clave y cada mensaje una clave distinta: si te quitan el aparato hoy, no podrán leer lo de ayer. Hace falta activarlo en cada navegador.",
+              )}
+            </p>
+            {v2Error && (
+              <p className="form-error" role="alert">
+                {v2Error}
+              </p>
+            )}
+            {v2Msg && (
+              <p className="action-feedback" role="status">
+                {v2Msg}
+              </p>
+            )}
+            {v2Active ? (
+              <p className="action-feedback" role="status">
+                {t("Este navegador ya tiene su dispositivo v2.")}
+              </p>
+            ) : (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void activateV2Device();
+                }}
+              >
+                {v2NeedsPassword && (
+                  <label htmlFor="v2-password">
+                    {t("Contraseña actual")}
+                    <input
+                      id="v2-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={v2Password}
+                      onChange={(event) => setV2Password(event.target.value)}
+                      required
+                    />
+                  </label>
+                )}
+                <button
+                  className="secondary-button small"
+                  type="submit"
+                  disabled={v2Busy || (v2NeedsPassword && !v2Password)}
+                >
+                  {v2Busy ? t("Activando…") : t("Activar el cifrado v2 en este navegador")}
+                </button>
+              </form>
+            )}
+          </div>
         </details>
 
         <details>

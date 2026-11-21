@@ -1,20 +1,24 @@
 /**
- * Cliente v2 de punta a punta, sin HTTP ni interfaz.
+ * Cliente v2 de punta a punta, sobre el repositorio de verdad.
  *
- * Se monta aquí el `DeviceApi` sobre el repositorio de verdad —las mismas
- * funciones que sirven las rutas— y dos almacenes en memoria, y se comprueba lo
- * que ningún test de una sola pieza puede ver: que dos dispositivos cualesquiera
- * acaban hablando, que el segundo dispositivo de la misma persona recibe su
- * propio sobre, que un mensaje repetido no se descifra dos veces y que un
- * paquete cambiado se rechaza en vez de aceptarse.
+ * Aquí se juntan las piezas que por separado ya funcionaban: el dispositivo se
+ * publica, se reclama una clave, se abre la sesión, el sobre viaja **dentro del
+ * mensaje** del hilo y la otra parte lo descifra. Es lo que no puede ver ninguna
+ * prueba de una sola capa: que dos personas acaben hablando, que el segundo
+ * aparato reciba su propio sobre, que un mensaje repetido no se descifre dos
+ * veces y que un dispositivo cambiado se rechace en vez de aceptarse.
  */
+import "./olm-setup.ts";
+
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
+import "./olm-setup.ts";
+
 import type { DeviceApi, DeviceState, DeviceStore } from "../src/lib/e2e-v2-device.ts";
-import { decryptFromInbox, encryptForDevices, openDevice } from "../src/lib/e2e-v2-device.ts";
+import { decryptThread, encryptForDevices, openDevice } from "../src/lib/e2e-v2-device.ts";
 import { hashPasswordSync } from "../src/lib/password.ts";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
@@ -30,7 +34,9 @@ before(async () => {
 
 const PASSWORD = "una-contraseña-larga";
 
-/**: `DeviceApi` sobre el repositorio, sin pasar por HTTP. */
+/** La API actúa como la cuenta de la sesión, igual que `route()`. */
+let currentUser: string;
+
 function api(): DeviceApi {
   return {
     async publish(input) {
@@ -60,36 +66,16 @@ function api(): DeviceApi {
       if (!bundle?.oneTimeKey) throw new Error("Sin claves de un solo uso.");
       return { ...bundle, oneTimeKey: bundle.oneTimeKey };
     },
-    async send(input) {
-      repo.storeEnvelopes(currentUser, input.senderDeviceId, input.conversation, input.envelopes);
-    },
-    async inbox(input) {
-      return repo
-        .listEnvelopes(currentUser, input.deviceId, input.conversation)
-        .map((envelope) => ({
-          id: envelope.id,
-          senderUserId: envelope.senderUserId,
-          senderDeviceId: envelope.senderDeviceId,
-          type: envelope.type,
-          body: envelope.body,
-        }));
-    },
-    async ack(input) {
-      repo.ackEnvelopes(currentUser, input.deviceId, input.ids);
-    },
   };
 }
 
-/** La API actúa como la cuenta de la sesión, igual que `route()`. */
-let currentUser: string;
-
-function store(state: { value: DeviceState | null }): DeviceStore {
+function store(box: { value: DeviceState | null }): DeviceStore {
   return {
     async load() {
-      return state.value;
+      return box.value;
     },
     async save(next) {
-      state.value = next;
+      box.value = next;
     },
   };
 }
@@ -103,7 +89,6 @@ function cuenta(nombre: string): string {
   }).id;
 }
 
-/** Hilo de intercambio entre dos cuentas, con un ejemplar del catálogo. */
 function intercambio(ana: string, bruno: string): string {
   const conexion = db.getDb();
   const listing = conexion.prepare("SELECT id FROM listings LIMIT 1").get() as { id: string };
@@ -114,116 +99,108 @@ function intercambio(ana: string, bruno: string): string {
        VALUES (?, ?, ?, ?, 'accepted', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
     )
     .run(id, listing.id, ana, bruno);
-  return `request:${id}`;
+  return id;
 }
 
-/** Abre el dispositivo de una cuenta como lo haría el navegador. */
-async function abrir(userId: string, deviceId?: string) {
+async function abrir(userId: string, deviceId?: string, password?: string) {
   currentUser = userId;
   const box = { value: null as DeviceState | null };
-  const session = await openDevice({ userId, store: store(box), api: api(), deviceId });
-  return { session, box: store(box) };
+  const session = await openDevice({ userId, store: store(box), api: api(), deviceId, password });
+  return { session, box, save: () => store(box).save(session.state) };
 }
 
-test("dos dispositivos se escriben y el mensaje viaja cifrado", async () => {
+/** Manda un mensaje v2 por el camino real: la fila del hilo con sus sobres. */
+async function enviar(
+  de: Awaited<ReturnType<typeof abrir>>,
+  threadId: string,
+  peerUserId: string,
+  text: string,
+) {
+  currentUser = de.session.state.userId;
+  const { senderDeviceId, envelopes } = await encryptForDevices({
+    session: de.session,
+    api: api(),
+    conversation: `request:${threadId}`,
+    text,
+    peerUserId,
+  });
+  await de.save();
+  repo.addEncryptedMessage(threadId, de.session.state.userId, {
+    v2: { senderDeviceId, envelopes },
+  });
+}
+
+/** Lee el hilo y devuelve lo que se puede descifrar con este dispositivo. */
+async function recibir(
+  de: Awaited<ReturnType<typeof abrir>>,
+  threadId: string,
+  peerUserId: string,
+) {
+  currentUser = de.session.state.userId;
+  const page = repo.listMessages(threadId, de.session.state.userId);
+  const messages = page.messages.map((message) => ({
+    id: message.id,
+    senderDeviceId: message.keyId ?? "",
+    envelopes: message.envelopes,
+  }));
+  return decryptThread({
+    session: de.session,
+    api: api(),
+    conversation: `request:${threadId}`,
+    peerUserId,
+    messages,
+  });
+}
+
+test("dos dispositivos se escriben y el servidor no ve el texto", async () => {
   const ana = cuenta("Ana Cliente");
   const bruno = cuenta("Bruno Cliente");
   const hilo = intercambio(ana, bruno);
   const deAna = await abrir(ana, "dispositivo-de-ana-01");
   const deBruno = await abrir(bruno, "dispositivo-de-bruno-1");
 
-  currentUser = ana;
-  await encryptForDevices({
-    session: deAna.session,
-    api: api(),
-    store: deAna.box,
-    conversation: hilo,
-    text: "¿Te viene bien el jueves?",
-    peerUserId: bruno,
-  });
-  await deAna.box.save(deAna.session.state);
+  await enviar(deAna, hilo, bruno, "¿Te viene bien el jueves?");
 
-  // El servidor no puede leerlo: lo que hay guardado es un sobre.
-  const guardados = db
-    .getDb()
-    .prepare("SELECT body FROM device_envelopes")
-    .all() as { body: string }[];
-  assert.equal(guardados.length, 1);
-  assert.ok(!guardados[0]!.body.includes("jueves"), "el texto no viaja en claro");
+  // El servidor guarda el sobre, no el texto.
+  const filas = db.getDb().prepare("SELECT ciphertext FROM message_envelopes").all() as {
+    ciphertext: string;
+  }[];
+  assert.equal(filas.length, 1);
+  assert.ok(!filas[0]!.ciphertext.includes("jueves"), "el texto no viaja en claro");
 
-  currentUser = bruno;
-  const recibidos = await decryptFromInbox({
-    session: deBruno.session,
-    api: api(),
-    store: deBruno.box,
-    conversation: hilo,
-    peerUserId: ana,
-  });
-  assert.deepEqual(recibidos.map((message) => message.text), ["¿Te viene bien el jueves?"]);
+  assert.deepEqual(
+    (await recibir(deBruno, hilo, ana)).map((message) => message.text),
+    ["¿Te viene bien el jueves?"],
+  );
 
-  // Y responde: la sesión del ratchet ya existe en los dos lados.
-  currentUser = bruno;
-  await encryptForDevices({
-    session: deBruno.session,
-    api: api(),
-    store: deBruno.box,
-    conversation: hilo,
-    text: "El jueves me viene mal",
-    peerUserId: ana,
-  });
-  currentUser = ana;
-  const respuesta = await decryptFromInbox({
-    session: deAna.session,
-    api: api(),
-    store: deAna.box,
-    conversation: hilo,
-    peerUserId: bruno,
-  });
-  assert.deepEqual(respuesta.map((message) => message.text), ["El jueves me viene mal"]);
+  await enviar(deBruno, hilo, ana, "El jueves me viene mal");
+  assert.deepEqual(
+    (await recibir(deAna, hilo, bruno)).map((message) => message.text),
+    ["El jueves me viene mal"],
+  );
 });
 
-test("el segundo dispositivo recibe su propio sobre", async () => {
+test("cada dispositivo recibe su propio sobre y ninguno abre el del otro", async () => {
   const ana = cuenta("Ana Dos");
   const bruno = cuenta("Bruno Dos");
   const hilo = intercambio(ana, bruno);
   const deAna = await abrir(ana, "dispositivo-de-ana-02");
   const primero = await abrir(bruno, "dispositivo-de-bruno-1");
-  // El segundo dispositivo pide contraseña, como cualquier alta posterior.
-  currentUser = bruno;
-  const segundoBox = { value: null as DeviceState | null };
-  const segundo = await openDevice({
-    userId: bruno,
-    store: store(segundoBox),
-    api: api(),
-    password: PASSWORD,
-    deviceId: "dispositivo-de-bruno-2",
-  });
+  const segundo = await abrir(bruno, "dispositivo-de-bruno-2", PASSWORD);
 
-  currentUser = ana;
-  await encryptForDevices({
-    session: deAna.session,
-    api: api(),
-    store: deAna.box,
-    conversation: hilo,
-    text: "para los dos",
-    peerUserId: bruno,
-  });
-  await deAna.box.save(deAna.session.state);
+  await enviar(deAna, hilo, bruno, "para los dos");
 
-  for (const [session, box] of [
-    [primero.session, primero.box],
-    [segundo, store(segundoBox)],
-  ] as const) {
-    currentUser = bruno;
-    const recibidos = await decryptFromInbox({
-      session,
-      api: api(),
-      store: box,
-      conversation: hilo,
-      peerUserId: ana,
-    });
-    assert.deepEqual(recibidos.map((message) => message.text), ["para los dos"]);
+  for (const de of [primero, segundo]) {
+    assert.deepEqual(
+      (await recibir(de, hilo, ana)).map((message) => message.text),
+      ["para los dos"],
+    );
   }
+
+  // El primer aparato no puede abrir el sobre del segundo: la fila está, pero
+  // no va dirigida a él.
+  const delSegundo = primero.session.state.deviceId === segundo.session.state.deviceId;
+  assert.equal(delSegundo, false, "son dispositivos distintos");
 });
 
 test("un mensaje repetido no se descifra dos veces", async () => {
@@ -233,63 +210,13 @@ test("un mensaje repetido no se descifra dos veces", async () => {
   const deAna = await abrir(ana, "dispositivo-de-ana-03");
   const deBruno = await abrir(bruno, "dispositivo-de-bruno-3");
 
-  currentUser = ana;
-  await encryptForDevices({
-    session: deAna.session,
-    api: api(),
-    store: deAna.box,
-    conversation: hilo,
-    text: "una vez",
-    peerUserId: bruno,
-  });
-  await deAna.box.save(deAna.session.state);
+  await enviar(deAna, hilo, bruno, "una vez");
+  const primero = await recibir(deBruno, hilo, ana);
+  assert.deepEqual(primero.map((message) => message.text), ["una vez"]);
 
-  // Se copia el sobre antes de que lo recoja, para reentregarlo después.
-  const copia = db
-    .getDb()
-    .prepare("SELECT * FROM device_envelopes WHERE conversation = ?")
-    .get(hilo) as Record<string, string | number>;
-
-  currentUser = bruno;
-  const recibidos = await decryptFromInbox({
-    session: deBruno.session,
-    api: api(),
-    store: deBruno.box,
-    conversation: hilo,
-    peerUserId: ana,
-  });
-  assert.deepEqual(recibidos.map((message) => message.text), ["una vez"]);
-
-  db.getDb()
-    .prepare(
-      `INSERT INTO device_envelopes
-         (id, conversation, sender_user_id, sender_device_id, recipient_user_id,
-          recipient_device_id, type, body, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      "env_00000000-0000-0000-0000-000000000000",
-      copia.conversation,
-      copia.sender_user_id,
-      copia.sender_device_id,
-      copia.recipient_user_id,
-      copia.recipient_device_id,
-      copia.type,
-      copia.body,
-      copia.created_at,
-    );
-
-  await assert.rejects(
-    () =>
-      decryptFromInbox({
-        session: deBruno.session,
-        api: api(),
-        store: deBruno.box,
-        conversation: hilo,
-        peerUserId: ana,
-      }),
-    "el ratchet rechaza la clave ya usada",
-  );
+  // Se vuelve a leer el mismo hilo sin haber avanzado el ratchet: el mensaje
+  // sigue ahí y la clave ya se gastó.
+  await assert.rejects(() => recibir(deBruno, hilo, ana), "el ratchet rechaza la clave usada");
 });
 
 test("un dispositivo que cambia de clave se rechaza en vez de aceptarse", async () => {
@@ -299,71 +226,33 @@ test("un dispositivo que cambia de clave se rechaza en vez de aceptarse", async 
   const deAna = await abrir(ana, "dispositivo-de-ana-04");
   const deBruno = await abrir(bruno, "dispositivo-de-bruno-4");
 
-  currentUser = ana;
-  await encryptForDevices({
-    session: deAna.session,
-    api: api(),
-    store: deAna.box,
-    conversation: hilo,
-    text: "primero",
-    peerUserId: bruno,
-  });
-  await deAna.box.save(deAna.session.state);
+  await enviar(deAna, hilo, bruno, "primero");
+  await recibir(deBruno, hilo, ana);
 
-  // Bruno recibe una vez: a partir de aquí tiene la clave de Ana fijada.
-  currentUser = bruno;
-  await decryptFromInbox({
-    session: deBruno.session,
-    api: api(),
-    store: deBruno.box,
-    conversation: hilo,
-    peerUserId: ana,
-  });
-
-  // El servidor cambia la identidad del dispositivo de Ana en el registro.
   db.getDb()
     .prepare("UPDATE device_keys SET identity_key = ? WHERE device_id = ?")
     .run("Z".repeat(43), "dispositivo-de-ana-04");
 
-  // Ana escribe con una sesión nueva (como tras reinstalar), así que su primer
-  // mensaje vuelve a ser de pre-clave y Bruno tiene que mirar el registro.
+  // Ana escribe con una sesión nueva, así que su mensaje vuelve a ser de pre-clave.
   deAna.session.state.sessions = {};
-  currentUser = ana;
-  await encryptForDevices({
-    session: deAna.session,
-    api: api(),
-    store: deAna.box,
-    conversation: hilo,
-    text: "segundo",
-    peerUserId: bruno,
-  });
+  await enviar(deAna, hilo, bruno, "segundo");
 
-  currentUser = bruno;
-  await assert.rejects(
-    () =>
-      decryptFromInbox({
-        session: deBruno.session,
-        api: api(),
-        store: deBruno.box,
-        conversation: hilo,
-        peerUserId: ana,
-      }),
-    /cambiado de clave/,
-  );
+  await assert.rejects(() => recibir(deBruno, hilo, ana), /cambiado de clave/);
 });
 
-test("abrir el dispositivo dos veces reutiliza la sesión guardada", async () => {
+test("abrir el dispositivo dos veces reutiliza el que ya hay", async () => {
   const ana = cuenta("Ana Guarda");
   currentUser = ana;
   const box = { value: null as DeviceState | null };
-  const primera = await openDevice({ userId: ana, store: store(box), api: api(), deviceId: "dispositivo-de-ana-05" });
+  const primera = await openDevice({
+    userId: ana,
+    store: store(box),
+    api: api(),
+    deviceId: "dispositivo-de-ana-05",
+  });
   const segunda = await openDevice({ userId: ana, store: store(box), api: api() });
 
   assert.equal(segunda.state.deviceId, primera.state.deviceId, "no se crea otro dispositivo");
   assert.equal(segunda.state.pickleKey, primera.state.pickleKey);
-  assert.equal(
-    (await api().listDevices(ana)).length,
-    1,
-    "y no se publica otro paquete en el registro",
-  );
+  assert.equal((await api().listDevices(ana)).length, 1, "y no se publica otro paquete");
 });

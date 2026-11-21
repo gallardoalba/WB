@@ -28,20 +28,24 @@
  * cifrado (`pickle`) en su propio almacén. El servidor solo ve el paquete
  * público.
  */
-import Olm from "@matrix-org/olm";
 import { bundleMessage, oneTimeKeyMessage } from "./e2e-v2-format";
+import { getOlm, type OlmFactory } from "./olm-runtime";
 
 export { bundleMessage, oneTimeKeyMessage };
 
-type Lib = {
-  init: (opts?: object) => Promise<void>;
+type Lib = Omit<OlmFactory, "Account" | "Session" | "Utility"> & {
   Account: new () => OlmAccount;
   Session: new () => OlmSession;
   Utility: new () => OlmUtility;
 };
 
-/** Los tipos publicados no exportan las clases; se declaran aquí. */
-const lib = Olm as unknown as Lib;
+/**
+ * libolm no se importa: se pide al cargador (`olm-runtime.ts`), porque el
+ * paquete trae ramas de Node que el empaquetador del navegador no sabe resolver.
+ */
+async function lib(): Promise<Lib> {
+  return (await getOlm()) as Lib;
+}
 
 export type OlmAccount = {
   create(): void;
@@ -111,15 +115,15 @@ const PADDING_BLOCK = 256;
 let ready: Promise<void> | null = null;
 
 /** Carga el WASM una sola vez por contexto. */
-export function init(): Promise<void> {
-  ready ??= lib.init();
+export async function init(): Promise<void> {
+  ready ??= lib().then((loaded) => loaded.init());
   return ready;
 }
 
 /** Cuenta de dispositivo nueva, con claves de un solo uso ya generadas. */
 export async function createAccount(oneTimeKeys = ONE_TIME_KEY_TARGET): Promise<OlmAccount> {
   await init();
-  const account = new lib.Account();
+  const account = new (await lib()).Account();
   account.create();
   account.generate_one_time_keys(oneTimeKeys);
   return account;
@@ -148,7 +152,8 @@ export async function verifySignature(
   signature: string,
 ): Promise<boolean> {
   await init();
-  const utility = new lib.Utility();
+  const { Utility } = await lib();
+  const utility = new Utility();
   try {
     utility.ed25519_verify(signingKey, message, signature);
     return true;
@@ -191,7 +196,8 @@ export function markKeysAsPublished(account: OlmAccount): void {
 /** Cuántas claves de un solo uso admite la cuenta; el cliente repone hasta ahí. */
 export async function oneTimeKeyCapacity(): Promise<number> {
   await init();
-  const probe = new lib.Account();
+  const { Account } = await lib();
+  const probe = new Account();
   probe.create();
   const max = probe.max_number_of_one_time_keys();
   probe.free();
@@ -243,7 +249,8 @@ export async function verifyBundle(bundle: DeviceBundle, pinned?: PinnedDevice):
  */
 export async function startSession(account: OlmAccount, bundle: DeviceBundle): Promise<OlmSession> {
   await init();
-  const session = new lib.Session();
+  const { Session } = await lib();
+  const session = new Session();
   session.create_outbound(account, bundle.identityKey, bundle.oneTimeKey.key);
   return session;
 }
@@ -276,7 +283,8 @@ export async function acceptSession(
 ): Promise<OlmSession> {
   await init();
   if (prekey.type !== 0) throw new Error("Un mensaje de pre-clave debe ser de tipo 0.");
-  const session = new lib.Session();
+  const { Session } = await lib();
+  const session = new Session();
   session.create_inbound_from(account, senderIdentityKey, prekey.body);
   account.remove_one_time_keys(session);
   return session;
@@ -349,7 +357,7 @@ export function pickleAccount(account: OlmAccount, key: string): string {
 
 export async function unpickleAccount(pickle: string, key: string): Promise<OlmAccount> {
   await init();
-  const account = new lib.Account();
+  const account = new (await lib()).Account();
   account.unpickle(key, pickle);
   return account;
 }
@@ -360,7 +368,8 @@ export function pickleSession(session: OlmSession, key: string): string {
 
 export async function unpickleSession(pickle: string, key: string): Promise<OlmSession> {
   await init();
-  const session = new lib.Session();
+  const { Session } = await lib();
+  const session = new Session();
   session.unpickle(key, pickle);
   return session;
 }

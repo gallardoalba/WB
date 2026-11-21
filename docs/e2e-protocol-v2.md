@@ -274,6 +274,9 @@ v2 does not hide who talks to whom. Concrete reductions, in order:
 
 ## 11. Migration
 
+0. While both protocols coexist, a client that has a v2 device **sends both**:
+   v1 envelopes for the platform slots and v2 envelopes for the devices. That is
+   what makes the rollout non-breaking, and it stops the day no slot is left.
 1. Clients publish a device bundle on first use; v1 `user_keys` rows become a
    read-only `web` device for existing accounts.
 2. A thread uses v2 as soon as both devices have a session; otherwise it stays
@@ -338,8 +341,7 @@ strong as Signal": the ratchet is comparable, and the layer around it is not.
 
 ## 14. Where the implementation stands
 
-Shipped in this release (server and client library; the interface still sends
-with v1):
+Shipped in this release:
 
 | Piece | Where | Tested in |
 |---|---|---|
@@ -352,10 +354,16 @@ with v1):
 | Envelope transport: store, list by device, acknowledge, retention | `src/lib/repo/envelopes.ts`, `/api/messages/v2*` | `tests/envelopes.test.ts` |
 | Client: open the device, send to every device, decrypt and acknowledge, pin peers | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
+| Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, `src/components/dialogs/exchange-dialog.tsx` | `tests/e2e-v2-device.test.ts` |
+| libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |
 
-Not implemented yet, and therefore **not** claimed by the documentation: the
-interface still sends and reads with v1 (the client library exists but nothing
-in the UI calls it), dual-read, safety numbers for v2 devices, club fan-out
+How far the interface goes: activating v2 in «Mi cuenta» publishes the device,
+and from then on exchanges **send both formats** (§11) and decrypt whatever
+arrives, so the rollout does not cut anyone off. Direct messages still send v1
+only.
+
+Not implemented yet, and therefore **not** claimed by the documentation:
+dropping v1 once the rollout ends, safety numbers for v2 devices, club fan-out
 (§8), consistency proofs and client-side verification of the log (§7). Until those ship, the interface keeps
 using v1 and the protections that depend on the ratchet — forward secrecy,
 sender authentication, anti-downgrade — are **not** in place in production.

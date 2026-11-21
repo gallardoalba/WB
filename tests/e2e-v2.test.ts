@@ -15,6 +15,8 @@
  * - el texto va rellenado a bloques y atado a su hilo, así que el tamaño no
  *   revela la longitud y un mensaje movido de conversación se rechaza.
  */
+import "./olm-setup.ts";
+
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

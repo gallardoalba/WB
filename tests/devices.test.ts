@@ -15,10 +15,14 @@
  * - cambiar la identidad descarta las claves de la cuenta anterior, y
  * - la tabla de claves pendientes tiene tope.
  */
+import "./olm-setup.ts";
+
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
+
+import "./olm-setup.ts";
 
 import * as v2 from "../src/lib/e2e-v2.ts";
 import { hashPasswordSync } from "../src/lib/password.ts";

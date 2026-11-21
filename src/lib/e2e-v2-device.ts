@@ -38,6 +38,17 @@ export type DeviceStore = {
   save(state: DeviceState): Promise<void>;
 };
 
+/** Un sobre v2 listo para viajar dentro de un mensaje. */
+export type OutgoingEnvelope = { recipientDeviceId: string; type: number; body: string };
+
+/** Un mensaje del hilo, con los sobres que trae y quién lo firmó. */
+export type ThreadMessage = {
+  id: string;
+  /** Dispositivo del remitente. En v2 es el `keyId` de la fila del mensaje. */
+  senderDeviceId: string;
+  envelopes: { keyId: string; ciphertext: string; protocol?: 1 | 2; type?: number }[];
+};
+
 /** Lo que el cliente necesita del servidor, para poder probarlo con dobles. */
 export type DeviceApi = {
   publish(input: {
@@ -52,18 +63,6 @@ export type DeviceApi = {
     { deviceId: string; identityKey: string; signingKey: string; bundleSignature: string }[]
   >;
   claim(userId: string, deviceId: string): Promise<v2.DeviceBundle>;
-  send(input: {
-    conversation: string;
-    senderDeviceId: string;
-    envelopes: { recipientDeviceId: string; type: number; body: string }[];
-  }): Promise<void>;
-  inbox(input: {
-    deviceId: string;
-    conversation: string;
-  }): Promise<
-    { id: string; senderUserId: string; senderDeviceId: string; type: number; body: string }[]
-  >;
-  ack(input: { deviceId: string; ids: string[] }): Promise<void>;
 };
 
 export type Session = { state: DeviceState; account: v2.OlmAccount };
@@ -171,16 +170,16 @@ export async function replenishKeys(
 export async function encryptForDevices(input: {
   session: Session;
   api: DeviceApi;
-  store: DeviceStore;
+  apiStore?: DeviceStore;
   conversation: string;
   text: string;
   peerUserId: string;
-}): Promise<void> {
+}): Promise<{ senderDeviceId: string; envelopes: OutgoingEnvelope[] }> {
   const { session, api, conversation, text, peerUserId } = input;
   const devices = await api.listDevices(peerUserId);
   if (devices.length === 0) throw new Error("La otra persona no tiene ningún dispositivo activo.");
 
-  const envelopes: { recipientDeviceId: string; type: number; body: string }[] = [];
+  const envelopes: OutgoingEnvelope[] = [];
   for (const device of devices) {
     const existing = session.state.sessions[device.deviceId];
     let sessionFor: v2.OlmSession;
@@ -200,65 +199,81 @@ export async function encryptForDevices(input: {
       );
     }
 
-    const envelope = v2.encrypt(sessionFor, { conversation: conversation, text });
-    envelopes.push({ recipientDeviceId: device.deviceId, type: envelope.type, body: envelope.body });
-    session.state.sessions[device.deviceId] = v2.pickleSession(sessionFor, session.state.pickleKey);
-    if (!session.state.pins[device.deviceId]) {
-      session.state.pins[device.deviceId] = {
-        identityKey: device.identityKey,
-        signingKey: device.signingKey,
-      };
-    }
+    const envelope = v2.encrypt(sessionFor, { conversation, text });
+    envelopes.push({
+      recipientDeviceId: device.deviceId,
+      type: envelope.type,
+      body: envelope.body,
+    });
+    session.state.sessions[device.deviceId] = v2.pickleSession(
+      sessionFor,
+      session.state.pickleKey,
+    );
+    session.state.pins[device.deviceId] ??= {
+      identityKey: device.identityKey,
+      signingKey: device.signingKey,
+    };
     if (existing) v2.forgetSession(sessionFor);
   }
 
-  await api.send({
-    conversation,
-    senderDeviceId: session.state.deviceId,
-    envelopes,
-  });
+  return { senderDeviceId: session.state.deviceId, envelopes };
 }
 
 /**
- * Descifra los sobres pendientes de este dispositivo y los confirma.
+ * Descifra los mensajes del hilo que traigan sobre para este dispositivo.
  *
  * El remitente de un mensaje de pre-clave se toma **del registro firmado**, no
- * del sobre: si se creyera al sobre, el servidor podría atribuir un mensaje a
- * cualquiera con solo escribirlo en una columna.
+ * de la fila del mensaje: si se creyera al servidor, podría atribuir un mensaje
+ * a cualquiera con solo escribir otro id.
+ *
+ * Los mensajes que no traen sobre de v2 para este aparato —los de v1, o los de
+ * otro dispositivo de la misma cuenta— se ignoran sin ruido: es lo normal
+ * mientras conviven los dos protocolos.
  */
-export async function decryptFromInbox(input: {
+export async function decryptThread(input: {
   session: Session;
   api: DeviceApi;
-  store: DeviceStore;
+  store?: DeviceStore;
   conversation: string;
   peerUserId: string;
-}): Promise<{ text: string; at: string }[]> {
-  const { session, api, conversation, peerUserId } = input;
-  const pending = await api.inbox({ deviceId: session.state.deviceId, conversation });
+  messages: ThreadMessage[];
+}): Promise<{ messageId: string; text: string }[]> {
+  const { session, api, conversation, peerUserId, messages } = input;
+  const mine = session.state.deviceId;
+
+  const pending = messages.filter((message) =>
+    message.envelopes.some(
+      (envelope) => envelope.protocol === 2 && envelope.keyId === mine,
+    ),
+  );
   if (pending.length === 0) return [];
 
   const registry = new Map(
     (await api.listDevices(peerUserId)).map((device) => [device.deviceId, device]),
   );
-  const ack: string[] = [];
-  const texts: { text: string; at: string }[] = [];
+  const texts: { messageId: string; text: string }[] = [];
 
-  for (const envelope of pending) {
-    const device = registry.get(envelope.senderDeviceId);
-    if (!device || envelope.senderUserId !== peerUserId) {
-      // No se confirma: si el registro no lo tiene, es un problema que hay que
-      // poder mirar, no algo que se descarta en silencio.
+  for (const message of pending) {
+    const envelope = message.envelopes.find(
+      (item) => item.protocol === 2 && item.keyId === mine,
+    )!;
+    const device = registry.get(message.senderDeviceId);
+    if (!device) {
+      // No se descarta en silencio: si el registro no lo tiene, es un problema
+      // que hay que poder mirar.
       throw new Error("Un mensaje viene de un dispositivo que no está en el registro.");
     }
-
-    const text = await openEnvelope(session, device, envelope, conversation);
-    texts.push({ text, at: new Date().toISOString() });
-    ack.push(envelope.id);
+    const text = await openEnvelope(
+      session,
+      device,
+      { type: envelope.type ?? 0, body: envelope.ciphertext },
+      conversation,
+    );
+    texts.push({ messageId: message.id, text });
   }
 
   session.state.account = v2.pickleAccount(session.account, session.state.pickleKey);
-  await input.store.save(session.state);
-  if (ack.length > 0) await api.ack({ deviceId: session.state.deviceId, ids: ack });
+  if (input.store) await input.store.save(session.state);
   return texts;
 }
 

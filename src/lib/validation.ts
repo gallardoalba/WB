@@ -441,15 +441,50 @@ const envelopeFields = {
  * (`envelopes`); los clientes anteriores a la v40 mandaban un único sobre en
  * `ciphertext`/`iv`, y se sigue aceptando para no romper una pestaña abierta.
  */
+/** Identificador del dispositivo v2: 16–64 caracteres seguros para una URL. */
+export const deviceIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");
+
+/**
+ * Sobres del protocolo v2 dentro de un mensaje.
+ *
+ * El cuerpo es el mensaje de libolm y no se mira: se acota el tamaño y la forma
+ * para que un envío no sea un vertedero. El servidor comprueba aparte que el
+ * dispositivo del remitente es suyo y que los destinatarios son de la otra
+ * parte, porque aquí no se sabe de quién es cada id.
+ */
+const deviceEnvelopeFields = z.object({
+  recipientDeviceId: deviceIdSchema,
+  type: z.union([z.literal(0), z.literal(1)]),
+  body: z
+    .string()
+    .min(1)
+    .max(64 * 1024, "El sobre es demasiado grande.")
+    .regex(/^[A-Za-z0-9+/=]+$/, "El sobre no es válido."),
+});
+
 export const encryptedMessageSchema = z
   .object({
-    keyId: envelopeFields.keyId,
+    keyId: envelopeFields.keyId.optional(),
     envelopes: z.array(z.object(envelopeFields)).min(1).max(4).optional(),
     ciphertext: envelopeFields.ciphertext.optional(),
     iv: envelopeFields.iv.optional(),
+    v2: z
+      .object({
+        senderDeviceId: deviceIdSchema,
+        envelopes: z
+          .array(deviceEnvelopeFields)
+          .min(1, "Falta el sobre cifrado.")
+          .max(20, "Demasiados dispositivos en un solo mensaje."),
+      })
+      .optional(),
   })
   .refine(
-    (value) => Boolean(value.envelopes?.length) || Boolean(value.ciphertext && value.iv),
+    (value) =>
+      Boolean(value.envelopes?.length) ||
+      Boolean(value.ciphertext && value.iv) ||
+      Boolean(value.v2),
     { message: "Falta el sobre cifrado.", path: ["envelopes"] },
   );
 
@@ -820,9 +855,6 @@ const oneTimeKeyId = z
   .string()
   .regex(/^[A-Za-z0-9+/]{1,16}$/, "El identificador de la clave no es válido.");
 
-export const deviceIdSchema = z
-  .string()
-  .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");
 
 export const publishDeviceSchema = z.object({
   identityKey: olmKey,

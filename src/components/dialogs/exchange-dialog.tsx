@@ -107,6 +107,18 @@ function trustPeerKeys(userId: string, keys: PeerKey[]): void {
   }
 }
 
+/**
+ * El protocolo v2 se carga aparte: arrastra libolm (WASM) y solo hace falta
+ * cuando este navegador tiene ya su dispositivo. Si no está, el hilo sigue
+ * funcionando con v1 exactamente igual que antes.
+ */
+let v2Module: Promise<typeof import("@/lib/e2e-v2-chat") | null> | null = null;
+async function getV2Module(): Promise<typeof import("@/lib/e2e-v2-chat") | null> {
+  v2Module ??= import("@/lib/e2e-v2-chat").catch(() => null);
+  const bridge = await v2Module;
+  return bridge && bridge.v2Supported() ? bridge : null;
+}
+
 /** Descifra una tanda de mensajes con la clave de este navegador. */
 async function decodePayload(
   messages: MessageView[],
@@ -269,6 +281,23 @@ export function ExchangeDialog({
       ...peerKeys.map((key) => key.publicJwk),
     ]);
     const decoded = await decodePayload(payload.messages, identity, peerKeys, conversationId);
+    // Lo que llegue cifrado con v2 se descifra con el dispositivo de este
+    // navegador. Si falla —o no hay dispositivo— se queda lo de v1, sin ruido.
+    const v2Decoded = await getV2Module()
+      .then((bridge) =>
+        bridge?.decryptV2({
+          userId: me.id,
+          peerUserId: peer.id,
+          conversation: `request:${conversationId}`,
+          messages: payload.messages.map((message) => ({
+            id: message.id,
+            senderDeviceId: message.keyId ?? "",
+            envelopes: message.envelopes,
+          })),
+        }),
+      )
+      .catch(() => undefined);
+    Object.assign(decoded, v2Decoded ?? {});
     return {
       peerKeys,
       privateKey: identity.privateKey,
@@ -503,9 +532,22 @@ export function ExchangeDialog({
         body,
         messageAad(requestId, thread.me.id, thread.myKeyId),
       );
+      // Mientras conviven los protocolos, el mismo texto sale en los dos
+      // formatos: v1 para las ranuras antiguas y v2 para los dispositivos.
+      // Así nadie se queda sin leer por actualizar tarde.
+      const v2 = await getV2Module()
+        .then((bridge) =>
+          bridge?.encryptV2({
+            userId: thread.me.id,
+            peerUserId: thread.peer.id,
+            conversation: `request:${requestId}`,
+            text: body,
+          }),
+        )
+        .catch(() => null);
       const data = await api<{ message: MessageView }>(`/api/requests/${requestId}/messages`, {
         method: "POST",
-        body: { keyId: thread.myKeyId, envelopes },
+        body: { keyId: thread.myKeyId, envelopes, ...(v2 ? { v2 } : {}) },
       });
       setThread({
         ...thread,

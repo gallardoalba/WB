@@ -4,7 +4,14 @@ import { ApiError } from "../errors";
 import type { DirectMessageView, DirectThreadView, MessageEnvelopeView } from "../domain";
 import { notify } from "./notifications";
 import { getUserById, listPublicKeyRecords, toPublicKeyEntries } from "./users";
-import { FALTAN_SOBRES, isBlocked, messageEnvelopesFor, nowIso } from "./shared";
+import {
+  assertV2Envelopes,
+  FALTAN_SOBRES,
+  isBlocked,
+  messageEnvelopesFor,
+  nowIso,
+  type V2MessageInput,
+} from "./shared";
 
 /**
  * Mensajes directos cifrados entre dos personas.
@@ -211,10 +218,11 @@ export function sendDirectMessage(
   viewerId: string,
   peerId: string,
   input: {
-    keyId: string;
+    keyId?: string;
     ciphertext?: string;
     iv?: string;
     envelopes?: MessageEnvelopeView[];
+    v2?: V2MessageInput;
   },
 ): DirectMessageView {
   if (!canDirectMessage(viewerId, peerId)) {
@@ -223,42 +231,48 @@ export function sendDirectMessage(
   if (isBlocked(viewerId, peerId) || isBlocked(peerId, viewerId)) {
     throw new ApiError(403, "No puedes escribir a esta persona.");
   }
-  const senderKeys = listPublicKeyRecords(viewerId);
-  if (senderKeys.length === 0) {
-    throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
-  }
-  if (!senderKeys.some((key) => key.keyId === input.keyId)) {
-    throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
-  }
-  const peerKeys = listPublicKeyRecords(peerId);
-  if (peerKeys.length === 0) {
-    throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
-  }
+  if (input.v2) assertV2Envelopes(viewerId, peerId, input.v2);
 
   const envelopes = input.envelopes ?? [];
-  if (envelopes.length > 0) {
-    const allowed = new Set(peerKeys.map((key) => key.keyId));
-    const seen = new Set<string>();
-    for (const envelope of envelopes) {
-      if (!allowed.has(envelope.keyId)) {
-        throw new ApiError(400, "Hay un sobre dirigido a una clave que no es de la otra persona.");
-      }
-      if (seen.has(envelope.keyId)) {
-        throw new ApiError(400, "Hay dos sobres para la misma clave.");
-      }
-      seen.add(envelope.keyId);
+  const usesV1 = Boolean(input.keyId) || envelopes.length > 0 || Boolean(input.ciphertext && input.iv);
+  if (usesV1) {
+    const senderKeys = listPublicKeyRecords(viewerId);
+    if (senderKeys.length === 0) {
+      throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
     }
-    // Igual que en los intercambios: sin sobre para cada clave activa, algún
-    // dispositivo del destinatario se quedaría fuera del mensaje.
-    if (peerKeys.some((key) => !seen.has(key.keyId))) {
-      throw new ApiError(409, FALTAN_SOBRES);
+    if (!input.keyId || !senderKeys.some((key) => key.keyId === input.keyId)) {
+      throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
     }
-  } else if (!input.ciphertext || !input.iv) {
+    const peerKeys = listPublicKeyRecords(peerId);
+    if (peerKeys.length === 0) {
+      throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
+    }
+    if (envelopes.length > 0) {
+      const allowed = new Set(peerKeys.map((key) => key.keyId));
+      const seen = new Set<string>();
+      for (const envelope of envelopes) {
+        if (!allowed.has(envelope.keyId)) {
+          throw new ApiError(400, "Hay un sobre dirigido a una clave que no es de la otra persona.");
+        }
+        if (seen.has(envelope.keyId)) {
+          throw new ApiError(400, "Hay dos sobres para la misma clave.");
+        }
+        seen.add(envelope.keyId);
+      }
+      // Igual que en los intercambios: sin sobre para cada clave activa, algún
+      // dispositivo del destinatario se quedaría fuera del mensaje.
+      if (peerKeys.some((key) => !seen.has(key.keyId))) {
+        throw new ApiError(409, FALTAN_SOBRES);
+      }
+    }
+  }
+  if (usesV1 && envelopes.length === 0 && !(input.ciphertext && input.iv)) {
     throw new ApiError(400, "Falta el sobre cifrado.");
   }
+  if (!usesV1 && !input.v2) throw new ApiError(400, "Falta el sobre cifrado.");
   // Sin sobres es un cliente anterior a la v40: se guarda su único sobre en
   // las columnas de siempre para que su historial siga leyéndose.
-  const legacy = envelopes.length === 0;
+  const legacy = usesV1 && envelopes.length === 0;
 
   const db = getDb();
   const [user_a, user_b] = pair(viewerId, peerId);
@@ -284,14 +298,18 @@ export function sendDirectMessage(
       viewerId,
       legacy ? input.ciphertext : null,
       legacy ? input.iv : null,
-      input.keyId,
+      input.v2 ? input.v2.senderDeviceId : (input.keyId ?? null),
       now,
     );
     const insertEnvelope = db.prepare(
-      "INSERT INTO dm_message_envelopes (message_id, key_id, ciphertext, iv) VALUES (?, ?, ?, ?)",
+      `INSERT INTO dm_message_envelopes (message_id, key_id, ciphertext, iv, protocol, type)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     );
     for (const envelope of envelopes) {
-      insertEnvelope.run(id, envelope.keyId, envelope.ciphertext, envelope.iv);
+      insertEnvelope.run(id, envelope.keyId, envelope.ciphertext, envelope.iv, 1, null);
+    }
+    for (const envelope of input.v2?.envelopes ?? []) {
+      insertEnvelope.run(id, envelope.recipientDeviceId, envelope.body, "", 2, envelope.type);
     }
     // Quien escribe ha leído lo suyo.
     markRead(db, row.id, viewerId);

@@ -7,6 +7,8 @@
  * cualquier cambio —una clave nueva, una línea retocada, una raíz reescrita—
  * se nota.
  */
+import "./olm-setup.ts";
+
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test } from "node:test";
@@ -16,6 +18,8 @@ import * as repo from "../src/lib/repo.ts";
 import * as transparency from "../src/lib/transparency.ts";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
+
+import "./olm-setup.ts";
 
 const keyPair = () => {
   const { privateKey } = generateKeyPairSync("ed25519");

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // libolm compilado: lo copia `scripts/olm-assets.ts` y no es nuestro.
+    "public/olm/**",
   ]),
 ]);
 

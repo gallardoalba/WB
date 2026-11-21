@@ -2157,40 +2157,27 @@ function migrateToV65(db: Db) {
 }
 
 /**
- * v66: sobres del protocolo v2, uno por dispositivo destinatario.
+ * v66: los sobres del protocolo v2 caben en las tablas que ya hay.
  *
- * El servidor guarda el cuerpo tal cual y no puede abrirlo. Lo que sí decide es
- * **a quién** se lo entrega: cada fila nombra un dispositivo concreto, así que
- * un mensaje para un dispositivo no se sirve a otro de la misma cuenta.
- *
- * `sender_device_id` va aparte de la cuenta porque el receptor necesita saber
- * qué dispositivo firmó el pre-clave; la clave de identidad no se guarda aquí:
- * el receptor la saca del registro de dispositivos y la verifica, que es lo que
- * impide que este servidor invente remitentes.
+ * Un mensaje siempre fue «una fila por mensaje y un sobre por destinatario»; lo
+ * que cambia con v2 es que el destinatario es un **dispositivo** y el cuerpo es
+ * un mensaje de libolm, no un AES-GCM. Se añade `protocol` (1 = v1 por ranura,
+ * 2 = v2 por dispositivo) y `type` (pre-clave o mensaje del ratchet) en vez de
+ * duplicar tablas: así el hilo, los no leídos, los avisos, la exportación y la
+ * purga siguen valiendo para los dos formatos sin tocar nada más.
  */
 function migrateToV66(db: Db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS device_envelopes (
-      id TEXT PRIMARY KEY,
-      conversation TEXT NOT NULL,
-      sender_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      sender_device_id TEXT NOT NULL,
-      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      recipient_device_id TEXT NOT NULL,
-      type INTEGER NOT NULL,
-      body TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS device_envelopes_inbox
-      ON device_envelopes(recipient_user_id, recipient_device_id, created_at);
-
-    CREATE INDEX IF NOT EXISTS device_envelopes_conversation
-      ON device_envelopes(conversation, created_at);
-
-    CREATE INDEX IF NOT EXISTS device_envelopes_created
-      ON device_envelopes(created_at);
-  `);
+  // Se comprueba antes de añadir: una base restaurada de una copia ya migrada, o
+  // una instalación nueva que nace con el esquema completo, traen las columnas.
+  const addColumn = (table: string, column: string, definition: string) => {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (columns.some((existing) => existing.name === column)) return;
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  };
+  addColumn("message_envelopes", "protocol", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("message_envelopes", "type", "INTEGER");
+  addColumn("dm_message_envelopes", "protocol", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("dm_message_envelopes", "type", "INTEGER");
   db.pragma("user_version = 66");
 }
 

@@ -55,7 +55,10 @@
     "test:e2e:smoke": "playwright test --project=firefox-smoke --project=webkit-smoke",
     "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\"",
     "audit:dev": "node --import tsx scripts/audit-dev.ts",
-    "db:works": "node --import tsx scripts/works-report.ts"
+    "db:works": "node --import tsx scripts/works-report.ts",
+    "predev": "node --import tsx scripts/olm-assets.ts",
+    "prebuild": "node --import tsx scripts/olm-assets.ts",
+    "olm:assets": "node --import tsx scripts/olm-assets.ts"
   },
   "engines": {
     "node": ">=24"
