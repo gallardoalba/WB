@@ -230,6 +230,14 @@ test("ninguna ruta se queda sin traducir los errores a JSON", () => {
   assert.deepEqual(missing, [], `rutas sin manejo de errores: ${missing.join(", ")}`);
 });
 
+test("todas las rutas JSON pasan por el envoltorio", () => {
+  // La migración está terminada: una ruta nueva que se salte `route()` vuelve a
+  // repartir la sesión, la cuota y los errores por su cuenta. Las imágenes OG
+  // (`route.tsx`) no son API JSON y no entran en este recuento.
+  const sueltas = ROUTES.filter((file) => !/=\s*route[<(]/.test(readFileSync(file, "utf8")));
+  assert.deepEqual(sueltas, [], `rutas fuera del envoltorio: ${sueltas.join(", ")}`);
+});
+
 test("quien cambia lo que se ve en los agregados públicos invalida la caché", () => {
   // `publicActivity` cachea el nombre de quien publica y `publicStats` los
   // recuentos: editar el perfil o borrar la cuenta tiene que invalidar el tag.

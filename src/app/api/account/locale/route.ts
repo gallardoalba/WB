@@ -1,23 +1,14 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { setUserLocale } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
 import { localeSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /** Guarda el idioma elegido; sin sesión el selector usa solo la cookie. */
-export async function POST(request: Request) {
-  try {
-    const user = await requireUser();
-    guard(request, {
-      bucket: "account:locale",
-      key: user.id,
-      limit: 120,
-      windowMs: 60 * 60 * 1000,
-    });
+export const POST = route(
+  { limit: { bucket: "account:locale", limit: 120, windowMs: 60 * 60 * 1000 } },
+  async ({ request, user }) => {
     const { locale } = localeSchema.parse(await readJson(request));
     setUserLocale(user.id, locale);
     return json({ locale });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

@@ -302,18 +302,6 @@
   font-size: 13px;
 }
 
-.page-footer > span:last-child {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.footer-dot {
-  width: 5px;
-  height: 5px;
-  background: var(--green);
-}
-
 /* Enlace al commit desplegado: mismo peso que el resto del pie, pero con
    subrayado para que se vea que se puede abrir. */
 .footer-build a {

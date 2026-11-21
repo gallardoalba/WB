@@ -550,6 +550,29 @@ the `/api/requests` redirect loop appeared.
     npm run db:verify -- ~/backups/wanderbibliothek-2026-11-14T03-20-00-000Z.db.enc
   ```
 
+- **Bare-metal drill**: `npm run db:restore-drill` goes one step further. It
+  decrypts the backup into an **empty** directory, opens it as a fresh install
+  would and applies the current code's migrations. It fails on a corrupt backup,
+  a broken foreign key, a missing table or a backup from a **newer** schema
+  (restoring that with the old release would lose data). `deploy/restore-drill.sh`
+  wraps it and, when `WANDERBIBLIOTHEK_IMAGE` (pinned by digest) and
+  `WANDERBIBLIOTHEK_DRILL_ENV` are set, boots that image against the restored
+  directory on a spare port and waits for `/api/health` and `/api/version`:
+
+  ```bash
+  WANDERBIBLIOTHEK_BACKUP_KEY="$(cat ~/.config/wanderbibliothek/backup-key)" \
+    ./deploy/restore-drill.sh ~/backups/wanderbibliothek-2026-11-14T03-20-00-000Z.db.enc
+
+  # Including the boot step (env-file with the production secrets, plain KEY=value):
+  WANDERBIBLIOTHEK_BACKUP_KEY=… WANDERBIBLIOTHEK_IMAGE="$(cat /etc/wanderbibliothek/image.env | sed -n 's/^WANDERBIBLIOTHEK_IMAGE=//p')" \
+    WANDERBIBLIOTHEK_DRILL_ENV=/root/wb-drill.env ./deploy/restore-drill.sh /ruta/copia.db.enc
+  ```
+
+  The drill never touches the live data directory: it works on a temporary
+  directory, binds the container to `127.0.0.1`, and removes everything on exit.
+  Run it on a clean host (or at least with an empty directory) before trusting a
+  backup; the weekly `db:verify` timer only proves the file is readable.
+
 Restore (rehearse it before you need it):
 
 ```bash

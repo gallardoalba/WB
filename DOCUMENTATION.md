@@ -28,8 +28,8 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 931 unit and integration tests (120 files)
-e2e/                   64 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
+tests/                 968 unit and integration tests (124 files)
+e2e/                   66 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 81 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, but today it covers 22 of the 110 exported methods (15 of the 81 route files); the rest keep that ceremony by hand pending migration. `tests/route.test.ts` checks on the files that no route leaves errors untranslated and that every mutation checks the origin — not that it already uses the wrapper.
+The API has 81 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 110 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -119,15 +119,15 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 ## Security
 
 - Passwords with asynchronous `scrypt` and a unique salt, with the parameters stored in the hash itself (`scrypt$N,r,p$salt$hash`) so they can be raised later without locking anyone out; the previous format is still verified and rehashed at the next sign-in; sign-in always verifies a hash (against a decoy when the account does not exist), so response time does not reveal which addresses are registered.
-- Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (`web` and `android`); the sender stores one envelope per recipient key, so the browser and the app can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification.
+- Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (the browser uses the `web` slot); the sender stores one envelope per recipient key, so several devices of the same account can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification. The protocol, its threat model and the accepted limitations are in [`docs/e2e-protocol.md`](docs/e2e-protocol.md).
 - The browser keeps **one identity per account** (`identity-v2:<userId>` in IndexedDB), never one per browser: two accounts that share a device must not share a key pair. The single identity of older versions is adopted once, and only for the account whose published `web` key is that same key; after that it is marked as taken, so the second account creates its own and has to confirm the password to publish it.
-- What that encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change and both clients, not a patch.
+- What that encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change, not a patch.
 - 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted, and the database only stores its SHA-256.
 - Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation and administration in production; secrets are stored encrypted.
 - Server-side secrets (TOTP, and the historical shipping columns) use AES-256-GCM with a key ring (`APP_ENCRYPTION_KEY`, `APP_ENCRYPTION_OLD_KEYS`) and an AAD that binds each value to its row and column. In production a value stored in plain text is a configuration error, not something to read silently: `decryptSecret()` throws and `npm run rotate:secrets` encrypts the leftovers.
 - Sanctions carry a reason and a duration (1–365 days); the email includes a single-use 30-day appeal link. The person who imposed the sanction cannot review the appeal.
 - Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.
-- Every mutation goes through `guard()` (origin and quota), and `readJson()` requires `application/json` and truncates bodies over 64 KB.
+- Every route goes through `route()` (`src/lib/route.ts`), which resolves the session, validates the body, applies the same-origin guard to every mutation, counts the quota and translates errors. File-level tests in `tests/route.test.ts` fail if a new route skips the wrapper, if one leaves errors untranslated or if a mutation does not check the origin. `readJson()` requires `application/json` and truncates bodies over 64 KB.
 - CSP with nonce and `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and HSTS in production (`src/proxy.ts`).
 - Directory `0700` and database `0600`; `npm run db:backup` uses SQLite's `.backup()` API and encrypts with AES-256-GCM when `WANDERBIBLIOTHEK_BACKUP_KEY` is set.
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
@@ -216,7 +216,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 931 unit and integration tests in 120 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 64 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 968 unit and integration tests in 124 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -286,6 +286,7 @@ APP_ENCRYPTION_KEY=<new> APP_ENCRYPTION_OLD_KEYS=<old> \
 - [`README.md`](README.md) — what the project is, its principles and how to run it.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — environment, quality commands, commit conventions and migration rules.
 - [`GOVERNANCE.md`](GOVERNANCE.md) — roles, moderation, sanctions and appeals.
+- [`docs/e2e-protocol.md`](docs/e2e-protocol.md) — messaging protocol, threat model and the accepted limitations (no forward secrecy, TOFU keys, no sender signatures).
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and self-hosting notes.
 - [`deploy/README.md`](deploy/README.md) — step-by-step deployment with systemd, nginx and TLS.
 - [`LICENSE`](LICENSE) — AGPL-3.0.

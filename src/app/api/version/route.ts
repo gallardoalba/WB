@@ -1,8 +1,7 @@
 import { connection } from "next/server";
-
-import { handleApiError } from "@/lib/api";
 import { REPOSITORY } from "@/lib/brand";
 import { readBuildInfo } from "@/lib/build-info";
+import { route } from "@/lib/route";
 
 /**
  * Qué commit y qué imagen dice estar sirviendo esta instancia.
@@ -11,8 +10,9 @@ import { readBuildInfo } from "@/lib/build-info";
  * consulta quien quiere contrastar el despliegue con el repositorio y lo puede
  * leer cualquier verificador sin sesión.
  */
-export async function GET() {
-  try {
+export const GET = route<undefined, "none">(
+  { auth: "none" },
+  async ({}) => {
     // Saca la ruta del prerender: el valor depende del entorno del proceso y no
     // debe quedar congelado en el build. Fuera de una petición (pruebas) no hay
     // nada que esperar.
@@ -36,7 +36,5 @@ export async function GET() {
         headers: { "cache-control": "public, max-age=60" },
       },
     );
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

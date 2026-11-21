@@ -1,9 +1,9 @@
-import { handleApiError } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+
+
 import { ApiError } from "@/lib/errors";
 import { acquireStream, onRequestMessage, releaseStream } from "@/lib/live";
 import { requestMessageStamp } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
 /**
  * Mensajería en vivo con Server-Sent Events.
@@ -17,19 +17,11 @@ import { guard } from "@/lib/throttle";
  * detección sigue siendo correcta porque se consulta la base de datos, no una
  * memoria local.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ requestId: string }> },
-) {
-  try {
-    const user = await requireUser();
-    const { requestId } = await params;
-    guard(request, {
-      bucket: "request:events",
-      key: user.id,
-      limit: 300,
-      windowMs: 60 * 60 * 1000,
-    });
+export const GET = route<undefined, "user", { requestId: string }>(
+  { limit: { bucket: "request:events", limit: 300, windowMs: 60 * 60 * 1000 } },
+  ({ request, params, user }) => {
+    const { requestId } = params;
+
     const initial = requestMessageStamp(requestId, user.id);
     // Una pestaña necesita un flujo; el resto serían consultas a la base sin
     // utilidad. Se limita lo simultáneo, no solo las aperturas por hora.
@@ -114,7 +106,5 @@ export async function GET(
         "x-accel-buffering": "no",
       },
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

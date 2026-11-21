@@ -1,9 +1,8 @@
 import { connection } from "next/server";
-
-import { handleApiError } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { latestSnapshot, readPayload } from "@/lib/transparency";
 import { clientKey, hasClientIp, hit } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
 /**
  * Contenido exacto de una instantánea, en NDJSON y sin sesión.
@@ -12,8 +11,9 @@ import { clientKey, hasClientIp, hit } from "@/lib/throttle";
  * lo descarga puede recalcular el hash y la raíz de Merkle sin fiarse de esta
  * respuesta, que además los anuncia en cabeceras para una comprobación rápida.
  */
-export async function GET(request: Request) {
-  try {
+export const GET = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     try {
       await connection();
     } catch {
@@ -59,7 +59,5 @@ export async function GET(request: Request) {
         "content-disposition": `attachment; filename="wanderbibliothek-${target.snapshot.id}.ndjson"`,
       },
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

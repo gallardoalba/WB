@@ -1,12 +1,7 @@
-import { handleApiError, json } from "@/lib/api";
-import { requireAdmin } from "@/lib/auth";
+import { json } from "@/lib/api";
 import { listReports } from "@/lib/repo";
+import { route } from "@/lib/route";
 
-export async function GET() {
-  try {
-    await requireAdmin();
-    return json({ reports: listReports() }, 200, { "cache-control": "no-store" });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+export const GET = route({ auth: "admin" }, () =>
+  json({ reports: listReports() }, 200, { "cache-control": "no-store" }),
+);

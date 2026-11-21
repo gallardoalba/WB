@@ -2,17 +2,19 @@ import { createHash } from "node:crypto";
 import { after } from "next/server";
 import { sendPasswordResetEmail } from "@/lib/account-tokens";
 import { processOutbox } from "@/lib/outbox";
-import { handleApiError, json, readJson } from "@/lib/api";
+import { json, readJson } from "@/lib/api";
 import { getUserWithPassword } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { forgotPasswordSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /**
  * Pide un enlace de recuperación. Responde siempre lo mismo para no revelar si
  * el correo está registrado.
  */
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     // Cuota global alta como válvula de seguridad; la cuota real es por correo,
     // así nadie puede agotar la recuperación para todo el sitio.
     guard(request, {
@@ -46,7 +48,5 @@ export async function POST(request: Request) {
       ok: true,
       message: "Si ese correo tiene cuenta, te hemos enviado un enlace para elegir otra contraseña.",
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

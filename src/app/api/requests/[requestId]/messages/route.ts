@@ -1,43 +1,30 @@
 import { after } from "next/server";
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { processOutbox } from "@/lib/outbox";
 import { addEncryptedMessage, conversationKeys, listMessages } from "@/lib/repo";
-import { guard, hit } from "@/lib/throttle";
+import { hit } from "@/lib/throttle";
 import { encryptedMessageSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ requestId: string }> },
-) {
-  try {
-    const user = await requireUser();
+export const GET = route<undefined, "user", { requestId: string }>(
+  {},
+  ({ request, params, user }) => {
     // Lectura con cuota: el hilo se puede sondear y no debe ser un amplificador.
     hit({ bucket: "message:list", key: user.id, limit: 600, windowMs: 60 * 60 * 1000 });
-    const { requestId } = await params;
+    const { requestId } = params;
     const beforeId = new URL(request.url).searchParams.get("before");
     const page = listMessages(requestId, user.id, { beforeId });
     // Las claves públicas viajan con el hilo: el cliente deriva el secreto
     // compartido sin una petición extra.
     return json({ ...page, keys: conversationKeys(requestId, user.id) });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ requestId: string }> },
-) {
-  try {
-    const user = await requireUser();
-    const { requestId } = await params;
-    guard(request, {
-      bucket: "message:create",
-      key: user.id,
-      limit: 120,
-      windowMs: 60 * 60 * 1000,
-    });
+export const POST = route<undefined, "user", { requestId: string }>(
+  { limit: { bucket: "message:create", limit: 120, windowMs: 60 * 60 * 1000 } },
+  async ({ request, params, user }) => {
+    const { requestId } = params;
+
     const payload = await readJson(request);
     // Solo se aceptan mensajes cifrados. El esquema exige `envelopes` (un sobre
     // por clave activa del destinatario) o el `ciphertext`/`iv` de las pestañas
@@ -49,7 +36,5 @@ export async function POST(
       });
     });
     return json({ message }, 201);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

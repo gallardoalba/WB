@@ -1,17 +1,15 @@
 import { cookies } from "next/headers";
-import { handleApiError, json, readJson } from "@/lib/api";
-import { createSession, destroyUserSessions, requireUser, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
+import { createSession, destroyUserSessions, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { changePassword, getUserWithPassword } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
 import { passwordChangeSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function PATCH(request: Request) {
-  try {
-    const user = await requireUser();
-    guard(request, { bucket: "account:password", key: user.id, limit: 5, windowMs: 60 * 60 * 1000 });
-
+export const PATCH = route(
+  { limit: { bucket: "account:password", limit: 5, windowMs: 60 * 60 * 1000 } },
+  async ({ request, user }) => {
     const { currentPassword, newPassword } = passwordChangeSchema.parse(await readJson(request));
     const account = getUserWithPassword(user.email);
     if (!account || !(await verifyPassword(currentPassword, account.passwordHash))) {
@@ -25,7 +23,5 @@ export async function PATCH(request: Request) {
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions());
 
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

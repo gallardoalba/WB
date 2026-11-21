@@ -1,4 +1,4 @@
-import { handleApiError, json } from "@/lib/api";
+import { json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { processSocialOutbox, purgeSocialOutbox } from "@/lib/mastodon";
 import { processLikes, purgeSocialLikes } from "@/lib/mastodon-likes";
@@ -7,6 +7,7 @@ import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
 import { ensureDailySnapshot } from "@/lib/transparency";
+import { route } from "@/lib/route";
 
 /**
  * Tareas periódicas para un cron externo:
@@ -15,8 +16,9 @@ import { ensureDailySnapshot } from "@/lib/transparency";
  * Sin `MAINTENANCE_TOKEN` configurado el endpoint responde 404 (no existe) para
  * no abrir una tarea de escritura anónima.
  */
-export async function POST(request: Request) {
-  try {
+export const POST = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     const token = process.env.MAINTENANCE_TOKEN;
     if (!token) throw new ApiError(404, "No encontrado.");
 
@@ -75,7 +77,5 @@ export async function POST(request: Request) {
       transparency,
       ...maintenance,
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

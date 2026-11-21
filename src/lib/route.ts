@@ -48,7 +48,7 @@ type Cuota = {
 
 type Opciones<S extends z.ZodType | undefined> = {
   /** `"none"` no consulta la sesión (salud, ISBN, portadas). */
-  auth?: "user" | "optional" | "admin" | "none";
+  auth?: "user" | "optional" | "admin" | "moderator" | "none";
   /** Cuerpo JSON validado antes de entrar al manejador. */
   body?: S;
   /** Cuota aplicada antes del manejador. */
@@ -75,7 +75,7 @@ type Manejador<A, S, P> = (contexto: Contexto<A, S, P>) => Promise<Response> | R
 
 export function route<
   S extends z.ZodType | undefined = undefined,
-  A extends "user" | "optional" | "admin" | "none" = "user",
+  A extends "user" | "optional" | "admin" | "moderator" | "none" = "user",
   P = undefined,
 >(options: Opciones<S> & { auth?: A }, handler: Manejador<A, S, P>) {
   return async function handler_for_next(
@@ -100,9 +100,11 @@ export function route<
         // llamar a `requireAdmin()` dentro del manejador. La carga es perezosa
         // porque `auth.ts` está marcado `server-only` y el envoltorio también se
         // usa en pruebas fuera del servidor de Next.
-        const { getSessionUser, requireAdmin, requireUser } = await import("./auth");
+        const { getSessionUser, requireAdmin, requireModerator, requireUser } =
+          await import("./auth");
         if (options.auth === "optional") user = (await getSessionUser()) as UsuarioDe<A>;
         else if (options.auth === "admin") user = (await requireAdmin()) as UsuarioDe<A>;
+        else if (options.auth === "moderator") user = (await requireModerator()) as UsuarioDe<A>;
         else user = (await requireUser()) as UsuarioDe<A>;
       }
 

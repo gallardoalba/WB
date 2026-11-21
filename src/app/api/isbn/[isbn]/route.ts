@@ -1,12 +1,11 @@
-import { handleApiError, json } from "@/lib/api";
+import { json } from "@/lib/api";
 import { bookByIsbn, booksForWorkKeys } from "@/lib/repo";
 import { clientKey, hasClientIp, hit } from "@/lib/throttle";
 import { fetchIsbnMetadata, tagsFromSubjects } from "@/lib/isbn-metadata";
 import { TAGS, tagsForCategory } from "@/lib/domain";
 import { workKeyFromOpenLibrary, workKeyFromTitle } from "@/lib/work";
 import { isValidIsbn, normalizeIsbn } from "@/lib/text";
-
-type Context = { params: Promise<{ isbn: string }> };
+import { route } from "@/lib/route";
 
 /**
  * ¿Qué dice este ISBN?
@@ -20,15 +19,16 @@ type Context = { params: Promise<{ isbn: string }> };
  *
  * La consulta externa la hace el servidor: el navegador no habla con terceros.
  */
-export async function GET(request: Request, { params }: Context) {
-  try {
+export const GET = route<undefined, "none", { isbn: string }>(
+  { auth: "none" },
+  async ({ request, params }) => {
     // Es una lectura pública; se limita para que no sirva de oráculo masivo.
     if (hasClientIp()) {
       hit({ bucket: "isbn:lookup:ip", key: clientKey(request), limit: 120, windowMs: 60_000 });
     } else {
       hit({ bucket: "isbn:lookup", key: "all", limit: 600, windowMs: 60_000 });
     }
-    const isbn = normalizeIsbn((await params).isbn);
+    const isbn = normalizeIsbn(params.isbn);
     if (!isbn || !isValidIsbn(isbn)) return json({ book: null, metadata: null, editions: [] });
 
     const book = bookByIsbn(isbn);
@@ -63,7 +63,5 @@ export async function GET(request: Request, { params }: Context) {
         isbn: edition.isbn,
       })),
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

@@ -1,5 +1,4 @@
-import { handleApiError, json } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json } from "@/lib/api";
 import { toJpeg } from "@/lib/cover-convert";
 import { uploadedCoverResponse } from "@/lib/cover-response";
 import {
@@ -16,7 +15,7 @@ import {
   setBookCoverUrl,
 } from "@/lib/repo";
 import { invalidatePublicData } from "@/lib/revalidate";
-import { guard } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
 /** Una portada pesa poco: 4 MB es de sobra para una foto de la contraportada. */
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -28,17 +27,13 @@ const MAX_BYTES = 4 * 1024 * 1024;
  * creado por una persona, no de una edición concreta: `books.cover_url` apunta
  * aquí y todas las copias de esa obra enseñan la misma.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
-  try {
-    const { bookId } = await params;
+export const GET = route<undefined, "none", { bookId: string }>(
+  { auth: "none" },
+  ({ request, params }) => {
+    const { bookId } = params;
     return uploadedCoverResponse(bookId, request);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
 /**
  * Sube la portada de una obra. El cuerpo es la imagen en crudo (`PUT` con
@@ -50,14 +45,10 @@ export async function GET(
  * antes de guardar, de modo que la política de almacenamiento sigue siendo una
  * sola (`saveUploadedCover`) venga la imagen de donde venga.
  */
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
-  try {
-    const user = await requireUser();
-    const { bookId } = await params;
-    guard(request, { bucket: "cover:upload", key: user.id, limit: 20, windowMs: 24 * 60 * 60 * 1000 });
+export const PUT = route<undefined, "user", { bookId: string }>(
+  { limit: { bucket: "cover:upload", limit: 20, windowMs: 24 * 60 * 60 * 1000 } },
+  async ({ request, params, user }) => {
+    const { bookId } = params;
 
     if (!bookExists(bookId)) throw new ApiError(404, "Esa obra no existe.");
     if (!canManageBookCover(bookId, user.id, user.isAdmin)) {
@@ -105,20 +96,14 @@ export async function PUT(
     setBookCoverUrl(bookId, coverUrl);
     invalidatePublicData();
     return json({ coverUrl });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
 /** Quita la portada subida y deja la ficha sin imagen hasta que se suba otra. */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
-  try {
-    const user = await requireUser();
-    const { bookId } = await params;
-    guard(request, { bucket: "cover:upload", key: user.id, limit: 20, windowMs: 24 * 60 * 60 * 1000 });
+export const DELETE = route<undefined, "user", { bookId: string }>(
+  { limit: { bucket: "cover:upload", limit: 20, windowMs: 24 * 60 * 60 * 1000 } },
+  ({ params, user }) => {
+    const { bookId } = params;
 
     if (!bookExists(bookId)) throw new ApiError(404, "Esa obra no existe.");
     if (!canManageBookCover(bookId, user.id, user.isAdmin)) {
@@ -129,7 +114,5 @@ export async function DELETE(
     resetBookCover(bookId);
     invalidatePublicData();
     return json({ coverUrl: null });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

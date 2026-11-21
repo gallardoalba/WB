@@ -211,8 +211,7 @@
   letter-spacing: 0.07em;
 }
 
-.eyebrow-dot,
-.footer-dot {
+.eyebrow-dot {
   width: 6px;
   height: 6px;
   display: inline-block;

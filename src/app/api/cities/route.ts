@@ -1,6 +1,7 @@
-import { handleApiError, json } from "@/lib/api";
+import { json } from "@/lib/api";
 import { searchCities } from "@/lib/city-search";
 import { clientKey, hasClientIp, hit } from "@/lib/throttle";
+import { route } from "@/lib/route";
 
 /**
  * Sugerencias de ciudad para el formulario (alta, perfil, libros y clubes).
@@ -9,8 +10,9 @@ import { clientKey, hasClientIp, hit } from "@/lib/throttle";
  * cuenta. Con cuota, porque el selector la llama mientras se escribe y sin
  * límite una sola persona podría barrer el callejero entero.
  */
-export async function GET(request: Request) {
-  try {
+export const GET = route<undefined, "none">(
+  { auth: "none" },
+  async ({ request }) => {
     if (hasClientIp()) {
       hit({ bucket: "cities:search:ip", key: clientKey(request), limit: 240, windowMs: 60_000 });
     } else {
@@ -18,7 +20,5 @@ export async function GET(request: Request) {
     }
     const q = new URL(request.url).searchParams.get("q") ?? "";
     return json({ cities: await searchCities(q) });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

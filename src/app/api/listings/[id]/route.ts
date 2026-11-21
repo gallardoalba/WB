@@ -1,6 +1,5 @@
 import { invalidatePublicData } from "@/lib/revalidate";
-import { handleApiError, json, readJson } from "@/lib/api";
-import { getSessionUser, requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import {
   editListing,
@@ -9,10 +8,9 @@ import {
   setListingStatus,
   similarListings,
 } from "@/lib/repo";
-import { guard, hit } from "@/lib/throttle";
+import { hit } from "@/lib/throttle";
 import { listingPatchSchema } from "@/lib/validation";
-
-type Context = { params: Promise<{ id: string }> };
+import { route } from "@/lib/route";
 
 /**
  * Ficha de un ejemplar: lo que ve quien abre un libro desde la app Android.
@@ -22,32 +20,26 @@ type Context = { params: Promise<{ id: string }> };
  * dos veces desde el móvil. La lectura es pública: sin sesión no hay distancia
  * ni estado de solicitud, igual que en el catálogo.
  */
-export async function GET(request: Request, { params }: Context) {
-  try {
-    const user = await getSessionUser();
+export const GET = route<undefined, "optional", { id: string }>(
+  { auth: "optional" },
+  ({ params, user }) => {
     hit({
       bucket: "listings:detail",
       key: user?.id ?? "anon",
       limit: 600,
       windowMs: 60 * 60 * 1000,
     });
-    const { id } = await params;
+    const { id } = params;
     const listing = getListing(id, user?.id ?? null);
     if (!listing) throw new ApiError(404, "Ese ejemplar ya no está disponible.");
     return json({ listing, similar: similarListings(listing.bookId, user?.id ?? null) });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const user = await requireUser();
-    const { id } = await params;
-    guard(request, { bucket: "listing:edit", key: user.id, limit: 60, windowMs: 24 * 60 * 60 * 1000 });
+export const PATCH = route<undefined, "user", { id: string }>(
+  { limit: { bucket: "listing:edit", limit: 60, windowMs: 24 * 60 * 60 * 1000 } },
+  async ({ request, params, user }) => {
+    const { id } = params;
 
     const input = listingPatchSchema.parse(await readJson(request));
     if ("status" in input) {
@@ -57,23 +49,16 @@ export async function PATCH(
     }
     invalidatePublicData();
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const user = await requireUser();
-    const { id } = await params;
-    guard(request, { bucket: "listing:remove", key: user.id, limit: 20, windowMs: 24 * 60 * 60 * 1000 });
+export const DELETE = route<undefined, "user", { id: string }>(
+  { limit: { bucket: "listing:remove", limit: 20, windowMs: 24 * 60 * 60 * 1000 } },
+  ({ params, user }) => {
+    const { id } = params;
+
     removeListing(user.id, id);
     invalidatePublicData();
     return json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

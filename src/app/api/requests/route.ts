@@ -1,14 +1,14 @@
 import { after } from "next/server";
-import { handleApiError, json, readJson } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
 import { processOutbox } from "@/lib/outbox";
 import { createRequest, listRequestsPage } from "@/lib/repo";
-import { guard, hit } from "@/lib/throttle";
+import { hit } from "@/lib/throttle";
 import { requestSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
-export async function GET(request: Request) {
-  try {
-    const user = await requireUser();
+export const GET = route(
+  {},
+  ({ request, user }) => {
     // La respuesta trae conversaciones con subconsultas: se limita por cuenta
     // para que no sirva de amplificador.
     hit({ bucket: "requests:list", key: user.id, limit: 240, windowMs: 60 * 60 * 1000 });
@@ -31,20 +31,12 @@ export async function GET(request: Request) {
       // Cursor opaco para la página siguiente; `null` cuando no queda nada.
       next: pagina.next ? `${pagina.next.updatedAt}|${pagina.next.id}` : null,
     });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
 
-export async function POST(request: Request) {
-  try {
-    const user = await requireUser();
-    guard(request, {
-      bucket: "request:create",
-      key: user.id,
-      limit: 20,
-      windowMs: 24 * 60 * 60 * 1000,
-    });
+export const POST = route(
+  { limit: { bucket: "request:create", limit: 20, windowMs: 24 * 60 * 60 * 1000 } },
+  async ({ request, user }) => {
     const input = requestSchema.parse(await readJson(request));
     const created = createRequest(user.id, input.listingId);
     after(async () => {
@@ -53,7 +45,5 @@ export async function POST(request: Request) {
       });
     });
     return json({ request: created }, 201);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);

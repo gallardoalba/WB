@@ -1,16 +1,15 @@
-import { handleApiError, json, readJson } from "@/lib/api";
-import { destroyUserSessions, requireUser } from "@/lib/auth";
+import { json, readJson } from "@/lib/api";
+import { destroyUserSessions } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { verifyPassword } from "@/lib/password";
 import { disableTotp, getTotpState, getUserWithPassword, verifyUserTotp } from "@/lib/repo";
-import { guard } from "@/lib/throttle";
 import { totpDisableSchema } from "@/lib/validation";
+import { route } from "@/lib/route";
 
 /** Desactivar exige contraseña y, si estaba activo, un código vigente. */
-export async function POST(request: Request) {
-  try {
-    const user = await requireUser();
-    guard(request, { bucket: "totp:disable", key: user.id, limit: 5, windowMs: 60 * 60 * 1000 });
+export const POST = route(
+  { limit: { bucket: "totp:disable", limit: 5, windowMs: 60 * 60 * 1000 } },
+  async ({ request, user }) => {
     const input = totpDisableSchema.parse(await readJson(request));
 
     const account = getUserWithPassword(user.email);
@@ -30,7 +29,5 @@ export async function POST(request: Request) {
     // no era de la persona, no debe quedarse dentro con la sesión anterior.
     destroyUserSessions(user.id);
     return json({ enabled: false, pending: false });
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
+  },
+);
