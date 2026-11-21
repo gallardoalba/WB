@@ -136,3 +136,25 @@ test("con un número impar de claves la prueba del último tramo cuadra", () => 
     "una hoja distinta no valida",
   );
 });
+
+test("dos instantáneas en el mismo milisegundo no desordenan la cadena", () => {
+  // En una máquina rápida —pasó en Integración Continua— las dos caen en el
+  // mismo `created_at`, y con el id aleatorio como desempate «la última» era
+  // cualquiera: la prueba de inclusión devolvía la clave anterior.
+  const id = cuenta("Dora Transparente");
+  const momento = "2026-12-01T10:00:00.000Z";
+  const key = keyPair();
+  repo.setPublicKey(id, jwk("dora"), "initial");
+  const antes = transparency.createKeySnapshot(getDb(), { key, now: momento });
+  repo.setPublicKey(id, jwk("dora-nueva"), "rotation");
+  const despues = transparency.createKeySnapshot(getDb(), { key, now: momento });
+
+  assert.equal(
+    transparency.latestKeySnapshot(getDb())?.id,
+    despues.id,
+    "la última es la que se creó después",
+  );
+  assert.equal(despues.previousRoot, antes.merkleRoot, "y enlaza con la anterior");
+  const proof = transparency.keyInclusion(id)!;
+  assert.ok(proof.line.includes(repo.getPublicKeyRecord(id)!.keyId));
+});

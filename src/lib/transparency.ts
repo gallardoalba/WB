@@ -621,8 +621,12 @@ export function verifyMerkleBranch(
 }
 
 export function latestKeySnapshot(db: Db = getDb()): KeySnapshot | null {
+  // El desempate es el orden de inserción (`rowid`), no el id: los ids son
+  // aleatorios, así que con dos instantáneas en el mismo milisegundo —lo que
+  // pasa en una máquina rápida y pasó en Integración Continua— «la última» era
+  // cualquiera de las dos y la cadena podía enlazar con la anterior equivocada.
   const row = db
-    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, id DESC LIMIT 1`)
+    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1`)
     .get() as KeySnapshotRow | undefined;
   return row ? toKeySnapshot(row) : null;
 }
