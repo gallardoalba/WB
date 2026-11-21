@@ -17,6 +17,8 @@ import { after, before, test } from "node:test";
 
 import Database from "better-sqlite3";
 
+import { getDb } from "../src/lib/db/index.ts";
+
 const raiz = mkdtempSync(path.join(tmpdir(), "wanderbibliothek-concurrencia-"));
 const fichero = path.join(raiz, "datos", "wanderbibliothek.db");
 process.env.WANDERBIBLIOTHEK_DB = fichero;
@@ -132,4 +134,74 @@ test("el índice único impide una segunda copia del mismo intercambio", () => {
     .prepare("SELECT COUNT(*) AS count FROM listings WHERE from_request_id = ?")
     .get(request.id) as { count: number };
   assert.equal(total.count, 1);
+});
+
+test("las transacciones piden el cerrojo de escritura al empezar", () => {
+  // Con `BEGIN` diferido la transacción nace como lectura y el cerrojo se pide
+  // en la primera escritura, donde SQLite ya no puede esperar: devuelve BUSY.
+  // Con `BEGIN IMMEDIATE` la espera ocurre al abrir, que es lo que convierte
+  // la carrera con el cron en una espera corta.
+  const db = getDb();
+  const anterior = db.pragma("busy_timeout", { simple: true }) as number;
+  otra.exec("BEGIN IMMEDIATE");
+  db.pragma("busy_timeout = 120");
+  try {
+    assert.throws(
+      () => db.transaction(() => 1)(),
+      (error: unknown) => (error as { code?: string }).code === "SQLITE_BUSY",
+      "una transacción que solo lee también pide el cerrojo: es IMMEDIATE",
+    );
+  } finally {
+    otra.exec("ROLLBACK");
+    db.pragma(`busy_timeout = ${anterior}`);
+  }
+  // Sin cerrojo ajeno, la misma transacción pasa.
+  assert.equal(db.transaction(() => 42)(), 42);
+});
+
+test("una cancelación desde otra conexión no deshace una entrega confirmada", () => {
+  const listing = ejemplar("usr_clara");
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  repo.updateRequestStatus(request.id, "usr_clara", "completed");
+
+  // El otro proceso no pasa por la comprobación de la aplicación: intenta el
+  // cambio directamente. La condición del UPDATE es la que tiene que negarlo.
+  const cancelada = otra
+    .prepare(
+      `UPDATE requests SET status = 'cancelled', updated_at = ?
+        WHERE id = ? AND status = 'accepted'
+          AND owner_confirmed_at IS NULL AND requester_confirmed_at IS NULL`,
+    )
+    .run(new Date().toISOString(), request.id);
+  assert.equal(cancelada.changes, 0, "la entrega confirmada congela el estado");
+
+  const estado = otra.prepare("SELECT status FROM requests WHERE id = ?").get(request.id) as {
+    status: string;
+  };
+  assert.equal(estado.status, "accepted", "el intercambio sigue esperando la otra firma");
+});
+
+test("reintentar el cierre no crea copias ni cambia el estado", () => {
+  const listing = ejemplar("usr_clara");
+  const request = repo.createRequest("usr_diego", listing.id);
+  repo.updateRequestStatus(request.id, "usr_clara", "accepted");
+  repo.updateRequestStatus(request.id, "usr_clara", "completed");
+  repo.updateRequestStatus(request.id, "usr_diego", "completed");
+
+  for (let intento = 0; intento < 5; intento += 1) {
+    // Un reintento después de un timeout vuelve a pedir el cierre: la
+    // transición ya no es válida y no debe duplicar la copia.
+    assert.throws(() => repo.updateRequestStatus(request.id, "usr_diego", "completed"));
+  }
+
+  const copias = otra
+    .prepare("SELECT COUNT(*) AS count FROM listings WHERE from_request_id = ?")
+    .get(request.id) as { count: number };
+  assert.equal(copias.count, 1, "una sola copia pese a los reintentos");
+
+  const estado = otra.prepare("SELECT status FROM requests WHERE id = ?").get(request.id) as {
+    status: string;
+  };
+  assert.equal(estado.status, "completed");
 });

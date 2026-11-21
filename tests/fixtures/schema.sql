@@ -35,6 +35,7 @@ index favorites_listing :: CREATE INDEX favorites_listing ON favorites(listing_i
 index follows_followed :: CREATE INDEX follows_followed ON follows(followed_id, created_at DESC)
 index jobs_ready :: CREATE INDEX jobs_ready ON jobs(kind, status, next_attempt_at)
 index jobs_target :: CREATE INDEX jobs_target ON jobs(kind, target, created_at)
+index key_snapshots_created :: CREATE INDEX key_snapshots_created ON key_snapshots(created_at)
 index listing_tags_tag :: CREATE INDEX listing_tags_tag ON listing_tags(tag, listing_id)
 index listings_book :: CREATE INDEX listings_book ON listings(book_id, status)
 index listings_from_request :: CREATE UNIQUE INDEX listings_from_request ON listings(from_request_id) WHERE from_request_id IS NOT NULL
@@ -107,6 +108,7 @@ table events :: CREATE TABLE events ( id TEXT PRIMARY KEY, type TEXT NOT NULL, a
 table favorites :: CREATE TABLE favorites ( user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, listing_id TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE, created_at TEXT NOT NULL, PRIMARY KEY (user_id, listing_id) )
 table follows :: CREATE TABLE follows ( follower_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, followed_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TEXT NOT NULL, PRIMARY KEY (follower_id, followed_id) )
 table jobs :: CREATE TABLE jobs ( id TEXT PRIMARY KEY, kind TEXT NOT NULL, target TEXT, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL, last_error TEXT, created_at TEXT NOT NULL, finished_at TEXT )
+table key_snapshots :: CREATE TABLE key_snapshots ( id TEXT PRIMARY KEY, created_at TEXT NOT NULL, item_count INTEGER NOT NULL, merkle_root TEXT NOT NULL, previous_root TEXT, payload BLOB, signature TEXT, public_key TEXT, signer TEXT )
 table listing_tags :: CREATE TABLE listing_tags ( listing_id TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE, tag TEXT NOT NULL, PRIMARY KEY (listing_id, tag) )
 table listings :: CREATE TABLE listings ( id TEXT PRIMARY KEY, book_id TEXT NOT NULL REFERENCES books(id), owner_id TEXT NOT NULL REFERENCES users(id), condition TEXT NOT NULL, city TEXT NOT NULL, distance_km REAL, status TEXT NOT NULL DEFAULT 'available', search_key TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL , notes TEXT NOT NULL DEFAULT '', moderated_from TEXT, from_listing_id TEXT, from_request_id TEXT)
 table listings_fts :: CREATE VIRTUAL TABLE listings_fts USING fts5( search_key, content='listings', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2' )

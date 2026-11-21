@@ -122,6 +122,41 @@ function cacheStatements(db: Db): Db {
   });
   return db;
 }
+/**
+ * Las transacciones empiezan con `BEGIN IMMEDIATE`.
+ *
+ * `better-sqlite3` abre `BEGIN` diferido: la transacción nace como lectura y
+ * pide el cerrojo de escritura en la primera escritura. Si en ese momento otra
+ * conexión —el cron, un script de administración— lo tiene, SQLite devuelve
+ * `SQLITE_BUSY`; `busy_timeout` no siempre lo salva, porque para esperar
+ * tendría que deshacer lo ya leído. Pedirlo al empezar convierte esa carrera
+ * en una espera y deja el fallo donde corresponde: en el `BEGIN`.
+ *
+ * Todas las llamadas del proyecto son de escritura, así que no se pierde
+ * concurrencia de lectura: dentro de un proceso las consultas de lectura no
+ * abren transacción y, fuera, el cerrojo se suelta al terminar.
+ */
+function immediateTransactions(db: Db): Db {
+  const transaction = db.transaction.bind(db);
+  Object.defineProperty(db, "transaction", {
+    configurable: true,
+    writable: true,
+    value: (fn: Parameters<Db["transaction"]>[0]) => {
+      const wrapped = transaction(fn);
+      // `immediate()` ejecuta la transacción: no devuelve otra función, así que
+      // el modo se fija aquí y quien llama sigue recibiendo algo llamable.
+      const inmediata = (...args: unknown[]) => wrapped.immediate(...args);
+      Object.defineProperties(inmediata, {
+        deferred: { value: (...args: unknown[]) => wrapped.deferred(...args) },
+        immediate: { value: (...args: unknown[]) => wrapped.immediate(...args) },
+        exclusive: { value: (...args: unknown[]) => wrapped.exclusive(...args) },
+      });
+      return inmediata;
+    },
+  });
+  return db;
+}
+
 const globalForDb = globalThis as unknown as { __wanderbibliothekDb?: Db };
 
 function databaseFile(): string {
@@ -136,7 +171,7 @@ export function getDb(): Db {
       mkdirSync(dir, { recursive: true });
       restrictPermissions(dir, 0o700);
     }
-    const db = cacheStatements(new Database(file));
+    const db = immediateTransactions(cacheStatements(new Database(file)));
     registerUnaccent(db);
     if (file !== ":memory:") {
       // La base guarda hashes de contraseña y sesiones: solo el usuario del

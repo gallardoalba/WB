@@ -47,6 +47,7 @@ const EXPECTED_TABLES = [
   "favorites",
   "follows",
   "jobs",
+  "key_snapshots",
   "listing_tags",
   "listings",
   "listings_fts",

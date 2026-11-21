@@ -210,9 +210,13 @@ jobs:
 
       - name: Vulnerabilidades de la imagen
         run: |
+          # `--ignorefile` es la lista de excepciones con caducidad
+          # (`.trivyignore.yaml`): sin ella, un aviso aceptado se quedaría
+          # aceptado para siempre.
           ./trivy image --input imagen.tar \
             --scanners vuln \
             --severity CRITICAL \
             --ignore-unfixed \
+            --ignorefile .trivyignore.yaml \
             --exit-code 1 \
             --no-progress

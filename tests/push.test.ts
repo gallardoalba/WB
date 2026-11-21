@@ -162,6 +162,16 @@ test("el esquema rechaza endpoints que no son https y claves vacías", () => {
     "https://10.0.0.5:8443/push",
     "https://evil.example.org/push",
     "https://fcm.googleapis.com:8443/push",
+    // Credenciales en la URL: `web-push` enviaría la petición al host real
+    // mientras la cadena enseña otro.
+    "https://fcm.googleapis.com@evil.example/push",
+    // Dominio que solo se parece: el sufijo se compara con el punto delante.
+    "https://evilnotify.windows.com/push",
+    "https://fcm.googleapis.com.evil.example/push",
+    // Mayúsculas y punto final en el nombre.
+    "https://FCM.GOOGLEAPIS.COM./push",
+    // Metadatos del proveedor de nube: el destino clásico de un SSRF.
+    "https://169.254.169.254/latest/meta-data/",
   ]) {
     assert.equal(
       validation.pushSubscriptionSchema.safeParse({ ...bueno, endpoint }).success,

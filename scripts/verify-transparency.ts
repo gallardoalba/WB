@@ -16,7 +16,10 @@
 import {
   publicKeyFingerprint,
   verifyChain,
+  verifyKeyChain,
+  verifyKeySnapshotSignature,
   verifySnapshot,
+  type KeySnapshot,
   type TransparencySnapshot,
 } from "../src/lib/transparency";
 
@@ -114,6 +117,16 @@ async function main() {
   const chain = verifyChain(index.snapshots);
   problems.push(...chain.problems);
 
+  // Directorio de claves: raíces firmadas, sin publicar qué clave tiene cada
+  // cuenta. Se comprueba la firma de la última y que la cadena no se rompa.
+  const keys = await getJson<{ snapshots: KeySnapshot[] }>(`${args.url}/api/transparency/keys`);
+  const latestKey = keys.snapshots[0] ?? null;
+  const keyChain = verifyKeyChain(keys.snapshots);
+  problems.push(...keyChain.problems);
+  if (latestKey && !verifyKeySnapshotSignature(latestKey, args.key ?? latestKey.publicKey ?? undefined)) {
+    problems.push(`la instantánea del directorio ${latestKey.id} no verifica su firma`);
+  }
+
   console.log(`Instancia:   ${args.url}`);
   console.log(`Instantánea: ${snapshot.id} (${snapshot.createdAt})`);
   console.log(`Obras:       ${snapshot.itemCount}`);
@@ -122,6 +135,15 @@ async function main() {
   const fingerprint = snapshot.publicKey ? publicKeyFingerprint(snapshot.publicKey) : null;
   console.log(`Clave:       ${fingerprint ?? "no disponible"}`);
   console.log(`Cadena:      ${chain.ok ? "íntegra" : "rota"}`);
+  console.log(
+    `Claves:      ${
+      latestKey
+        ? `${latestKey.itemCount} publicadas, ${latestKey.signature ? "firmadas" : "sin firmar"}, cadena ${
+            keyChain.ok ? "íntegra" : "rota"
+          }`
+        : "sin instantáneas del directorio"
+    }`,
+  );
 
   if (problems.length > 0) {
     console.error("\nPROBLEMAS:");

@@ -72,12 +72,12 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               81 rutas agrupadas por dominio",
+            "    api/               83 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v62), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v63), seed",
             "    repo/              consultas SQL por dominio; repo.ts solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
@@ -137,7 +137,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 81 ficheros de ruta en `src/app/api`, con 110 métodos exportados, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
+          text: "La API tiene 83 ficheros de ruta en `src/app/api`, con 112 métodos exportados, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
         },
         {
           kind: "list",
@@ -245,6 +245,10 @@ const ES: TechnicalDocument = {
         {
           kind: "p",
           text: "El cron crea como mucho una instantánea al día del catálogo público: una línea JSON canónica por obra, su SHA-256, una raíz de Merkle y una firma Ed25519 si la instancia tiene `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lista las instantáneas y `/api/transparency/export` entrega el NDJSON exacto que se firmó. `npm run transparency:verify -- --url …` recalcula todo desde fuera, comprueba la cadena de raíces y permite fijar la huella de la clave pública (`--key-fingerprint`) además de la raíz (`--pin`).",
+        },
+        {
+          kind: "p",
+          text: "El directorio de claves se firma aparte, en la misma pasada: `/api/transparency/keys` publica raíces y firmas, nunca qué clave tiene cada cuenta, y cada cuenta puede pedir su prueba de inclusión en `/api/account/keys/proof`. Así, si el servidor le enseña una clave distinta de la comprometida, no puede fabricar la prueba contra una raíz ya publicada.",
         },
         {
           kind: "list",
@@ -501,12 +505,12 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               81 Routen, nach Domäne gruppiert",
+            "    api/               83 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v62), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v63), Seed",
             "    repo/              SQL-Abfragen je Domäne; repo.ts reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
@@ -566,7 +570,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 81 Route-Dateien unter `src/app/api` mit 110 exportierten Methoden, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
+          text: "Die API besteht aus 83 Route-Dateien unter `src/app/api` mit 112 exportierten Methoden, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
         },
         {
           kind: "list",
@@ -674,6 +678,10 @@ const DE: TechnicalDocument = {
         {
           kind: "p",
           text: "Der Cron erstellt höchstens eine Momentaufnahme des öffentlichen Katalogs pro Tag: eine kanonische JSON-Zeile pro Werk, ihren SHA-256, eine Merkle-Wurzel und eine Ed25519-Signatur, wenn die Instanz `TRANSPARENCY_SIGNING_KEY` hat. `/api/transparency` listet die Momentaufnahmen, `/api/transparency/export` liefert genau das signierte NDJSON. `npm run transparency:verify -- --url …` berechnet alles von außen neu, prüft die Kette der Wurzeln und erlaubt neben der Wurzel (`--pin`) auch den Fingerabdruck des öffentlichen Schlüssels (`--key-fingerprint`) zu fixieren.",
+        },
+        {
+          kind: "p",
+          text: "Das Schlüsselverzeichnis wird in derselben Runde separat signiert: `/api/transparency/keys` veröffentlicht Wurzeln und Signaturen, nie welche Schlüssel welches Konto hat, und jedes Konto kann unter `/api/account/keys/proof` seinen Einschlussnachweis anfordern. Zeigt der Server eine andere als die festgeschriebene Kennung, kann er den Nachweis gegen eine veröffentlichte Wurzel nicht erzeugen.",
         },
         {
           kind: "list",

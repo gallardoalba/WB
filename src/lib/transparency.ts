@@ -473,3 +473,289 @@ export function verifySnapshot(
 
   return { ok: problems.length === 0, problems };
 }
+
+/* ------------------------- directorio de claves ---------------------------- */
+
+/**
+ * Instantánea firmada del directorio de claves.
+ *
+ * No publica qué clave tiene cada cuenta: guarda la raíz de Merkle y su firma,
+ * y cada cuenta puede pedir su **prueba de inclusión** (`keyInclusion`). Esa
+ * prueba demuestra que la clave que el servidor le enseña está en el conjunto
+ * comprometido; si el servidor quisiera enseñarle otra, no podría fabricar la
+ * prueba contra una raíz firmada.
+ */
+export type KeySnapshot = {
+  id: string;
+  createdAt: string;
+  itemCount: number;
+  merkleRoot: string;
+  previousRoot: string | null;
+  signature: string | null;
+  publicKey: string | null;
+  signer: string | null;
+};
+
+type KeySnapshotRow = {
+  id: string;
+  created_at: string;
+  item_count: number;
+  merkle_root: string;
+  previous_root: string | null;
+  signature: string | null;
+  public_key: string | null;
+  signer: string | null;
+};
+
+const KEY_COLUMNS = `id, created_at, item_count, merkle_root, previous_root,
+  signature, public_key, signer`;
+
+/** Cabecera del mensaje firmado del directorio; si cambia, sube la versión. */
+const KEY_MESSAGE_VERSION = "wanderbibliothek-keys-v1";
+
+function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    itemCount: row.item_count,
+    merkleRoot: row.merkle_root,
+    previousRoot: row.previous_root,
+    signature: row.signature,
+    publicKey: row.public_key,
+    signer: row.signer,
+  };
+}
+
+/**
+ * Líneas canónicas del directorio: una por clave publicada.
+ *
+ * Llevan la cuenta, la ranura, la huella y la fecha de alta; **no** la clave
+ * pública, que ya viaja en `user_keys` y haría el fichero enorme. El orden es
+ * por cuenta y ranura, que es estable.
+ */
+export function keyDirectoryLines(db: Db = getDb()): string[] {
+  const rows = db
+    .prepare(
+      `SELECT user_id, platform, key_id, updated_at FROM user_keys
+        ORDER BY user_id, platform`,
+    )
+    .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
+  return rows.map((row) => `${row.user_id}|${row.platform}|${row.key_id}|${row.updated_at}`);
+}
+
+export function keySnapshotMessage(
+  snapshot: Pick<KeySnapshot, "id" | "createdAt" | "itemCount" | "merkleRoot" | "previousRoot">,
+): string {
+  return [
+    KEY_MESSAGE_VERSION,
+    snapshot.id,
+    snapshot.createdAt,
+    String(snapshot.itemCount),
+    snapshot.merkleRoot,
+    snapshot.previousRoot ?? "",
+  ].join("\n");
+}
+
+/**
+ * Rama de Merkle de una hoja concreta.
+ *
+ * Los niveles impares se promueven sin hermano, igual que en `merkleRoot`: la
+ * rama omite esos pasos y el verificador avanza con la paridad del índice.
+ */
+export type MerkleStep = { hash: string; side: "left" | "right" };
+
+export function merkleBranch(lines: string[], index: number): MerkleStep[] {
+  if (index < 0 || index >= lines.length) return [];
+  let level = lines.map(leafHash);
+  let position = index;
+  const branch: MerkleStep[] = [];
+  while (level.length > 1) {
+    const sibling = position % 2 === 0 ? position + 1 : position - 1;
+    // Cuando el nodo es el último de un nivel impar se promueve sin hermano:
+    // no se añade paso y la combinación ocurre en el nivel siguiente.
+    if (sibling >= 0 && sibling < level.length) {
+      branch.push({ hash: level[sibling]!, side: position % 2 === 0 ? "right" : "left" });
+    }
+    const next: string[] = [];
+    for (let cursor = 0; cursor < level.length; cursor += 2) {
+      const left = level[cursor]!;
+      const right = level[cursor + 1];
+      next.push(right === undefined ? left : nodeHash(left, right));
+    }
+    level = next;
+    position = Math.floor(position / 2);
+  }
+  return branch;
+}
+
+export function verifyMerkleBranch(
+  line: string,
+  index: number,
+  branch: MerkleStep[],
+  root: string,
+): boolean {
+  if (index < 0) return false;
+  let hash = leafHash(line);
+  for (const step of branch) {
+    hash = step.side === "left" ? nodeHash(step.hash, hash) : nodeHash(hash, step.hash);
+  }
+  return hash === root;
+}
+
+export function latestKeySnapshot(db: Db = getDb()): KeySnapshot | null {
+  const row = db
+    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, id DESC LIMIT 1`)
+    .get() as KeySnapshotRow | undefined;
+  return row ? toKeySnapshot(row) : null;
+}
+
+export function listKeySnapshots(limit = 20, db: Db = getDb()): KeySnapshot[] {
+  const rows = db
+    .prepare(
+      `SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .all(Math.max(1, Math.min(200, limit))) as KeySnapshotRow[];
+  return rows.map(toKeySnapshot);
+}
+
+export type CreateKeySnapshotOptions = {
+  now?: string;
+  key?: TransparencyKey | null;
+  lines?: string[];
+};
+
+export function createKeySnapshot(
+  db: Db = getDb(),
+  options: CreateKeySnapshotOptions = {},
+): KeySnapshot {
+  const createdAt = options.now ?? new Date().toISOString();
+  const lines = options.lines ?? keyDirectoryLines(db);
+  const previous = latestKeySnapshot(db);
+  const key = options.key === undefined ? signingKey() : options.key;
+
+  const snapshot: KeySnapshot = {
+    id: `kys_${randomUUID()}`,
+    createdAt,
+    itemCount: lines.length,
+    merkleRoot: merkleRoot(lines),
+    previousRoot: previous?.merkleRoot ?? null,
+    signature: null,
+    publicKey: key?.publicKey ?? null,
+    signer: key ? "ed25519" : null,
+  };
+  if (key) {
+    snapshot.signature = sign(
+      null,
+      Buffer.from(keySnapshotMessage(snapshot)),
+      key.privateKey,
+    ).toString("base64");
+  }
+
+  db.prepare(
+    `INSERT INTO key_snapshots
+       (id, created_at, item_count, merkle_root, previous_root, payload,
+        signature, public_key, signer)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    snapshot.id,
+    snapshot.createdAt,
+    snapshot.itemCount,
+    snapshot.merkleRoot,
+    snapshot.previousRoot,
+    gzipSync(Buffer.from(lines.join("\n"), "utf8")),
+    snapshot.signature,
+    snapshot.publicKey,
+    snapshot.signer,
+  );
+  return snapshot;
+}
+
+/** Una al día como mucho, igual que el catálogo. */
+export function ensureDailyKeySnapshot(
+  db: Db = getDb(),
+  options: CreateKeySnapshotOptions = {},
+): KeySnapshot | null {
+  const now = options.now ?? new Date().toISOString();
+  const latest = latestKeySnapshot(db);
+  if (latest && latest.createdAt.slice(0, 10) === now.slice(0, 10)) return null;
+  return createKeySnapshot(db, { ...options, now });
+}
+
+export type KeyInclusionProof = {
+  snapshotId: string;
+  root: string;
+  line: string;
+  index: number;
+  branch: MerkleStep[];
+  signature: string | null;
+  publicKey: string | null;
+};
+
+/**
+ * Prueba de que la clave publicada de una cuenta está en la última instantánea.
+ *
+ * Devuelve `null` si la cuenta no tiene clave o si todavía no hay instantánea.
+ */
+export function keyInclusion(
+  userId: string,
+  platform = "web",
+  db: Db = getDb(),
+): KeyInclusionProof | null {
+  const snapshot = latestKeySnapshot(db);
+  if (!snapshot) return null;
+  const row = db
+    .prepare("SELECT payload FROM key_snapshots WHERE id = ?")
+    .get(snapshot.id) as { payload: Buffer | null } | undefined;
+  if (!row?.payload) return null;
+  const lines = gunzipSync(row.payload).toString("utf8").split("\n").filter(Boolean);
+  const prefix = `${userId}|${platform}|`;
+  const index = lines.findIndex((line) => line.startsWith(prefix));
+  if (index < 0) return null;
+  return {
+    snapshotId: snapshot.id,
+    root: snapshot.merkleRoot,
+    line: lines[index]!,
+    index,
+    branch: merkleBranch(lines, index),
+    signature: snapshot.signature,
+    publicKey: snapshot.publicKey,
+  };
+}
+
+/** Comprueba la firma de una instantánea del directorio. */
+export function verifyKeySnapshotSignature(
+  snapshot: KeySnapshot,
+  publicKey = snapshot.publicKey,
+): boolean {
+  if (!snapshot.signature || !publicKey) return false;
+  try {
+    const key = createPublicKey({
+      key: Buffer.from(publicKey, "base64"),
+      format: "der",
+      type: "spki",
+    });
+    return verify(
+      null,
+      Buffer.from(keySnapshotMessage(snapshot)),
+      key,
+      Buffer.from(snapshot.signature, "base64"),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** La cadena del directorio se comprueba igual que la del catálogo. */
+export function verifyKeyChain(snapshots: KeySnapshot[]): { ok: boolean; problems: string[] } {
+  const problems: string[] = [];
+  for (let index = 1; index < snapshots.length; index += 1) {
+    const newer = snapshots[index - 1]!;
+    const older = snapshots[index]!;
+    if (newer.previousRoot !== older.merkleRoot) {
+      problems.push(
+        `${newer.id} dice venir de ${newer.previousRoot ?? "nada"} y la anterior es ${older.merkleRoot}`,
+      );
+    }
+  }
+  return { ok: problems.length === 0, problems };
+}

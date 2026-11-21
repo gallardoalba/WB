@@ -317,6 +317,41 @@ function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+/**
+ * Relleno del texto antes de cifrar.
+ *
+ * El servidor ve el tamaño de cada sobre, así que un «sí» y un párrafo largo no
+ * deberían distinguirse por su longitud. El texto se rellena a bloques de 256
+ * bytes con una cabecera que dice cuánto mide: el cifrado sigue siendo el mismo
+ * AES-GCM, pero la longitud deja de contar el contenido.
+ *
+ * Los mensajes anteriores a este cambio no llevan cabecera; se leen tal cual
+ * (el primer byte de un texto UTF-8 normal no es `0x01`).
+ */
+const PADDING_BLOCK = 256;
+const PADDING_HEADER = 5;
+const PADDING_VERSION = 0x01;
+
+export function padPlaintext(text: string): Uint8Array<ArrayBuffer> {
+  const bytes = new TextEncoder().encode(text);
+  const size = Math.ceil((PADDING_HEADER + bytes.length) / PADDING_BLOCK) * PADDING_BLOCK;
+  const out = new Uint8Array(size) as Uint8Array<ArrayBuffer>;
+  out[0] = PADDING_VERSION;
+  new DataView(out.buffer).setUint32(1, bytes.length);
+  out.set(bytes, PADDING_HEADER);
+  return out;
+}
+
+export function unpadPlaintext(bytes: Uint8Array): string | null {
+  if (bytes.length < PADDING_HEADER || bytes[0] !== PADDING_VERSION) {
+    // Mensaje anterior al relleno: se lee entero.
+    return new TextDecoder().decode(bytes);
+  }
+  const length = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(1);
+  if (length > bytes.length - PADDING_HEADER) return null;
+  return new TextDecoder().decode(bytes.subarray(PADDING_HEADER, PADDING_HEADER + length));
+}
+
 /** Cifra un texto y devuelve el sobre que se envía al servidor. */
 export async function encryptMessage(
   key: CryptoKey,
@@ -331,7 +366,7 @@ export async function encryptMessage(
       ...(aad ? { additionalData: new TextEncoder().encode(aad) } : {}),
     },
     key,
-    new TextEncoder().encode(text),
+    padPlaintext(text),
   );
   return {
     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
@@ -355,7 +390,7 @@ export async function decryptMessage(
       key,
       base64ToBytes(envelope.ciphertext),
     );
-    return new TextDecoder().decode(plaintext);
+    return unpadPlaintext(new Uint8Array(plaintext));
   } catch {
     return null;
   }

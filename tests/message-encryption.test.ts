@@ -562,3 +562,45 @@ test("un sobre incompleto se descarta en vez de romper el hilo", () => {
     "si los nuevos no valen, se lee el sobre heredado",
   );
 });
+
+test("dos mensajes de longitud distinta ocupan lo mismo", async () => {
+  // El servidor ve el tamaño del sobre: sin relleno, un «sí» y un párrafo se
+  // distinguen por la longitud. Con bloques de 256 bytes, no.
+  const { privateKey, publicKey } = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveKey", "deriveBits"],
+  ) as CryptoKeyPair;
+  const recipiente = (await crypto.subtle.exportKey("jwk", publicKey)) as JsonWebKey;
+  const keyId = await e2e.keyIdFromJwk(recipiente);
+
+  const corto = await e2e.encryptMessage(
+    await e2e.deriveConversationKey(privateKey, recipiente, "req_corto"),
+    "sí",
+    e2e.messageAad("req_corto", "usr_a", keyId),
+  );
+  const largo = await e2e.encryptMessage(
+    await e2e.deriveConversationKey(privateKey, recipiente, "req_largo"),
+    "Una respuesta larga que ocupa bastante más que un monosílabo.".repeat(3),
+    e2e.messageAad("req_largo", "usr_a", keyId),
+  );
+  assert.equal(corto.ciphertext.length, largo.ciphertext.length);
+});
+
+test("el relleno se quita al descifrar y no rompe los mensajes anteriores", () => {
+  const texto = "Con acentos: ñandú, acción y «comillas».";
+  const relleno = e2e.padPlaintext(texto);
+  assert.equal(relleno.length % 256, 0);
+  assert.equal(e2e.unpadPlaintext(relleno), texto);
+
+  // Un mensaje guardado antes del relleno no lleva cabecera: se lee entero.
+  const anterior = new TextEncoder().encode("Mensaje anterior al relleno");
+  assert.equal(e2e.unpadPlaintext(anterior), "Mensaje anterior al relleno");
+});
+
+test("un relleno recortado no devuelve texto a medias", () => {
+  const relleno = e2e.padPlaintext("texto con longitud declarada");
+  const mentiroso = relleno.slice();
+  new DataView(mentiroso.buffer).setUint32(1, mentiroso.length + 100);
+  assert.equal(e2e.unpadPlaintext(mentiroso), null);
+});

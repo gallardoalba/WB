@@ -783,6 +783,22 @@ reference document is [`GOVERNANCE.md`](../GOVERNANCE.md).
   `rclone copy "$BACKUP_FILE" remote:`) or a separate Litestream that replicates
   the WAL. Neither is enabled by default: without credentials it cannot be
   tested, and a backup that has never been restored is not a backup.
+- **Outbound traffic is not restricted by default.** Push subscriptions make
+  the server POST to a URL chosen by the browser. The code accepts only `https`
+  on port 443 and a known list of push providers (`isAllowedPushEndpoint`), but
+  a hostname allowlist does not stop a compromised DNS answer from pointing at
+  an internal address. `deploy/restrict-egress.sh` loads the second barrier —
+  it drops outbound traffic to RFC 1918 ranges, link-local and the cloud
+  metadata addresses, and leaves the rest of the internet reachable:
+
+  ```bash
+  ./deploy/restrict-egress.sh                  # show the rules
+  sudo ./deploy/restrict-egress.sh --apply     # load them (host)
+  sudo ./deploy/restrict-egress.sh --apply --docker
+  ```
+
+  Check what the instance really needs before applying it: an SMTP relay or a
+  database on a private network would be cut off by design.
 - **`ERROR_WEBHOOK_URL` and `WATCHDOG_PING_URL` are empty**: the code uses them
   if they exist, but the destination is chosen by the operator (Slack,
   healthchecks.io, an email). There is deliberately no default.

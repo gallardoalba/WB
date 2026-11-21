@@ -424,7 +424,9 @@ const envelopeFields = {
     .string()
     .regex(/^[A-Za-z0-9+/]+={0,2}$/, "El mensaje cifrado no es válido.")
     .min(24, "El mensaje cifrado no es válido.")
-    .max(4096, "El mensaje cifrado es demasiado grande."),
+    // El texto va relleno a bloques de 256 bytes antes de cifrar, así que el
+    // sobre es algo mayor que antes; el tope sigue acotando el abuso.
+    .max(6144, "El mensaje cifrado es demasiado grande."),
   iv: z
     .string()
     .regex(/^[A-Za-z0-9+/]+={0,2}$/, "El vector de inicialización no es válido.")

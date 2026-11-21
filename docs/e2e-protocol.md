@@ -72,6 +72,11 @@ the same key for two threads.
 - The sender encrypts the plaintext once per active recipient key
   (1 to 4 envelopes). Envelopes produced by clients older than v40 (a single
   `ciphertext`/`iv` pair) are still accepted.
+- Before encrypting, the plaintext is padded to a multiple of 256 bytes with a
+  five-byte header (`0x01` and a 32-bit length). The server sees the size of
+  each envelope, so without padding a «yes» and a long paragraph would be
+  distinguishable by length alone. Messages stored before this change carry no
+  header and are read as they are.
 - The server stores only `{ keyId, ciphertext, iv }`. It validates the base64
   shape, the size limits and the fingerprint; it never receives a private key
   or plaintext.

@@ -338,3 +338,29 @@ test("la clave de Turnstile se lee en el servidor, no del bundle", () => {
     "el puente de la app Android tampoco puede leerla del bundle",
   );
 });
+
+test("cada excepción del escáner tiene motivo y caducidad razonable", () => {
+  // `--ignore-unfixed` deja pasar los avisos sin parche; la contrapartida es
+  // esta lista: si una excepción no caduca, el aviso se queda aceptado para
+  // siempre sin que nadie lo revise.
+  const source = readFileSync(path.join(process.cwd(), ".trivyignore.yaml"), "utf8");
+  const entries = source
+    .split(/^\s*-\s+id:/m)
+    .slice(1)
+    .map((block) => block.split(/^\s*-\s+id:/m)[0]!);
+  const ahora = Date.now();
+  for (const entry of entries) {
+    const id = entry.split("\n")[0]!.trim();
+    const caducidad = /expired_at:\s*(\d{4}-\d{2}-\d{2})/.exec(entry)?.[1];
+    const motivo = /statement:\s*(.+)/.exec(entry)?.[1]?.trim() ?? "";
+    assert.ok(caducidad, `${id}: falta expired_at`);
+    assert.ok(motivo.length >= 20, `${id}: el motivo es demasiado corto`);
+    const limite = Date.parse(`${caducidad}T00:00:00Z`);
+    assert.ok(limite > ahora, `${id}: la excepción caducó el ${caducidad}`);
+    assert.ok(
+      limite - ahora <= 90 * 24 * 60 * 60 * 1000,
+      `${id}: caduca a más de 90 días, demasiado tiempo sin revisar`,
+    );
+  }
+  assert.match(source, /vulnerabilities:\s*(\[\]|\n)/, "el fichero debe declarar la lista");
+});
