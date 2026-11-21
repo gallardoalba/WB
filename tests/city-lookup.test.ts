@@ -51,7 +51,13 @@ test("de la respuesta de Nominatim se usa el núcleo de población", () => {
   assert.equal(cityFromNominatim([{ address: { hamlet: "La Beguda" } }]), "La Beguda");
   assert.equal(
     cityFromNominatim([{ address: { city: "Graz", country_code: "at" } }]),
-    "Graz (AT)",
+    "Graz",
+    "una ciudad austríaca sin homónimo alemán se guarda sin marca",
+  );
+  assert.equal(
+    cityFromNominatim([{ address: { city: "Linz", country_code: "at" } }]),
+    "Linz (AT)",
+    "Linz también existe en Alemania: ahí la marca sí ayuda",
   );
 
   // Un resultado sin dirección sigue valiendo si trae nombre propio.
@@ -79,7 +85,9 @@ test("una ciudad del catálogo se reconoce sin salir a la red", async () => {
   await conFetch(nominatim([]), async (calls) => {
     // El índice ignora mayúsculas y acentos.
     assert.deepEqual(await resolveCity("  stuttgart "), { status: "found", name: "Stuttgart" });
-    assert.deepEqual(await resolveCity("Wien (AT)"), { status: "found", name: "Wien (AT)" });
+    assert.deepEqual(await resolveCity("Wien"), { status: "found", name: "Wien" });
+    // Un enlace o un perfil antiguo con la marca sigue encontrando la ciudad.
+    assert.deepEqual(await resolveCity("Wien (AT)"), { status: "found", name: "Wien" });
     assert.equal(calls.length, 0, "las ciudades conocidas no necesitan Nominatim");
   });
 });

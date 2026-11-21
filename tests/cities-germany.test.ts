@@ -18,8 +18,10 @@ test("las ciudades alemanas y austríacas del catálogo se reconocen sin pregunt
     ["munchen", "München"],
     ["MUNCHEN", "München"],
     ["  München  ", "München"],
-    ["Wien (AT)", "Wien (AT)"],
-    ["Graz (AT)", "Graz (AT)"],
+    ["Wien", "Wien"],
+    ["Wien (AT)", "Wien"],
+    ["Graz", "Graz"],
+    ["Linz (AT)", "Linz (AT)"],
   ]) {
     assert.deepEqual(await resolveCity(written), { status: "found", name: expected }, written);
   }
@@ -69,8 +71,9 @@ test("el formulario acepta ciudades de Alemania y Austria", async () => {
     "Bad Tölz",
     "Garmisch-Partenkirchen",
     "Spiekeroog",
-    "Wien (AT)",
-    "Graz (AT)",
+    "Wien",
+    "Graz",
+    "Linz (AT)",
   ]) {
     const parsed = registerSchema.parse({ ...base, city });
     assert.equal(typeof parsed.city, "string");

@@ -31,11 +31,11 @@ test("una base v59 añade ciudades austríacas y distancias sin alterar perfiles
     "München",
   );
   assert.ok(
-    db.prepare("SELECT 1 FROM cities WHERE name = 'Wien (AT)'").get(),
+    db.prepare("SELECT 1 FROM cities WHERE name = 'Wien'").get(),
     "la ciudad austríaca está disponible para calcular distancias",
   );
   const distance = db
-    .prepare("SELECT km FROM city_distances WHERE from_name = 'München' AND to_name = 'Wien (AT)'")
+    .prepare("SELECT km FROM city_distances WHERE from_name = 'München' AND to_name = 'Wien'")
     .get() as { km: number } | undefined;
   assert.ok(distance && distance.km > 300 && distance.km < 500);
 

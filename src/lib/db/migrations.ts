@@ -2057,6 +2057,57 @@ function migrateToV63(db: Db) {
   db.pragma("user_version = 63");
 }
 
+/**
+ * v64: quita `(AT)` de las ciudades austríacas que no se confunden.
+ *
+ * La marca nació para separar homónimos, pero se aplicaba a todas: «Wien (AT)»
+ * no aclara nada y ocupa el nombre que la persona escribió. Se conserva solo en
+ * Baden y Linz, que también existen en Alemania. Los perfiles y los ejemplares
+ * guardados con la marca se renombran aquí, y la clave de búsqueda —que lleva
+ * la ciudad— se recalcula para no quedar desfasada.
+ */
+function migrateToV64(db: Db) {
+  const AMBIGUOUS = new Set(["baden", "linz"]);
+  const candidatos = new Set<string>();
+  for (const [tabla, columna] of [
+    ["cities", "name"],
+    ["listings", "city"],
+    ["users", "city"],
+  ] as const) {
+    const filas = db
+      .prepare(`SELECT DISTINCT ${columna} AS valor FROM ${tabla} WHERE ${columna} LIKE '% (AT)'`)
+      .all() as { valor: string }[];
+    for (const fila of filas) candidatos.add(fila.valor);
+  }
+  const renames = [...candidatos]
+    .map((viejo) => ({ viejo, nuevo: viejo.slice(0, -" (AT)".length) }))
+    .filter(({ nuevo }) => !AMBIGUOUS.has(normalizeText(nuevo)));
+
+  if (renames.length > 0) {
+    db.transaction(() => {
+      for (const { viejo, nuevo } of renames) {
+        db.prepare("UPDATE cities SET name = ? WHERE name = ?").run(nuevo, viejo);
+        db.prepare("UPDATE city_distances SET from_name = ? WHERE from_name = ?").run(nuevo, viejo);
+        db.prepare("UPDATE city_distances SET to_name = ? WHERE to_name = ?").run(nuevo, viejo);
+        db.prepare("UPDATE users SET city = ? WHERE city = ?").run(nuevo, viejo);
+        const anuncios = db
+          .prepare(
+            `SELECT l.id, b.title, b.author FROM listings l
+               JOIN books b ON b.id = l.book_id
+              WHERE l.city = ?`,
+          )
+          .all(viejo) as { id: string; title: string; author: string }[];
+        db.prepare("UPDATE listings SET city = ? WHERE city = ?").run(nuevo, viejo);
+        const actualizar = db.prepare("UPDATE listings SET search_key = ? WHERE id = ?");
+        for (const anuncio of anuncios) {
+          actualizar.run(normalizeText(`${anuncio.title} ${anuncio.author} ${nuevo}`), anuncio.id);
+        }
+      }
+    })();
+  }
+  db.pragma("user_version = 64");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2189,6 +2240,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 61) migrateToV61(db);
   if (userVersion(db) < 62) migrateToV62(db);
   if (userVersion(db) < 63) migrateToV63(db);
+  if (userVersion(db) < 64) migrateToV64(db);
 
   backfillSearchKeys(db);
 }

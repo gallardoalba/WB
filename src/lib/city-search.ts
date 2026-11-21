@@ -12,12 +12,12 @@
  * lo que haya en el catálogo local (los municipios de `cities.ts`), así el
  * campo nunca se queda sin nada que ofrecer.
  */
-import { CITIES } from "./cities";
+import { CITIES, cityNameIsAmbiguous } from "./cities";
 import { normalizeText } from "./text";
 
 export type CitySuggestion = {
   name: string;
-  /** Estado federado; el sufijo `(AT)` del nombre distingue el país. */
+  /** Estado federado; el nombre solo lleva `(AT)` si puede confundirse. */
   region: string | null;
 };
 
@@ -58,8 +58,13 @@ export function citiesFromPhoton(payload: unknown, limit = MAX_SUGGESTIONS): Cit
   const features = (payload as { features?: unknown } | null)?.features;
   if (!Array.isArray(features)) return [];
 
-  const found: CitySuggestion[] = [];
-  const seen = new Set<string>();
+  type Candidate = { rawName: string; isAustria: boolean; region: string | null };
+
+  // Primero se recogen los candidatos y después se decide el nombre: así una
+  // ciudad austríaca sabe si el mismo nombre aparece también al lado alemán
+  // en esta misma respuesta y, solo entonces, lleva `(AT)`.
+  const candidates: Candidate[] = [];
+  const germanNames = new Set<string>();
   for (const feature of features as Feature[]) {
     const properties = feature?.properties;
     if (!properties || typeof properties !== "object") continue;
@@ -78,13 +83,22 @@ export function citiesFromPhoton(payload: unknown, limit = MAX_SUGGESTIONS): Cit
     const isAustria =
       countryCode === "AT" ||
       (!countryCode && AUSTRIAN_COUNTRY_NAMES.has(countryName));
-    const name = isAustria ? `${rawName} (AT)` : rawName;
+    if (!isAustria) germanNames.add(normalizeText(rawName));
+    const region = typeof properties.state === "string" ? properties.state.trim() : "";
+    candidates.push({ rawName, isAustria, region: region || null });
+  }
+
+  const found: CitySuggestion[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const ambiguous =
+      candidate.isAustria &&
+      (cityNameIsAmbiguous(candidate.rawName) || germanNames.has(normalizeText(candidate.rawName)));
+    const name = ambiguous ? `${candidate.rawName} (AT)` : candidate.rawName;
     const key = normalizeText(name);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-
-    const region = typeof properties.state === "string" ? properties.state.trim() : "";
-    found.push({ name, region: region || null });
+    found.push({ name, region: candidate.region });
     if (found.length >= limit) break;
   }
   return found;

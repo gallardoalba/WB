@@ -67,7 +67,7 @@ test("de Photon solo valen municipios de Alemania y Austria", () => {
 
   assert.deepEqual(cities, [
     { name: "Karlsruhe", region: "Baden-Württemberg" },
-    { name: "Graz (AT)", region: "Steiermark" },
+    { name: "Graz", region: "Steiermark" },
     { name: "Karlstadt", region: null },
     { name: "Karlsdorf", region: null },
   ]);
@@ -93,7 +93,7 @@ test("el catálogo local responde sin red, primero lo que empieza por lo escrito
   // Se ignora mayúsculas y acentos.
   assert.deepEqual(localCityMatches("MUNCHEN"), [{ name: "München", region: null }]);
   assert.deepEqual(localCityMatches("münc"), [{ name: "München", region: null }]);
-  assert.deepEqual(localCityMatches("Wien", 1), [{ name: "Wien (AT)", region: null }]);
+  assert.deepEqual(localCityMatches("Wien", 1), [{ name: "Wien", region: null }]);
   // Dentro del nombre también cuenta, pero detrás de los que empiezan por ahí.
   const names = localCityMatches("halle").map((city) => city.name);
   assert.equal(names[0], "Halle (Saale)");
