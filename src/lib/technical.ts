@@ -78,7 +78,7 @@ const ES: TechnicalDocument = {
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
             "    db/                conexión, esquema base (v2), migraciones (v3–v62), seed",
-            "    repo/              consultas SQL por dominio; `repo.ts` solo reexporta",
+            "    repo/              consultas SQL por dominio; repo.ts solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
             "    e2e.ts             cifrado de extremo a extremo (ECDH + HKDF + AES-GCM)",
@@ -118,7 +118,7 @@ const ES: TechnicalDocument = {
           kind: "table",
           head: ["Ruta", "Contenido"],
           rows: [
-            ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros **en el idioma de la interfaz** (`BOOK_LANGUAGE_BY_LOCALE`); la portada no enseña el filtro, que sí está en `/descubrir`, y si no hay libros en ese idioma enseña el catálogo entero."],
+            ["`/`", "Portada pública: encabezado a pantalla completa, cuatro cifras y una fila de libros en el idioma de la interfaz (`BOOK_LANGUAGE_BY_LOCALE`); la portada no enseña el filtro, que sí está en `/descubrir`, y si no hay libros en ese idioma enseña el catálogo entero."],
             ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
             ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`, marcada `noindex`."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
@@ -140,7 +140,7 @@ const ES: TechnicalDocument = {
             ["`/normas`", "Gobernanza, moderación, sanciones y apelaciones."],
             ["`/apelar`", "Formulario de apelación desde el enlace del correo de sanción."],
             ["`/api/health`", "Estado del servicio y de la base de datos."],
-            ["`/sitemap.xml`, `/robots.txt`", "El sitemap publica la portada y las páginas informativas **en los tres idiomas** (con `xhtml:link`). Catálogo, obras, listas y perfiles se omiten y llevan `noindex`; `robots.txt` permite leer esa directiva y no se envían avisos a buscadores."],
+            ["`/sitemap.xml`, `/robots.txt`", "El sitemap publica la portada y las páginas informativas en los tres idiomas (con `xhtml:link`). Catálogo, obras, listas y perfiles se omiten y llevan `noindex`; `robots.txt` permite leer esa directiva y no se envían avisos a buscadores."],
           ],
         },
         {
@@ -358,7 +358,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. Dos pruebas de navegador son vallas y no funcionalidad: `e2e/accesibilidad.spec.ts` pasa **axe** (WCAG 2.0/2.1 A y AA) por la portada, el catálogo, una ficha y la ventana de acceso, y falla con lo que axe marca como `serious` o `critical`; `e2e/rendimiento.spec.ts` comprueba que una visita al catálogo cabe en un **presupuesto de bytes** y que ninguna imagen pasa de 250 KB, que es lo que impide volver a las portadas de 1,3 MB. El presupuesto se mide sobre el build de producción, así que solo corre en la CI.",
+          text: "`npm run test:coverage` aplica umbrales mínimos del 92 % de líneas, 80 % de ramas y 88 % de funciones. Dos pruebas de navegador son vallas y no funcionalidad: `e2e/accesibilidad.spec.ts` pasa axe (WCAG 2.0/2.1 A y AA) por la portada, el catálogo, una ficha y la ventana de acceso, y falla con lo que axe marca como `serious` o `critical`; `e2e/rendimiento.spec.ts` comprueba que una visita al catálogo cabe en un presupuesto de bytes y que ninguna imagen pasa de 250 KB, que es lo que impide volver a las portadas de 1,3 MB. El presupuesto se mide sobre el build de producción, así que solo corre en la CI.",
         },
         {
           kind: "p",
@@ -366,11 +366,11 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Cada ejecución publica un **SBOM** en CycloneDX (`npm sbom`) con las dependencias de producción: ante un aviso, dice si esa versión llegó a desplegarse. `tests/no-secrets.test.ts` escanea el árbol de trabajo buscando credenciales (claves de Brevo, tokens de GitHub, claves privadas, claves de 32 bytes asignadas a una variable con nombre de clave): corre en local y en el CI sin depender de ningún servicio, y no sustituye a revisar el historial de git. El análisis estático (CodeQL con las consultas `security-extended`) va aparte en `.github/workflows/codeql.yml`, también programado los lunes para recoger consultas nuevas.",
+          text: "Cada ejecución publica un SBOM en CycloneDX (`npm sbom`) con las dependencias de producción: ante un aviso, dice si esa versión llegó a desplegarse. `tests/no-secrets.test.ts` escanea el árbol de trabajo buscando credenciales (claves de Brevo, tokens de GitHub, claves privadas, claves de 32 bytes asignadas a una variable con nombre de clave): corre en local y en el CI sin depender de ningún servicio, y no sustituye a revisar el historial de git. El análisis estático (CodeQL con las consultas `security-extended`) va aparte en `.github/workflows/codeql.yml`, también programado los lunes para recoger consultas nuevas.",
         },
         {
           kind: "p",
-          text: "El CI audita también las dependencias de **desarrollo** (`npm audit` completo): ESLint, TypeScript y Playwright construyen lo que se publica. Y el `override` de `minimatch@11` en `package.json` está porque `@typescript-eslint/typescript-estree` resolvía una versión con un aviso de ReDoS; solo afecta a la cadena de ESLint, no al runtime, y se puede retirar cuando esa dependencia lo traiga por sí sola.",
+          text: "El CI audita también las dependencias de desarrollo (`npm audit` completo): ESLint, TypeScript y Playwright construyen lo que se publica. Y el `override` de `minimatch@11` en `package.json` está porque `@typescript-eslint/typescript-estree` resolvía una versión con un aviso de ReDoS; solo afecta a la cadena de ESLint, no al runtime, y se puede retirar cuando esa dependencia lo traiga por sí sola.",
         },
         {
           kind: "code",
@@ -394,7 +394,7 @@ const ES: TechnicalDocument = {
             "`npm run db:verify` es el ensayo de restauración: descifra la copia más reciente (o la que se le pase), la abre en solo lectura como lo haría la aplicación, ejecuta `integrity_check` y `foreign_key_check`, comprueba la versión del esquema y cuenta las tablas principales. Sale con error si la copia no se puede restaurar.",
             "`POST /api/cron/maintenance` con `Authorization: Bearer $MAINTENANCE_TOKEN` caduca solicitudes, purga sesiones, avisos y cuotas, borra la actividad vieja (`events` y `product_events`, 180 días), las denuncias resueltas (1 año), las apelaciones resueltas (2 años) y la auditoría de moderación según `AUDIT_RETENTION_DAYS`, y envía los recordatorios de los clubes.",
             "`npm run user:verify -- <correo>` y `npm run admin:2fa-off -- <correo>` son las salidas de emergencia cuando el correo o el segundo factor dejan a alguien fuera.",
-            "Toda ruta deja una línea `[req] {…}` con el id, el método, la ruta, el estado y la latencia, y devuelve la cabecera `x-response-time`; nginx registra **todas las peticiones a la aplicación** con el mismo `x-request-id`, que también vuelve al cliente. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
+            "Toda ruta deja una línea `[req] {…}` con el id, el método, la ruta, el estado y la latencia, y devuelve la cabecera `x-response-time`; nginx registra todas las peticiones a la aplicación con el mismo `x-request-id`, que también vuelve al cliente. El `reference` que devuelve un 500 son los 8 primeros caracteres de ese id.",
             "En `/api/metrics` (administración o el token del mantenimiento) hay un resumen de latencia p50/p95/p99, memoria, flujos en vivo, el estado de las colas de trabajo y el tamaño de la base y del WAL; con `?format=prometheus` sale en el formato que entiende un recolector.",
             "Una consulta que pasa de 50 ms deja un aviso `[db] consulta lenta` con su duración y la SQL recortada: `better-sqlite3` es síncrono y, mientras una consulta corre, el proceso entero está parado. El cron devuelve además en `db` el tamaño del fichero, el del WAL y las páginas libres **después** del checkpoint.",
             "Una sola instancia: SQLite tiene un único escritor, así que escalar en horizontal exige PostgreSQL. El canal en vivo **no** lo exige: el bus en memoria solo ahorra latencia y la fuente de verdad es una marca que se consulta en la base, de modo que un segundo proceso sigue funcionando (con hasta 15 s de retraso entre instancias). Un bus compartido quitaría ese retraso, no habilitaría el despliegue.",
@@ -546,7 +546,7 @@ const DE: TechnicalDocument = {
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
             "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v62), Seed",
-            "    repo/              SQL-Abfragen je Domäne; `repo.ts` reexportiert nur",
+            "    repo/              SQL-Abfragen je Domäne; repo.ts reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
             "    e2e.ts             Ende-zu-Ende-Verschlüsselung (ECDH + HKDF + AES-GCM)",
@@ -586,7 +586,7 @@ const DE: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Inhalt"],
           rows: [
-            ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher **in der Sprache der Oberfläche** (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht (der steht in `/descubrir`), und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
+            ["`/`", "Öffentliche Startseite: Kopfteil über die volle Breite, vier Kennzahlen und eine Reihe Bücher in der Sprache der Oberfläche (`BOOK_LANGUAGE_BY_LOCALE`); die Startseite zeigt den Filter nicht (der steht in `/descubrir`), und ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
             ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`, mit `noindex` gekennzeichnet."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
@@ -608,7 +608,7 @@ const DE: TechnicalDocument = {
             ["`/normas`", "Governance, Moderation, Sanktionen und Einsprüche."],
             ["`/apelar`", "Einspruchsformular über den Link in der Sanktions-E-Mail."],
             ["`/api/health`", "Zustand von Dienst und Datenbank."],
-            ["`/sitemap.xml`, `/robots.txt`", "Die Sitemap veröffentlicht die Startseite und die Informationsseiten **in allen drei Sprachen** (mit `xhtml:link`). Katalog, Werke, Listen und Profile sind ausgeschlossen und mit `noindex` gekennzeichnet; `robots.txt` lässt das Lesen dieser Direktive zu, und es werden keine Suchmaschinen benachrichtigt."],
+            ["`/sitemap.xml`, `/robots.txt`", "Die Sitemap veröffentlicht die Startseite und die Informationsseiten in allen drei Sprachen (mit `xhtml:link`). Katalog, Werke, Listen und Profile sind ausgeschlossen und mit `noindex` gekennzeichnet; `robots.txt` lässt das Lesen dieser Direktive zu, und es werden keine Suchmaschinen benachrichtigt."],
           ],
         },
         {
@@ -826,7 +826,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Zwei Browser-Tests sind Leitplanken und keine Funktion: `e2e/accesibilidad.spec.ts` schickt **axe** (WCAG 2.0/2.1 A und AA) über Startseite, Katalog, eine Exemplarseite und den Anmeldedialog und scheitert an allem, was axe als `serious` oder `critical` meldet; `e2e/rendimiento.spec.ts` prüft, dass ein Katalogbesuch in ein **Byte-Budget** passt und kein Bild über 250 KB geht — der Riegel gegen die 1,3-MB-Originale. Das Budget wird am Produktions-Build gemessen und läuft daher nur in der CI.",
+          text: "`npm run test:coverage` setzt Mindestschwellen von 92 % Zeilen, 80 % Zweigen und 88 % Funktionen. Zwei Browser-Tests sind Leitplanken und keine Funktion: `e2e/accesibilidad.spec.ts` schickt axe (WCAG 2.0/2.1 A und AA) über Startseite, Katalog, eine Exemplarseite und den Anmeldedialog und scheitert an allem, was axe als `serious` oder `critical` meldet; `e2e/rendimiento.spec.ts` prüft, dass ein Katalogbesuch in ein Byte-Budget passt und kein Bild über 250 KB geht — der Riegel gegen die 1,3-MB-Originale. Das Budget wird am Produktions-Build gemessen und läuft daher nur in der CI.",
         },
         {
           kind: "p",
@@ -834,11 +834,11 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Jeder Lauf veröffentlicht eine **SBOM** in CycloneDX (`npm sbom`) mit den Produktionsabhängigkeiten: bei einer Warnung zeigt sie, ob diese Version je ausgeliefert wurde. `tests/no-secrets.test.ts` durchsucht den Arbeitsbaum nach Zugangsdaten (Brevo-Schlüssel, GitHub-Token, private Schlüssel, 32-Byte-Schlüssel, die einer Variablen mit Schlüsselnamen zugewiesen sind): läuft lokal und in der CI, ohne Dienst, und ersetzt nicht die Prüfung der git-Historie. Die statische Analyse (CodeQL mit `security-extended`) liegt separat in `.github/workflows/codeql.yml`, ebenfalls montags geplant, um neue Abfragen mitzunehmen.",
+          text: "Jeder Lauf veröffentlicht eine SBOM in CycloneDX (`npm sbom`) mit den Produktionsabhängigkeiten: bei einer Warnung zeigt sie, ob diese Version je ausgeliefert wurde. `tests/no-secrets.test.ts` durchsucht den Arbeitsbaum nach Zugangsdaten (Brevo-Schlüssel, GitHub-Token, private Schlüssel, 32-Byte-Schlüssel, die einer Variablen mit Schlüsselnamen zugewiesen sind): läuft lokal und in der CI, ohne Dienst, und ersetzt nicht die Prüfung der git-Historie. Die statische Analyse (CodeQL mit `security-extended`) liegt separat in `.github/workflows/codeql.yml`, ebenfalls montags geplant, um neue Abfragen mitzunehmen.",
         },
         {
           kind: "p",
-          text: "Die CI prüft auch die **Entwicklungsabhängigkeiten** (vollständiges `npm audit`): ESLint, TypeScript und Playwright bauen, was veröffentlicht wird. Das `minimatch@11`-`override` in `package.json` steht dort, weil `@typescript-eslint/typescript-estree` eine Version mit einer ReDoS-Warnung auflöste; es betrifft nur die ESLint-Kette, nicht die Laufzeit, und lässt sich entfernen, sobald diese Abhängigkeit sie selbst mitbringt.",
+          text: "Die CI prüft auch die Entwicklungsabhängigkeiten (vollständiges `npm audit`): ESLint, TypeScript und Playwright bauen, was veröffentlicht wird. Das `minimatch@11`-`override` in `package.json` steht dort, weil `@typescript-eslint/typescript-estree` eine Version mit einer ReDoS-Warnung auflöste; es betrifft nur die ESLint-Kette, nicht die Laufzeit, und lässt sich entfernen, sobald diese Abhängigkeit sie selbst mitbringt.",
         },
         {
           kind: "code",
@@ -862,10 +862,10 @@ const DE: TechnicalDocument = {
             "`npm run db:verify` ist die Wiederherstellungsprobe: entschlüsselt die neueste Sicherung (oder die übergebene), öffnet sie schreibgeschützt wie die Anwendung, führt `integrity_check` und `foreign_key_check` aus, prüft die Schemaversion und zählt die wichtigsten Tabellen. Bricht mit Fehler ab, wenn die Sicherung sich nicht wiederherstellen lässt.",
             "`POST /api/cron/maintenance` mit `Authorization: Bearer $MAINTENANCE_TOKEN` lässt Anfragen verfallen, räumt Sitzungen, Hinweise und Kontingente auf, löscht alte Aktivität (`events` und `product_events`, 180 Tage), erledigte Meldungen (1 Jahr), entschiedene Einsprüche (2 Jahre) und das Moderationsprotokoll nach `AUDIT_RETENTION_DAYS` und verschickt die Erinnerungen der Clubs.",
             "`npm run user:verify -- <adresse>` und `npm run admin:2fa-off -- <adresse>` sind die Notausgänge, wenn Mail oder zweiter Faktor jemanden aussperren.",
-            "Jede Route hinterlässt eine `[req] {…}`-Zeile mit Id, Methode, Pfad, Status und Latenz und gibt die Kopfzeile `x-response-time` zurück; nginx protokolliert **jede Anfrage an die Anwendung** mit derselben `x-request-id`, die auch an den Client zurückgeht. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
+            "Jede Route hinterlässt eine `[req] {…}`-Zeile mit Id, Methode, Pfad, Status und Latenz und gibt die Kopfzeile `x-response-time` zurück; nginx protokolliert jede Anfrage an die Anwendung mit derselben `x-request-id`, die auch an den Client zurückgeht. Die `reference` eines 500ers sind die ersten 8 Zeichen dieser ID.",
             "`/api/metrics` (Administration oder das Wartungstoken) liefert p50/p95/p99-Latenz, Speicher, offene Streams, den Zustand der Arbeitswarteschlangen sowie Größe von Datenbank und WAL; mit `?format=prometheus` im Format, das ein Collector versteht.",
             "Eine Abfrage über 50 ms hinterlässt einen Hinweis `[db] consulta lenta` mit Dauer und gekürztem SQL: `better-sqlite3` ist synchron, und solange eine Abfrage läuft, steht der ganze Prozess. Der Cron liefert außerdem unter `db` die Größe der Datei, des WAL und die freien Seiten **nach** dem Checkpoint.",
-            "Nur eine Instanz: SQLite hat einen einzigen Schreiber, horizontale Skalierung verlangt also PostgreSQL. Der Live-Kanal nicht: der Bus im Speicher spart nur Latenz, und die Quelle der Wahrheit ist eine Marke, die aus der Datenbank gelesen wird, sodass ein zweiter Prozess weiter funktioniert (bis zu 15 s Verzögerung zwischen Instanzen). Ein gemeinsamer Bus würde diese Verzögerung beseitigen, nicht den Betrieb ermöglichen.",
+            "Nur eine Instanz: SQLite hat einen einzigen Schreiber, horizontale Skalierung verlangt also PostgreSQL. Der Live-Kanal verlangt es **nicht**: der Bus im Speicher spart nur Latenz, und die Quelle der Wahrheit ist eine Marke, die aus der Datenbank gelesen wird, sodass ein zweiter Prozess weiter funktioniert (bis zu 15 s Verzögerung zwischen Instanzen). Ein gemeinsamer Bus würde diese Verzögerung beseitigen, nicht den Betrieb ermöglichen.",
             "Gemessene Obergrenze mit `npm run bench:sqlite` auf einer temporären Datenbank mit derselben Konfiguration wie die Anwendung: rund 100 000 Einzel-Schreibvorgänge/s, über 200 000/s im Stapel, rund 300 000 Lesezugriffe/s über den Primärschlüssel und 2 000/s bei einem Filter ohne Index über 5 000 Zeilen. Das sind Werte des Rechners, auf dem gemessen wird, kein Versprechen für den Produktivbetrieb: die echte Grenze ist die Dauer jeder Transaktion, nicht die Zahl der Aufrufe.",
           ],
         },
