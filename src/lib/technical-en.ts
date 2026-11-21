@@ -54,7 +54,7 @@ export const EN: TechnicalDocument = {
             "  components/          server shell and client islands",
             "  lib/",
             "    db/                connection, base schema (v2), migrations (v3–v62), seed",
-            "    repo/              SQL queries per domain; `repo.ts` only re-exports",
+            "    repo/              SQL queries per domain; repo.ts only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
             "    e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)",
@@ -94,7 +94,7 @@ export const EN: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Content"],
           rows: [
-            ["`/`", "Public home page: full-width header, four figures and a row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter (that lives in `/descubrir`) and falls back to the whole catalogue when there is nothing in that language."],
+            ["`/`", "Public home page: full-width header, four figures and a row of books in the interface language (`BOOK_LANGUAGE_BY_LOCALE`); the home page does not show the filter (that lives in `/descubrir`) and falls back to the whole catalogue when there is nothing in that language."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public work page with JSON-LD `Book`/`Offer`, marked `noindex`."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
@@ -332,7 +332,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "`npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings; `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI.",
+          text: "`npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs axe (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings; `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a byte budget and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI.",
         },
         {
           kind: "p",
@@ -340,11 +340,11 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Every run publishes a **CycloneDX SBOM** (`npm sbom`) with the production dependencies: when an advisory lands, it tells whether that version was ever deployed. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a variable named like a key): it runs locally and in CI without any service, and it does not replace reviewing the git history. Static analysis (CodeQL with the `security-extended` queries) lives in `.github/workflows/codeql.yml`, also scheduled on Mondays so new queries are picked up.",
+          text: "Every run publishes a CycloneDX SBOM (`npm sbom`) with the production dependencies: when an advisory lands, it tells whether that version was ever deployed. `tests/no-secrets.test.ts` scans the working tree for credentials (Brevo keys, GitHub tokens, private keys, 32-byte keys assigned to a variable named like a key): it runs locally and in CI without any service, and it does not replace reviewing the git history. Static analysis (CodeQL with the `security-extended` queries) lives in `.github/workflows/codeql.yml`, also scheduled on Mondays so new queries are picked up.",
         },
         {
           kind: "p",
-          text: "CI also audits **development** dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.",
+          text: "CI also audits development dependencies (a full `npm audit`): ESLint, TypeScript and Playwright build what gets published. And the `minimatch@11` `override` in `package.json` is there because `@typescript-eslint/typescript-estree` resolved a version carrying a ReDoS advisory; it only affects the ESLint chain, not the runtime, and can be dropped once that dependency brings it on its own.",
         },
         {
           kind: "code",
@@ -368,7 +368,7 @@ export const EN: TechnicalDocument = {
             "`npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given), opens it read-only as the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored.",
             "`POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reminders for the clubs.",
             "`npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when email or the second factor locks someone out.",
-            "Every route leaves a `[req] {…}` line with the id, method, path, status and latency, and returns the `x-response-time` header; nginx logs **every application request** with the same `x-request-id`, which also returns to the client. The `reference` returned by a 500 is the first 8 characters of that id.",
+            "Every route leaves a `[req] {…}` line with the id, method, path, status and latency, and returns the `x-response-time` header; nginx logs every application request with the same `x-request-id`, which also returns to the client. The `reference` returned by a 500 is the first 8 characters of that id.",
             "`/api/metrics` (administration or the maintenance token) returns p50/p95/p99 latency, memory, live streams, the state of the job queues and database/WAL size; with `?format=prometheus` it speaks the format a scraper understands.",
             "A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.",
             "A single instance: SQLite has a single writer, so scaling out requires PostgreSQL. The live channel does **not**: the in-memory bus only saves latency and the source of truth is a stamp polled from the database, so a second process keeps working (up to 15 s of delay between instances). A shared bus would remove that delay, not enable the deployment.",
