@@ -402,6 +402,6 @@ test("quien no es del club no ve los dispositivos del club", async () => {
 
   // La lista la sirve la ruta con la sesión: aquí se comprueba el dato que
   // publica, que es lo que la ruta entrega solo a miembros.
-  const clubView = repo.getClub(clubId, fuera.id);
+  const clubView = repo.getClub(clubId, fuera);
   assert.equal(clubView?.isMember, false, "quien no es miembro no puede pedirla");
 });
