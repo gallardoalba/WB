@@ -227,7 +227,11 @@ Still missing, and not claimed anywhere else:
 - an external witness pinning key roots (the verifier already pins catalogue
   roots);
 - verification in the client against the committed root before trusting a
-  device.
+  device — **done for the peer's device**: `verifyDeviceProof` walks the line to
+  the root, checks the snapshot signature and pins the operator's signing key,
+  so a second history fails and a swapped signer key is noticed. What is still
+  missing is the **consistency proof between roots** and a witness that is not
+  the operator.
 
 What does exist is the out-of-band check: `v2SafetyNumber` hashes every device
 of both sides (`device_id|identity_key|signing_key`, sorted, iterated SHA-512
@@ -360,6 +364,8 @@ Shipped in this release:
 | Client: open the device, send to every device, decrypt and acknowledge, pin peers | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
 | Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
+| Client check that a device is in the signed directory (inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
+| One-time keys replenished on their own when the device runs low | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
 | v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |
 | libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |

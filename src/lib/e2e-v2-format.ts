@@ -8,6 +8,8 @@
  */
 
 export const BUNDLE_PREFIX = "wanderbibliothek:v2:bundle";
+/** Versión del mensaje firmado de cada instantánea del directorio de claves. */
+export const KEY_MESSAGE_VERSION = "wanderbibliothek-keys-v1";
 export const ONE_TIME_KEY_PREFIX = "wanderbibliothek:v2:otk";
 
 /** Lo que firma un dispositivo sobre sí mismo: identificador y sus dos claves. */

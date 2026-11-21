@@ -29,6 +29,7 @@ import {
 import { gunzipSync, gzipSync } from "node:zlib";
 
 import { getDb, type Db } from "./db";
+import { KEY_MESSAGE_VERSION as KEY_FORMAT_VERSION } from "./e2e-v2-format";
 import { listPublicWorks } from "./repo";
 
 /** Cabecera del mensaje firmado: si cambia el formato, sube la versión. */
@@ -511,7 +512,10 @@ const KEY_COLUMNS = `id, created_at, item_count, merkle_root, previous_root,
   signature, public_key, signer`;
 
 /** Cabecera del mensaje firmado del directorio; si cambia, sube la versión. */
-const KEY_MESSAGE_VERSION = "wanderbibliothek-keys-v1";
+// La versión del mensaje firmado vive en `e2e-v2-format.ts` para que el cliente
+// pueda reconstruirlo al verificar la firma sin cargar este módulo (que usa
+// `node:crypto`).
+const KEY_MESSAGE_VERSION = KEY_FORMAT_VERSION;
 
 function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
   return {

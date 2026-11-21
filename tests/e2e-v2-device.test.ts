@@ -61,6 +61,12 @@ function api(): DeviceApi {
         bundleSignature: device.bundleSignature,
       }));
     },
+    async ownDevices(userId) {
+      return repo.listDevices(userId).map((device) => ({
+        deviceId: device.deviceId,
+        oneTimeKeys: device.oneTimeKeys,
+      }));
+    },
     async claim(userId, deviceId) {
       const bundle = repo.claimOneTimeKey(userId, deviceId);
       if (!bundle?.oneTimeKey) throw new Error("Sin claves de un solo uso.");
@@ -255,4 +261,114 @@ test("abrir el dispositivo dos veces reutiliza el que ya hay", async () => {
   assert.equal(segunda.state.deviceId, primera.state.deviceId, "no se crea otro dispositivo");
   assert.equal(segunda.state.pickleKey, primera.state.pickleKey);
   assert.equal((await api().listDevices(ana)).length, 1, "y no se publica otro paquete");
+});
+
+test("el dispositivo repone claves de un solo uso cuando se queda sin ellas", async () => {
+  // Sin esto, tras veinte establecimientos el dispositivo deja de poder abrir
+  // sesiones nuevas y no hay forma de recuperarlo desde la interfaz.
+  const ana = cuenta("Ana Repone");
+  const bruno = cuenta("Bruno Repone");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-06");
+  const deBruno = await abrir(bruno, "dispositivo-de-bruno-6");
+
+  // Se gastan todas las claves de Bruno menos una.
+  currentUser = bruno;
+  const total = (await api().ownDevices(bruno))[0]!.oneTimeKeys;
+  for (let i = 0; i < total - 1; i += 1) repo.claimOneTimeKey(bruno, "dispositivo-de-bruno-6");
+  assert.equal((await api().ownDevices(bruno))[0]!.oneTimeKeys, 1);
+
+  // Al volver a abrir el dispositivo se repone solo.
+  currentUser = bruno;
+  const reopened = await openDevice({
+    userId: bruno,
+    store: store(deBruno.box),
+    api: api(),
+    deviceId: "dispositivo-de-bruno-6",
+  });
+  const deBrunoRepuesto = { ...deBruno, session: reopened, save: () => store(deBruno.box).save(reopened.state) };
+  const despues = (await api().ownDevices(bruno))[0]!.oneTimeKeys;
+  assert.ok(despues > 10, `debería haber repuesto, quedan ${despues}`);
+
+  // Y el handshake sigue funcionando: Ana abre sesión con la clave nueva.
+  await enviar(deAna, hilo, bruno, "sigo pudiendo escribirte");
+  assert.deepEqual(
+    (await recibir(deBrunoRepuesto, hilo, ana)).map((message) => message.text),
+    ["sigo pudiendo escribirte"],
+  );
+});
+
+test("el cliente rechaza un dispositivo cuya prueba no cuadra con la raíz", async () => {
+  // El paquete se firma a sí mismo; sin la prueba del directorio, un servidor
+  // puede enseñar un paquete legítimo de otro momento, o de otra historia.
+  const transparency = await import("../src/lib/transparency.ts");
+  const { generateKeyPairSync } = await import("node:crypto");
+  const { privateKey } = generateKeyPairSync("ed25519");
+  const key = transparency.signingKey(
+    Buffer.from(privateKey.export({ format: "der", type: "pkcs8" })).toString("base64"),
+  )!;
+
+  const ana = cuenta("Ana Prueba");
+  const bruno = cuenta("Bruno Prueba");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-07");
+  const deBruno = await abrir(bruno, "dispositivo-de-bruno-7");
+
+  const snapshot = transparency.createKeySnapshot(db.getDb(), { key, now: "2027-06-01T00:00:00.000Z" });
+  const cabecera = {
+    id: snapshot.id,
+    createdAt: snapshot.createdAt,
+    itemCount: snapshot.itemCount,
+    merkleRoot: snapshot.merkleRoot,
+    previousRoot: snapshot.previousRoot,
+    signature: snapshot.signature,
+    publicKey: snapshot.publicKey,
+  };
+
+  /** API con prueba de directorio: la real, o una retocada para el ataque. */
+  const apiConPrueba = (alterar: boolean) => {
+    const base = api();
+    return {
+      ...base,
+      async deviceProof(userId: string, deviceId: string) {
+        const proof = transparency.keyInclusion(userId, `device:${deviceId}`)!;
+        return {
+          proof: {
+            line: alterar ? proof.line.replace(/\|([A-Za-z0-9+/]{43})\|/, `|${"Z".repeat(43)}|`) : proof.line,
+            index: proof.index,
+            branch: proof.branch,
+            root: proof.root,
+          },
+          snapshot: cabecera,
+        };
+      },
+    } satisfies DeviceApi;
+  };
+
+  // Con la prueba buena, el mensaje sale.
+  currentUser = ana;
+  const bueno = await encryptForDevices({
+    session: deAna.session,
+    api: apiConPrueba(false),
+    conversation: `request:${hilo}`,
+    text: "con prueba",
+    peerUserId: bruno,
+  });
+  assert.equal(bueno.envelopes.length, 1);
+
+  // Con una prueba retocada, no se abre sesión contra ese dispositivo.
+  deAna.session.state.sessions = {};
+  deAna.session.state.verified = [];
+  currentUser = ana;
+  await assert.rejects(
+    () =>
+      encryptForDevices({
+        session: deAna.session,
+        api: apiConPrueba(true),
+        conversation: `request:${hilo}`,
+        text: "sin prueba",
+        peerUserId: bruno,
+      }),
+    /directorio/,
+  );
 });

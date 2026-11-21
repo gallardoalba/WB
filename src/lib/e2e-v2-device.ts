@@ -18,6 +18,7 @@
  *   descifrarlo: si se confirmara antes, un corte de red perdería el mensaje.
  */
 import * as v2 from "./e2e-v2";
+import { verifyDeviceProof, type DeviceProof, type KeySnapshotHeader } from "./e2e-v2-directory";
 
 /** Lo que se guarda en el dispositivo. Nunca sale de aquí en claro. */
 export type DeviceState = {
@@ -31,6 +32,10 @@ export type DeviceState = {
   pins: Record<string, v2.PinnedDevice>;
   /** Secreto local del bote de libolm; viaja dentro del estado ya cifrado. */
   pickleKey: string;
+  /** Clave con la que el operador firma el directorio; se fija la primera vez. */
+  directoryKey?: string | null;
+  /** Dispositivos cuya inclusión en el directorio ya se comprobó. */
+  verified?: string[];
 };
 
 export type DeviceStore = {
@@ -63,6 +68,16 @@ export type DeviceApi = {
     { deviceId: string; identityKey: string; signingKey: string; bundleSignature: string }[]
   >;
   claim(userId: string, deviceId: string): Promise<v2.DeviceBundle>;
+  /**
+   * Los dispositivos de una cuenta, con cuántas claves de un solo uso le quedan
+   * a cada uno. Para los propios es lo que dispara la reposición.
+   */
+  ownDevices(userId: string): Promise<{ deviceId: string; oneTimeKeys: number }[]>;
+  /** Prueba de que el dispositivo está en la última instantánea firmada. */
+  deviceProof?(
+    userId: string,
+    deviceId: string,
+  ): Promise<{ proof: DeviceProof; snapshot: KeySnapshotHeader }>;
 };
 
 export type Session = { state: DeviceState; account: v2.OlmAccount };
@@ -102,7 +117,11 @@ export async function openDevice(input: {
   const stored = await input.store.load(input.userId);
   if (stored) {
     const account = await v2.unpickleAccount(stored.account, stored.pickleKey);
-    return { state: stored, account };
+    const session = { state: stored, account };
+    // Un dispositivo que se queda sin claves de un solo uso deja de poder abrir
+    // sesiones nuevas: se repone al abrirlo, no cuando ya es tarde.
+    await replenishIfLow(session, input.api, input.store);
+    return session;
   }
 
   const deviceId = input.deviceId ?? newDeviceId();
@@ -138,6 +157,30 @@ function randomSecret(): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Repone si al dispositivo le quedan pocas claves de un solo uso.
+ *
+ * Se consulta al servidor en vez de suponerlo: las claves las gasta quien
+ * escribe, así que el dispositivo no puede saberlo por su cuenta. Si la
+ * consulta falla, no se repone y se sigue: no poder reponer no debe impedir
+ * leer ni escribir.
+ */
+export async function replenishIfLow(
+  session: Session,
+  api: DeviceApi,
+  store?: DeviceStore,
+): Promise<void> {
+  try {
+    const devices = await api.ownDevices(session.state.userId);
+    const mine = devices.find((device) => device.deviceId === session.state.deviceId);
+    if (!mine) return;
+    await replenishKeys(session, api, mine.oneTimeKeys);
+    await store?.save(session.state);
+  } catch {
+    // Sin red o sin cuota: se reintentará al abrir el dispositivo otra vez.
+  }
+}
+
 /** Repone claves de un solo uso si quedan pocas. */
 export async function replenishKeys(
   session: Session,
@@ -158,6 +201,36 @@ export async function replenishKeys(
   });
   v2.markKeysAsPublished(account);
   session.state.account = v2.pickleAccount(account, session.state.pickleKey);
+}
+
+/**
+ * Comprueba que un dispositivo está en el directorio firmado y que la clave del
+ * operador no ha cambiado desde la primera vez.
+ *
+ * Se hace **una vez por dispositivo**: la prueba cuesta dos peticiones y el
+ * resultado no cambia mientras el dispositivo no cambie. Si el servidor no
+ * ofrece la prueba, se sigue sin ella (es una comprobación añadida, no un
+ * requisito para hablar) pero queda constancia en `verified`.
+ */
+async function assertInDirectory(
+  session: Session,
+  api: DeviceApi,
+  peerUserId: string,
+  device: { deviceId: string; identityKey: string },
+): Promise<void> {
+  if (!api.deviceProof) return;
+  if (session.state.verified?.includes(device.deviceId)) return;
+
+  const { proof, snapshot } = await api.deviceProof(peerUserId, device.deviceId);
+  const result = await verifyDeviceProof(proof, snapshot, device.identityKey);
+  if (!result.ok) {
+    throw new Error(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
+  }
+  if (session.state.directoryKey && snapshot.publicKey !== session.state.directoryKey) {
+    throw new Error("La clave con la que se firma el directorio ha cambiado sin avisar.");
+  }
+  session.state.directoryKey ??= snapshot.publicKey;
+  session.state.verified = [...(session.state.verified ?? []), device.deviceId];
 }
 
 /**
@@ -186,6 +259,7 @@ export async function encryptForDevices(input: {
     if (existing) {
       sessionFor = await v2.unpickleSession(existing, session.state.pickleKey);
     } else {
+      await assertInDirectory(session, api, peerUserId, device);
       const bundle = await api.claim(peerUserId, device.deviceId);
       // El paquete reclamado y el que publica el registro tienen que ser el
       // mismo: si no, el servidor está enseñando dos verdades distintas.
@@ -265,6 +339,8 @@ export async function decryptThread(input: {
     }
     const text = await openEnvelope(
       session,
+      api,
+      peerUserId,
       device,
       { type: envelope.type ?? 0, body: envelope.ciphertext },
       conversation,
@@ -287,6 +363,8 @@ export async function decryptThread(input: {
  */
 async function openEnvelope(
   session: Session,
+  api: DeviceApi,
+  peerUserId: string,
   device: { deviceId: string; identityKey: string; signingKey: string },
   envelope: { type: number; body: string },
   conversation: string,
@@ -310,7 +388,7 @@ async function openEnvelope(
     }
   }
 
-  const fresh = await acceptFromRegistry(session, device, envelope);
+  const fresh = await acceptFromRegistry(session, api, peerUserId, device, envelope);
   try {
     const text = v2.decrypt(fresh, envelope, conversation);
     session.state.sessions[device.deviceId] = v2.pickleSession(fresh, session.state.pickleKey);
@@ -326,9 +404,12 @@ async function openEnvelope(
  */
 async function acceptFromRegistry(
   session: Session,
+  api: DeviceApi,
+  peerUserId: string,
   device: { deviceId: string; identityKey: string; signingKey: string },
   envelope: { type: number; body: string },
 ): Promise<v2.OlmSession> {
+  await assertInDirectory(session, api, peerUserId, device);
   const pinned = session.state.pins[device.deviceId];
   if (pinned && pinned.identityKey !== device.identityKey) {
     throw new Error("El dispositivo de la otra persona ha cambiado de clave sin avisar.");

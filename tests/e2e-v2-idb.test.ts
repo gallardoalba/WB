@@ -74,7 +74,7 @@ class FakeDatabase {
 async function withFakeIndexedDb<T>(run: (db: FakeDatabase) => Promise<T>): Promise<T> {
   const database = new FakeDatabase();
   (globalThis as unknown as { indexedDB?: unknown }).indexedDB = {
-    open(_name: string, version: number) {
+    open() {
       const request = new FakeRequest();
       queueMicrotask(() => {
         (request as unknown as { result: FakeDatabase }).result = database;

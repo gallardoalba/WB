@@ -43,6 +43,23 @@ const httpApi: DeviceApi = {
     }>(`/api/users/${encodeURIComponent(userId)}/devices`);
     return response.devices;
   },
+  async deviceProof(userId, deviceId) {
+    return api<{
+      proof: import("./e2e-v2-directory").DeviceProof;
+      snapshot: import("./e2e-v2-directory").KeySnapshotHeader;
+    }>(
+      `/api/users/${encodeURIComponent(userId)}/devices/${encodeURIComponent(deviceId)}/proof`,
+    );
+  },
+  async ownDevices(userId) {
+    const response = await api<{ devices: { deviceId: string; oneTimeKeys: number }[] }>(
+      `/api/users/${encodeURIComponent(userId)}/devices`,
+    );
+    return response.devices.map((device) => ({
+      deviceId: device.deviceId,
+      oneTimeKeys: device.oneTimeKeys,
+    }));
+  },
   async claim(userId, deviceId) {
     const response = await api<{ bundle: Awaited<ReturnType<DeviceApi["claim"]>> }>(
       `/api/users/${encodeURIComponent(userId)}/devices/${encodeURIComponent(deviceId)}/claim`,
