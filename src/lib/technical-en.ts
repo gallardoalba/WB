@@ -48,12 +48,12 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               81 route files grouped by domain",
+            "    api/               83 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v62), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v63), seed",
             "    repo/              SQL queries per domain; repo.ts only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -113,7 +113,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 81 route files under `src/app/api` with 110 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
+          text: "The API has 83 route files under `src/app/api` with 112 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
         },
         {
           kind: "list",
@@ -219,6 +219,10 @@ export const EN: TechnicalDocument = {
         {
           kind: "p",
           text: "The cron creates at most one snapshot of the public catalogue per day: one canonical JSON line per work, its SHA-256, a Merkle root and an Ed25519 signature when the instance has `TRANSPARENCY_SIGNING_KEY`. `/api/transparency` lists the snapshots and `/api/transparency/export` serves the exact NDJSON that was signed. `npm run transparency:verify -- --url …` recomputes everything from outside, checks the chain of roots and can pin the public-key fingerprint (`--key-fingerprint`) as well as the Merkle root (`--pin`).",
+        },
+        {
+          kind: "p",
+          text: "The key directory is signed separately in the same pass: `/api/transparency/keys` publishes roots and signatures, never which key belongs to which account, and each account can request its inclusion proof at `/api/account/keys/proof`. If the server shows a key other than the one committed, it cannot produce the proof against a published root.",
         },
         {
           kind: "list",

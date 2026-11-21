@@ -2028,6 +2028,35 @@ function renameLegacyCityColumns(db: Db) {
     }
   }
 }
+/**
+ * v63: el directorio de claves se compromete en una instantánea firmada.
+ *
+ * La transparencia del catálogo ya permitía detectar que el contenido público
+ * se reescribió. Faltaba lo mismo para las claves: un servidor podía enseñar
+ * una clave distinta a cada parte y nada lo delataba. La instantánea guarda la
+ * raíz de Merkle del directorio (cuenta, ranura, huella y fecha) y su firma;
+ * el contenido se guarda comprimido para poder dar una **prueba de inclusión**
+ * a cada cuenta sin publicar el directorio entero.
+ */
+function migrateToV63(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS key_snapshots (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      item_count INTEGER NOT NULL,
+      merkle_root TEXT NOT NULL,
+      previous_root TEXT,
+      payload BLOB,
+      signature TEXT,
+      public_key TEXT,
+      signer TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS key_snapshots_created ON key_snapshots(created_at);
+  `);
+  db.pragma("user_version = 63");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2159,6 +2188,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 60) migrateToV60(db);
   if (userVersion(db) < 61) migrateToV61(db);
   if (userVersion(db) < 62) migrateToV62(db);
+  if (userVersion(db) < 63) migrateToV63(db);
 
   backfillSearchKeys(db);
 }

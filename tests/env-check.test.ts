@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
 import { test } from "node:test";
 import { assertEnv, checkEnv, formatEnvIssues, type EnvLike } from "../src/lib/env-check.ts";
 
@@ -285,4 +286,39 @@ test("el secreto de Turnstile sin su clave pública impide arrancar", () => {
   assert.ok(error, "tiene que ser un error, no un aviso");
   assert.equal(error!.key, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
   assert.match(error!.message, /registro rechazaría todas las altas/i);
+});
+
+test("exigir transparencia firmada sin clave no deja arrancar", () => {
+  // Una instancia que anuncia transparencia y publica raíces sin firmar ofrece
+  // menos de lo que dice; la bandera convierte esa diferencia en un fallo de
+  // arranque en vez de en una sorpresa al verificar.
+  const issues = checkEnv(complete({ REQUIRE_TRANSPARENCY_SIGNING: "1" }));
+  assert.deepEqual(keys(issues, "error"), ["TRANSPARENCY_SIGNING_KEY"]);
+  assert.match(
+    issues.find((issue) => issue.key === "TRANSPARENCY_SIGNING_KEY")!.message,
+    /transparency:key/,
+  );
+});
+
+test("una clave de firma que no es Ed25519 se rechaza al arrancar", () => {
+  // Base64 que no es una clave PKCS#8 válida (y que el escáner de secretos no
+  // confunde con una credencial de verdad).
+  const issues = checkEnv(
+    complete({ REQUIRE_TRANSPARENCY_SIGNING: "1", TRANSPARENCY_SIGNING_KEY: "bm8tZXMtdW5hLWNsYXZl" }),
+  );
+  assert.deepEqual(keys(issues, "error"), ["TRANSPARENCY_SIGNING_KEY"]);
+
+  // Y una Ed25519 de verdad pasa: si no, la comprobación sería un adorno.
+  const { privateKey } = generateKeyPairSync("ed25519");
+  const valid = Buffer.from(
+    privateKey.export({ format: "der", type: "pkcs8" }),
+  ).toString("base64");
+  assert.deepEqual(
+    keys(checkEnv(complete({ REQUIRE_TRANSPARENCY_SIGNING: "1", TRANSPARENCY_SIGNING_KEY: valid }))),
+    [],
+  );
+});
+
+test("sin la bandera, la clave de firma sigue siendo opcional", () => {
+  assert.deepEqual(keys(checkEnv(complete())), []);
 });

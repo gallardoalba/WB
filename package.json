@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad, mensajería cifrada de extremo a extremo y clubes de lectura.",
   "license": "AGPL-3.0-only",
@@ -47,6 +47,7 @@
     "informe:accesos": "bash deploy/informe-accesos.sh",
     "informe:moderacion": "node --import tsx scripts/informe-moderacion.ts",
     "transparency:snapshot": "node --import tsx scripts/transparency-snapshot.ts",
+    "transparency:key": "node --import tsx scripts/transparency-key.ts",
     "transparency:verify": "node --import tsx scripts/verify-transparency.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "bench:migrate": "node --import tsx scripts/bench-migrations.ts",

@@ -6,7 +6,7 @@ import { bearerToken, safeEqual } from "@/lib/ops-auth";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
 import { hit } from "@/lib/throttle";
-import { ensureDailySnapshot } from "@/lib/transparency";
+import { ensureDailyKeySnapshot, ensureDailySnapshot } from "@/lib/transparency";
 import { route } from "@/lib/route";
 
 /**
@@ -62,6 +62,10 @@ export const POST = route<undefined, "none">(
       "transparency",
       () => ensureDailySnapshot()?.id ?? null,
     );
+    // El directorio de claves se firma en la misma pasada: sin prueba de
+    // inclusión, la transparencia del catálogo no cubre lo que más importa,
+    // que es qué clave ve cada parte.
+    const keys = await run("keys", () => ensureDailyKeySnapshot()?.id ?? null);
     return json({
       // `ok` sigue siendo el estado del endpoint: si algo falló se ve en
       // `failed` y en el valor `null` de esa tarea, sin devolver un 500 que
@@ -75,6 +79,7 @@ export const POST = route<undefined, "none">(
       likes,
       purgedLikes,
       transparency,
+      keys,
       ...maintenance,
     });
   },

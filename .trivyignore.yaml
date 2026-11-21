@@ -1,0 +1,21 @@
+# Excepciones del escáner de imágenes (Trivy).
+#
+# Una vulnerabilidad **sin parche** no se puede arreglar el día que aparece,
+# así que el CI no corta por ella (`--ignore-unfixed`). Este fichero es el otro
+# lado de esa decisión: cuando se acepta una vulnerabilidad conocida, se anota
+# aquí con fecha de caducidad. Pasada esa fecha, Trivy vuelve a fallar y obliga
+# a revisarla, en vez de dejarla olvidada para siempre.
+#
+# Formato (una entrada por aviso):
+#
+#   vulnerabilities:
+#     - id: CVE-2026-00000
+#       statement: Por qué se acepta y qué mitiga el riesgo mientras tanto.
+#       expired_at: 2027-01-31
+#
+# Reglas:
+#   - `expired_at` es obligatorio y no puede pasar de 90 días desde hoy.
+#   - `statement` explica el riesgo aceptado; no vale «falso positivo» a secas.
+#   - Al caducar, se revisa: se actualiza la fecha con motivo o se corrige.
+# `tests/contracts.test.ts` comprueba ambas cosas en cada entrada.
+vulnerabilities: []

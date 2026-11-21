@@ -10,6 +10,8 @@
  * correo, ni cron, y la app está pensada para funcionar sin nada de eso.
  */
 
+import { createPrivateKey } from "node:crypto";
+
 import { parseSender } from "./mailer";
 
 export type EnvSeverity = "error" | "warn";
@@ -37,6 +39,24 @@ function isKeyOf32Bytes(value: string): boolean {
 /** La clave de cifrado debe ser de 32 bytes, en hexadecimal o en base64. */
 function isValidEncryptionKey(value: string): boolean {
   return isKeyOf32Bytes(value);
+}
+
+/**
+ * ¿Es una clave privada Ed25519 en PKCS#8?
+ *
+ * Se comprueba aquí, y no importando `transparency.ts`, porque ese módulo abre
+ * la base de datos: la revisión del entorno corre antes de que exista conexión.
+ */
+function isEd25519Pkcs8(value: string): boolean {
+  try {
+    const raw = value.trim();
+    const key = raw.includes("BEGIN")
+      ? createPrivateKey(raw)
+      : createPrivateKey({ key: Buffer.from(raw, "base64"), format: "der", type: "pkcs8" });
+    return key.asymmetricKeyType === "ed25519";
+  } catch {
+    return false;
+  }
 }
 
 /** Ruta absoluta: una relativa depende del directorio de la release. */
@@ -97,6 +117,24 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
       "BREVO_API_KEY",
       "Están el webhook y Brevo a la vez: manda el webhook y esta clave no se usa. Deja solo uno de los dos.",
     );
+  }
+
+  // La transparencia verificable solo existe si la instantánea va firmada. La
+  // clave es opcional por defecto —una instancia de pruebas no la necesita—,
+  // pero quien anuncie transparencia puede exigirla y fallar al arrancar en
+  // vez de publicar raíces que nadie puede comprobar.
+  if (env.REQUIRE_TRANSPARENCY_SIGNING === "1") {
+    if (!has(env, "TRANSPARENCY_SIGNING_KEY")) {
+      error(
+        "TRANSPARENCY_SIGNING_KEY",
+        "Con `REQUIRE_TRANSPARENCY_SIGNING=1` la clave es obligatoria: sin ella las instantáneas se publican sin firma y la transparencia no se puede verificar. Genera una con `npm run transparency:key`.",
+      );
+    } else if (!isEd25519Pkcs8(env.TRANSPARENCY_SIGNING_KEY!)) {
+      error(
+        "TRANSPARENCY_SIGNING_KEY",
+        "No es una clave Ed25519 en PKCS#8 (PEM o base64). Genera una con `npm run transparency:key`.",
+      );
+    }
   }
 
   if (!has(env, "APP_ENCRYPTION_KEY")) {
