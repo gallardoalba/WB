@@ -4,7 +4,8 @@
  * La plataforma cubre Alemania y Austria, pero no hay una lista fija de
  * municipios: lo que escribe una persona se contrasta con `Nominatim`
  * (OpenStreetMap) y se guarda el nombre con el que lo conoce el mapa. Las
- * ciudades austríacas llevan `(AT)` para distinguirlas de homónimos alemanes.
+ * austríacas que pueden confundirse con una alemana llevan `(AT)`; el resto,
+ * no.
  *
  * La distancia es un dato secundario: **no** se guardan coordenadas ni se
  * calculan kilómetros. Lo que se guarda es el nombre.
@@ -12,7 +13,7 @@
  * Si Nominatim no responde, el alta no se bloquea: se acepta lo escrito (mejor
  * una ciudad sin comprobar que un registro imposible) y queda en el registro.
  */
-import { findCity } from "./cities";
+import { findCity, qualifyCityName } from "./cities";
 import { normalizeText } from "./text";
 
 const ENDPOINT = "https://nominatim.openstreetmap.org/search";
@@ -51,7 +52,7 @@ export function cityFromNominatim(payload: unknown): string | null {
   const address = first.address ?? {};
   const countryCode =
     typeof address.country_code === "string" ? address.country_code.toUpperCase() : "";
-  const qualify = (name: string) => (countryCode === "AT" ? `${name} (AT)` : name);
+  const qualify = (name: string) => qualifyCityName(name, countryCode);
   for (const field of ["city", "town", "village", "municipality", "hamlet"]) {
     const value = address[field];
     if (typeof value === "string" && value.trim()) return qualify(value.trim());
@@ -84,7 +85,9 @@ export async function resolveCity(raw: string): Promise<CityLookup> {
   const query = raw.trim();
   if (!query) return { status: "unknown" };
 
-  const known = findCity(query);
+  // Un enlace, un perfil o un formulario antiguo puede traer la marca `(AT)`
+  // aunque la ciudad ya no la use: se busca también sin ella.
+  const known = findCity(query) ?? findCity(query.replace(/\s*\(AT\)$/i, ""));
   if (known) return { status: "found", name: known.name };
 
   const key = normalizeText(query);

@@ -8,11 +8,12 @@ export type City = { name: string; lat: number; lng: number };
  * distancias.
  *
  * La lista combina municipios de Alemania y Austria para calcular distancias.
- * Los nombres austríacos llevan `(AT)` para distinguirlos de homónimos y de las
- * ciudades alemanas ya guardadas. Los municipios no incluidos siguen pudiendo
- * usarse, pero no tienen distancia precalculada.
+ * Solo los nombres austríacos que pueden confundirse con uno alemán llevan
+ * `(AT)` —Baden y Linz, que existen también al otro lado de la frontera—;
+ * «Wien» o «Graz» no necesitan la marca y se guardan tal cual. Los municipios
+ * no incluidos siguen pudiendo usarse, pero no tienen distancia precalculada.
  */
-export const CITIES: City[] = [
+const GERMAN_CITIES: City[] = [
   { name: "Aachen", lat: 50.7766, lng: 6.0834 }, { name: "Aalen", lat: 48.8378, lng: 10.0933 },
   { name: "Albstadt", lat: 48.2164, lng: 9.026 }, { name: "Baden-Baden", lat: 48.7606, lng: 8.2398 },
   { name: "Bamberg", lat: 49.8987, lng: 10.9007 }, { name: "Bayreuth", lat: 49.9478, lng: 11.5789 },
@@ -75,24 +76,61 @@ export const CITIES: City[] = [
   { name: "Wolfsburg", lat: 52.4236, lng: 10.776 }, { name: "Worms", lat: 49.6328, lng: 8.3592 },
   { name: "Wuppertal", lat: 51.2563, lng: 7.1482 }, { name: "Würzburg", lat: 49.7939, lng: 9.9512 },
   { name: "Zwickau", lat: 50.7272, lng: 12.4884 },
-  { name: "Baden (AT)", lat: 48.00543, lng: 16.23264 },
-  { name: "Bregenz (AT)", lat: 47.50311, lng: 9.7471 },
-  { name: "Dornbirn (AT)", lat: 47.41427, lng: 9.74195 },
-  { name: "Eisenstadt (AT)", lat: 47.84565, lng: 16.52327 },
-  { name: "Feldkirch (AT)", lat: 47.23645, lng: 9.59734 },
-  { name: "Graz (AT)", lat: 47.06733, lng: 15.44197 },
-  { name: "Innsbruck (AT)", lat: 47.26266, lng: 11.39454 },
-  { name: "Klagenfurt (AT)", lat: 46.62472, lng: 14.30528 },
-  { name: "Leoben (AT)", lat: 47.379, lng: 15.094 },
-  { name: "Linz (AT)", lat: 48.30639, lng: 14.28611 },
-  { name: "Salzburg (AT)", lat: 47.79941, lng: 13.04399 },
-  { name: "Steyr (AT)", lat: 48.04274, lng: 14.42127 },
-  { name: "St. Pölten (AT)", lat: 48.20762, lng: 15.63725 },
-  { name: "Villach (AT)", lat: 46.61028, lng: 13.85583 },
-  { name: "Wels (AT)", lat: 48.16667, lng: 14.03333 },
-  { name: "Wien (AT)", lat: 48.20849, lng: 16.37208 },
-  { name: "Wiener Neustadt (AT)", lat: 47.80485, lng: 16.23196 },
 ];
+
+const AUSTRIAN_CITIES: City[] = [
+  { name: "Baden (AT)", lat: 48.00543, lng: 16.23264 },
+  { name: "Bregenz", lat: 47.50311, lng: 9.7471 },
+  { name: "Dornbirn", lat: 47.41427, lng: 9.74195 },
+  { name: "Eisenstadt", lat: 47.84565, lng: 16.52327 },
+  { name: "Feldkirch", lat: 47.23645, lng: 9.59734 },
+  { name: "Graz", lat: 47.06733, lng: 15.44197 },
+  { name: "Innsbruck", lat: 47.26266, lng: 11.39454 },
+  { name: "Klagenfurt", lat: 46.62472, lng: 14.30528 },
+  { name: "Leoben", lat: 47.379, lng: 15.094 },
+  { name: "Linz (AT)", lat: 48.30639, lng: 14.28611 },
+  { name: "Salzburg", lat: 47.79941, lng: 13.04399 },
+  { name: "Steyr", lat: 48.04274, lng: 14.42127 },
+  { name: "St. Pölten", lat: 48.20762, lng: 15.63725 },
+  { name: "Villach", lat: 46.61028, lng: 13.85583 },
+  { name: "Wels", lat: 48.16667, lng: 14.03333 },
+  { name: "Wien", lat: 48.20849, lng: 16.37208 },
+  { name: "Wiener Neustadt", lat: 47.80485, lng: 16.23196 },
+];
+
+/** Todo el catálogo: primero Alemania y después Austria. */
+export const CITIES: City[] = [...GERMAN_CITIES, ...AUSTRIAN_CITIES];
+
+/**
+ * Nombres austríacos que sí necesitan la marca del país.
+ *
+ * Solo los que también existen en Alemania y pueden llevar a elegir la ciudad
+ * equivocada: Baden (Baden-Baden, Baden cerca de Bremen) y Linz (Linz am
+ * Rhein). Marcar «Wien» o «Graz» no aclaraba nada: no hay otro sitio con ese
+ * nombre que alguien pueda querer.
+ */
+const AMBIGUOUS_AUSTRIAN = new Set(["baden", "linz"]);
+
+/** Ciudades alemanas del catálogo, para detectar choques exactos de nombre. */
+const GERMAN_NAMES = new Set(GERMAN_CITIES.map((city) => normalizeText(city.name)));
+
+/** ¿El nombre puede confundirse con una ciudad alemana? */
+export function cityNameIsAmbiguous(name: string): boolean {
+  const key = normalizeText(name);
+  return AMBIGUOUS_AUSTRIAN.has(key) || GERMAN_NAMES.has(key);
+}
+
+/**
+ * Nombre con el que se guarda una ciudad austríaca.
+ *
+ * Añade `(AT)` solo cuando hace falta; el resto se guarda como lo escribe el
+ * mapa. Se aplica igual a las sugerencias y a la confirmación, para que el
+ * nombre que se elige sea el que se guarda.
+ */
+export function qualifyCityName(name: string, countryCode: string | null): string {
+  if (countryCode?.toUpperCase() !== "AT") return name;
+  return cityNameIsAmbiguous(name) ? `${name} (AT)` : name;
+}
 
 /**
  * Ámbito de la plataforma, en cada idioma.

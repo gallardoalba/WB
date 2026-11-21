@@ -53,7 +53,7 @@ export const EN: TechnicalDocument = {
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v63), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v64), seed",
             "    repo/              SQL queries per domain; repo.ts only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -143,7 +143,7 @@ export const EN: TechnicalDocument = {
             "Copy states: `available`, `reserved`, `given`, `paused`, `removed`.",
             "Request states: `pending`, `accepted`, `declined`, `cancelled`, `completed`, `expired`.",
             "Search with FTS5 maintained by triggers: `listings_fts` for the catalogue and `books_fts` for works; `unaccent()` folds accents so that “Lucía” is found by typing “lucia”.",
-            "`cities` holds a curated set of cities in Germany and Austria with their coordinates, and `city_distances` the distance matrix between them; Austrian names carry `(AT)` so they are not confused with German namesakes. `searchCities()` gets suggestions from OpenStreetMap through Photon and `resolveCity()` checks the name with Nominatim, both limited to those two countries. Other municipalities can be used, but have no precomputed distance.",
+            "`cities` holds a curated set of cities in Germany and Austria with their coordinates, and `city_distances` the distance matrix between them; only Austrian names with a German namesake (Baden, Linz) carry `(AT)`. `searchCities()` gets suggestions from OpenStreetMap through Photon and `resolveCity()` checks the name with Nominatim, both limited to those two countries. Other municipalities can be used, but have no precomputed distance.",
           ],
         },
         {
