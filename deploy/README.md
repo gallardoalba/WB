@@ -42,10 +42,11 @@ the announced digest, the served assets and the code of the backup consistent;
 it is not an attestation of the host, and a person with root access can still
 change Docker, systemd or nginx.
 
-Both accept `--dry-run` and explain each step with `OK`, `AVISO` (warning) and
-`FALLO` (failure). What neither can guess — email, Impressum, administration
-account — is listed at the end of the run. The following sections are the manual, step-by-step version,
-useful for understanding what each thing does or for debugging.
+`bootstrap.sh` and `deploy.sh` both accept `--dry-run` and explain each step with
+`OK`, `AVISO` (warning) and `FALLO` (failure). What neither script can guess —
+email, Impressum, administration account — is listed at the end of the run.
+The following sections are the manual, step-by-step version, useful for
+understanding what each thing does or for debugging.
 
 ## 1. Requirements
 
@@ -1180,6 +1181,8 @@ publish tells the truth (Art. 5(1)(e) and 13 GDPR/DSGVO):
 | Platform notifications | `notifications` | 90 days if read, 180 either way |
 | Public activity (wall) | `events` | 180 days |
 | Moderation audit | `admin_audit` | `AUDIT_RETENTION_DAYS` (0 = forever) |
+| Appeals | `appeals` | 730 days after they are submitted; the sanction reason and date are copied into the appeal, so it still makes sense once the audit is pruned |
+| Reports | `reports` | 1 year after they are submitted |
 | Messages | `messages` | Only the encrypted envelope and metadata; the text is decrypted by browsers |
 
 Account deletion: the user row is anonymised; sessions, notifications, lists,
@@ -1203,7 +1206,7 @@ and registration requires **declaring that you are 16 or older**.
 Three decisions remain yours:
 
 1. **Controller data.** `/datenschutz` and `/aviso-legal` already exist, in
-   Spanish and German, with what the code actually does. They are completed with
+   Spanish, German and English, with what the code actually does. They are completed with
    `LEGAL_CONTROLLER`, `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` and, where
    applicable, `LEGAL_VAT_ID`; without them the pages show a visible notice that
    they are incomplete and startup reminds you in the log. The text is still a
@@ -1266,7 +1269,8 @@ this checklist cannot be silently forgotten.
       backup: decrypted to a temporary file, `PRAGMA integrity_check` → `ok`,
       `user_version = 48`, `books_fts` responds to `MATCH 'democ*'` and an
       account's TOTP secret decrypts with `APP_ENCRYPTION_KEY` (32 characters).
-      Repeat it whenever the backup format or the key changes.
+      That rehearsal ran on schema v48, before v65: repeat it on the current
+      schema, and again whenever the backup format or the key changes.
 - [ ] Text reviewed by whoever assumes legal responsibility: what is there is an
       accurate technical draft, not legal advice.
 

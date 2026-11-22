@@ -31,7 +31,8 @@ published and you will be credited if you want.
 These are considered vulnerabilities, among others:
 
 - bypassing authentication, two-step verification or role authorisation (for
-  example, moderating without being an administrator);
+  example, suspending an account or appointing the team without being an
+  administrator);
 - reading or modifying another account's data (listings, requests,
   notifications, lists);
 - breaking message encryption, leaking message content to the server or

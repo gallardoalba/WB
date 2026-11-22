@@ -260,6 +260,68 @@ test("las cifras de la documentación no se contradicen", () => {
   }
 });
 
+test("el héroe tiene tantas cifras como dice la documentación", () => {
+  // El héroe pasó de cuatro cifras a tres al retirar los clubes y los tres
+  // documentos siguieron diciendo «four figures» hasta que alguien lo vio. La
+  // cuenta sale del componente, no de una lista escrita a mano.
+  const app = readFileSync(
+    path.join(process.cwd(), "src", "components", "wanderbibliothek-app.tsx"),
+    "utf8",
+  );
+  const cifras = app.match(/className="hero-stat"/g)?.length ?? 0;
+  const nombres: Record<number, [string, string, string]> = {
+    2: ["dos cifras", "zwei Kennzahlen", "two figures"],
+    3: ["tres cifras", "drei Kennzahlen", "three figures"],
+    4: ["cuatro cifras", "vier Kennzahlen", "four figures"],
+  };
+  const esperado = nombres[cifras];
+  assert.ok(esperado, `el héroe tiene ${cifras} cifras: añade su nombre a esta prueba`);
+  const sobran = Object.entries(nombres)
+    .filter(([numero]) => Number(numero) !== cifras)
+    .flatMap(([, palabras]) => palabras);
+  for (const file of ["DOCUMENTATION.md", "src/lib/technical.ts", "src/lib/technical-en.ts"]) {
+    const texto = readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8");
+    assert.ok(
+      esperado.some((palabra) => texto.includes(palabra)),
+      `${file} debería decir «${esperado.join("» o «")}»`,
+    );
+    for (const palabra of sobran) {
+      assert.ok(!texto.includes(palabra), `${file} no debería decir «${palabra}»`);
+    }
+  }
+});
+
+test("las pruebas de navegador se cuentan igual en toda la documentación", () => {
+  // Pasaron de 64 en 12 ficheros a 63 en 11 al retirar los clubes y tres
+  // documentos se quedaron en 66: cada cifra vivía en un sitio distinto.
+  const patron =
+    /(\d+)\s+(?:browser tests in Chromium|pruebas de navegador en Chromium|Browser-Tests in Chromium|cases in \d+ files)/g;
+  const citadas = new Set<string>();
+  for (const file of [
+    "DOCUMENTATION.md",
+    "src/lib/technical.ts",
+    "src/lib/technical-en.ts",
+    "CONTRIBUTING.md",
+  ]) {
+    const texto = readFileSync(path.join(process.cwd(), ...file.split("/")), "utf8");
+    for (const match of texto.matchAll(patron)) citadas.add(match[1]!);
+  }
+  assert.equal(citadas.size, 1, `la documentación da ${[...citadas].join(" y ")} pruebas de navegador`);
+
+  const especificaciones = readdirSync(path.join(process.cwd(), "e2e")).filter((name) =>
+    name.endsWith(".spec.ts"),
+  );
+  const declarados = readFileSync(path.join(process.cwd(), "CONTRIBUTING.md"), "utf8").match(
+    /Playwright: \d+ cases in (\d+) files/,
+  );
+  assert.ok(declarados, "CONTRIBUTING debería decir en cuántos ficheros van las pruebas de navegador");
+  assert.equal(
+    Number(declarados[1]),
+    especificaciones.length,
+    `en e2e hay ${especificaciones.length} ficheros .spec.ts`,
+  );
+});
+
 /** Todos los ficheros TypeScript de `src/`, para buscar lecturas del entorno. */
 function sourceFiles(dir: string): string[] {
   const found: string[] = [];
