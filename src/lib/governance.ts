@@ -16,7 +16,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "El proyecto publica el código con licencia AGPL-3.0, mantiene la documentación y publica versiones. Cada instancia decide sus normas, a quién admite y cómo organiza su moderación: el proyecto no gobierna las instancias.",
+          text: "El proyecto publica el código con licencia AGPL-3.0, mantiene la documentación y publica versiones. Cada instancia decide sus normas, a quién admite, cómo organiza su moderación y quién la administra: el proyecto no gobierna las instancias. La aplicación pone los mecanismos; la legitimidad la da la comunidad.",
         },
         {
           kind: "p",
@@ -49,7 +49,7 @@ const ES: TechnicalDocument = {
             },
             {
               label: "Comunidad",
-              text: "participa en listas y propone cambios; además puede pedir la revisión de cualquier decisión que le afecte.",
+              text: "denuncia contenido, propone cambios y puede pedir la revisión de una decisión que le afecte escribiendo a la dirección de contacto de la instancia.",
             },
           ],
         },
@@ -162,7 +162,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "Das Projekt veröffentlicht den Code unter der AGPL-3.0-Lizenz, pflegt die Dokumentation und veröffentlicht Versionen. Jede Instanz entscheidet über ihre Regeln, wen sie aufnimmt und wie sie ihre Moderation organisiert: Das Projekt regiert die Instanzen nicht.",
+          text: "Das Projekt veröffentlicht den Code unter der AGPL-3.0-Lizenz, pflegt die Dokumentation und veröffentlicht Versionen. Jede Instanz entscheidet über ihre Regeln, wen sie aufnimmt, wie sie ihre Moderation organisiert und wer sie verwaltet: Das Projekt regiert die Instanzen nicht. Die Software liefert die Mechanismen; Legitimität gibt ihnen die Gemeinschaft.",
         },
         {
           kind: "p",
@@ -184,7 +184,7 @@ const DE: TechnicalDocument = {
             { label: "Projektpflege", text: "prüft den Code, veröffentlicht Versionen und pflegt die technische Dokumentation. Sie verwaltet keine Instanzen." },
             { label: "Instanzverwaltung", text: "kümmert sich um Server, Backups und die Aufnahme ins Team und ist die einzige Stelle, die Konten sperren kann." },
             { label: "Moderation", text: "prüft Meldungen, verbirgt Inhalte und dokumentiert ihr Vorgehen. Sie schlägt Sperren vor, verhängt sie aber nicht, und ernennt niemanden." },
-            { label: "Community", text: "beteiligt sich an Listen und schlägt Änderungen vor; außerdem kann sie jede Entscheidung überprüfen lassen, die sie betrifft." },
+            { label: "Community", text: "meldet Inhalte, schlägt Änderungen vor und kann über die Kontaktadresse der Instanz die Überprüfung einer Entscheidung verlangen, die sie betrifft." },
           ],
         },
       ],
@@ -281,7 +281,7 @@ const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "The project publishes the code under the AGPL-3.0 licence, maintains the documentation and publishes releases. Each instance decides its own rules, whom it admits and how it organises moderation: the project does not govern the instances.",
+          text: "The project publishes the code under the AGPL-3.0 licence, maintains the documentation and publishes releases. Each instance decides its own rules, whom it admits, how it organises moderation and who administers it: the project does not govern the instances. The software provides the mechanisms; the community gives them legitimacy.",
         },
         {
           kind: "p",
@@ -303,7 +303,7 @@ const EN: TechnicalDocument = {
             { label: "Project maintenance", text: "reviews the code, publishes releases and maintains the technical documentation. It does not administer instances." },
             { label: "Instance administration", text: "manages the server, backups and the team, and is the only role that can suspend accounts." },
             { label: "Moderation", text: "reviews reports, hides content and documents its actions. It proposes suspensions but does not apply them, and it does not appoint the team." },
-            { label: "Community", text: "takes part in lists and proposes changes; it can also ask for any decision affecting it to be reviewed." },
+            { label: "Community", text: "reports content, proposes changes and can ask the instance's contact address to review a decision that affects them." },
           ],
         },
       ],

@@ -18,7 +18,7 @@ Wanderbibliothek is free software, and each instance is governed by its own comm
 | Project maintenance | Reviews code, publishes releases, maintains documentation | Does not administer instances |
 | Instance administration | Server, backups, team management, **account suspensions** | Cannot edit the code of other instances |
 | Moderation | Reviews reports, hides content, documents actions, proposes suspensions | Does not apply suspensions or appoint the team |
-| Community | Takes part in lists, proposes changes, asks for reviews | — |
+| Community | Reports content, proposes changes, asks the instance's contact address to review a decision that affects them | — |
 
 An administrator may also moderate, but moderation does not imply administration. In the application, `is_admin` and `is_moderator` are separate flags.
 
