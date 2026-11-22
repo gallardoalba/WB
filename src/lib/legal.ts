@@ -220,7 +220,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "Bibliografische Daten: Der Server fragt die Deutsche Nationalbibliothek (services.dnb.de) und Open Library ab. Diese erhalten die ISBN und die IP des Servers, nicht die IP der besuchenden Person; Cover werden nicht von dort geladen.",
             "Ortsnamen: während des Tippens fragt der Server die Ortsliste bei Photon (Komoot GmbH) ab, einer Suche über die Daten von OpenStreetMap; anschließend gleicht er den gewählten Namen mit Nominatim (OpenStreetMap Foundation) ab, um Tippfehler zu erkennen. Übertragen wird nur der eingetippte Text bzw. der Ortsname, keine IP-Adresse der Besucherin oder des Besuchers.",
             ...optionalRecipients,
-            "Hosting: netcup GmbH.",
+            "Hosting: der Anbieter, bei dem dieser Dienst läuft.",
             "Es gibt keine Analyse-, Werbe- oder Tracking-Dienste und keine externen Schriftarten.",
             "Internationale Übermittlungen: Die konkreten Empfänger und etwaige Übermittlungen außerhalb des EWR hängen von der Konfiguration ab. Der Betreiber dieser Instanz muss die eingesetzten Anbieter, deren Standorte und die jeweils geltenden Garantien angeben; der Anwendungscode kann diese Verträge nicht bestätigen.",
           ],
@@ -335,7 +335,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Datos bibliográficos: el servidor consulta la Deutsche Nationalbibliothek (services.dnb.de) y Open Library. Reciben el ISBN y la IP del servidor, no la IP de quien navega; las portadas ya no se descargan de esos servicios.",
           "Nombres de municipio: mientras se escribe, el servidor pide la lista de municipios a Photon (Komoot GmbH), un buscador sobre los datos de OpenStreetMap; después contrasta el nombre elegido con Nominatim (OpenStreetMap Foundation) para detectar erratas. Se envía solo el texto escrito o el nombre del municipio, nunca la IP de quien navega.",
           ...optionalRecipients,
-          "Alojamiento: netcup GmbH.",
+          "Alojamiento: el proveedor donde se ejecuta el servicio.",
           "No hay servicios de analítica, publicidad ni seguimiento, ni tipografías externas.",
           "Transferencias internacionales: los destinatarios concretos y las transferencias fuera del EEE dependen de la configuración. Quien administra esta instalación debe indicar los proveedores empleados, sus ubicaciones y las garantías aplicables; el código no puede confirmar contratos ni mecanismos de transferencia.",
         ],
@@ -422,7 +422,7 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
       updated: UPDATED,
       intro: [
         "Angaben gemäß § 5 DDG.",
-        "Dieses Impressum richtet sich nach den Anforderungen, die für in Deutschland niedergelassene Anbieter gelten. Die Nutzung aus Österreich ändert den Sitz des Anbieters nicht und auch nicht die rechtlichen Anforderungen, die für ihn gelten. In Österreich niedergelassene Anbieter müssen sicherstellen, dass ihr Impressum die einschlägigen österreichischen Offenlegungspflichten erfüllt, insbesondere § 5 ECG und – soweit anwendbar – § 25 MedienG.",
+        "Diese Vorlage geht von einem in Deutschland niedergelassenen Anbieter aus. Die Nutzung aus Österreich ändert den Sitz des Anbieters nicht. Ist der Anbieter in Österreich niedergelassen, sind die Angaben nach § 5 ECG und – falls das Angebot darunter fällt – die Offenlegungspflichten nach § 25 MedienG zu prüfen und gegebenenfalls zu ergänzen.",
       ],
       sections: [
         { heading: "Diensteanbieter", body: details },
@@ -446,7 +446,7 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
     updated: UPDATED,
     intro: [
       "Datos identificativos del prestador del servicio conforme a la plantilla alemana.",
-      "Este aviso legal se basa en los requisitos aplicables a los prestadores establecidos en Alemania. El uso del sitio web desde Austria no cambia, por sí mismo, el país de establecimiento del prestador ni los requisitos legales que le son aplicables. Los prestadores establecidos en Austria deben asegurarse de que su aviso legal cumple los requisitos austriacos de información, en particular el § 5 ECG y, cuando proceda, el § 25 MedienG.",
+      "Esta plantilla parte de un prestador establecido en Alemania. El uso desde Austria no cambia por sí solo el lugar de establecimiento. Si el prestador está establecido en Austria, deben revisarse las indicaciones del § 5 ECG y, si el servicio entra en su ámbito, las obligaciones de publicación del § 25 MedienG, y completarlas cuando corresponda.",
     ],
     sections: [
       { heading: "Titular del servicio", body: details },
