@@ -597,7 +597,7 @@ test("las tres cifras caben en una fila cuando el ancho aprieta", async ({ page 
   expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(4);
 });
 
-test("en el móvil la tercera cifra ocupa la fila entera", async ({ page }) => {
+test("en el móvil las tres cifras siguen al mismo nivel", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await waitForHydration(page);
@@ -605,14 +605,13 @@ test("en el móvil la tercera cifra ocupa la fila entera", async ({ page }) => {
   const cajas = await page
     .locator(".hero-stat")
     .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({
-      x: Math.round(r.x),
       y: Math.round(r.y),
       ancho: Math.round(r.width),
     })));
-  // Dos arriba, cada una con su mitad; la tercera debajo y a lo ancho.
-  expect(cajas[0]!.y).toBe(cajas[1]!.y);
-  expect(cajas[2]!.y).toBeGreaterThan(cajas[0]!.y);
-  expect(cajas[2]!.ancho).toBeGreaterThan(cajas[0]!.ancho + 20);
+  // Las tres en la misma fila, cada una con su tercio: la banda se lee de un
+  // vistazo y ninguna cifra cae debajo de las otras.
+  expect(new Set(cajas.map((caja) => caja.y)).size).toBe(1);
+  expect(cajas[0]!.ancho).toBeCloseTo(cajas[2]!.ancho, -1);
 });
 
 test("en el móvil cada cifra queda centrada sobre su rótulo", async ({ page }) => {

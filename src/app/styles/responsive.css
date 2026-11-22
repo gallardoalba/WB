@@ -181,40 +181,41 @@
     margin-top: 10px;
   }
 
-  /* Tres cifras en dos columnas: las dos primeras arriba y la tercera a lo
-     ancho, centrada, en vez de dejar un hueco al lado. Cada cifra va centrada
-     sobre su rótulo: alineadas a la izquierda, una con rótulo de una línea y
-     otra de dos parecían de columnas distintas. El relleno va a los dos lados
-     para que el centro del contenido caiga en el centro de la columna. */
+  /* Las tres cifras siguen al mismo nivel: se leen como una banda, no como una
+     lista. Cada una ocupa su tercio y va centrada sobre su rótulo; si el
+     rótulo parte en dos líneas, parte en las tres por igual. */
   .hero-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: 0;
     row-gap: 10px;
     margin-top: 8px;
     padding-top: 10px;
   }
 
-  .hero-stat:nth-child(3) {
-    grid-column: 1 / -1;
-  }
-
   .hero-stat {
     align-items: center;
     text-align: center;
-    padding-inline: 8px;
+    padding-inline: 4px;
   }
 
   .hero-stat + .hero-stat {
-    border-left: 0;
-    padding-left: 8px;
-  }
-
-  .hero-stat:nth-child(2n) {
     border-left: 1px solid var(--line);
+    padding-left: 4px;
   }
 
   .hero-stat strong {
     font-size: 24px;
+  }
+
+  .hero-stat-label {
+    /* En un tercio de móvil el rótulo alemán no cabe en una línea: se deja
+       partir y se equilibra para que las tres columnas midan lo mismo. En un
+       móvil muy estrecho una palabra puede ser más ancha que su tercio, así
+       que se permite cortarla antes que dejarla invadir la vecina. */
+    font-size: 12px;
+    line-height: 1.3;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
   }
 
   /* Los tres pasos, en vertical: en horizontal cada columna se queda con seis
