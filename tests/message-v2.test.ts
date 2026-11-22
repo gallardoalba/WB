@@ -341,13 +341,22 @@ test("el apagado de v1 no afecta a los sobres v2", async () => {
   }
 });
 
-test("el informe de mantenimiento cuenta lo que queda de v1", async () => {
+test("el informe de mantenimiento cuenta lo que queda de v1, en los dos buzones", async () => {
   // El número que decide cuándo es seguro poner la fecha: mensajes con sobres
-  // v1 en los últimos 30 días.
-  const informe = repo.runMaintenance();
-  assert.equal(typeof informe.legacyV1Messages, "number");
-  assert.ok(
-    informe.legacyV1Messages > 0,
-    "los mensajes v1 escritos arriba tienen que aparecer en el recuento",
-  );
+  // v1 en los últimos 30 días. Cuenta intercambios **y** directos, porque la
+  // fecha los apaga a la vez.
+  const antes = repo.runMaintenance().legacyV1Messages;
+  const ana = cuenta("Ana Recuento");
+  const bruno = cuenta("Bruno Recuento");
+  repo.setFollow(ana, bruno, true);
+  repo.setFollow(bruno, ana, true);
+  const claveAna = repo.setPublicKey(ana, { kty: "EC", crv: "P-256", x: "q".repeat(43), y: "r".repeat(43) });
+  const claveBruno = repo.setPublicKey(bruno, { kty: "EC", crv: "P-256", x: "s".repeat(43), y: "t".repeat(43) });
+  repo.sendDirectMessage(ana, bruno, {
+    keyId: claveAna.keyId,
+    envelopes: [{ keyId: claveBruno.keyId, ciphertext: "v1-directo", iv: "iv" }],
+  });
+
+  const despues = repo.runMaintenance().legacyV1Messages;
+  assert.equal(despues, antes + 1, "el mensaje directo en v1 también cuenta");
 });

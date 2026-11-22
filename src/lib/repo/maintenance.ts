@@ -230,15 +230,19 @@ export function runMaintenance(): MaintenanceReport {
   const disclosures = purgeOldDisclosures(db);
 
   // Cuánto queda de v1: es el dato que dice si ya se puede poner
-  // `E2E_V1_SUNSET` sin dejar a nadie sin poder escribir.
+  // `E2E_V1_SUNSET` sin dejar a nadie sin poder escribir. Se cuentan los dos
+  // buzones: intercambios y mensajes directos apagan v1 en la misma fecha.
   const legacyV1Messages = (
     db
       .prepare(
-        `SELECT COUNT(DISTINCT m.id) AS value FROM messages m
-           JOIN message_envelopes e ON e.message_id = m.id AND e.protocol = 1
-          WHERE m.created_at > ?`,
+        `SELECT (SELECT COUNT(DISTINCT m.id) FROM messages m
+                   JOIN message_envelopes e ON e.message_id = m.id AND e.protocol = 1
+                  WHERE m.created_at > :desde)
+              + (SELECT COUNT(DISTINCT d.id) FROM dm_messages d
+                   JOIN dm_message_envelopes e ON e.message_id = d.id AND e.protocol = 1
+                  WHERE d.created_at > :desde) AS value`,
       )
-      .get(daysAgo(30)) as { value: number }
+      .get({ desde: daysAgo(30) }) as { value: number }
   ).value;
 
   const appeals = changes(
