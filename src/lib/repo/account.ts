@@ -45,9 +45,6 @@ export function deleteAccount(userId: string): void {
     // Los dispositivos suscritos a los avisos apuntan a esta cuenta: fuera.
     db.prepare("DELETE FROM push_subscriptions WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?").run(userId, userId);
-    // Actividad de la cuenta (avisos de mensajes nuevos): se va con ella en
-    // lugar de esperar a la poda de 180 días.
-    db.prepare("DELETE FROM product_events WHERE user_id = ?").run(userId);
     // Conversaciones directas: se van enteras (las dos partes dejan de tenerlas).
     db.prepare(
       "DELETE FROM dm_messages WHERE thread_id IN (SELECT id FROM dm_threads WHERE user_a = ? OR user_b = ?)",

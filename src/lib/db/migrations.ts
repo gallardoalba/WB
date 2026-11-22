@@ -2124,7 +2124,8 @@ function migrateToV64(db: Db) {
  * Se borran primero las hijas para no depender del orden de `ON DELETE CASCADE`
  * y se elimina lo que apuntaba a un club y se quedaría sin destino: las
  * denuncias de ese tipo (no se podrían resolver ni mostrar), los avisos con su
- * enlace y los contadores de visitas.
+ * enlace y los contadores de visitas. La tabla de esos contadores se va con
+ * ellas, porque no la escribe nadie más.
  */
 function migrateToV65(db: Db) {
   db.transaction(() => {
@@ -2135,7 +2136,6 @@ function migrateToV65(db: Db) {
     db.prepare(
       "DELETE FROM notifications WHERE type = 'club' OR link LIKE '/clubes%'",
     ).run();
-    db.prepare("DELETE FROM product_events WHERE type = 'club_view'").run();
 
     // De la hoja a la raíz. `IF EXISTS` deja la migración re-ejecutable si una
     // instalación a medio camino se quedó sin alguna tabla.
@@ -2153,12 +2153,12 @@ function migrateToV65(db: Db) {
       db.exec(`DROP TABLE IF EXISTS ${tabla}`);
     }
 
-    // `product_events.club_id` solo servía para contar visitas a un club. La
-    // columna es opcional y sin índice; se va con las tablas.
-    const columnas = (db.pragma("table_info(product_events)") as { name: string }[]).map(
-      (columna) => columna.name,
-    );
-    if (columnas.includes("club_id")) db.exec("ALTER TABLE product_events DROP COLUMN club_id");
+    // `product_events` nació para medir los clubes y no lo escribe nadie más:
+    // sus dos únicos tipos eran `club_view` y `club_post_notice`. Una tabla que
+    // guarda actividad con `user_id` y ya no recibe filas es solo una
+    // obligación de borrado y una promesa en la política de privacidad; se va
+    // entera, con la columna `club_id` dentro.
+    db.exec("DROP TABLE IF EXISTS product_events");
   })();
 
   db.pragma("user_version = 65");

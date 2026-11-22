@@ -147,7 +147,6 @@ export type MaintenanceReport = {
   authAttempts: number;
   notifications: number;
   events: number;
-  productEvents: number;
   audit: number;
   /** Denuncias ya resueltas que se han tirado (retención: un año). */
   resolvedReports: number;
@@ -190,13 +189,6 @@ export function runMaintenance(): MaintenanceReport {
       WHERE book_id IS NOT NULL AND book_id NOT IN (SELECT id FROM books)`,
   );
   const events = changes("DELETE FROM events WHERE created_at < ?", daysAgo(180));
-  // `product_events` guarda avisos de mensajes nuevos **con `user_id`**: es un
-  // dato personal de actividad, no una estadística anónima, y sin esta poda
-  // crecía para siempre. Mismo plazo que `events`.
-  const productEvents = changes(
-    "DELETE FROM product_events WHERE created_at < ?",
-    daysAgo(180),
-  );
   // La auditoría de moderación se poda a los 730 días, que es lo que publica la
   // política de privacidad. `AUDIT_RETENTION_DAYS=0` la conserva sin límite para
   // quien prefiera el histórico completo (y así lo tiene que decir la política).
@@ -258,7 +250,6 @@ export function runMaintenance(): MaintenanceReport {
     authAttempts,
     notifications,
     events,
-    productEvents,
     audit,
     resolvedReports,
     expiredSuspensions: expiredSuspensions.length,
