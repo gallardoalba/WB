@@ -66,3 +66,5 @@ AGENTS.md
 
 # libolm servido en tiempo de ejecución (lo copia scripts/olm-assets.ts)
 /public/olm/
+# Raíces apuntadas por el testigo de transparencia: se guardan fuera.
+/witness/

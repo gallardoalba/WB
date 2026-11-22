@@ -49,6 +49,7 @@
     "transparency:snapshot": "node --import tsx scripts/transparency-snapshot.ts",
     "transparency:key": "node --import tsx scripts/transparency-key.ts",
     "transparency:verify": "node --import tsx scripts/verify-transparency.ts",
+    "transparency:witness": "node --import tsx scripts/witness-roots.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "bench:migrate": "node --import tsx scripts/bench-migrations.ts",
     "test:e2e": "playwright test --project=chromium",

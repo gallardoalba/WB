@@ -279,3 +279,75 @@ test("sin dispositivo en el remitente, v1 sigue valiendo", async () => {
   });
   assert.equal(mensaje.encrypted, true);
 });
+
+test("pasada la fecha de apagado, v1 se rechaza con 410 y v2 sigue entrando", async () => {
+  // `E2E_V1_SUNSET` es la única palanca que apaga el cifrado antiguo: sin ella
+  // un despliegue se queda como está, y con ella deja de aceptarse un sobre v1.
+  // Se prueba con dos cuentas sin dispositivo, que son las únicas a las que v1
+  // sigue abierto (la regla anti-degradación ya cubre al resto).
+  const ana = cuenta("Ana Apagada");
+  const bruno = cuenta("Bruno Apagado");
+  const hilo = intercambio(ana, bruno);
+  const claveAna = repo.setPublicKey(ana, { kty: "EC", crv: "P-256", x: "m".repeat(43), y: "n".repeat(43) });
+  const claveBruno = repo.setPublicKey(bruno, { kty: "EC", crv: "P-256", x: "o".repeat(43), y: "p".repeat(43) });
+  const enV1 = () =>
+    repo.addEncryptedMessage(hilo, ana, {
+      keyId: claveAna.keyId,
+      envelopes: [{ keyId: claveBruno.keyId, ciphertext: "v1", iv: "iv" }],
+    });
+
+  const anterior = process.env.E2E_V1_SUNSET;
+  try {
+    process.env.E2E_V1_SUNSET = "2020-01-01T00:00:00.000Z";
+    assert.throws(
+      enV1,
+      (error: { status?: number }) => error.status === 410,
+      "un mensaje v1 después de la fecha se rechaza con 410",
+    );
+
+    // Una fecha que no se entiende no apaga nada: mejor eso que cortar el
+    // servicio por una errata en el entorno.
+    process.env.E2E_V1_SUNSET = "el martes";
+    assert.equal(enV1().encrypted, true);
+
+    process.env.E2E_V1_SUNSET = "2099-01-01T00:00:00.000Z";
+    assert.equal(enV1().encrypted, true, "una fecha futura tampoco corta nada todavía");
+  } finally {
+    if (anterior === undefined) delete process.env.E2E_V1_SUNSET;
+    else process.env.E2E_V1_SUNSET = anterior;
+  }
+});
+
+test("el apagado de v1 no afecta a los sobres v2", async () => {
+  // v1 y v2 se apagan por caminos distintos: el 410 solo mira los sobres del
+  // protocolo viejo, así que una conversación en v2 sigue funcionando.
+  const ana = cuenta("Ana Apagada V2");
+  const bruno = cuenta("Bruno Apagado V2");
+  const deAna = await dispositivo(ana, "dispositivo-de-ana-13");
+  const deBruno = await dispositivo(bruno, "dispositivo-de-bruno-13");
+  const hilo = intercambio(ana, bruno);
+
+  const anterior = process.env.E2E_V1_SUNSET;
+  try {
+    process.env.E2E_V1_SUNSET = "2020-01-01T00:00:00.000Z";
+    const mensaje = repo.addEncryptedMessage(hilo, ana, {
+      v2: { senderDeviceId: deAna.deviceId, envelopes: [sobre(deBruno.deviceId, "cuerpo-v2")] },
+    });
+    assert.equal(mensaje.encrypted, true);
+    assert.equal(mensaje.senderDeviceId, deAna.deviceId);
+  } finally {
+    if (anterior === undefined) delete process.env.E2E_V1_SUNSET;
+    else process.env.E2E_V1_SUNSET = anterior;
+  }
+});
+
+test("el informe de mantenimiento cuenta lo que queda de v1", async () => {
+  // El número que decide cuándo es seguro poner la fecha: mensajes con sobres
+  // v1 en los últimos 30 días.
+  const informe = repo.runMaintenance();
+  assert.equal(typeof informe.legacyV1Messages, "number");
+  assert.ok(
+    informe.legacyV1Messages > 0,
+    "los mensajes v1 escritos arriba tienen que aparecer en el recuento",
+  );
+});

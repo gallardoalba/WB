@@ -163,6 +163,8 @@ export type MaintenanceReport = {
   covers: number;
   /** Revelaciones de club antiguas que se han borrado. */
   disclosures: number;
+  /** Mensajes de los últimos 30 días que aún llevan sobres de v1. */
+  legacyV1Messages: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
   db: DbMetrics;
 };
@@ -227,6 +229,18 @@ export function runMaintenance(): MaintenanceReport {
   // mensaje concreto: mismo plazo que la auditoría.
   const disclosures = purgeOldDisclosures(db);
 
+  // Cuánto queda de v1: es el dato que dice si ya se puede poner
+  // `E2E_V1_SUNSET` sin dejar a nadie sin poder escribir.
+  const legacyV1Messages = (
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT m.id) AS value FROM messages m
+           JOIN message_envelopes e ON e.message_id = m.id AND e.protocol = 1
+          WHERE m.created_at > ?`,
+      )
+      .get(daysAgo(30)) as { value: number }
+  ).value;
+
   const appeals = changes(
     "DELETE FROM appeals WHERE status <> 'open' AND created_at < ?",
     daysAgo(730),
@@ -277,6 +291,7 @@ export function runMaintenance(): MaintenanceReport {
     clubReminders,
     covers,
     disclosures,
+    legacyV1Messages,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.
     db: dbMetrics(),
   };

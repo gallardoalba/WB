@@ -263,7 +263,7 @@ export function DirectMessageDialog({
   function send(event: FormEvent) {
     event.preventDefault();
     const body = draft.trim();
-    if (!body || !thread || !privateKeyRef.current || !myKeyIdRef.current) return;
+    if (!body || !thread) return;
     const peerId = thread.peer.id;
     const meId = thread.me.id;
     const keyId = myKeyIdRef.current;
@@ -275,16 +275,9 @@ export function DirectMessageDialog({
       agregarEnvio({ id: `envio-${Date.now()}`, texto: body, hora: new Date().toISOString() });
       try {
         const conversationId = directConversationId(meId, peerId);
-        const envelopes = await encryptForRecipients(
-          privateKey,
-          peerKeysRef.current,
-          conversationId,
-          body,
-          directAad(conversationId, meId, keyId),
-        );
-        // El mismo texto en los dos formatos mientras convivan: v1 para las
-        // ranuras antiguas y v2 para los dispositivos. Nadie se queda sin leer
-        // por actualizar tarde.
+        // Igual que en los intercambios: si la otra persona tiene dispositivo,
+        // el mensaje va solo en v2 y no se manda la copia de v1, que usa una
+        // clave estática y no tiene forward secrecy.
         const v2 = await getV2()
           .then((bridge) =>
             bridge?.encryptV2({
@@ -295,10 +288,27 @@ export function DirectMessageDialog({
             }),
           )
           .catch(() => null);
-        await api(`/api/direct/${peerId}`, {
-          method: "POST",
-          body: { keyId, envelopes, ...(v2 ? { v2 } : {}) },
-        });
+
+        let payload: Record<string, unknown>;
+        if (v2) {
+          payload = { v2 };
+        } else {
+          if (!privateKey || !keyId) {
+            throw new Error(
+              t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."),
+            );
+          }
+          const envelopes = await encryptForRecipients(
+            privateKey,
+            peerKeysRef.current,
+            conversationId,
+            body,
+            directAad(conversationId, meId, keyId),
+          );
+          payload = { keyId, envelopes };
+        }
+
+        await api(`/api/direct/${peerId}`, { method: "POST", body: payload });
         setDraft("");
         await load();
       } catch (caught) {

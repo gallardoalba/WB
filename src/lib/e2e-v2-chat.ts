@@ -14,6 +14,7 @@ import { api } from "./client-api";
 import * as v2 from "./e2e-v2";
 import {
   decryptClubPosts,
+  decryptDisclosures,
   decryptThread,
   encryptForClub,
   encryptForDevices,
@@ -419,4 +420,44 @@ export async function revealClubPost(input: {
   });
   await store?.save(current.state);
   return true;
+}
+
+/**
+ * Descifra lo que se ha revelado a quien modera.
+ *
+ * Devuelve un mapa `id de revelación → texto`. Si este navegador no tiene
+ * dispositivo, no hay nada que abrir: el moderador verá el aviso y tendrá que
+ * abrirlo desde el aparato con el que lo activó.
+ */
+export async function decryptClubDisclosures(input: {
+  userId: string;
+  clubId: string;
+  disclosures: { id: string; reporterId: string; envelopes: { type: number | null; body: string }[] }[];
+}): Promise<Record<string, string>> {
+  if (input.disclosures.length === 0) return {};
+  const current = await loadV2Session(input.userId).catch(() => null);
+  if (!current) return {};
+  try {
+    return await withSession(input.userId, async (fresh) => {
+      const response = await api<{
+        devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+      }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
+      return decryptDisclosures({
+        session: fresh,
+        api: httpApi,
+        conversation: `club:${input.clubId}`,
+        devices: response.devices,
+        disclosures: input.disclosures,
+      });
+    });
+  } catch {
+    return {};
+  }
+}
+
+/** Identificador del dispositivo de esta cuenta en este navegador, si existe. */
+export async function deviceIdFor(userId: string): Promise<string | null> {
+  if (!v2Supported() || !store) return null;
+  const state = await store.load(userId).catch(() => null);
+  return state?.deviceId ?? null;
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import type { Metadata } from "next";
-import { BookOpen, CalendarClock, Link2, Lock, Users } from "lucide-react";
+import { BookOpen, CalendarClock, Eye, Link2, Lock, Users } from "lucide-react";
 import {
   ClubAttendance,
   ClubJoin,
@@ -13,6 +13,7 @@ import {
   ClubSettings,
   ClubShare,
 } from "@/components/club-board";
+import { ClubDisclosures } from "@/components/club-disclosures";
 import { ClubForum } from "@/components/club-forum";
 import { SectionBoundary } from "@/components/section-boundary";
 import { ClubPoll } from "@/components/club-poll";
@@ -214,6 +215,17 @@ export default async function Page({ params, searchParams }: PageProps) {
             {t("Mensajes denunciados")} · {denuncias.length}
           </h2>
           <ClubReports clubId={club.id} reports={denuncias} />
+        </section>
+      )}
+
+      {/* Moderar sin leer todo el club: aquí llega lo que alguien decide
+          revelar, con su motivo y con el texto ya descifrado en este navegador. */}
+      {llevaElClub && viewer && (
+        <section className="club-panel club-requests-panel">
+          <h2>
+            <Eye size={16} aria-hidden /> {t("Lo que se ha revelado")}
+          </h2>
+          <ClubDisclosures clubId={club.id} userId={viewer.id} />
         </section>
       )}
 

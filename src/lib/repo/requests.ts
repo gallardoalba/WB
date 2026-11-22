@@ -17,6 +17,7 @@ import { normalizeCoverUrl, normalizeText } from "../text";
 import {
   areBlocked,
   assertNotDowngraded,
+  assertV1StillAllowed,
   assertV2Envelopes,
   FALTAN_SOBRES,
   messageEnvelopesFor,
@@ -1078,6 +1079,7 @@ function assertV1Envelopes(
   input: { keyId?: string; ciphertext?: string; iv?: string },
   envelopes: MessageEnvelopeView[],
 ): void {
+  if (envelopes.length > 0 || Boolean(input.ciphertext && input.iv)) assertV1StillAllowed();
   const senderKeys = listPublicKeyRecords(userId);
   if (senderKeys.length === 0) {
     throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");

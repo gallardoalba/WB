@@ -6,6 +6,7 @@ import { notify } from "./notifications";
 import { getUserById, listPublicKeyRecords, toPublicKeyEntries } from "./users";
 import {
   assertNotDowngraded,
+  assertV1StillAllowed,
   assertV2Envelopes,
   FALTAN_SOBRES,
   isBlocked,
@@ -239,6 +240,7 @@ export function sendDirectMessage(
   const envelopes = input.envelopes ?? [];
   const usesV1 = Boolean(input.keyId) || envelopes.length > 0 || Boolean(input.ciphertext && input.iv);
   if (usesV1) {
+    assertV1StillAllowed();
     const senderKeys = listPublicKeyRecords(viewerId);
     if (senderKeys.length === 0) {
       throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");

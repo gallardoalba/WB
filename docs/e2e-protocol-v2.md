@@ -231,14 +231,27 @@ Still missing, and not claimed anywhere else:
 
 - **consistency proofs** between consecutive roots, so a server cannot present
   two histories;
-- an external witness pinning key roots (the verifier already pins catalogue
-  roots);
 - verification in the client against the committed root before trusting a
   device — **done for the peer's device**: `verifyDeviceProof` walks the line to
   the root, checks the snapshot signature and pins the operator's signing key,
   so a second history fails and a swapped signer key is noticed. What is still
-  missing is the **consistency proof between roots** and a witness that is not
-  the operator.
+  missing is the **consistency proof between roots**.
+
+The witness now exists, but it is the operator's own: because the signature is
+theirs, one operator can sign two coherent histories and both would verify. What
+catches that is someone keeping the roots they saw. `npm run
+transparency:witness` fetches `/api/transparency` and `/api/transparency/keys`,
+checks every signature and both hash chains, and appends one line per snapshot
+(`id`, `createdAt`, `merkleRoot`, `previousRoot`, `itemCount`, `signature`,
+`publicKey`, `seenAt`) to a JSONL file; `--check` re-verifies without writing and
+fails if a pinned root changed, a signature changed, a snapshot disappeared or a
+chain broke. The daily `testigo` workflow runs it and keeps the file as an
+artifact — which only counts as evidence if it is also copied **outside** the
+instance: an artifact that only the witness holds is worth nothing once the
+witness is the one being watched. Until those copies exist, and until
+consistency proofs land, the log still detects substitution only the day
+somebody diffs two roots; §2's bundle signature is what makes a substitution
+visible to a client that checks it.
 
 What does exist is the out-of-band check: `v2SafetyNumber` hashes every device
 of both sides (`device_id|identity_key|signing_key`, sorted, iterated SHA-512
@@ -311,17 +324,23 @@ v2 does not hide who talks to whom. Concrete reductions, in order:
 
 ## 11. Migration
 
-0. While both protocols coexist, a client that has a v2 device **sends both**:
-   v1 envelopes for the platform slots and v2 envelopes for the devices. That is
-   what makes the rollout non-breaking, and it stops the day no slot is left.
+0. While both protocols coexist, a client **tries v2 first**. If the peer has
+   any device, the message goes out **only** in v2: shipping a v1 copy as well
+   would hand the server a static-key ciphertext of every message, which is the
+   hole v2 exists to close. v1 envelopes are produced only for peers that have
+   no device yet, which keeps the rollout non-breaking without keeping the
+   weaker copy around.
 1. Clients publish a device bundle on first use; v1 `user_keys` rows become a
    read-only `web` device for existing accounts.
 2. A thread uses v2 as soon as both devices have a session; otherwise it stays
    on v1. Both formats coexist; the server stores and returns either.
 3. A message is never re-encrypted in place: rewriting ciphertext would break
    the ratchet.
-4. v1 is removed once no thread has produced a v1 envelope in 90 days; the
-   removal is a separate release with its own note.
+4. v1 is removed once no thread has produced a v1 envelope in 90 days. The
+   switch is `E2E_V1_SUNSET`: an ISO date after which the server answers `410`
+   to any message carrying a v1 envelope. It is not silent — the maintenance
+   report counts `legacyV1Messages` (v1 envelopes in the last 30 days) so the
+   date is set with numbers in hand, not by hope.
 
 **Anti-downgrade rule.** The server chooses which envelopes it returns, so it
 can always try to keep a thread on v1 — where it can forge senders and read
@@ -399,22 +418,33 @@ Shipped in this release:
 | Device state serialised across tabs (`navigator.locks`), re-read inside the lock | `src/lib/e2e-v2-chat.ts` | `tests/e2e-v2-locks.test.ts` |
 | libolm copied to `/olm/` only if it matches the package's own `checksums.txt` | `scripts/olm-assets.ts` | `tests/olm-integrity.test.ts` |
 | Anti-downgrade: once both sides have a device, a v1-only message is refused | `src/lib/repo/shared.ts`, requests and direct messages | `tests/message-v2.test.ts` |
-| Bridge for the interface: dual-send, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
+| Bridge for the interface: v2 first, v1 only for peers without a device, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
 | v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |
 | libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |
+| Moderation panel: the moderator opens the disclosed text on their own device | `src/components/club-disclosures.tsx`, `GET /api/clubs/:id/disclosures`, `POST …/disclosures/:id` | `tests/club-crypto.test.ts` |
+| Disclosures purged after 730 days, so a report does not become an archive | `src/lib/repo/clubcrypto.ts` | `tests/club-crypto.test.ts` |
+| Sunset switch for v1: a date after which v1 envelopes are refused with `410`, and a count of what is left | `src/lib/repo/shared.ts`, `src/lib/repo/maintenance.ts` | `tests/message-v2.test.ts` |
+| Witness: pins catalogue and key roots, verifies signatures and chains, `--check` fails on a rewritten root or a missing snapshot | `src/lib/witness.ts`, `scripts/witness-roots.ts`, `.github/workflows/testigo.yml` | `tests/witness.test.ts` |
 
 How far the interface goes: activating v2 in «Mi cuenta» publishes the device.
-Exchanges and direct messages **send both formats** (§11) and decrypt whatever
-arrives, so the rollout does not cut anyone off; the thread shows the device
-safety number (§7) next to the v1 one. The club forum sends **only v2** when the
+Exchanges and direct messages **prefer v2 and send only v2** when the peer has
+a device, falling back to v1 —one envelope per slot, no ratchet— only while the
+peer has none (§11). They decrypt whatever arrives, so the rollout does not cut
+anyone off, and the thread shows the device safety number (§7) next to the v1
+one. The club forum sends **only v2** when the
 device exists — there is no v1 copy, because the whole point is that the
 moderation cannot read it — and decrypts its own envelopes on load.
 
+The moderator's panel lists the disclosures with who filed them, when and why,
+and decrypts the text on the moderator's device from the envelopes the reporter
+produced — the server never holds it in clear. Marking one read is a `POST`; the
+rows age out after two years.
+
 Not implemented yet, and therefore **not** claimed by the documentation:
-dropping v1 once the rollout ends, consistency proofs between consecutive roots
-and a witness that is not the operator (§7), MLS for large clubs, and the
-moderation panel that shows the disclosed text (the data and the endpoint exist;
-the panel still reads the v1 reports).
+consistency proofs between consecutive roots and a witness that is not the
+operator (§7 — the script exists, the independent copy is a human step), v1
+actually being switched off (the switch exists, the date is an operator
+decision), and MLS for large clubs.
 
 ## 15. Change control
 

@@ -426,3 +426,38 @@ export function assertClubNotDowngraded(authorId: string, hasV2: boolean): void 
     "Este club usa el cifrado v2 y tu navegador tiene dispositivo: el mensaje no puede publicarse en claro. Recarga la página e inténtalo otra vez.",
   );
 }
+
+/**
+ * Fecha a partir de la cual deja de aceptarse el cifrado v1.
+ *
+ * v1 deriva una clave estática por conversación: sin forward secrecy y con un
+ * remitente que el servidor puede reescribir. Mientras conviven los protocolos
+ * hay que decidir cuándo se apaga, y esa decisión no puede ser un día cualquiera
+ * que alguien recuerde: se pone aquí con `E2E_V1_SUNSET` (ISO 8601) y, a partir
+ * de esa fecha, un mensaje con sobres v1 se rechaza con un motivo claro.
+ *
+ * Sin la variable no se apaga nada: un despliegue que no lo configure sigue
+ * funcionando igual, y el mantenimiento avisa de cuántos mensajes v1 siguen
+ * apareciendo para saber cuándo es seguro dar el paso.
+ */
+export function v1Sunset(): Date | null {
+  const raw = process.env.E2E_V1_SUNSET?.trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** ¿Se ha pasado ya la fecha de apagado de v1? */
+export function v1Retired(now = new Date()): boolean {
+  const sunset = v1Sunset();
+  return sunset !== null && now >= sunset;
+}
+
+/** Rechaza los sobres de v1 cuando el protocolo ya se apagó. */
+export function assertV1StillAllowed(): void {
+  if (!v1Retired()) return;
+  throw new ApiError(
+    410,
+    "El cifrado antiguo ya no se acepta. Actualiza la página y activa el cifrado v2 en «Mi cuenta» para seguir escribiendo.",
+  );
+}

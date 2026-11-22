@@ -518,16 +518,7 @@ export function ExchangeDialog({
     const formData = new FormData(form);
     const body = String(formData.get("body") ?? "").trim();
     if (!body || !requestId) return;
-    if (!thread?.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
-      setError(t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."));
-      return;
-    }
-    if (!thread.ownKeyReady) {
-      setError(
-        t("Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta»."),
-      );
-      return;
-    }
+    if (!thread) return;
     if (thread.keyChanged) {
       setError(t("La clave de la otra persona ha cambiado. Confírmala antes de enviar."));
       return;
@@ -535,16 +526,11 @@ export function ExchangeDialog({
     setSending(true);
     setError("");
     try {
-      const envelopes = await encryptForRecipients(
-        thread.privateKey,
-        thread.peerKeys,
-        requestId,
-        body,
-        messageAad(requestId, thread.me.id, thread.myKeyId),
-      );
-      // Mientras conviven los protocolos, el mismo texto sale en los dos
-      // formatos: v1 para las ranuras antiguas y v2 para los dispositivos.
-      // Así nadie se queda sin leer por actualizar tarde.
+      // Con dispositivo en la otra punta, el mensaje va **solo** en v2. La
+      // copia en v1 usa una clave estática por conversación —sin forward
+      // secrecy y con un remitente que el servidor puede reescribir—, así que
+      // no se manda si no hace falta. Solo se recurre a ella cuando la otra
+      // persona todavía no tiene ningún dispositivo.
       const v2 = await getV2Module()
         .then((bridge) =>
           bridge?.encryptV2({
@@ -555,9 +541,36 @@ export function ExchangeDialog({
           }),
         )
         .catch(() => null);
+
+      let payload: Record<string, unknown>;
+      if (v2) {
+        payload = { v2 };
+      } else {
+        if (!thread.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
+          setError(
+            t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."),
+          );
+          return;
+        }
+        if (!thread.ownKeyReady) {
+          setError(
+            t("Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta»."),
+          );
+          return;
+        }
+        const envelopes = await encryptForRecipients(
+          thread.privateKey,
+          thread.peerKeys,
+          requestId,
+          body,
+          messageAad(requestId, thread.me.id, thread.myKeyId),
+        );
+        payload = { keyId: thread.myKeyId, envelopes };
+      }
+
       const data = await api<{ message: MessageView }>(`/api/requests/${requestId}/messages`, {
         method: "POST",
-        body: { keyId: thread.myKeyId, envelopes, ...(v2 ? { v2 } : {}) },
+        body: payload,
       });
       setThread({
         ...thread,

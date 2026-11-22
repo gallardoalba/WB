@@ -1,0 +1,57 @@
+name: Testigo de transparencia
+
+# Apunta cada día las raíces de Merkle que publica la instancia y las guarda como
+# artefacto del workflow. Es lo que convierte «confía en mi firma» en algo
+# comprobable: si mañana la instancia enseña otra historia, el artefacto de ayer
+# lo delata, y ese artefacto no está en el servidor que se vigila.
+#
+# Un artefacto de GitHub caduca (90 días por defecto). Para que sirva de verdad
+# hay que llevarlo fuera —otro repositorio, una copia local, alguien distinto—;
+# el workflow lo recuerda y `docs/e2e-protocol-v2.md` lo explica.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testigo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Recuperar lo apuntado en la ejecución anterior
+        continue-on-error: true
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: testigo-raices
+          path: witness
+
+      - name: Comprobar lo apuntado y añadir lo nuevo
+        # El script compara lo que trae el fichero con lo que publica la instancia
+        # y falla si una raíz cambió o si una instantánea desapareció. Si no hay
+        # artefacto previo, simplemente empieza a apuntar.
+        env:
+          INSTANCIA: ${{ vars.PUBLIC_SITE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${INSTANCIA:-}" ]; then
+            echo "Falta la variable de repositorio PUBLIC_SITE_URL." >&2
+            exit 1
+          fi
+          npm run transparency:witness -- --url "$INSTANCIA" --file witness/roots.jsonl
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: testigo-raices
+          path: witness/roots.jsonl
+          retention-days: 90

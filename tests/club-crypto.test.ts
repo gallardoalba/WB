@@ -503,3 +503,70 @@ test("las revelaciones antiguas se purgan a los dos años", async () => {
   assert.equal(repo.purgeOldDisclosures(db.getDb(), 730), 1);
   assert.deepEqual(repo.listDisclosures(clubId, dueña, deDueña.deviceId), []);
 });
+
+test("el moderador lee exactamente lo revelado, con su motivo", async () => {
+  const dueña = cuenta("Dueña Lee");
+  const miembro = cuenta("Miembro Lee");
+  const clubId = club(dueña);
+  unir(clubId, miembro);
+  const deDueña = await dispositivo(dueña, "dispositivo-duena-11");
+  const deMiembro = await dispositivo(miembro, "dispositivo-miembro-5");
+
+  const devices = repo.listClubDevices(clubId);
+  const { senderDeviceId, envelopes } = await encryptForClub({
+    session: sesion(dueña, deDueña) as never,
+    api: api(),
+    clubId,
+    conversation: `club:${clubId}`,
+    text: "esto es lo que se revela",
+    devices,
+  });
+  const post = repo.createClubPost({
+    clubId,
+    authorId: dueña,
+    authorName: "Dueña",
+    body: "",
+    v2: { senderDeviceId, envelopes },
+  });
+
+  const revelado = await encryptForClub({
+    session: sesion(miembro, deMiembro) as never,
+    api: api(),
+    clubId,
+    conversation: `club:${clubId}`,
+    text: "esto es lo que se revela",
+    devices: devices.filter((device) => device.deviceId === deDueña.deviceId),
+  });
+  repo.discloseClubPost({
+    clubId,
+    postId: post.id,
+    reporterId: miembro,
+    reason: "acoso en el hilo",
+    envelopes: revelado.envelopes,
+  });
+
+  const lista = repo.listDisclosures(clubId, dueña, deDueña.deviceId);
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0]!.reporterId, miembro, "quién lo reveló");
+  assert.equal(lista[0]!.readAt, null, "y consta si se ha leído");
+
+  // El texto se abre con el dispositivo del moderador, probando los aparatos de
+  // quien denunció (el sobre no dice cuál fue).
+  const { decryptDisclosures } = await import("../src/lib/e2e-v2-device.ts");
+  const textos = await decryptDisclosures({
+    session: sesion(dueña, deDueña) as never,
+    api: api(),
+    conversation: `club:${clubId}`,
+    devices,
+    disclosures: lista.map((item) => ({
+      id: item.id,
+      reporterId: item.reporterId,
+      envelopes: item.envelopes,
+    })),
+  });
+  assert.equal(textos[lista[0]!.id], "esto es lo que se revela");
+
+  // Y queda marcada como leída.
+  assert.equal(repo.markDisclosureRead(lista[0]!.id, dueña), true);
+  assert.ok(repo.listDisclosures(clubId, dueña, deDueña.deviceId)[0]!.readAt);
+});

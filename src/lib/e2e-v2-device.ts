@@ -591,3 +591,51 @@ export async function decryptClubPosts(input: {
   session.state.account = v2.pickleAccount(session.account, session.state.pickleKey);
   return decoded;
 }
+
+/**
+ * Descifra las revelaciones de un club.
+ *
+ * Cada revelación viene cifrada para **este** dispositivo, y la mandó el
+ * aparato de quien denunció: se prueba con los suyos, que salen del registro
+ * firmado. Así quien modera lee exactamente lo revelado y nada más, y sabe quién
+ * se lo mandó.
+ */
+export async function decryptDisclosures(input: {
+  session: Session;
+  api: DeviceApi;
+  conversation: string;
+  devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
+  disclosures: {
+    id: string;
+    reporterId: string;
+    envelopes: { type: number | null; body: string }[];
+  }[];
+}): Promise<Record<string, string>> {
+  const { session, api, conversation, devices, disclosures } = input;
+  const decoded: Record<string, string> = {};
+
+  for (const disclosure of disclosures) {
+    const candidates = devices.filter((device) => device.userId === disclosure.reporterId);
+    const envelope = disclosure.envelopes[0];
+    if (!envelope || candidates.length === 0) continue;
+
+    for (const candidate of candidates) {
+      try {
+        decoded[disclosure.id] = await openEnvelope(
+          session,
+          api,
+          candidate.userId,
+          candidate,
+          { type: envelope.type ?? 0, body: envelope.body },
+          conversation,
+        );
+        break;
+      } catch {
+        // Otro aparato de quien denunció: se prueba el siguiente.
+      }
+    }
+  }
+
+  session.state.account = v2.pickleAccount(session.account, session.state.pickleKey);
+  return decoded;
+}
