@@ -8,7 +8,6 @@ const ES: TechnicalDocument = {
   updated: UPDATED,
   intro: [
     "Wanderbibliothek es software libre y cada instancia la gobierna su comunidad. Este documento separa lo que garantiza el proyecto de lo que decide cada instancia.",
-    "También explica cómo se modera y cómo se apela una sanción.",
   ],
   sections: [
     {
@@ -155,7 +154,6 @@ const DE: TechnicalDocument = {
   updated: UPDATED,
   intro: [
     "Wanderbibliothek ist freie Software, und jede Instanz wird von ihrer Community geführt. Dieses Dokument trennt, was das Projekt zusichert, von dem, was jede Instanz entscheidet.",
-    "Es erklärt außerdem, wie moderiert wird und wie gegen eine Sanktion Einspruch eingelegt werden kann.",
   ],
   sections: [
     {
@@ -275,7 +273,6 @@ const EN: TechnicalDocument = {
   updated: UPDATED,
   intro: [
     "Wanderbibliothek is free software, and each instance is governed by its community. This document separates what the project guarantees from what each instance decides.",
-    "It also explains how moderation works and how a sanction can be appealed.",
   ],
   sections: [
     {
