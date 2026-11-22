@@ -185,7 +185,12 @@ const catalogIndex = cache((): CatalogIndex => {
   // de producción se lee siempre, para que las pruebas vean lo que acaban de
   // escribir.
   if (process.env.NODE_ENV !== "production") return buildCatalogIndex();
-  const now = Date.now();
+  // `performance.now()` y no `Date.now()`: esta función también corre en el
+  // prerender, y Next aborta el render con «encountered the unstable value
+  // Date.now()». El reloj monótono no es un dato que se pinte —solo decide si
+  // la copia en proceso sigue fresca—, así que es lo correcto aquí: además no
+  // salta si alguien ajusta la hora del servidor.
+  const now = performance.now();
   if (cachedIndex && now - cachedIndex.at < CATALOG_CACHE_MS) return cachedIndex.index;
   const index = buildCatalogIndex();
   cachedIndex = { at: now, index };

@@ -2108,6 +2108,62 @@ function migrateToV64(db: Db) {
   db.pragma("user_version = 64");
 }
 
+/**
+ * v65: se retiran los grupos de lectura.
+ *
+ * La funcionalidad no encajaba en el proyecto: un club era a la vez foro,
+ * encuesta, préstamo rotatorio, control de asistencia y objeto de moderación, y
+ * mantenía cinco subsistemas con sus propias reglas. Se elimina entera, y con
+ * ella sus datos.
+ *
+ * La migración es deliberadamente destructiva: dejar las tablas sin uso sería
+ * peor que borrarlas, porque seguirían guardando texto libre de personas que ya
+ * no pueden verlo ni reclamarlo. Las copias cifradas anteriores a esta versión
+ * son la única vuelta atrás, y por eso el despliegue hace una antes de migrar.
+ *
+ * Se borran primero las hijas para no depender del orden de `ON DELETE CASCADE`
+ * y se elimina lo que apuntaba a un club y se quedaría sin destino: las
+ * denuncias de ese tipo (no se podrían resolver ni mostrar), los avisos con su
+ * enlace y los contadores de visitas. La tabla de esos contadores se va con
+ * ellas, porque no la escribe nadie más.
+ */
+function migrateToV65(db: Db) {
+  db.transaction(() => {
+    db.prepare("DELETE FROM reports WHERE target_type IN ('club', 'club_post')").run();
+    // Los avisos de club enlazan a `/clubes/…`, que ya no existe: se quedaban en
+    // la campana como un enlace roto. Se distinguen por el enlace, no solo por
+    // el tipo, porque algunos se guardaron con otro tipo y el mismo destino.
+    db.prepare(
+      "DELETE FROM notifications WHERE type = 'club' OR link LIKE '/clubes%'",
+    ).run();
+
+    // De la hoja a la raíz. `IF EXISTS` deja la migración re-ejecutable si una
+    // instalación a medio camino se quedó sin alguna tabla.
+    for (const tabla of [
+      "club_post_likes",
+      "club_posts",
+      "club_poll_votes",
+      "club_poll_options",
+      "club_polls",
+      "club_attendance",
+      "club_loans",
+      "club_members",
+      "clubs",
+    ]) {
+      db.exec(`DROP TABLE IF EXISTS ${tabla}`);
+    }
+
+    // `product_events` nació para medir los clubes y no lo escribe nadie más:
+    // sus dos únicos tipos eran `club_view` y `club_post_notice`. Una tabla que
+    // guarda actividad con `user_id` y ya no recibe filas es solo una
+    // obligación de borrado y una promesa en la política de privacidad; se va
+    // entera, con la columna `club_id` dentro.
+    db.exec("DROP TABLE IF EXISTS product_events");
+  })();
+
+  db.pragma("user_version = 65");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2241,6 +2297,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 62) migrateToV62(db);
   if (userVersion(db) < 63) migrateToV63(db);
   if (userVersion(db) < 64) migrateToV64(db);
+  if (userVersion(db) < 65) migrateToV65(db);
 
   backfillSearchKeys(db);
 }

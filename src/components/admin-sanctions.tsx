@@ -3,22 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, History, Eye, EyeOff, UserCheck } from "lucide-react";
+import { History, Eye, EyeOff, UserCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
 import type { MessageKey } from "@/lib/i18n";
-import type { AuditView, HiddenClubView, HiddenCommentView, SuspendedUserView } from "@/lib/repo";
+import type { AuditView, HiddenCommentView, SuspendedUserView } from "@/lib/repo";
 import { formatWhen } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
 
 type Props = {
   suspended: SuspendedUserView[];
   hiddenComments: HiddenCommentView[];
-  hiddenClubs: HiddenClubView[];
   audit: AuditView[];
   canSanction: boolean;
   showAudit: boolean;
   pageSize: number;
-  pagination: Record<"suspended" | "comments" | "clubs" | "audit", { page: number; total: number }>;
+  pagination: Record<"suspended" | "comments" | "audit", { page: number; total: number }>;
 };
 
 /** Página de una sección del panel, conservando solo su propio parámetro. */
@@ -70,8 +69,6 @@ const ACTION_LABELS: Record<string, MessageKey> = {
   restore_listing: "Ejemplar restablecido",
   hide_comment: "Comentario oculto",
   restore_comment: "Comentario restablecido",
-  hide_club: "Club oculto",
-  restore_club: "Club restablecido",
   dismiss: "Denuncia descartada",
   appeal_upheld: "Apelación estimada",
   appeal_rejected: "Apelación rechazada",
@@ -80,7 +77,6 @@ const ACTION_LABELS: Record<string, MessageKey> = {
 export function AdminSanctions({
   suspended,
   hiddenComments,
-  hiddenClubs,
   audit,
   canSanction,
   showAudit,
@@ -124,24 +120,6 @@ export function AdminSanctions({
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo restablecer el comentario."));
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function restoreClub(clubId: string) {
-    setBusyId(clubId);
-    setError("");
-    setFeedback("");
-    try {
-      await api("/api/admin/moderation", {
-        method: "POST",
-        body: { action: "restore_club", targetType: "club", targetId: clubId },
-      });
-      setFeedback(t("El club vuelve a estar visible."));
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("No se pudo restablecer el club."));
     } finally {
       setBusyId(null);
     }
@@ -250,45 +228,6 @@ export function AdminSanctions({
           total={pagination.comments.total}
           pageSize={pageSize}
           label={t("Paginación de comentarios ocultos")}
-        />
-      </section>
-
-      <section>
-        <h2 className="admin-title">
-          <BookOpen size={16} /> {t("Clubes ocultos")}
-        </h2>
-        {hiddenClubs.length === 0 ? (
-          <p className="admin-empty">{t("No hay clubes ocultos.")}</p>
-        ) : (
-          <div className="admin-list">
-            {hiddenClubs.map((club) => (
-              <article className="admin-item" key={club.id}>
-                <div className="admin-copy">
-                  <strong>{club.name}</strong>
-                  <span>
-                    {club.city} · {club.ownerName} · {formatWhen(club.createdAt, locale)}
-                  </span>
-                </div>
-                <div className="admin-actions">
-                  <button
-                    type="button"
-                    className="secondary-button small"
-                    disabled={busyId === club.id}
-                    onClick={() => restoreClub(club.id)}
-                  >
-                    <Eye size={14} /> {t("Restablecer")}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-        <ListPager
-          param="clubsPage"
-          page={pagination.clubs.page}
-          total={pagination.clubs.total}
-          pageSize={pageSize}
-          label={t("Paginación de clubes ocultos")}
         />
       </section>
 

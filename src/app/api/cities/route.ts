@@ -4,7 +4,7 @@ import { clientKey, hasClientIp, hit } from "@/lib/throttle";
 import { route } from "@/lib/route";
 
 /**
- * Sugerencias de ciudad para el formulario (alta, perfil, libros y clubes).
+ * Sugerencias de ciudad para el formulario (alta, perfil y libros).
  *
  * Es pública a propósito: hay que poder elegir la ciudad **antes** de tener
  * cuenta. Con cuota, porque el selector la llama mientras se escribe y sin

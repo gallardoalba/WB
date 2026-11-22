@@ -32,13 +32,11 @@ const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
 
 const ana = () => repo.getUserById("usr_ana");
 
-test("la portada no carga clubes, lectores, listas ni intercambios", () => {
+test("la portada no carga lectores, listas ni intercambios", () => {
   const snapshot = repo.getSnapshot(ana(), params());
   // 6 ejemplares en la semilla, uno ya entregado (`lst_6`).
   assert.equal(snapshot.listings.length, 5);
   assert.equal(snapshot.total, 5);
-  assert.deepEqual(snapshot.clubs, []);
-  assert.equal(snapshot.clubsTotal, 0);
   assert.deepEqual(snapshot.readers, []);
   assert.deepEqual(snapshot.publicLists, []);
   assert.deepEqual(snapshot.requests, []);
@@ -51,31 +49,10 @@ test("la portada no carga clubes, lectores, listas ni intercambios", () => {
 });
 
 test("cada pestaña de la comunidad ejecuta solo su consulta", () => {
-  // Los datos de demostración traen un club: aquí se mide la consulta de la
-  // pestaña, así que se parte de una tabla vacía.
-  dbModule.getDb().prepare("DELETE FROM clubs").run();
-  repo.createClub("usr_clara", {
-    name: "Club de los martes",
-    city: "Stuttgart",
-    description: "",
-    meetsOn: "",
-    joinPolicy: "open",
-  });
   repo.createReadingList("usr_ana", { title: "Lista de comunidad", description: "" });
-
-  const clubs = repo.getSnapshot(ana(), params({ view: "community", tab: "clubs" }));
-  assert.deepEqual(
-    clubs.clubs.map((club) => club.name),
-    ["Club de los martes"],
-  );
-  assert.equal(clubs.clubsTotal, 1);
-  assert.equal(clubs.readers.length, 0);
-  assert.equal(clubs.publicLists.length, 0);
-  assert.equal(clubs.listings.length, 0);
 
   const readers = repo.getSnapshot(ana(), params({ view: "community", tab: "readers" }));
   assert.ok(readers.readers.length >= 1);
-  assert.equal(readers.clubs.length, 0);
   assert.equal(readers.publicLists.length, 0);
 
   const lists = repo.getSnapshot(ana(), params({ view: "community", tab: "lists" }));
@@ -83,14 +60,14 @@ test("cada pestaña de la comunidad ejecuta solo su consulta", () => {
     lists.publicLists.map((list) => list.title),
     ["Lista de comunidad"],
   );
-  assert.equal(lists.clubs.length, 0);
+  assert.equal(lists.readers.length, 0);
 
   const conversations = repo.getSnapshot(
     ana(),
     params({ view: "community", tab: "conversations" }),
   );
   assert.ok(Array.isArray(conversations.conversations));
-  assert.equal(conversations.clubs.length, 0);
+  assert.equal(conversations.publicLists.length, 0);
 });
 
 test("los intercambios cargan la lista completa y nada del catálogo", () => {
@@ -101,7 +78,6 @@ test("los intercambios cargan la lista completa y nada del catálogo", () => {
   // `requests` trae todos los estados; el contador solo los abiertos.
   assert.ok(snapshot.activeRequests <= snapshot.requests.length);
   assert.deepEqual(snapshot.listings, []);
-  assert.deepEqual(snapshot.clubs, []);
   assert.deepEqual(snapshot.activity, []);
 });
 
@@ -116,7 +92,6 @@ test("la estantería usa su propia consulta y su propio tamaño de página", () 
   assert.equal(snapshot.total, 2);
   assert.equal(snapshot.pageSize, 15);
   assert.deepEqual(snapshot.requests, []);
-  assert.deepEqual(snapshot.clubs, []);
 });
 
 test("un invitado no dispara consultas de cuenta", () => {

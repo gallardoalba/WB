@@ -309,10 +309,8 @@ test("el panel de comunidad carga cada pestaña por separado", async ({ page }) 
 
   await page.goto("/?view=community&tab=readers");
   await expect(page.locator(".reader-card:visible").first()).toBeVisible();
-  // El snapshot ya solo trae la pestaña pedida: ni clubes ni listas.
-  await expect(page.locator(".club-card:visible")).toHaveCount(0);
-
-  await page.goto("/?view=community&tab=clubs");
+  // El snapshot ya solo trae la pestaña pedida: ni listas.
+  await page.goto("/?view=community&tab=lists");
   await expect(page.locator(".reader-card:visible")).toHaveCount(0);
 });
 
@@ -392,7 +390,6 @@ test("salud, Open Graph y sitemap mínimo", async ({ request }) => {
   const sitemap = await request.get("/sitemap.xml");
   const body = await sitemap.text();
   expect(body).toContain("<loc>");
-  expect(body).not.toContain("/clubes/");
   expect(body).not.toContain("/listas/");
 });
 
@@ -431,19 +428,20 @@ test("«Descubrir todos los libros» abre el catálogo por arriba", async ({ pag
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(40);
 });
 
-test("la portada cuenta también los clubes de lectura", async ({ page }) => {
+test("la portada enseña sus tres cifras", async ({ page }) => {
   await page.goto("/");
   await waitForHydration(page);
-  // El rótulo va en plural o en singular según la cifra, y cada cifra trae su
-  // icono: la banda se comprueba por las dos cosas.
-  await expect(page.locator(".hero-stats")).toContainText(/club(es)? de lectura/);
-  await expect(page.locator(".hero-stats > .hero-stat")).toHaveCount(4);
+  // La banda se comprueba por el número de columnas y por sus rótulos.
+  await expect(page.locator(".hero-stats > .hero-stat")).toHaveCount(3);
+  await expect(page.locator(".hero-stats")).toContainText(/libros? disponibles?/);
+  await expect(page.locator(".hero-stats")).toContainText(/intercambios? hechos?/);
+  await expect(page.locator(".hero-stats")).toContainText(/lectores? registrados?/);
 });
 
 test("el hub de comunidad no repite cifras ni buscador propio", async ({ page }) => {
   await loginAsDemo(page);
 
-  for (const tab of ["clubs", "readers", "lists", "conversations"]) {
+  for (const tab of ["readers", "lists", "conversations"]) {
     await page.goto(`/comunidad?tab=${tab}`);
     await expect(page.locator(".community-tabs")).toBeVisible();
     // Las cifras salieron del hub y el buscador vive en la cabecera.
@@ -511,7 +509,7 @@ test("las cifras de la portada quedan al pie del panel también en pantallas anc
   const stats = await page.locator(".hero-stats").boundingBox();
   // La diferencia es el relleno inferior del panel (24 px), no un hueco grande.
   expect(hero!.y + hero!.height - (stats!.y + stats!.height)).toBeLessThan(40);
-  // Y las cuatro cifras siguen en una fila, no en una columna lateral.
+  // Y las tres cifras siguen en una fila, no en una columna lateral.
   expect(Math.round(stats!.width)).toBeGreaterThan(Math.round(hero!.width) * 0.85);
 });
 
@@ -579,19 +577,17 @@ test("un intercambio completado se archiva y se restaura", async ({ page }) => {
   await expect(page.locator(".exchange-row", { hasText: "Gott und der Staat" })).toBeVisible();
 });
 
-test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", async ({
-  page,
-}) => {
+test("las tres cifras caben en una fila cuando el ancho aprieta", async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 900 });
   await loginAsDemo(page);
 
-  // Cuatro columnas piden ~190 px cada una: por debajo, «Registrierte
-  // Leser:innen» partía en dos líneas y la fila quedaba irregular.
+  // Tres columnas piden ~190 px cada una y a este ancho siguen cabiendo: la
+  // fila no se parte ni deja un hueco al lado de la última cifra.
   await expect(async () => {
     const cols = await page
       .locator(".hero-stats")
       .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
-    expect(cols).toBe(2);
+    expect(cols).toBe(3);
   }).toPass({ timeout: 10_000 });
 
   const heights = await page
@@ -599,6 +595,23 @@ test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", as
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
   // Todos los rótulos en una línea: ninguna columna más alta que otra.
   expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(4);
+});
+
+test("en el móvil las tres cifras siguen al mismo nivel", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await waitForHydration(page);
+
+  const cajas = await page
+    .locator(".hero-stat")
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({
+      y: Math.round(r.y),
+      ancho: Math.round(r.width),
+    })));
+  // Las tres en la misma fila, cada una con su tercio: la banda se lee de un
+  // vistazo y ninguna cifra cae debajo de las otras.
+  expect(new Set(cajas.map((caja) => caja.y)).size).toBe(1);
+  expect(cajas[0]!.ancho).toBeCloseTo(cajas[2]!.ancho, -1);
 });
 
 test("en el móvil cada cifra queda centrada sobre su rótulo", async ({ page }) => {

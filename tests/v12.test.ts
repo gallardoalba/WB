@@ -30,28 +30,16 @@ const params = (overrides: Partial<Record<string, unknown>> = {}) => ({
   ...overrides,
 });
 
-test("los bloqueos también ocultan listas y clubs", () => {
+test("los bloqueos también ocultan las listas", () => {
   const list = repo.createReadingList("usr_diego", { title: "Mis pendientes", description: "" });
   repo.addToList("usr_diego", list.id, "bok_1");
-  const club = repo.createClub("usr_diego", {
-    name: "Club de Mannheim",
-    city: "Mannheim",
-    description: "",
-    meetsOn: "",
-  });
 
-  // Antes del bloqueo, Clara ve ambas cosas.
+  // Antes del bloqueo, Clara ve la lista.
   assert.equal(repo.listReadingLists("usr_diego", "usr_clara").length, 1);
-  assert.ok(repo.getClub(club.id, "usr_clara"));
 
   repo.blockUser("usr_clara", "usr_diego");
   assert.equal(repo.listReadingLists("usr_diego", "usr_clara").length, 0);
   assert.equal(repo.getReadingList(list.id, "usr_clara"), null);
-  assert.equal(
-    repo.listClubs({ viewerId: "usr_clara" }).clubs.some((item) => item.id === club.id),
-    false,
-  );
-  assert.equal(repo.getClub(club.id, "usr_clara"), null);
   // Quien no está bloqueado sigue viéndolo.
   assert.equal(repo.listReadingLists("usr_diego", "usr_ana").length, 1);
 });
@@ -65,9 +53,6 @@ test("la exportación incluye la capa social y el recorrido", () => {
     "followers",
     "readingLists",
     "readingListItems",
-    "clubsOwned",
-    "clubMemberships",
-    "clubPosts",
     "directThreads",
     "directMessages",
     "directEnvelopes",
@@ -76,10 +61,9 @@ test("la exportación incluye la capa social y el recorrido", () => {
     assert.ok(key in data, `falta ${key} en la exportación`);
   }
   assert.ok(Array.isArray(data.following));
-  // La portabilidad tiene que cubrir también la mensajería directa y los
-  // mensajes de club, que se quedaban fuera.
+  // La portabilidad tiene que cubrir también la mensajería directa, que antes
+  // se quedaba fuera.
   assert.ok(Array.isArray(data.directMessages));
-  assert.ok(Array.isArray(data.clubPosts));
 });
 
 test("borrar la cuenta elimina el contenido personal y deja hueco en los hilos", () => {
@@ -184,7 +168,7 @@ test("el texto de un spoiler se pide aparte y respeta la visibilidad", () => {
   assert.match(repo.getCommentBody(spoiler.id, "usr_diego"), /última página/);
 });
 
-test("listas y clubs se pueden editar y cerrar", () => {
+test("las listas se pueden editar y vaciar", () => {
   const list = repo.createReadingList("usr_ana", { title: "Título viejo", description: "" });
   repo.updateReadingList("usr_ana", list.id, { title: "Título nuevo", description: "Con nota" });
   assert.equal(repo.getReadingList(list.id, "usr_ana")!.title, "Título nuevo");
@@ -196,40 +180,6 @@ test("listas y clubs se pueden editar y cerrar", () => {
   repo.addToList("usr_ana", list.id, "bok_1");
   repo.removeFromList("usr_ana", list.id, "bok_1");
   assert.equal(repo.getReadingList(list.id, "usr_ana")!.items, 0);
-
-  const club = repo.createClub("usr_ana", {
-    name: "Club editable",
-    city: "Stuttgart",
-    description: "",
-    bookId: "bok_1",
-    meetsOn: "",
-  });
-  repo.setClubMembership("usr_diego", club.id, true);
-  assert.equal(repo.listClubMembers(club.id).members.length, 2);
-
-  repo.updateClub("usr_ana", club.id, {
-    name: "Club renombrado",
-    description: "Ahora con descripción",
-    meetsOn: "Jueves",
-    bookId: "bok_2",
-  });
-  const updated = repo.getClub(club.id, "usr_ana")!;
-  assert.equal(updated.name, "Club renombrado");
-  assert.equal(updated.book?.id, "bok_2");
-  assert.throws(
-    () =>
-      repo.updateClub("usr_diego", club.id, {
-        name: "Otro",
-        description: "",
-        meetsOn: "",
-        bookId: null,
-      }),
-    fails("tus clubes"),
-  );
-
-  repo.deleteClub("usr_ana", club.id);
-  assert.equal(repo.getClub(club.id, "usr_ana"), null);
-  assert.equal(repo.listClubs({ viewerId: null }).clubs.some((item) => item.id === club.id), false);
 });
 
 test("el filtro por etiqueta convive con el resto del catálogo", () => {

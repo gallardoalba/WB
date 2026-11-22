@@ -20,8 +20,6 @@ export function reportContent(input: {
     | "message"
     | "review"
     | "comment"
-    | "club"
-    | "club_post"
     | "request";
   targetId: string;
   reason: string;
@@ -178,8 +176,6 @@ function assertReportableTarget(
     | "message"
     | "review"
     | "comment"
-    | "club"
-    | "club_post"
     | "request",
   targetId: string,
 ): void {
@@ -191,29 +187,6 @@ function assertReportableTarget(
       )
       .get(targetId, reporterId, reporterId);
     if (!request) throw new ApiError(404, "El intercambio no existe o aún no se ha aceptado.");
-    return;
-  }
-  if (targetType === "club") {
-    const club = db
-      .prepare("SELECT 1 FROM clubs WHERE id = ? AND status = 'visible' AND owner_id <> ?")
-      .get(targetId, reporterId);
-    if (!club) throw new ApiError(404, "El club no existe.");
-    return;
-  }
-  if (targetType === "club_post") {
-    // Solo lo puede denunciar quien lo ve: alguien del club y no su autor.
-    const post = db
-      .prepare(
-        `SELECT 1 FROM club_posts p
-           JOIN clubs c ON c.id = p.club_id
-          WHERE p.id = ? AND p.status = 'visible' AND p.author_id <> ?
-            AND (c.owner_id = ? OR EXISTS (
-              SELECT 1 FROM club_members m
-               WHERE m.club_id = p.club_id AND m.user_id = ? AND m.status = 'member'
-            ))`,
-      )
-      .get(targetId, reporterId, reporterId, reporterId);
-    if (!post) throw new ApiError(404, "Ese mensaje no existe.");
     return;
   }
   if (targetType === "comment") {
@@ -274,8 +247,6 @@ export function listReports(
                  FROM reviews rv JOIN users uu ON uu.id = rv.author_id
                 WHERE rv.id = r.target_id) AS review_label,
               (SELECT substr(bc.body, 1, 70) FROM book_comments bc WHERE bc.id = r.target_id) AS comment_snippet,
-              (SELECT cl.name || ' · ' || cl.city FROM clubs cl WHERE cl.id = r.target_id) AS club_label,
-              (SELECT substr(cp.body, 1, 70) FROM club_posts cp WHERE cp.id = r.target_id) AS club_post_snippet,
               (SELECT b2.title || ' · ' || rq.status
                  FROM requests rq
                  JOIN listings l2 ON l2.id = rq.listing_id
@@ -305,8 +276,6 @@ export function listReports(
     message_snippet: string | null;
     review_label: string | null;
     comment_snippet: string | null;
-    club_label: string | null;
-    club_post_snippet: string | null;
     request_label: string | null;
   }[];
 
@@ -320,8 +289,6 @@ export function listReports(
       row.message_snippet ??
       row.review_label ??
       row.comment_snippet ??
-      row.club_post_snippet ??
-      row.club_label ??
       row.request_label ??
       row.target_id,
     reason: row.reason,
@@ -344,8 +311,6 @@ export type AdminAction =
   | "hide_listing"
   | "suspend_user"
   | "hide_comment"
-  | "hide_club"
-  | "hide_club_post"
   | "cancel_request";
 export type ModerationAction =
   | "hide_listing"
@@ -354,10 +319,6 @@ export type ModerationAction =
   | "unsuspend_user"
   | "hide_comment"
   | "restore_comment"
-  | "hide_club_post"
-  | "restore_club_post"
-  | "hide_club"
-  | "restore_club"
   | "cancel_request";
 
 function applyModeration(
@@ -417,74 +378,6 @@ function applyModeration(
         listingId: request.listing_id,
         requestId: targetId,
         link: `/intercambios?t=${targetId}`,
-      });
-    }
-    return;
-  }
-
-  if (action === "hide_club" || action === "restore_club") {
-    if (targetType !== "club") throw new ApiError(409, "Esta acción solo vale para clubes.");
-    const club = db
-      .prepare("SELECT id, owner_id, name, status FROM clubs WHERE id = ?")
-      .get(targetId) as
-      | { id: string; owner_id: string; name: string; status: string }
-      | undefined;
-    if (!club) throw new ApiError(404, "El club no existe.");
-
-    if (action === "hide_club") {
-      db.prepare("UPDATE clubs SET status = 'hidden' WHERE id = ?").run(targetId);
-      notify({
-        userId: club.owner_id,
-        type: "moderation",
-        title: "Un club tuyo se ha ocultado",
-        body: "Lo ha retirado el equipo de moderación tras una revisión.",
-        link: `/clubes/${club.id}`,
-      });
-    } else {
-      if (club.status !== "hidden") {
-        throw new ApiError(409, "Ese club no está oculto.");
-      }
-      db.prepare("UPDATE clubs SET status = 'visible' WHERE id = ?").run(targetId);
-      notify({
-        userId: club.owner_id,
-        type: "moderation",
-        title: "Tu club vuelve a estar visible",
-        body: "Se ha restablecido tras la revisión.",
-        link: `/clubes/${club.id}`,
-      });
-    }
-    return;
-  }
-
-  if (action === "hide_club_post" || action === "restore_club_post") {
-    if (targetType !== "club_post") {
-      throw new ApiError(409, "Esta acción solo vale para mensajes del foro de un club.");
-    }
-    const post = db
-      .prepare("SELECT id, author_id, club_id, status FROM club_posts WHERE id = ?")
-      .get(targetId) as
-      | { id: string; author_id: string; club_id: string; status: string }
-      | undefined;
-    if (!post) throw new ApiError(404, "El mensaje no existe.");
-
-    if (action === "hide_club_post") {
-      db.prepare("UPDATE club_posts SET status = 'hidden' WHERE id = ?").run(targetId);
-      notify({
-        userId: post.author_id,
-        type: "moderation",
-        title: "Un mensaje tuyo del foro se ha ocultado",
-        body: "Lo ha retirado el equipo de moderación tras una revisión.",
-        link: `/clubes/${post.club_id}`,
-      });
-    } else {
-      if (post.status !== "hidden") throw new ApiError(409, "Ese mensaje no está oculto.");
-      db.prepare("UPDATE club_posts SET status = 'visible' WHERE id = ?").run(targetId);
-      notify({
-        userId: post.author_id,
-        type: "moderation",
-        title: "Tu mensaje del foro vuelve a estar visible",
-        body: "Se ha restablecido tras la revisión.",
-        link: `/clubes/${post.club_id}`,
       });
     }
     return;
@@ -674,7 +567,7 @@ export function moderateTarget(
   adminId: string,
   input: {
     action: ModerationAction;
-    targetType: "listing" | "user" | "comment" | "club" | "club_post";
+    targetType: "listing" | "user" | "comment";
     targetId: string;
     /** Motivo y duración, obligatorios al suspender una cuenta. */
     reason?: string;

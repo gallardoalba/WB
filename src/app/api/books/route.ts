@@ -4,7 +4,7 @@ import { hit } from "@/lib/throttle";
 import { route } from "@/lib/route";
 
 /**
- * Buscador de obras del catálogo, para elegir la lectura de un club o proponer
+ * Buscador de obras del catálogo, para proponer
  * libros en una votación. Devuelve poco y solo con sesión: no es un buscador
  * público de la plataforma.
  *

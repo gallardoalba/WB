@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, UserCheck, UserPlus, Users } from "lucide-react";
+import { BookOpen, UserCheck, UserPlus } from "lucide-react";
 import { api } from "@/lib/client-api";
 import type { ReaderView } from "@/lib/domain";
 import { formatDistance, formatWhen, initialsOf, toneForId } from "@/lib/text";
@@ -76,12 +76,6 @@ export function ReaderCard({
             {reader.sharedBooks === 1
               ? t("1 obra en común")
               : t("{n} obras en común", { n: reader.sharedBooks })}
-          </span>
-        )}
-        {reader.clubs > 0 && (
-          <span className="reader-books">
-            <Users size={13} />{" "}
-            {reader.clubs === 1 ? t("1 club") : t("{n} clubes", { n: reader.clubs })}
           </span>
         )}
         {reader.lastActiveAt && (

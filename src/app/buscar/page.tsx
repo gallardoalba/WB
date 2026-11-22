@@ -6,7 +6,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { allowPageView } from "@/lib/page-throttle";
-import { listClubs, listPublicReadingLists, listReaders, searchBooks } from "@/lib/repo";
+import { listPublicReadingLists, listReaders, searchBooks } from "@/lib/repo";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -33,7 +33,7 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 /**
  * Resultados de la búsqueda global.
  *
- * Se busca a la vez en obras, clubes, lectores y listas — cada sección tiene su
+ * Se busca a la vez en obras, lectores y listas — cada sección tiene su
  * propia consulta y su propio filtro, así que aquí solo se juntan los primeros
  * resultados y se enlaza a la sección completa para seguir afinando.
  */
@@ -60,9 +60,6 @@ export default async function Page({ searchParams }: PageProps) {
 
   const viewerId = viewer?.id ?? null;
   const books = q ? searchBooks(q, PER_SECTION) : [];
-  const clubs = q
-    ? listClubs({ viewerId, q, pageSize: PER_SECTION })
-    : { clubs: [], total: 0, hasMore: false };
   const readers = q
     ? listReaders({ viewerId, q, pageSize: PER_SECTION })
     : { readers: [], total: 0, hasMore: false };
@@ -71,20 +68,20 @@ export default async function Page({ searchParams }: PageProps) {
     : { lists: [], total: 0, hasMore: false };
 
   const total =
-    books.length + clubs.total + readers.total + lists.total;
+    books.length + readers.total + lists.total;
   const encoded = encodeURIComponent(q);
 
   return (
-    <SiteShell user={viewer} section="clubes" title={t("Buscar")}>
+    <SiteShell user={viewer} section="lectores" title={t("Buscar")}>
       <PageHeader
         overline={t("BUSCAR EN LA COMUNIDAD")}
         title={q ? t("Resultados para «{q}»", { q }) : t("Buscar")}
         description={
           q
             ? total === 1
-              ? t("1 coincidencia entre obras, clubes, lectores y listas.")
-              : t("{n} coincidencias entre obras, clubes, lectores y listas.", { n: total })
-            : t("Obras, clubes de lectura, lectores y listas públicas, en un solo sitio.")
+              ? t("1 coincidencia entre obras, lectores y listas.")
+              : t("{n} coincidencias entre obras, lectores y listas.", { n: total })
+            : t("Obras, lectores y listas públicas, en un solo sitio.")
         }
         aside={
           <form className="search-inline" action="/buscar" method="get">
@@ -96,7 +93,7 @@ export default async function Page({ searchParams }: PageProps) {
               name="q"
               type="search"
               defaultValue={q}
-              placeholder={t("Buscar libros, clubes, lectores…")}
+              placeholder={t("Buscar libros, lectores…")}
               maxLength={60}
             />
             <button type="submit" className="secondary-button small">
@@ -114,7 +111,7 @@ export default async function Page({ searchParams }: PageProps) {
           <h2>{t("Escribe algo para empezar")}</h2>
           <p>
             {t(
-              "Prueba con un título, un autor, el nombre de un club o de una persona. El buscador está siempre en la cabecera.",
+              "Prueba con un título, un autor o el nombre de una persona. El buscador está siempre en la cabecera.",
             )}
           </p>
         </div>
@@ -147,29 +144,6 @@ export default async function Page({ searchParams }: PageProps) {
               </ul>
               <Link className="search-more" href={`/descubrir?q=${encoded}`}>
                 {t("Buscar en el catálogo")}
-              </Link>
-            </section>
-          )}
-
-          {clubs.total > 0 && (
-            <section className="search-group">
-              <h2>
-                <Users size={16} /> {t("Clubes")}
-              </h2>
-              <ul>
-                {clubs.clubs.map((club) => (
-                  <li key={club.id}>
-                    <Link href={`/clubes/${club.id}`}>
-                      <strong>{club.name}</strong>
-                      <span>
-                        {club.city} · {club.members === 1 ? t("1 miembro") : t("{n} miembros", { n: club.members })}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <Link className="search-more" href={`/clubes?q=${encoded}`}>
-                {t("Ver todos los clubes")}
               </Link>
             </section>
           )}

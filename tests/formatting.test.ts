@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { formatDistance, formatMeeting, formatNumber, formatWhen } from "../src/lib/text.ts";
+import { formatDistance, formatNumber, formatWhen } from "../src/lib/text.ts";
 import { localeTag, normalizeLocale, pick } from "../src/lib/locale.ts";
 
 // Mediodía en UTC: en Berlín son las 11:00 (o las 12:00 en verano), así que el
@@ -38,16 +38,6 @@ test("la distancia usa coma decimal y no presume cuando no se sabe", () => {
   assert.equal(formatDistance(null, "en"), "No distance");
   assert.equal(formatDistance(null, "es"), "Sin distancia");
   assert.equal(formatDistance(null), "Ohne Angabe");
-});
-
-test("el encuentro usa la fecha si la hay y la cadencia libre si no", () => {
-  assert.match(formatMeeting(ISO, "último martes, 19:00", "es"), /8.*nov.*11:00/i);
-  assert.match(formatMeeting(ISO, "sobrescrito", "de"), /8.*Nov.*11:00/i);
-  assert.match(formatMeeting(ISO, "sobrescrito", "en"), /8.*Nov.*11:00/i);
-  // Sin fecha se muestra el texto tal cual lo escribió el club.
-  assert.equal(formatMeeting("", "último martes, 19:00"), "último martes, 19:00");
-  // Una fecha rota no deja la etiqueta vacía.
-  assert.equal(formatMeeting("no-es-fecha", "cada dos semanas", "es"), "cada dos semanas");
 });
 
 test("los números llevan el separador de cada idioma", () => {

@@ -42,10 +42,11 @@ the announced digest, the served assets and the code of the backup consistent;
 it is not an attestation of the host, and a person with root access can still
 change Docker, systemd or nginx.
 
-Both accept `--dry-run` and explain each step with `OK`, `AVISO` (warning) and
-`FALLO` (failure). What neither can guess — email, Impressum, administration
-account — is listed at the end of the run. The following sections are the manual, step-by-step version,
-useful for understanding what each thing does or for debugging.
+`bootstrap.sh` and `deploy.sh` both accept `--dry-run` and explain each step with
+`OK`, `AVISO` (warning) and `FALLO` (failure). What neither script can guess —
+email, Impressum, administration account — is listed at the end of the run.
+The following sections are the manual, step-by-step version, useful for
+understanding what each thing does or for debugging.
 
 ## 1. Requirements
 
@@ -122,7 +123,7 @@ their consequences are commented in the file itself; the summary:
 | `BREVO_API_KEY` + `MAIL_FROM` (or `MAIL_WEBHOOK_URL`) | Nobody can confirm their email (required to publish in production) or reset their password |
 | `APP_ENCRYPTION_KEY` | The TOTP secret cannot be stored; without 2FA, administration returns 403 in production |
 | `APP_ENCRYPTION_OLD_KEYS` | Only used when **rotating** the key: the new one in `APP_ENCRYPTION_KEY`, the previous one here so it can still be read |
-| `MAINTENANCE_TOKEN` | The cron returns 404: no purges, no email retries, no club reminders |
+| `MAINTENANCE_TOKEN` | The cron returns 404: no purges, no email retries |
 | `TRUST_PROXY=1` | All requests share the global quota: one client can exhaust the site's login |
 | `WANDERBIBLIOTHEK_DB` | The database is created inside the release and lost on the next deployment |
 | `WANDERBIBLIOTHEK_BACKUP_KEY` | The backup is stored in plain text with emails, password hashes and messages inside, and that backup leaves the server |
@@ -744,6 +745,7 @@ An instance should not depend on a single person. Before opening registration:
 - Document who controls the domain, DNS, the server provider, email and the repository.
 - Write down the handover procedure: which credentials must be transferred, where the backups are and how a restore is checked (`npm run db:verify`).
 - Once a year, check that the second person can log in, restore a backup and publish a change.
+- Once a year, publish the moderation report (`npm run informe:moderacion -- --days 365`). It prints aggregate figures with no names: reports and their outcome, measures applied, active suspensions and appeals with their average response time.
 
 The rules of conduct, moderation and appeals are published at `/normas`; the
 reference document is [`GOVERNANCE.md`](../GOVERNANCE.md).
@@ -1179,10 +1181,12 @@ publish tells the truth (Art. 5(1)(e) and 13 GDPR/DSGVO):
 | Platform notifications | `notifications` | 90 days if read, 180 either way |
 | Public activity (wall) | `events` | 180 days |
 | Moderation audit | `admin_audit` | `AUDIT_RETENTION_DAYS` (0 = forever) |
+| Appeals | `appeals` | 730 days after they are submitted; the sanction reason and date are copied into the appeal, so it still makes sense once the audit is pruned |
+| Reports | `reports` | 1 year after they are submitted |
 | Messages | `messages` | Only the encrypted envelope and metadata; the text is decrypted by browsers |
 
 Account deletion: the user row is anonymised; sessions, notifications, lists,
-owned clubs, blocks, tokens, read markers, personal notes on their copies and
+blocks, tokens, read markers, personal notes on their copies and
 **device keys** (`user_keys` and `public_key_history`, which `ON DELETE CASCADE`
 does not reach because the `users` row is not deleted) are deleted; **direct
 conversations are deleted in full** for both parties, and exchange messages and
@@ -1202,7 +1206,7 @@ and registration requires **declaring that you are 16 or older**.
 Three decisions remain yours:
 
 1. **Controller data.** `/datenschutz` and `/aviso-legal` already exist, in
-   Spanish and German, with what the code actually does. They are completed with
+   Spanish, German and English, with what the code actually does. They are completed with
    `LEGAL_CONTROLLER`, `LEGAL_ADDRESS`, `LEGAL_CONTACT_EMAIL` and, where
    applicable, `LEGAL_VAT_ID`; without them the pages show a visible notice that
    they are incomplete and startup reminds you in the log. The text is still a
@@ -1265,7 +1269,8 @@ this checklist cannot be silently forgotten.
       backup: decrypted to a temporary file, `PRAGMA integrity_check` → `ok`,
       `user_version = 48`, `books_fts` responds to `MATCH 'democ*'` and an
       account's TOTP secret decrypts with `APP_ENCRYPTION_KEY` (32 characters).
-      Repeat it whenever the backup format or the key changes.
+      That rehearsal ran on schema v48, before v65: repeat it on the current
+      schema, and again whenever the backup format or the key changes.
 - [ ] Text reviewed by whoever assumes legal responsibility: what is there is an
       accurate technical draft, not legal advice.
 

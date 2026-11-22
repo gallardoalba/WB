@@ -37,18 +37,14 @@ export function deleteAccount(userId: string): void {
     db.prepare("DELETE FROM favorites WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM book_wants WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM reading_states WHERE user_id = ?").run(userId);
-    // Resto de datos personales: clubs propios (arrastra sus miembros), avisos,
-    // tokens de cuenta, bloqueos en ambos sentidos y marcas de lectura.
-    db.prepare("DELETE FROM clubs WHERE owner_id = ?").run(userId);
+    // Resto de datos personales: avisos, tokens de cuenta, bloqueos en ambos
+    // sentidos y marcas de lectura.
     db.prepare("DELETE FROM notifications WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM account_tokens WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM availability_alerts WHERE user_id = ?").run(userId);
     // Los dispositivos suscritos a los avisos apuntan a esta cuenta: fuera.
     db.prepare("DELETE FROM push_subscriptions WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?").run(userId, userId);
-    // Actividad de la cuenta (visitas a clubes, avisos de mensajes nuevos): se
-    // va con ella en lugar de esperar a la poda de 180 días.
-    db.prepare("DELETE FROM product_events WHERE user_id = ?").run(userId);
     // Conversaciones directas: se van enteras (las dos partes dejan de tenerlas).
     db.prepare(
       "DELETE FROM dm_messages WHERE thread_id IN (SELECT id FROM dm_threads WHERE user_a = ? OR user_b = ?)",
@@ -59,12 +55,8 @@ export function deleteAccount(userId: string): void {
     db.prepare("DELETE FROM reports WHERE reporter_id = ?").run(userId);
     // La fila de `users` se anonimiza, así que los `ON DELETE CASCADE` no se
     // disparan. Hay que borrar a mano todo lo que sigue apuntando a la cuenta:
-    // reseñas (también las recibidas), likes, votos y asistencia a clubes.
+    // reseñas (también las recibidas) y likes.
     db.prepare("DELETE FROM reviews WHERE author_id = ? OR target_id = ?").run(userId, userId);
-    db.prepare("UPDATE club_posts SET status = 'deleted', body = '' WHERE author_id = ?").run(userId);
-    db.prepare("DELETE FROM club_post_likes WHERE user_id = ?").run(userId);
-    db.prepare("DELETE FROM club_attendance WHERE user_id = ?").run(userId);
-    db.prepare("DELETE FROM club_poll_votes WHERE user_id = ?").run(userId);
 
     // Contenido propio: fuera. Si un comentario tiene respuestas se deja el
     // hueco (sin texto) para no romper la conversación de los demás.
@@ -84,7 +76,6 @@ export function deleteAccount(userId: string): void {
     }
     db.prepare("DELETE FROM book_comment_likes WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM reading_lists WHERE owner_id = ?").run(userId);
-    db.prepare("DELETE FROM club_members WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM follows WHERE follower_id = ? OR followed_id = ?").run(userId, userId);
     // Claves de dispositivo e historial: la fila de `users` se anonimiza, así
     // que el `ON DELETE CASCADE` de `user_keys` **no** se dispara y las claves
@@ -190,19 +181,6 @@ export function exportAccountData(userId: string) {
     )
     .all(userId);
 
-  const clubLoans = db
-    .prepare(
-      `SELECT cl.id, cl.due_at, cl.returned_at, cl.created_at, b.title,
-              lender.name AS lender, borrower.name AS borrower
-         FROM club_loans cl
-         JOIN listings l ON l.id = cl.listing_id
-         JOIN books b ON b.id = l.book_id
-         JOIN users lender ON lender.id = cl.lender_id
-         JOIN users borrower ON borrower.id = cl.borrower_id
-        WHERE cl.lender_id = ? OR cl.borrower_id = ?`,
-    )
-    .all(userId, userId);
-
   const reviewsGiven = db
     .prepare(
       `SELECT rv.id, rv.rating, rv.comment, rv.created_at, u.name AS about
@@ -292,21 +270,6 @@ export function exportAccountData(userId: string) {
     )
     .all(userId);
 
-  const clubsOwned = db
-    .prepare(
-      `SELECT id, name, city, description, meets_on, created_at FROM clubs
-       WHERE owner_id = ? ORDER BY created_at DESC`,
-    )
-    .all(userId);
-
-  const clubMemberships = db
-    .prepare(
-      `SELECT c.name, c.city, m.joined_at FROM club_members m
-       JOIN clubs c ON c.id = m.club_id
-       WHERE m.user_id = ? ORDER BY m.joined_at DESC`,
-    )
-    .all(userId);
-
   // Mensajería directa: hilos en los que participa la cuenta. Como la de los
   // intercambios, va cifrada de extremo a extremo; aquí solo se exportan los
   // sobres, que el servidor no puede abrir.
@@ -349,14 +312,6 @@ export function exportAccountData(userId: string) {
     )
     .all(userId, userId, userId, userId, userId);
 
-  const clubPosts = db
-    .prepare(
-      `SELECT p.id, p.club_id, c.name AS club, p.body, p.status, p.created_at
-         FROM club_posts p JOIN clubs c ON c.id = p.club_id
-        WHERE p.author_id = ? ORDER BY p.created_at DESC`,
-    )
-    .all(userId);
-
   return {
     exportedAt: nowIso(),
     // Los mensajes cifrados van como sobre (`ciphertext` + `iv`): solo se
@@ -374,7 +329,6 @@ export function exportAccountData(userId: string) {
     favorites,
     bookWants,
     readingStates,
-    clubLoans,
     reviewsGiven,
     reviewsReceived,
     notifications,
@@ -386,9 +340,6 @@ export function exportAccountData(userId: string) {
     followers,
     readingLists,
     readingListItems,
-    clubsOwned,
-    clubMemberships,
-    clubPosts,
     directThreads,
     directMessages,
     directEnvelopes,
