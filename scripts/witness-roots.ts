@@ -14,7 +14,7 @@
  *
  * Solo necesita la URL pública; no toca la base ni el código del servidor.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { KeySnapshot, TransparencySnapshot } from "../src/lib/transparency";
 import {
@@ -23,6 +23,7 @@ import {
   formatWitness,
   freshEntries,
   parseWitness,
+  type WitnessEntry,
 } from "../src/lib/witness";
 
 type Args = { url: string; file: string; check: boolean };
@@ -49,6 +50,16 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+/** Lo apuntado hasta ahora. Sin fichero todavía, no hay nada apuntado. */
+function readSeen(file: string): WitnessEntry[] {
+  try {
+    return parseWitness(readFileSync(file, "utf8"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: { accept: "application/json" } });
   if (!response.ok) throw new Error(`${url} respondió ${response.status}`);
@@ -69,7 +80,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const seen = existsSync(args.file) ? parseWitness(readFileSync(args.file, "utf8")) : [];
+  const seen = readSeen(args.file);
   const problems = compareWithWitness(seen, audit.entries);
   if (problems.length > 0) {
     for (const problem of problems) console.error(`✗ ${problem}`);
