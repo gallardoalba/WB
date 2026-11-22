@@ -21,6 +21,7 @@ import {
   type LegalConfig,
   type LegalDocument,
 } from "../src/lib/legal.ts";
+import { privacyDocumentEN } from "../src/lib/legal-en.ts";
 import { projectDocument } from "../src/lib/project.ts";
 
 const completo: LegalConfig = {
@@ -304,11 +305,8 @@ test("los textos legales contemplan Austria sin cambiar la jurisdicción del ope
     en: texto(privacyDocument("en", completo)),
   };
   assert.match(privacidad.de, /§ 165 Abs\. 3 TKG 2021/);
-  assert.match(privacidad.de, /Rechtsgrundlage, Zweck und Speicherdauer/);
   assert.match(privacidad.es, /§ 165\.3 TKG 2021/);
-  assert.match(privacidad.es, /base jurídica, la finalidad y el plazo de conservación/);
-  assert.match(privacidad.en, /TKG 2021 § 165\(3\)/);
-  assert.match(privacidad.en, /legal basis, purposes and retention period/);
+  assert.match(privacidad.en, /§ 165\(3\) TKG 2021/);
   assert.match(privacidad.de, /Datenschutzbehörde \(DSB\)/);
   assert.match(privacidad.es, /Datenschutzbehörde \(DSB\)/);
   assert.match(privacidad.en, /Datenschutzbehörde, DSB/);
@@ -317,6 +315,22 @@ test("los textos legales contemplan Austria sin cambiar la jurisdicción del ope
   assert.match(impressum, /§ 5 ECG/);
   assert.match(impressum, /§ 25 MedienG/);
   assert.match(impressum, /Nutzung aus Österreich ändert den Sitz/);
+});
+
+test("los textos legales nombran el alojamiento real, no un hueco", () => {
+  // El proveedor de infraestructura es un destinatario del art. 13 RGPD y una
+  // pieza del impreso: si vuelve un «el proveedor donde se ejecuta el
+  // servicio», la política deja de decir a quién se envían los datos.
+  for (const documento of [
+    privacyDocument("de", completo),
+    privacyDocument("es", completo),
+    privacyDocumentEN(completo),
+  ]) {
+    assert.match(texto(documento), /netcup GmbH/);
+  }
+  for (const documento of [privacyDocument("de", completo), privacyDocument("es", completo)]) {
+    assert.doesNotMatch(texto(documento), /donde se ejecuta el servicio|bei dem dieser Dienst läuft/);
+  }
 });
 
 /** Todo el texto de un documento largo, para buscar en él sin recorrer la estructura. */

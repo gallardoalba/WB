@@ -109,7 +109,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
           "Bibliographic data: the server queries the German National Library (services.dnb.de) and Open Library. They receive the ISBN and the server's IP address, not the visitor's IP address; covers are no longer downloaded from these services.",
           "Place names: while the person types, the server asks Photon (Komoot GmbH), a search engine over OpenStreetMap data, for the list of municipalities; afterwards it checks the chosen name against Nominatim (OpenStreetMap Foundation) to catch typos. Only the typed text or the town name is sent, never the visitor’s IP address.",
           ...optionalRecipients,
-          "Hosting: the provider on whose infrastructure this service runs.",
+          "Hosting: netcup GmbH.",
           "There are no analytics, advertising or tracking services, and no external fonts.",
           "International transfers: specific recipients and transfers outside the EEA depend on the configuration. The operator must identify the providers used, their locations and applicable safeguards; the code cannot confirm contracts or transfer mechanisms.",
         ],
@@ -117,7 +117,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
       {
         heading: "5. Cookies and local storage",
         body: [
-          "Two cookies: the session cookie (HttpOnly, Secure, SameSite=Lax, 14 days) for sign-in and, only after a manual language change, the language preference (1 year). Neither is used for advertising or analytics. Whether consent is required for device access must be assessed for each purpose under the applicable law (in Germany, TDDDG § 25; in Austria, TKG 2021 § 165(3)). TKG 2021 § 165(3) also requires information-society service providers to disclose the personal data processed, the legal basis, purposes and retention period. Collection of such data generally requires active consent based on clear and comprehensive information; technical storage or access remains permitted in particular for message transmission or where strictly necessary to provide a service explicitly requested by the user. This notice does not replace any information or consent that is required.",
+          "Two technical cookies and no others: the session cookie (HttpOnly, Secure, SameSite=Lax, 14 days) for sign-in and, only after a manual language change, the language preference (1 year). Neither is used for advertising or analytics, and both are strictly necessary to provide the service (Germany: § 25(2) TDDDG; Austria: § 165(3) TKG 2021).",
           "The browser retains the chosen theme, dismissed onboarding tour and checklist, and messaging-key fingerprints until site data is cleared. These values are not sent to the server.",
           "For end-to-end encryption, the browser stores a non-exportable private key in IndexedDB. The server does not receive it; the application can use it for cryptographic operations. After account deletion, the local key remains until the browser's site data is cleared.",
           "In production, a service worker is registered automatically; it does not cache page responses and supports Push. A Push subscription is created only after activation and browser permission; that permission does not replace information about data processing.",
@@ -193,7 +193,7 @@ export function imprintDocumentEN(config: LegalConfig): LegalDocument {
     updated: UPDATED,
     intro: [
       "Provider identification details pursuant to § 5 DDG.",
-      "This template assumes a provider established in Germany. Use from Austria does not by itself change the provider's place of establishment. A provider established in Austria should review the information required by ECG § 5 and, where the service falls within its scope, the disclosure duties under MedienG § 25, and add any required details.",
+      "This legal notice is based on the requirements applicable to providers established in Germany. Using the website from Austria does not, in itself, change the provider’s country of establishment or the legal requirements applicable to them. Providers established in Austria must ensure that their legal notice complies with the relevant Austrian disclosure requirements, including § 5 ECG and, where applicable, § 25 MedienG.",
     ],
     sections: [
       { heading: "Service provider", body: details },
