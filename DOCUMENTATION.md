@@ -17,25 +17,25 @@ The code is AGPL-3.0 licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               83 route files grouped by domain
+    api/               69 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v64), seed
+    db/                connection, base schema (v2), migrations (v3–v65), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 988 unit and integration tests (126 files)
+tests/                 939 unit and integration tests (123 files)
 e2e/                   66 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
 **Rendering.** The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, header, footer and mobile navigation arrive already rendered, and only the interactive islands hydrate (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`, `repository-link` is a plain link).
 
-**Interface language.** The three dictionaries do not ship together: `i18n.ts` is only imported on the server and the layout hands the client provider only the active language's texts (Spanish is the source and arrives empty), addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
+**Interface language.** The three dictionaries do not ship together: `i18n.ts` is only imported on the server and the layout hands the client provider only the active language's texts (Spanish is the source and arrives empty), addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
 
 **Data access.** `getDb()` hooks `prepare` to reuse compiled statements (FIFO cache of 400 per connection) and opens every transaction with `BEGIN IMMEDIATE`: the write lock is requested at the start, so a race with the cron becomes a wait instead of a `SQLITE_BUSY` in the middle of the work. Public aggregates are served through `use cache` with the `public-data` tag, invalidated by the routes that mutate.
 
@@ -51,11 +51,10 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/descubrir` | Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a copy requires an account. |
 | `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; marked `noindex`. |
 | `/ofrecer` | Publish a copy; the ISBN fills in the bibliographic record. |
-| `/buscar` | Global search: works, reading circles, readers and lists. |
+| `/buscar` | Global search: works, readers and lists. |
 | `/estanteria`, `/intercambios` | Private sections: own copies and requests with their next step. |
-| `/comunidad` | Hub with tabs (conversations, activity, circles, readers, lists) and scope in `?scope=`. |
+| `/comunidad` | Hub with tabs (conversations, activity, readers, lists) and scope in `?scope=`. |
 | `/lectores` | Directory with search, city and sorting by distance or activity. |
-| `/clubes`, `/clubes/[clubId]` | Reading circles by city: requests, current read, vote, attendance and members-only forum. |
 | `/listas`, `/listas/[listId]` | Reading lists: readable without a session (the signature only appears if the owner allows it), editable only by their owner. |
 | `/libro/[id]` | Copy page with metadata, its journey (if it has changed hands) and JSON-LD `Book`/`Offer`. |
 | `/obra/[bookId]` | Canonical work: conversation about the title, copies and recommendations. |
@@ -73,13 +72,12 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 83 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 112 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
+The API has 69 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 92 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
 - `/api/requests`, `/api/requests/[id]` and its children (`events` over SSE, `messages`, `read`, `review`): the whole exchange lifecycle.
 - `/api/books/*`: work search, comments, likes, per-work alerts and reading states.
-- `/api/clubs/*`: circle, members, moderators, invitations, attendance, transfer, forum, votes and join requests.
 - `/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messages, following and blocking.
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
 - `/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.
@@ -100,7 +98,7 @@ The API has 83 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v64). A new installation starts from `SCHEMA_V2` and its indexes and runs the 62 steps up to v64; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Fourteen steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it) v60 (the city-distance catalogue adds Austria while preserving existing German city names) v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) v62 (dated acceptance for delivery incidents, plus the responder’s version on a report) v63 (a signed snapshot of the key directory, so a substituted key can be proven against a published root) and v64 (drops the `(AT)` marker from Austrian cities that cannot be confused with a German one). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v65). A new installation starts from `SCHEMA_V2` and its indexes and runs the 63 steps up to v65; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Fourteen steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it) v60 (the city-distance catalogue adds Austria while preserving existing German city names) v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) v62 (dated acceptance for delivery incidents, plus the responder’s version on a report) v63 (a signed snapshot of the key directory, so a substituted key can be proven against a published root) v64 (drops the `(AT)` marker from Austrian cities that cannot be confused with a German one) and v65 (retires the reading circles: their nine tables and the `club_id` column of `product_events` are dropped, along with the reports that pointed at them). The detail of every step lives in that file and in its git history.
 
 The v61 migration removed the unused hand-over and shipping columns (`handover_*`, `ship_*`). The hand-over is agreed in the conversation, and each side confirms in the platform once it has the book.
 
@@ -133,7 +131,7 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
 - Web Push subscriptions only accept endpoints from the standard browser push providers (`fcm.googleapis.com`, Mozilla, Apple and Windows Notification Service); an arbitrary HTTPS endpoint would turn the server into an SSRF proxy.
 - Account tokens are single-use, hashed and expire (24 hours for verification, 1 hour for password reset, 30 days for appeals); changing the password ends every session.
-- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, removes its reviews and club forum messages, and clears its likes, votes and attendance. It keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
+- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, removes its reviews and clears its likes. It keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
 ## Transparency
 
@@ -181,13 +179,13 @@ Signing in is not enough: every operation also checks that the resource belongs 
 | Accept, cancel or confirm an exchange | No | No | Its two parties, according to role and transition | No |
 | Read or write in a direct thread | No | No | Its participants, with mutual following and a published key | No |
 | Rate the other person | No | No | Once, after the exchange is completed | No |
-| Comment, write in a club or in a list | No | Yes, with a confirmed email | Yes | Yes |
+| Comment or write in a list | No | Yes, with a confirmed email | Yes | Yes |
 | Moderate: reports, suspensions, removals | No | No | No | Yes, with 2FA in production |
 | Export or delete the account | No | No | Only its owner | No |
 
 Two roles share the team: a **moderator** (`is_moderator`) reviews reports and hides content; an **administrator** (`is_admin`) can also suspend accounts, appoint the team and resolve appeals. Sanctions require a reason and a duration, and an appeal can only be reviewed by someone other than the sanctioner. In production both roles require a second factor.
 
-`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy, exchange and governance tests cover the remaining roles.
+`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the privacy, exchange and governance tests cover the remaining roles.
 
 ## Environment variables
 
@@ -216,7 +214,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 988 unit and integration tests in 126 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 939 unit and integration tests in 123 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

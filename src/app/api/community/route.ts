@@ -2,7 +2,6 @@ import { json } from "@/lib/api";
 import {
   getStats,
   listActivity,
-  listClubs,
   listPublicReadingLists,
   listReaders,
   listRecentComments,
@@ -11,12 +10,12 @@ import { hit } from "@/lib/throttle";
 import { route } from "@/lib/route";
 
 /**
- * Panel de comunidad en una sola respuesta: muro, conversaciones, clubes,
- * lectores y listas.
+ * Panel de comunidad en una sola respuesta: muro, conversaciones, lectores y
+ * listas.
  *
  * La web pinta cada pestaña en el servidor (`getSnapshot`) y no paga las demás.
  * La app Android, en cambio, cambia de pestaña en el cliente: aquí se devuelven
- * las cinco colecciones de una vez con un tamaño de página pensado para móvil.
+ * las colecciones de una vez con un tamaño de página pensado para móvil.
  * El ámbito «ciudad» usa la ciudad del perfil, igual que la web.
  */
 export const GET = route(
@@ -33,13 +32,6 @@ export const GET = route(
     return json({
       activity: listActivity(12, scopeCity),
       conversations: listRecentComments(8, viewer, scopeCity),
-      clubs: listClubs({
-        viewerId: user.id,
-        city: scopeCity,
-        q,
-        sort: "meeting",
-        pageSize: 12,
-      }),
       readers: listReaders({
         viewerId: user.id,
         city: scopeCity,

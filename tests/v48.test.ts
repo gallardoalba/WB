@@ -1,8 +1,8 @@
 /**
  * Lecturas nuevas para el cliente Android.
  *
- * La web pinta clubes, listas y solicitudes en el servidor; la app nativa no
- * puede leer HTML, así que esas colecciones se exponen en JSON. Estas pruebas
+ * La web pinta listas y solicitudes en el servidor; la app nativa no puede leer
+ * HTML, así que esas colecciones se exponen en JSON. Estas pruebas
  * fijan lo importante: una solicitud solo la ven sus dos partes y las listas
  * devuelven sus obras en el orden en que se añadieron.
  */
@@ -51,16 +51,6 @@ test("una lista guarda sus obras y las devuelve en orden", () => {
     [works[0]!.id, works[1]!.id],
   );
   assert.equal(detail.isMine, true);
-});
-
-test("los clubes se pueden leer por id y aparecen en el listado", () => {
-  const page = repo.listClubs({ viewerId: "usr_marcos" });
-  assert.ok(page.total > 0, "la muestra no tiene clubes");
-  const id = page.clubs[0]!.id;
-  const club = repo.getClub(id, "usr_marcos");
-  assert.ok(club, "el club del listado no se puede abrir por id");
-  assert.equal(club.id, id);
-  assert.equal(repo.getClub("clb_que_no_existe", "usr_marcos"), null);
 });
 
 test("la estantería separa lo propio de lo guardado", () => {

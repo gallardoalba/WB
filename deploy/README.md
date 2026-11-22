@@ -122,7 +122,7 @@ their consequences are commented in the file itself; the summary:
 | `BREVO_API_KEY` + `MAIL_FROM` (or `MAIL_WEBHOOK_URL`) | Nobody can confirm their email (required to publish in production) or reset their password |
 | `APP_ENCRYPTION_KEY` | The TOTP secret cannot be stored; without 2FA, administration returns 403 in production |
 | `APP_ENCRYPTION_OLD_KEYS` | Only used when **rotating** the key: the new one in `APP_ENCRYPTION_KEY`, the previous one here so it can still be read |
-| `MAINTENANCE_TOKEN` | The cron returns 404: no purges, no email retries, no club reminders |
+| `MAINTENANCE_TOKEN` | The cron returns 404: no purges, no email retries |
 | `TRUST_PROXY=1` | All requests share the global quota: one client can exhaust the site's login |
 | `WANDERBIBLIOTHEK_DB` | The database is created inside the release and lost on the next deployment |
 | `WANDERBIBLIOTHEK_BACKUP_KEY` | The backup is stored in plain text with emails, password hashes and messages inside, and that backup leaves the server |
@@ -1182,7 +1182,7 @@ publish tells the truth (Art. 5(1)(e) and 13 GDPR/DSGVO):
 | Messages | `messages` | Only the encrypted envelope and metadata; the text is decrypted by browsers |
 
 Account deletion: the user row is anonymised; sessions, notifications, lists,
-owned clubs, blocks, tokens, read markers, personal notes on their copies and
+blocks, tokens, read markers, personal notes on their copies and
 **device keys** (`user_keys` and `public_key_history`, which `ON DELETE CASCADE`
 does not reach because the `users` row is not deleted) are deleted; **direct
 conversations are deleted in full** for both parties, and exchange messages and

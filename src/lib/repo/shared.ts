@@ -247,15 +247,15 @@ export function distanceParts(viewerId: string | null | undefined) {
  * Ciudades que hay de verdad en los datos, para los filtros de la comunidad.
  *
  * Antes salían de una lista fija de municipios alemanes; con la ciudad como
- * texto libre es más útil ofrecer solo las que tienen lectores o clubes.
+ * texto libre es más útil ofrecer solo las que tienen lectores.
  */
-export function citiesInUse(kind: "readers" | "clubs", limit = 200): string[] {
-  const sql =
-    kind === "clubs"
-      ? `SELECT city FROM clubs WHERE city <> '' GROUP BY city ORDER BY city LIMIT ?`
-      : `SELECT city FROM users WHERE is_suspended = 0 AND city <> ''
-           GROUP BY city ORDER BY city LIMIT ?`;
-  const rows = getDb().prepare(sql).all(limit) as { city: string }[];
+export function citiesInUse(limit = 200): string[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT city FROM users WHERE is_suspended = 0 AND city <> ''
+        GROUP BY city ORDER BY city LIMIT ?`,
+    )
+    .all(limit) as { city: string }[];
   return rows.map((row) => row.city);
 }
 

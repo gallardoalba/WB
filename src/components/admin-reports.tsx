@@ -16,24 +16,18 @@ type Action =
   | "hide_listing"
   | "suspend_user"
   | "hide_comment"
-  | "hide_club"
-  | "hide_club_post"
   | "cancel_request";
 
 const UNDO: Partial<Record<Action, string>> = {
   hide_listing: "restore_listing",
   suspend_user: "unsuspend_user",
   hide_comment: "restore_comment",
-  hide_club: "restore_club",
-  hide_club_post: "restore_club_post",
 };
 
 const CONFIRM_TITLE: Partial<Record<Action, MessageKey>> = {
   hide_listing: "¿Retirar este ejemplar?",
   suspend_user: "¿Suspender esta cuenta?",
   hide_comment: "¿Ocultar este comentario?",
-  hide_club: "¿Ocultar este club?",
-  hide_club_post: "¿Ocultar este mensaje del foro?",
   cancel_request: "¿Cancelar este intercambio?",
 };
 
@@ -41,8 +35,6 @@ const CONFIRM_TEXT: Partial<Record<Action, MessageKey>> = {
   hide_listing: "Dejará de aparecer en el catálogo y se cancelarán los intercambios aceptados.",
   suspend_user: "La persona no podrá entrar hasta que venza el plazo o se levante la sanción.",
   hide_comment: "Solo su autor podrá verlo.",
-  hide_club: "Desaparecerá del directorio y del perfil de sus miembros.",
-  hide_club_post: "Dejará de verse en el foro del club; solo su autor lo verá.",
   cancel_request:
     "El ejemplar volverá a estar disponible si no hay otro intercambio aceptado. No se puede deshacer.",
 };
@@ -164,11 +156,9 @@ export function AdminReports({
                   ? t("Perfil")
                   : report.targetType === "comment"
                     ? t("Comentario")
-                    : report.targetType === "club"
-                      ? t("Club")
-                      : report.targetType === "request"
-                        ? t("Intercambio")
-                        : t("Mensaje")}
+                    : report.targetType === "request"
+                      ? t("Intercambio")
+                      : t("Mensaje")}
             </span>
             <strong>{report.targetLabel}</strong>
             <span>
@@ -231,26 +221,6 @@ export function AdminReports({
                 onClick={() => requestAction(report, "hide_comment")}
               >
                 <EyeOff size={14} /> {t("Ocultar comentario")}
-              </button>
-            )}
-            {report.targetType === "club" && (
-              <button
-                type="button"
-                className="secondary-button small danger"
-                disabled={busyId === report.id}
-                onClick={() => requestAction(report, "hide_club")}
-              >
-                <EyeOff size={14} /> {t("Ocultar club")}
-              </button>
-            )}
-            {report.targetType === "club_post" && (
-              <button
-                type="button"
-                className="secondary-button small danger"
-                disabled={busyId === report.id}
-                onClick={() => requestAction(report, "hide_club_post")}
-              >
-                <EyeOff size={14} /> {t("Ocultar mensaje")}
               </button>
             )}
           </div>

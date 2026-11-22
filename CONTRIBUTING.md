@@ -18,7 +18,7 @@ All of this has to pass; CI runs the same:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 988 unit and integration tests (126 files)
+npm test            # 939 unit and integration tests (123 files)
 npm run build
 npm run test:e2e    # Playwright: 64 cases in 12 files (Chromium); first time:
                     # npx playwright install chromium
@@ -44,7 +44,7 @@ directory).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 988 pruebas unitarias y de integración (126 ficheros),
+  Validado: tsc, eslint, 939 pruebas unitarias y de integración (123 ficheros),
   build y 64/64 E2E (Chromium) y el humo en Firefox/WebKit.
   ```
 

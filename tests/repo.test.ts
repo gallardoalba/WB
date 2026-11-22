@@ -327,7 +327,7 @@ test("un libro sin ISBN se publica a mano y se agrupa por título y autoría", (
   assert.equal(other.bookId, mine.bookId, "mismo título y autoría: misma obra");
 });
 
-test("el borrado de cuenta también retira reseñas, foro, votos y asistencia", () => {
+test("el borrado de cuenta también retira reseñas, likes y marcas de lectura", () => {
   const db = dbModule.getDb();
   const user = repo.createUser({
     name: "Cuenta con rastro",
@@ -335,26 +335,6 @@ test("el borrado de cuenta también retira reseñas, foro, votos y asistencia", 
     city: "Stuttgart",
     passwordHash: "scrypt$00$00",
   });
-  const club = repo.createClub("usr_clara", {
-    name: `Rastro ${Math.random().toString(36).slice(2, 8)}`,
-    city: "Stuttgart",
-    description: "Club para probar el borrado",
-    meetsOn: "Último martes, 19:00",
-    joinPolicy: "open",
-  });
-  repo.setClubMembership(user.id, club.id, true);
-  const post = repo.createClubPost({ clubId: club.id, authorId: user.id, body: "Mensaje personal." });
-  const poll = repo.createClubPoll("usr_clara", club.id, {
-    question: "¿Qué leemos?",
-    bookIds: ["bok_1", "bok_2"],
-  });
-  repo.voteClubPoll(user.id, club.id, poll.options[0]!.id);
-  db.prepare(
-    "INSERT OR IGNORE INTO club_post_likes (post_id, user_id, created_at) VALUES (?, ?, ?)",
-  ).run(post.id, user.id, new Date().toISOString());
-  db.prepare(
-    "INSERT OR IGNORE INTO club_attendance (club_id, user_id, meets_key, created_at) VALUES (?, ?, ?, ?)",
-  ).run(club.id, user.id, "2030-06-04", new Date().toISOString());
   const request = db
     .prepare(
       "SELECT r.id FROM requests r LEFT JOIN reviews rv ON rv.request_id = r.id WHERE rv.id IS NULL LIMIT 1",
@@ -364,27 +344,18 @@ test("el borrado de cuenta también retira reseñas, foro, votos y asistencia", 
   db.prepare(
     "INSERT INTO reviews (id, request_id, author_id, target_id, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   ).run("rev_borrado", request.id, user.id, "usr_ana", 5, "Texto personal", new Date().toISOString());
+  db.prepare(
+    "INSERT OR IGNORE INTO book_comment_likes (comment_id, user_id, created_at) VALUES (?, ?, ?)",
+  ).run("cmt_seed_1", user.id, new Date().toISOString());
 
   repo.deleteAccount(user.id);
 
-  assert.equal(
-    (db.prepare("SELECT COUNT(*) AS n FROM reviews WHERE author_id = ? OR target_id = ?").get(user.id, user.id) as { n: number }).n,
-    0,
-  );
-  const storedPost = db
-    .prepare("SELECT status, body FROM club_posts WHERE id = ?")
-    .get(post.id) as { status: string; body: string } | undefined;
-  assert.equal(storedPost?.status, "deleted");
-  assert.equal(storedPost?.body, "");
-  for (const [table, column] of [
-    ["club_post_likes", "user_id"],
-    ["club_attendance", "user_id"],
-    ["club_poll_votes", "user_id"],
-  ] as const) {
-    const row = db
-      .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`)
-      .get(user.id) as { n: number };
-    assert.equal(row.n, 0, `${table} debería quedar vacío`);
-  }
-  repo.deleteClub("usr_clara", club.id);
+  const reviews = db
+    .prepare("SELECT COUNT(*) AS n FROM reviews WHERE author_id = ? OR target_id = ?")
+    .get(user.id, user.id) as { n: number };
+  assert.equal(reviews.n, 0, "las reseñas dadas y recibidas se van con la cuenta");
+  const likes = db
+    .prepare("SELECT COUNT(*) AS n FROM book_comment_likes WHERE user_id = ?")
+    .get(user.id) as { n: number };
+  assert.equal(likes.n, 0, "los likes de comentarios también");
 });

@@ -1,7 +1,6 @@
 import { dbMetrics, getDb, type DbMetrics } from "../db";
 import { DELIVERY_INCIDENT_REASON } from "../domain";
 import { pruneCoverCache } from "../covers";
-import { notifyUpcomingMeetings } from "./clubs";
 import { listingTitle, notify } from "./notifications";
 import { expireDueSuspensions } from "./users";
 
@@ -158,7 +157,6 @@ export type MaintenanceReport = {
   appeals: number;
   /** Intercambios aceptados a los que se ha recordado que falta confirmar. */
   acceptedReminders: number;
-  clubReminders: number;
   covers: number;
   /** Tamaño de la base y del WAL, ya después del checkpoint. */
   db: DbMetrics;
@@ -192,9 +190,9 @@ export function runMaintenance(): MaintenanceReport {
       WHERE book_id IS NOT NULL AND book_id NOT IN (SELECT id FROM books)`,
   );
   const events = changes("DELETE FROM events WHERE created_at < ?", daysAgo(180));
-  // `product_events` guarda visitas a clubes y avisos de mensajes nuevos **con
-  // `user_id`**: es un dato personal de actividad, no una estadística anónima, y
-  // sin esta poda crecía para siempre. Mismo plazo que `events`.
+  // `product_events` guarda avisos de mensajes nuevos **con `user_id`**: es un
+  // dato personal de actividad, no una estadística anónima, y sin esta poda
+  // crecía para siempre. Mismo plazo que `events`.
   const productEvents = changes(
     "DELETE FROM product_events WHERE created_at < ?",
     daysAgo(180),
@@ -236,7 +234,6 @@ export function runMaintenance(): MaintenanceReport {
   }
 
   const acceptedReminders = remindStaleAcceptedRequests();
-  const clubReminders = notifyUpcomingMeetings();
   // Las portadas cacheadas se acumulan con cada ISBN visitado: se olvidan las
   // que nadie ha pedido en medio año.
   const covers = pruneCoverCache();
@@ -267,7 +264,6 @@ export function runMaintenance(): MaintenanceReport {
     expiredSuspensions: expiredSuspensions.length,
     appeals,
     acceptedReminders,
-    clubReminders,
     covers,
     // Se mide **después** del checkpoint: es el tamaño que ocupa de verdad.
     db: dbMetrics(),

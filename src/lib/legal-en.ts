@@ -94,7 +94,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
             ? ["Push subscriptions: until the user unsubscribes, deletes the account, or the push service reports that the endpoint no longer exists; up to six devices per account."]
             : []),
           "IP pseudonyms: no longer than 1 day.",
-          "Notices: 90 days after being read and 180 days at most. Activity in the public area and in clubs: 180 days.",
+          "Notices: 90 days after being read and 180 days at most. Activity in the public area: 180 days.",
           "Moderation log: up to 730 days (configurable). Sanctions: while active; the reason and time limit are deleted when the sanction is lifted.",
           "Resolved appeals: 2 years after resolution.",
           "Resolved reports: 1 year after they are resolved.",
@@ -147,7 +147,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         body: [
           "Access and data portability: “Download data” in the account produces a JSON file containing everything that is stored.",
           "Rectification: name, city and biography can be changed at any time.",
-          "Erasure: “Delete account” anonymises the account and removes sessions, notices, lists, your own clubs, blocks, favourites, personal notes, the published device keys and reviews, including those received. Exchange messages are kept with the author already anonymised, because they form part of other people’s history; direct conversations are deleted entirely, including for the other person.",
+          "Erasure: “Delete account” anonymises the account and removes sessions, notices, lists, blocks, favourites, personal notes, the published device keys and reviews, including those received. Exchange messages are kept with the author already anonymised, because they form part of other people’s history; direct conversations are deleted entirely, including for the other person.",
           "Objection to notification emails: at any time from the account.",
           "Complaint: to the competent data protection supervisory authority. In Germany, this is generally the authority for the relevant federal state; in Austria, it is the Austrian Data Protection Authority (Datenschutzbehörde, DSB).",
           "Restriction of processing: while an objection or an erasure is being examined, you may ask for processing to be restricted by writing to the contact address above.",

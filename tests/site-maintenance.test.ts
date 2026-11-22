@@ -108,14 +108,14 @@ test("el mantenimiento devuelve un informe con recuentos y se puede repetir", ()
   assert.equal(typeof repo.runMaintenance(), "object", "dos pasadas seguidas no rompen nada");
 });
 
-test("los eventos de club (que llevan user_id) no se quedan para siempre", async () => {
+test("los eventos con user_id no se quedan para siempre", async () => {
   const { getDb } = await import("../src/lib/db/index.ts");
   const db = getDb();
   const meter = (id: string, dias: number) =>
     db
       .prepare(
-        `INSERT INTO product_events (id, type, user_id, club_id, created_at)
-         VALUES (?, 'club_view', NULL, NULL, ?)`,
+        `INSERT INTO product_events (id, type, user_id, created_at)
+         VALUES (?, 'message_view', NULL, ?)`,
       )
       .run(id, new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString());
 

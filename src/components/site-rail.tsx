@@ -6,7 +6,7 @@ import { translate } from "@/lib/i18n";
 import { localePath, type Locale } from "@/lib/locale";
 import { AccountMenu } from "./account-menu";
 
-export type RailSection = "clubes" | "listas" | "lectores" | "obra" | "perfil" | "admin";
+export type RailSection = "listas" | "lectores" | "obra" | "perfil" | "admin";
 
 /**
  * Barra lateral de las páginas que no viven dentro del catálogo. Mantiene la
@@ -82,7 +82,7 @@ export function SiteRail({
       <nav className="primary-nav" aria-label={t("Comunidad")}>
         <Link
           className={itemClass(
-            section === "clubes" || section === "listas" || section === "lectores"
+            section === "listas" || section === "lectores"
           )}
           href={href("/comunidad")}
         >

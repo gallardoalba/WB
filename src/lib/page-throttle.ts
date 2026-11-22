@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { clientKeyFrom, hit } from "./throttle";
 
 /**
- * Límite de ritmo para páginas con datos de muchas personas (directorio, clubs
+ * Límite de ritmo para páginas con datos de muchas personas (directorio y
  * y listas). No rompe la página: si se supera, quien llama decide qué mostrar.
  *
  * La clave es la IP cuando hay proxy de confianza y, si no, la cuenta que está

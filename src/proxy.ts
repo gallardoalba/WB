@@ -20,7 +20,6 @@ const PRIVATE_PREFIXES = [
   "/u/",
   "/lectores",
   "/comunidad",
-  "/clubes",
   "/estanteria",
   "/intercambios",
   "/cuenta",

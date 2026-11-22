@@ -51,7 +51,6 @@ export default async function robots() {
           "/api/",
           "/admin",
           "/comunidad",
-          "/clubes",
           "/estanteria",
           "/intercambios",
           "/cuenta",

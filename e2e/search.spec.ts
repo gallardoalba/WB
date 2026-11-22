@@ -14,17 +14,15 @@ async function login(page: Parameters<typeof loginAs>[0]) {
  */
 test("el buscador de la cabecera lleva a los resultados", async ({ page }) => {
   await login(page);
-  await page.goto("/clubes");
+  await page.goto("/lectores");
 
-  await page.locator("#site-search-q").fill("biblioteca");
+  await page.locator("#site-search-q").fill("lucia");
   await page.locator("#site-search-q").press("Enter");
 
-  await expect(page).toHaveURL(/\/buscar\?q=biblioteca/);
+  await expect(page).toHaveURL(/\/buscar\?q=lucia/);
   await expect(page.getByRole("heading", { name: /Resultados para/ })).toBeVisible();
-  // El club sembrado se llama «Los martes de la biblioteca».
-  await expect(page.locator(".search-group", { hasText: "Clubes" })).toContainText(
-    "Los martes de la biblioteca",
-  );
+  // La lectora sembrada aparece en su sección del resultado.
+  await expect(page.locator(".search-group", { hasText: "Lectores" })).toContainText("Lucía");
 });
 
 test("la búsqueda se puede compartir por enlace y avisa cuando no hay nada", async ({ page }) => {

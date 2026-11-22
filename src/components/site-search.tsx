@@ -7,7 +7,7 @@ import type { Locale } from "@/lib/locale";
  *
  * Es un formulario GET normal (`/buscar?q=…`): funciona sin JavaScript, se puede
  * compartir por enlace y el botón «atrás» devuelve a los resultados anteriores.
- * Antes había que buscar dentro de cada sección por separado (catálogo, clubes,
+ * Antes había que buscar dentro de cada sección por separado (catálogo,
  * lectores, listas) y no había ninguna entrada común en la parte de arriba.
  */
 export function SiteSearch({
@@ -17,7 +17,7 @@ export function SiteSearch({
 }: {
   locale: Locale;
   defaultValue?: string;
-  /** Sin sesión, la búsqueda global no puede leer clubes ni lectores: el
+  /** Sin sesión, la búsqueda global no puede leer lectores: el
    * formulario apunta al catálogo público, que sí filtra sin cuenta. */
   guest?: boolean;
 }) {
@@ -38,7 +38,7 @@ export function SiteSearch({
         type="search"
         name="q"
         defaultValue={defaultValue}
-        placeholder={t("Buscar libros, clubes, lectores…")}
+        placeholder={t("Buscar libros, lectores…")}
         maxLength={60}
         autoComplete="off"
       />

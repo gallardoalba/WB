@@ -2108,6 +2108,54 @@ function migrateToV64(db: Db) {
   db.pragma("user_version = 64");
 }
 
+/**
+ * v65: se retiran los grupos de lectura.
+ *
+ * La funcionalidad no encajaba en el proyecto: un club era a la vez foro,
+ * encuesta, préstamo rotatorio, control de asistencia y objeto de moderación, y
+ * mantenía cinco subsistemas con sus propias reglas. Se elimina entera, y con
+ * ella sus datos.
+ *
+ * La migración es deliberadamente destructiva: dejar las tablas sin uso sería
+ * peor que borrarlas, porque seguirían guardando texto libre de personas que ya
+ * no pueden verlo ni reclamarlo. Las copias cifradas anteriores a esta versión
+ * son la única vuelta atrás, y por eso el despliegue hace una antes de migrar.
+ *
+ * Se borran primero las hijas para no depender del orden de `ON DELETE CASCADE`
+ * y se eliminan las denuncias que apuntaban a clubes y a sus mensajes: sin la
+ * tabla, una denuncia de ese tipo no se puede resolver ni mostrar.
+ */
+function migrateToV65(db: Db) {
+  db.transaction(() => {
+    db.prepare("DELETE FROM reports WHERE target_type IN ('club', 'club_post')").run();
+
+    // De la hoja a la raíz. `IF EXISTS` deja la migración re-ejecutable si una
+    // instalación a medio camino se quedó sin alguna tabla.
+    for (const tabla of [
+      "club_post_likes",
+      "club_posts",
+      "club_poll_votes",
+      "club_poll_options",
+      "club_polls",
+      "club_attendance",
+      "club_loans",
+      "club_members",
+      "clubs",
+    ]) {
+      db.exec(`DROP TABLE IF EXISTS ${tabla}`);
+    }
+
+    // `product_events.club_id` solo servía para contar visitas a un club. La
+    // columna es opcional y sin índice; se va con las tablas.
+    const columnas = (db.pragma("table_info(product_events)") as { name: string }[]).map(
+      (columna) => columna.name,
+    );
+    if (columnas.includes("club_id")) db.exec("ALTER TABLE product_events DROP COLUMN club_id");
+  })();
+
+  db.pragma("user_version = 65");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2241,6 +2289,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 62) migrateToV62(db);
   if (userVersion(db) < 63) migrateToV63(db);
   if (userVersion(db) < 64) migrateToV64(db);
+  if (userVersion(db) < 65) migrateToV65(db);
 
   backfillSearchKeys(db);
 }

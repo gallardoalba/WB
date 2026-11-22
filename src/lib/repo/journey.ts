@@ -22,8 +22,7 @@ export function getReaderJourney(userId: string): ReaderJourney {
          (SELECT COUNT(*) FROM reading_lists WHERE owner_id = @userId) AS lists,
          (SELECT COUNT(*) FROM reading_list_items i
            JOIN reading_lists rl ON rl.id = i.list_id
-           WHERE rl.owner_id = @userId) AS list_items,
-         (SELECT COUNT(*) FROM club_members WHERE user_id = @userId) AS clubs`,
+           WHERE rl.owner_id = @userId) AS list_items`,
     )
     .get({ userId }) as {
     shared: number;
@@ -32,9 +31,8 @@ export function getReaderJourney(userId: string): ReaderJourney {
     comments: number;
     lists: number;
     list_items: number;
-    clubs: number;
   };
-  const { shared, given, received, comments, lists, clubs } = counts;
+  const { shared, given, received, comments, lists } = counts;
   const listItems = counts.list_items;
 
   // Kilómetros y ciudades: solo de intercambios cerrados (libros que viajaron).
@@ -66,10 +64,9 @@ export function getReaderJourney(userId: string): ReaderJourney {
     received,
     comments,
     lists,
-    clubs,
     cities: cities.size,
     km: Math.round(km * 10) / 10,
-    badges: buildBadges({ given, received, shared, comments, clubs, cities: cities.size, lists, listItems }),
+    badges: buildBadges({ given, received, shared, comments, cities: cities.size, lists, listItems }),
   };
 }
 
@@ -79,7 +76,6 @@ function buildBadges(input: {
   received: number;
   shared: number;
   comments: number;
-  clubs: number;
   cities: number;
   lists: number;
   listItems: number;
@@ -91,7 +87,6 @@ function buildBadges(input: {
     { id: "ten-shared", label: "Estantería generosa", hint: "Publica diez ejemplares.", earned: input.shared >= 10 },
     { id: "talker", label: "Conversador", hint: "Escribe diez comentarios.", earned: input.comments >= 10 },
     { id: "explorer", label: "Tres ciudades", hint: "Intercambia en tres ciudades de la región.", earned: input.cities >= 3 },
-    { id: "club", label: "Leer en compañía", hint: "Únete a un club de lectura.", earned: input.clubs >= 1 },
     { id: "curator", label: "Curador", hint: "Crea una lista con tres libros.", earned: input.lists >= 1 && input.listItems >= 3 },
   ];
 }

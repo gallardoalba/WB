@@ -92,8 +92,6 @@ test("las acciones de administración son una lista cerrada", () => {
     "hide_listing",
     "suspend_user",
     "hide_comment",
-    "hide_club",
-    "hide_club_post",
   ]) {
     assert.equal(adminActionSchema.safeParse({ action }).success, true, action);
   }

@@ -50,7 +50,7 @@ const ES: TechnicalDocument = {
             },
             {
               label: "Comunidad",
-              text: "participa en clubes y listas y propone cambios; además puede pedir la revisión de cualquier decisión que le afecte.",
+              text: "participa en listas y propone cambios; además puede pedir la revisión de cualquier decisión que le afecte.",
             },
           ],
         },
@@ -186,7 +186,7 @@ const DE: TechnicalDocument = {
             { label: "Projektpflege", text: "prüft den Code, veröffentlicht Versionen und pflegt die technische Dokumentation. Sie verwaltet keine Instanzen." },
             { label: "Instanzverwaltung", text: "kümmert sich um Server, Backups und die Aufnahme ins Team und ist die einzige Stelle, die Konten sperren kann." },
             { label: "Moderation", text: "prüft Meldungen, verbirgt Inhalte und dokumentiert ihr Vorgehen. Sie schlägt Sperren vor, verhängt sie aber nicht, und ernennt niemanden." },
-            { label: "Community", text: "beteiligt sich an Clubs und Listen und schlägt Änderungen vor; außerdem kann sie jede Entscheidung überprüfen lassen, die sie betrifft." },
+            { label: "Community", text: "beteiligt sich an Listen und schlägt Änderungen vor; außerdem kann sie jede Entscheidung überprüfen lassen, die sie betrifft." },
           ],
         },
       ],

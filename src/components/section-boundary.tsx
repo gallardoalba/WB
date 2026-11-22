@@ -8,7 +8,7 @@ import { useI18n } from "./i18n-provider";
  * Frontera de errores por sección.
  *
  * `app/error.tsx` protege la ruta entera: si una pieza de cliente falla —el
- * foro del club, los comentarios, el diálogo de mensajes, los botones de una
+ * los comentarios, el diálogo de mensajes, los botones de una
  * lista— se lleva por delante la página y, con ella, lo que la persona estaba
  * escribiendo. Esta frontera deja el daño dentro de su sección y ofrece
  * «Reintentar», que vuelve a renderizar sin recargar y conserva el estado de

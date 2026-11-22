@@ -629,11 +629,9 @@ export function listOwnerBooks(userId: string): { id: string; title: string; aut
 /**
  * Busca obras del catálogo por título o autoría.
  *
- * Antes, para elegir la lectura de un club solo se ofrecían los libros que el
- * dueño tenía publicados: un club no podía leer algo que su fundador no tuviera
- * en casa. Esta búsqueda permite elegir cualquier obra que ya exista en el
- * catálogo (la conversación y los ejemplares cuelgan de la obra, no de la
- * edición).
+ * Devuelve cualquier obra que ya exista en el catálogo, no solo las que quien
+ * busca tiene publicadas: la conversación y los ejemplares cuelgan de la obra,
+ * no de la edición.
  */
 export function searchBooks(query: string, limit = 8): { id: string; title: string; author: string }[] {
   const terms = query
@@ -748,7 +746,7 @@ export function listingsForBook(
   // da igual la editorial de la copia.
   const scope = workIdsClause("l.book_id", workBookIds(bookId));
   // Los filtros van en SQL: filtrar después del LIMIT dejaba fuera ejemplares
-  // de la ciudad del club si las primeras copias eran de otro sitio.
+  // de la ciudad pedida si las primeras copias eran de otro sitio.
   const filters = [
     scope.clause,
     VISIBILITY,

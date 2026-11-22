@@ -309,10 +309,8 @@ test("el panel de comunidad carga cada pestaña por separado", async ({ page }) 
 
   await page.goto("/?view=community&tab=readers");
   await expect(page.locator(".reader-card:visible").first()).toBeVisible();
-  // El snapshot ya solo trae la pestaña pedida: ni clubes ni listas.
-  await expect(page.locator(".club-card:visible")).toHaveCount(0);
-
-  await page.goto("/?view=community&tab=clubs");
+  // El snapshot ya solo trae la pestaña pedida: ni listas.
+  await page.goto("/?view=community&tab=lists");
   await expect(page.locator(".reader-card:visible")).toHaveCount(0);
 });
 
@@ -392,7 +390,6 @@ test("salud, Open Graph y sitemap mínimo", async ({ request }) => {
   const sitemap = await request.get("/sitemap.xml");
   const body = await sitemap.text();
   expect(body).toContain("<loc>");
-  expect(body).not.toContain("/clubes/");
   expect(body).not.toContain("/listas/");
 });
 
@@ -431,19 +428,20 @@ test("«Descubrir todos los libros» abre el catálogo por arriba", async ({ pag
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(40);
 });
 
-test("la portada cuenta también los clubes de lectura", async ({ page }) => {
+test("la portada enseña sus tres cifras", async ({ page }) => {
   await page.goto("/");
   await waitForHydration(page);
-  // El rótulo va en plural o en singular según la cifra, y cada cifra trae su
-  // icono: la banda se comprueba por las dos cosas.
-  await expect(page.locator(".hero-stats")).toContainText(/club(es)? de lectura/);
-  await expect(page.locator(".hero-stats > .hero-stat")).toHaveCount(4);
+  // La banda se comprueba por el número de columnas y por sus rótulos.
+  await expect(page.locator(".hero-stats > .hero-stat")).toHaveCount(3);
+  await expect(page.locator(".hero-stats")).toContainText(/libros? disponibles?/);
+  await expect(page.locator(".hero-stats")).toContainText(/intercambios? hechos?/);
+  await expect(page.locator(".hero-stats")).toContainText(/lectores? registrados?/);
 });
 
 test("el hub de comunidad no repite cifras ni buscador propio", async ({ page }) => {
   await loginAsDemo(page);
 
-  for (const tab of ["clubs", "readers", "lists", "conversations"]) {
+  for (const tab of ["readers", "lists", "conversations"]) {
     await page.goto(`/comunidad?tab=${tab}`);
     await expect(page.locator(".community-tabs")).toBeVisible();
     // Las cifras salieron del hub y el buscador vive en la cabecera.

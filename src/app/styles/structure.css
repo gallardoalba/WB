@@ -477,7 +477,7 @@
 
 /* Tonos accesibles para avatares y portadas de reserva. Los pares fondo/tinta
    salen de tokens, así que los seis tienen variante oscura (antes solo sage y
-   ochre la tenían, y en club.css: una portada clara brillaba en modo oscuro).
+   ochre la tenían: una portada clara brillaba en modo oscuro).
    Contraste de cada pareja: 6,48–7,36:1 en claro y 8,28–9,09:1 en oscuro. */
 .tone-sage { background: var(--tone-sage-bg); color: var(--tone-sage-ink); }
 .tone-ochre { background: var(--tone-ochre-bg); color: var(--tone-ochre-ink); }
@@ -821,7 +821,7 @@
 /* Páginas con rejilla de libros (el perfil público) ocupan todo el ancho del
    panel, como el catálogo: una estantería de tres columnas en 1120 px dejaba
    tarjetas enormes y la mitad de la pantalla vacía. Las páginas de lectura
-   (lectores, clubes, listas) se quedan en el ancho contenido. */
+   (lectores, listas) se quedan en el ancho contenido. */
 .content-wrap.content-wide {
   width: 100%;
   max-width: none;
@@ -1445,7 +1445,7 @@
 }
 
 /* Estado vacío compartido (`EmptyState` / `EmptyNote`): la misma forma en el
-   catálogo, la estantería, intercambios, listas, clubes y moderación. */
+   catálogo, la estantería, intercambios, listas y moderación. */
 .empty-state {
   /* Dentro de la rejilla del catálogo ocupa toda la fila. */
   grid-column: 1 / -1;
@@ -1492,6 +1492,13 @@
 
 /* Puerta del panel de moderación: cabecera con escudo, pasos numerados y aviso
    a la izquierda. Así no se confunde con la página de cuenta. */
+.admin-gate {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 .admin-gate-head {
   display: flex;
   align-items: flex-start;

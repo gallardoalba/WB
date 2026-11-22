@@ -21,7 +21,7 @@ import { FooterSeparator } from "./footer-sep";
 
 /**
  * Shell de las páginas internas: misma barra lateral, misma cabecera, mismo
- * ancho y mismo pie que la aplicación. Así navegar entre catálogo, clubes,
+ * ancho y mismo pie que la aplicación. Así navegar entre catálogo,
  * listas o perfiles no cambia el marco de la página.
  */
 export async function SiteShell({
@@ -93,7 +93,7 @@ export async function SiteShell({
             <span className="crumb-slash" aria-hidden="true">/</span>
             <strong>{title}</strong>
           </div>
-          {/* Buscador global: la entrada a libros, clubes, lectores y listas
+          {/* Buscador global: la entrada a libros, lectores y listas
               desde cualquier página. */}
           <SiteSearch locale={locale} guest={!user} />
           <div className="topbar-actions">
@@ -117,8 +117,6 @@ export async function SiteShell({
           <footer className="page-footer">
             <span>{t("Hecho para que las historias sigan viajando.")}{" "}</span>
             <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
-              <Link href={href("/clubes")}>{t("Clubes")}</Link>
-              <FooterSeparator />
               <Link href={href("/lectores")}>{t("Lectores")}</Link>
               <FooterSeparator />
               <Link href={href("/listas")}>{t("Listas")}</Link>
@@ -183,7 +181,7 @@ export async function SiteShell({
         <Link
           href={href("/comunidad")}
           className={
-            section === "clubes" || section === "lectores" || section === "listas"
+            section === "lectores" || section === "listas"
               ? "mobile-active"
               : undefined
           }

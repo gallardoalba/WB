@@ -353,13 +353,10 @@ export type StatsView = {
   members: number;
   completed: number;
   cities: number;
-  clubs: number;
   /** Obras distintas con algún ejemplar en circulación. */
   titles: number;
   /** Kilómetros sumados por los intercambios ya cerrados. */
   km: number;
-  /** Clubes con un encuentro futuro a la vista. */
-  clubsUpcoming: number;
 };
 
 export const NOTIFICATION_TYPES = [
@@ -377,7 +374,6 @@ export const NOTIFICATION_TYPES = [
   "availability",
   "want",
   "security",
-  "club",
   "direct",
 ] as const;
 
@@ -510,7 +506,7 @@ export type AppSnapshot = {
     tag: string;
     /** Pestaña activa del panel de comunidad (se conserva en la URL). */
     tab: CommunityTab;
-    /** Si el muro y los clubes se limitan a la ciudad de quien mira. */
+    /** Si el muro se limita a la ciudad de quien mira. */
     scope: CommunityScope;
   };
   listings: ListingView[];
@@ -529,9 +525,6 @@ export type AppSnapshot = {
   activeRequests: number;
   activity: ActivityView[];
   conversations: ConversationView[];
-  /** Clubes de la comunidad (de la ciudad si `scope` es `city`). */
-  clubs: ClubView[];
-  clubsTotal: number;
   readers: ReaderView[];
   readersTotal: number;
   publicLists: ReadingListView[];
@@ -665,99 +658,6 @@ export type ReadingListBook = {
 
 export type ReadingListDetail = ReadingListView & { books: ReadingListBook[] };
 
-export type ClubView = {
-  id: string;
-  name: string;
-  city: string;
-  description: string;
-  /** Etiqueta libre y recurrente («Último martes, 19:00»). */
-  meetsOn: string;
-  /** Próximo encuentro concreto (ISO) para ordenar y recordar. */
-  meetsAt: string;
-  /** Dónde se ve el club (una sala, una cafetería, una dirección). */
-  meetsPlace: string;
-  /** Enlace del encuentro (videollamada); solo `http(s)`. */
-  meetsLink: string;
-  /** Hay enlace configurado, aunque no se enseñe a quien no es miembro. */
-  hasMeetsLink: boolean;
-  createdAt: string;
-  book: { id: string; title: string; author: string } | null;
-  members: number;
-  isMember: boolean;
-  isMine: boolean;
-  owner: { id: string; name: string };
-  joinPolicy: "open" | "approval";
-  /** Relación de quien mira con el club. */
-  myStatus: "none" | "member" | "pending";
-  /** Ayuda a llevar el club: ve solicitudes y retira mensajes del foro. */
-  isModerator: boolean;
-  memberPreview: { id: string; name: string }[];
-  /** Progreso de la lectura en curso (0-100). */
-  progress: number;
-  progressNote: string;
-  attendees: number;
-  attending: boolean;
-  lastActivityAt: string | null;
-  /** Solicitudes de entrada pendientes (solo lo ve quien creó el club). */
-  pendingRequests: number;
-};
-
-export type ClubRequestView = {
-  user: { id: string; name: string; city: string };
-  createdAt: string;
-};
-
-/**
- * Denuncia abierta sobre un mensaje del foro, con lo justo para decidir: qué
- * dice, quién lo escribió y quién lo denunció.
- */
-export type ClubPostReportView = {
-  id: string;
-  reason: string;
-  details: string;
-  createdAt: string;
-  reporter: { id: string; name: string };
-  post: { id: string; body: string; author: string; status: string };
-};
-
-/**
- * Mensaje del foro de un club. Solo lo ven sus miembros; `deleted` conserva el
- * hueco del hilo cuando ya hay respuestas y `hidden` es la marca de moderación.
- */
-export type ClubPostView = {
-  id: string;
-  body: string;
-  createdAt: string;
-  author: { id: string; name: string; city: string };
-  /** La persona firma como comunidad: no se enseña su identidad. */
-  authorAnonymous: boolean;
-  likes: number;
-  likedByMe: boolean;
-  isMine: boolean;
-  canDelete: boolean;
-  deleted: boolean;
-  hidden: boolean;
-  replies: ClubPostView[];
-};
-
-/**
- * Votación de la próxima lectura. Una por club y a la vez: `closed` marca la que
- * ya terminó (o se cerró a mano) y `votedOptionId` es lo que eligió quien mira.
- */
-export type ClubPollView = {
-  id: string;
-  question: string;
-  closed: boolean;
-  totalVotes: number;
-  votedOptionId: string | null;
-  options: {
-    id: string;
-    book: { id: string; title: string; author: string };
-    votes: number;
-    voters: string[];
-  }[];
-};
-
 export type ReaderBadge = { id: string; label: string; hint: string; earned: boolean };
 
 /** Recorrido de una cuenta: cifras que se derivan del uso, sin tablas nuevas. */
@@ -767,7 +667,6 @@ export type ReaderJourney = {
   received: number;
   comments: number;
   lists: number;
-  clubs: number;
   cities: number;
   km: number;
   badges: ReaderBadge[];
@@ -784,22 +683,16 @@ export type ReaderView = {
   distanceKm: number | null;
   /** Obras que también ofrece quien mira: señal de afinidad real. */
   sharedBooks: number;
-  clubs: number;
   lastActiveAt: string | null;
 };
 
-export const COMMUNITY_TABS = ["conversations", "activity", "clubs", "readers", "lists"] as const;
+export const COMMUNITY_TABS = ["conversations", "activity", "readers", "lists"] as const;
 export type CommunityTab = (typeof COMMUNITY_TABS)[number];
 export const COMMUNITY_SCOPES = ["region", "city"] as const;
 export type CommunityScope = (typeof COMMUNITY_SCOPES)[number];
 
 export type CommunityMetrics = {
-  clubs: number;
-  memberships: number;
-  pendingRequests: number;
   conversations: number;
-  views7d: number;
-  joins7d: number;
   /** Cuentas con actividad en su segunda semana sobre las registradas hace ≥7 días. */
   retention7d: number;
   availableListings: number;
@@ -814,8 +707,6 @@ export const REPORT_TARGETS = [
   "message",
   "review",
   "comment",
-  "club",
-  "club_post",
   "request",
 ] as const;
 export type ReportTarget = (typeof REPORT_TARGETS)[number];

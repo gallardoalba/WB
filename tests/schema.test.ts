@@ -30,15 +30,6 @@ const EXPECTED_TABLES = [
   "books_fts",
   "cities",
   "city_distances",
-  "club_attendance",
-  "club_loans",
-  "club_members",
-  "club_poll_options",
-  "club_poll_votes",
-  "club_polls",
-  "club_post_likes",
-  "club_posts",
-  "clubs",
   "dm_message_envelopes",
   "dm_messages",
   "dm_reads",
@@ -107,8 +98,6 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
   dm_message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
   public_key_history: ["key_id", "platform", "reason", "replaced_at"],
-  clubs: ["meets_at", "meets_on", "status", "meets_place", "meets_link"],
-  club_posts: ["club_id", "author_id", "parent_id", "body", "status"],
   jobs: [
     "kind",
     "target",
@@ -266,5 +255,52 @@ test("las invariantes de la conexión siguen activas", () => {
   assert.equal(db.pragma("foreign_keys", { simple: true }), 1);
   assert.equal(db.pragma("secure_delete", { simple: true }), 1);
   assert.equal(db.pragma("busy_timeout", { simple: true }), 5000);
+  db.close();
+});
+
+test("la v65 retira los grupos de lectura y sus datos", () => {
+  // La migración es destructiva a propósito, así que se prueba sobre una base
+  // que *tenía* clubes: se recrea una tabla de la v64, se mete una fila, se
+  // migra y se comprueba que no queda ni la tabla ni la denuncia que la
+  // apuntaba.
+  const db = new Database(":memory:");
+  migrate(db);
+  // La FK de `reports` apunta a `users`: se crea la cuenta de la prueba.
+  db.prepare(
+    "INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run("usr_prueba", "Prueba", "prueba@example.test", "scrypt$00$00", "2026-01-01T00:00:00.000Z");
+  const usuario = "usr_prueba";
+  db.exec(`
+    CREATE TABLE clubs (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+    INSERT INTO clubs (id, name) VALUES ('clb_viejo', 'Club de antes');
+  `);
+  db.prepare(
+    `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, details, status, created_at)
+     VALUES (?, ?, 'club', 'clb_viejo', 'Spam o publicidad', '', 'open', '2026-01-01T00:00:00.000Z')`,
+  ).run("rep_club", usuario);
+  db.prepare(
+    `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, details, status, created_at)
+     VALUES (?, ?, 'listing', 'lst_1', 'Spam o publicidad', '', 'open', '2026-01-01T00:00:00.000Z')`,
+  ).run("rep_listing", usuario);
+  db.pragma("user_version = 64");
+
+  migrate(db);
+
+  const tablas = (
+    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+  ).map((row) => row.name);
+  assert.equal(
+    tablas.some((nombre) => nombre === "clubs" || nombre.startsWith("club_")),
+    false,
+    "no queda ninguna tabla de clubes",
+  );
+  const denuncias = (
+    db.prepare("SELECT id FROM reports ORDER BY id").all() as { id: string }[]
+  ).map((row) => row.id);
+  assert.deepEqual(denuncias, ["rep_listing"], "la denuncia de un club se va; la del ejemplar, no");
+  const columnas = (db.pragma("table_info(product_events)") as { name: string }[]).map(
+    (columna) => columna.name,
+  );
+  assert.equal(columnas.includes("club_id"), false, "la columna de visitas a clubes no vuelve");
   db.close();
 });

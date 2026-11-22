@@ -54,7 +54,7 @@ test("un error de restricción se distingue de cualquier otro fallo", () => {
 });
 
 test("las ciudades de la comunidad salen de los datos y dejan fuera a quien está suspendido", () => {
-  const lectores = shared.citiesInUse("readers");
+  const lectores = shared.citiesInUse();
   assert.ok(lectores.length > 0, "la muestra tiene lectores");
   assert.deepEqual(lectores, [...lectores].sort(), "vienen ordenadas");
   assert.equal(new Set(lectores).size, lectores.length, "sin repetir ciudad");
@@ -66,17 +66,13 @@ test("las ciudades de la comunidad salen de los datos y dejan fuera a quien est�
      VALUES ('usr_suspendida', 'Suspendida', 'suspendida@example.test', ?, 'scrypt$00$00', 1, '2026-01-01T00:00:00.000Z')`,
   ).run(suspendida);
   assert.equal(
-    shared.citiesInUse("readers").includes(suspendida),
+    shared.citiesInUse().includes(suspendida),
     false,
     "la ciudad de una cuenta suspendida no se ofrece",
   );
 
-  // Y la lista de clubes usa su propia tabla.
-  const clubes = shared.citiesInUse("clubs");
-  assert.ok(Array.isArray(clubes));
-
   // El tope se respeta.
-  assert.ok(shared.citiesInUse("readers", 1).length <= 1);
+  assert.ok(shared.citiesInUse(1).length <= 1);
 });
 
 test("un favorito se pone y se quita, y el listado lo refleja", () => {

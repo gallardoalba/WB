@@ -3,14 +3,11 @@ import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-type DbModule = typeof import("../src/lib/db/index.ts");
 type RepoModule = typeof import("../src/lib/repo.ts");
 
-let dbModule: DbModule;
 let repo: RepoModule;
 
 before(async () => {
-  dbModule = await import("../src/lib/db/index.ts");
   repo = await import("../src/lib/repo.ts");
 });
 
@@ -43,38 +40,48 @@ test("el muro público no muestra actividad de dueños suspendidos", () => {
 });
 
 test("las cifras de la portada ignoran cuentas suspendidas", () => {
-  // La demostración trae un club propio: la prueba mide el efecto de crear y
-  // suspender, así que parte de una tabla sin clubes.
-  dbModule.getDb().prepare("DELETE FROM clubs").run();
-  const before = repo.getStats();
-  repo.createClub("usr_clara", {
-    name: "Club de cifras",
-    city: "Stuttgart",
-    description: "",
-    meetsOn: "",
-    joinPolicy: "open",
+  // Se mide sobre una cuenta nueva: así el efecto de suspender es exactamente
+  // el suyo y no depende de cuántos ejemplares tenga la semilla.
+  const antes = repo.getStats();
+  const nueva = repo.createUser({
+    name: "Lectora de Cifras",
+    email: "cifras@wanderbibliothek.test",
+    passwordHash: "x",
+    city: "Ulm",
   });
-  const withClub = repo.getStats();
-  assert.equal(withClub.clubs, before.clubs + 1);
+  repo.createListing(nueva.id, {
+    title: "Ejemplar de cifras",
+    author: "Prueba",
+    category: "Humanidades",
+    condition: "Buen estado",
+    isbn: null,
+    city: "Ulm",
+    tags: [],
+  });
+  const conCuenta = repo.getStats();
+  assert.equal(conCuenta.available, antes.available + 1);
+  assert.equal(conCuenta.members, antes.members + 1);
 
   repo.moderateTarget("usr_admin", {
     action: "suspend_user",
     targetType: "user",
-    targetId: "usr_clara",
+    targetId: nueva.id,
     reason: "Motivo de prueba",
     days: 30,
   });
-  const suspended = repo.getStats();
-  // Ni el club ni los ejemplares de una cuenta suspendida cuentan.
-  assert.equal(suspended.clubs, before.clubs);
-  assert.ok(suspended.available < withClub.available);
+  const suspendida = repo.getStats();
+  // Ni su ejemplar ni ella misma cuentan mientras está suspendida.
+  assert.equal(suspendida.available, antes.available);
+  assert.equal(suspendida.members, antes.members);
 
   repo.moderateTarget("usr_admin", {
     action: "unsuspend_user",
     targetType: "user",
-    targetId: "usr_clara",
+    targetId: nueva.id,
   });
-  assert.equal(repo.getStats().clubs, withClub.clubs);
+  const restaurada = repo.getStats();
+  assert.equal(restaurada.available, conCuenta.available);
+  assert.equal(restaurada.members, conCuenta.members);
 });
 
 test("un bloqueo oculta las reseñas que esa persona te dejó", () => {

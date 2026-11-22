@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
@@ -286,16 +286,6 @@ test("toda variable de entorno que lee el código está en la plantilla", () => 
   );
 });
 
-test("la edición del club no pierde el lugar ni el enlace del encuentro", () => {
-  const source = readFileSync(
-    path.join(process.cwd(), "src", "app", "api", "clubs", "[clubId]", "route.ts"),
-    "utf8",
-  );
-  assert.match(source, /meetsPlace: input\.meetsPlace/);
-  assert.match(source, /meetsLink: input\.meetsLink/);
-  assert.doesNotMatch(source, /bookId: input\.bookId \?\? null/);
-});
-
 test("la clave de Turnstile se lee en el servidor, no del bundle", () => {
   // La imagen se compila en la CI, sin la variable. Cuando el componente la
   // leía de `process.env.NEXT_PUBLIC_…`, el valor se horneaba vacío: la release
@@ -363,4 +353,17 @@ test("cada excepción del escáner tiene motivo y caducidad razonable", () => {
     );
   }
   assert.match(source, /vulnerabilities:\s*(\[\]|\n)/, "el fichero debe declarar la lista");
+});
+
+test("los grupos de lectura no vuelven por la puerta de atrás", () => {
+  // La v65 los retira enteros. Sin esta comprobación, un archivo recuperado de
+  // una rama antigua volvería a montar rutas y pantallas que ya no tienen
+  // tablas detrás.
+  const restos = [
+    path.join(process.cwd(), "src", "app", "clubes"),
+    path.join(process.cwd(), "src", "app", "api", "clubs"),
+    path.join(process.cwd(), "src", "components", "club-board.tsx"),
+    path.join(process.cwd(), "src", "lib", "repo", "clubs.ts"),
+  ].filter((ruta) => existsSync(ruta));
+  assert.deepEqual(restos, [], "quedan ficheros de la funcionalidad retirada");
 });
