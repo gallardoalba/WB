@@ -2122,12 +2122,20 @@ function migrateToV64(db: Db) {
  * son la única vuelta atrás, y por eso el despliegue hace una antes de migrar.
  *
  * Se borran primero las hijas para no depender del orden de `ON DELETE CASCADE`
- * y se eliminan las denuncias que apuntaban a clubes y a sus mensajes: sin la
- * tabla, una denuncia de ese tipo no se puede resolver ni mostrar.
+ * y se elimina lo que apuntaba a un club y se quedaría sin destino: las
+ * denuncias de ese tipo (no se podrían resolver ni mostrar), los avisos con su
+ * enlace y los contadores de visitas.
  */
 function migrateToV65(db: Db) {
   db.transaction(() => {
     db.prepare("DELETE FROM reports WHERE target_type IN ('club', 'club_post')").run();
+    // Los avisos de club enlazan a `/clubes/…`, que ya no existe: se quedaban en
+    // la campana como un enlace roto. Se distinguen por el enlace, no solo por
+    // el tipo, porque algunos se guardaron con otro tipo y el mismo destino.
+    db.prepare(
+      "DELETE FROM notifications WHERE type = 'club' OR link LIKE '/clubes%'",
+    ).run();
+    db.prepare("DELETE FROM product_events WHERE type = 'club_view'").run();
 
     // De la hoja a la raíz. `IF EXISTS` deja la migración re-ejecutable si una
     // instalación a medio camino se quedó sin alguna tabla.

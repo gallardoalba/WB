@@ -282,6 +282,23 @@ test("la v65 retira los grupos de lectura y sus datos", () => {
     `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, details, status, created_at)
      VALUES (?, ?, 'listing', 'lst_1', 'Spam o publicidad', '', 'open', '2026-01-01T00:00:00.000Z')`,
   ).run("rep_listing", usuario);
+  // Un aviso que enlazaba al club y otro de un intercambio: solo cae el primero.
+  db.prepare(
+    `INSERT INTO notifications (id, user_id, type, title, link, created_at)
+     VALUES ('ntf_club', ?, 'club', 'Nuevo encuentro del club', '/clubes/clb_viejo', '2026-01-01T00:00:00.000Z')`,
+  ).run(usuario);
+  db.prepare(
+    `INSERT INTO notifications (id, user_id, type, title, link, created_at)
+     VALUES ('ntf_listing', ?, 'request', 'Nueva solicitud de intercambio', '/intercambios', '2026-01-01T00:00:00.000Z')`,
+  ).run(usuario);
+  db.prepare(
+    `INSERT INTO product_events (id, type, user_id, created_at)
+     VALUES ('evt_club', 'club_view', ?, '2026-01-01T00:00:00.000Z')`,
+  ).run(usuario);
+  db.prepare(
+    `INSERT INTO product_events (id, type, user_id, created_at)
+     VALUES ('evt_message', 'message_view', ?, '2026-01-01T00:00:00.000Z')`,
+  ).run(usuario);
   db.pragma("user_version = 64");
 
   migrate(db);
@@ -302,5 +319,13 @@ test("la v65 retira los grupos de lectura y sus datos", () => {
     (columna) => columna.name,
   );
   assert.equal(columnas.includes("club_id"), false, "la columna de visitas a clubes no vuelve");
+  const avisos = (
+    db.prepare("SELECT id FROM notifications ORDER BY id").all() as { id: string }[]
+  ).map((row) => row.id);
+  assert.deepEqual(avisos, ["ntf_listing"], "el aviso que enlazaba al club se va; el del intercambio, no");
+  const eventos = (
+    db.prepare("SELECT id FROM product_events ORDER BY id").all() as { id: string }[]
+  ).map((row) => row.id);
+  assert.deepEqual(eventos, ["evt_message"], "los contadores de visitas a clubes tampoco quedan");
   db.close();
 });

@@ -69,7 +69,7 @@ const ES = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Autoorganización",
-              text: "las comunidades y los círculos de lectura deciden autónomamente qué leer, cuándo reunirse y cómo organizarse, sin una dirección central.",
+              text: "las personas que leen deciden autónomamente qué leer y cuándo reunirse, sin una dirección central.",
             },
           ],
         },
@@ -226,7 +226,7 @@ const DE = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Selbstorganisation",
-              text: "Gemeinschaften und Lesekreise entscheiden selbstständig, was sie lesen, wann sie sich treffen und wie sie sich organisieren – ohne eine zentrale Leitung.",
+              text: "Die Menschen, die lesen, entscheiden selbstständig, was sie lesen und wann sie sich treffen – ohne eine zentrale Leitung.",
             },
           ],
         },
@@ -383,7 +383,7 @@ const EN = (contact: string): TechnicalDocument => ({
             },
             {
               label: "Self-organisation",
-              text: "communities and reading circles decide for themselves what to read, when to meet and how to organise, with no central management.",
+              text: "the people who read decide for themselves what to read and when to meet, with no central management.",
             },
           ],
         },

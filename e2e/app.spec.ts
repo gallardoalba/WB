@@ -577,19 +577,17 @@ test("un intercambio completado se archiva y se restaura", async ({ page }) => {
   await expect(page.locator(".exchange-row", { hasText: "Gott und der Staat" })).toBeVisible();
 });
 
-test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", async ({
-  page,
-}) => {
+test("las tres cifras caben en una fila cuando el ancho aprieta", async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 900 });
   await loginAsDemo(page);
 
-  // Cuatro columnas piden ~190 px cada una: por debajo, «Registrierte
-  // Leser:innen» partía en dos líneas y la fila quedaba irregular.
+  // Tres columnas piden ~190 px cada una y a este ancho siguen cabiendo: la
+  // fila no se parte ni deja un hueco al lado de la última cifra.
   await expect(async () => {
     const cols = await page
       .locator(".hero-stats")
       .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
-    expect(cols).toBe(2);
+    expect(cols).toBe(3);
   }).toPass({ timeout: 10_000 });
 
   const heights = await page
@@ -597,6 +595,24 @@ test("las cifras de la portada pasan a dos columnas cuando el ancho aprieta", as
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
   // Todos los rótulos en una línea: ninguna columna más alta que otra.
   expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(4);
+});
+
+test("en el móvil la tercera cifra ocupa la fila entera", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await waitForHydration(page);
+
+  const cajas = await page
+    .locator(".hero-stat")
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({
+      x: Math.round(r.x),
+      y: Math.round(r.y),
+      ancho: Math.round(r.width),
+    })));
+  // Dos arriba, cada una con su mitad; la tercera debajo y a lo ancho.
+  expect(cajas[0]!.y).toBe(cajas[1]!.y);
+  expect(cajas[2]!.y).toBeGreaterThan(cajas[0]!.y);
+  expect(cajas[2]!.ancho).toBeGreaterThan(cajas[0]!.ancho + 20);
 });
 
 test("en el móvil cada cifra queda centrada sobre su rótulo", async ({ page }) => {

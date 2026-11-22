@@ -18,7 +18,6 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 - **Exchange books.** Every exchange follows a simple, mutual process: one reader requests a book, the owner accepts, and both confirm the handover. Neither side can complete an exchange on their own. Once it's done, both readers can leave each other feedback. The book that has changed hands remains in the platform's history, while the recipient's own copy is temporarily paused.
 - **No addresses, no shipping.** The platform never asks for postal addresses, postcodes or delivery details. Books are exchanged directly between readers.
 - **Private messages.** Every exchange comes with an end-to-end encrypted conversation. Readers who follow each other can also send private messages.
-- **Reading circles.** Start or join a reading circle, share what you're currently reading, organise in-person or online meetings, keep track of who's attending, vote on the next book and take part in a members-only discussion forum.
 - **Lists and nearby readers.** Start public reading lists and browse a directory of readers by distance. Your home page shows what is happening around you.
 - **Self-hosted and lightweight.** The entire platform can run on a single small server using SQLite. Book catalogue and location lookups are handled server-side and cached locally, so the browser never connects directly to external services.
 - **Germany and Austria.** City search and validation cover both countries. Distance filters use a curated set of cities; other municipalities can still be selected, but do not have a precomputed distance. Austrian city names carry `(AT)` to distinguish them from German homonyms. Cross-border exchanges are supported and arranged directly between readers; the platform does not handle shipping.
@@ -31,7 +30,7 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 
 **Books as commons.** Once you have read a book, it can travel on to someone else. The platform handles handovers, not ownership: passing a copy on does not lose it, it puts it back into circulation.
 
-**Self-organisation.** Communities and reading circles decide for themselves what to read and when to meet. Nobody manages them from above.
+**Self-organisation.** Readers decide for themselves what to read and when to meet. Nobody manages them from above.
 
 **Transparency.** The source code is open, the documentation is public and every release is published as a signed image with its commit. Each instance publishes the commit and image digest it runs, and signed snapshots of the public catalogue, so what happens can be checked rather than taken on trust.
 

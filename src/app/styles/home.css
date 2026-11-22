@@ -165,7 +165,7 @@
 
 @media (min-width: 961px) and (max-width: 1199px) {
   .book-grid.view-discover {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -325,7 +325,7 @@
    su rótulo, nada más. */
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   column-gap: 0;
   row-gap: 10px;
   width: 100%;

@@ -151,7 +151,6 @@ const BRAND_TAG = "Wanderbibliothek";
 const READING_TAGS = [
   "Bücher",
   "Lesen",
-  "Lesekreis",
   "Bibliothek",
   "Büchertausch",
   "Buchtipp",
