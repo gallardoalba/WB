@@ -30,15 +30,11 @@ Knowledge is not something each of us owns and keeps to ourselves, but a commons
 
 **Books as commons.** Once you have read a book, it can travel on to someone else. The platform handles handovers, not ownership: passing a copy on does not lose it, it puts it back into circulation.
 
-**Self-organisation.** Readers decide for themselves what to read and when to meet. Nobody manages them from above.
-
 **Transparency.** The source code is open, the documentation is public and every release is published as a signed image with its commit. Each instance publishes the commit and image digest it runs, and signed snapshots of the public catalogue, so what happens can be checked rather than taken on trust.
 
 **Privacy.** Signing up asks for a name, a city and an email address; the password is stored only as a hash and the biography is optional. There is no third-party analytics and no tracking pixels: the project's own counters stay in the database and expire after 180 days. You can export your data as JSON or delete the account permanently.
 
 **Autonomy.** No dependence on a corporate platform or a payment provider. Anyone can run their own instance.
-
-None of these decisions is neutral. The platform is built so that knowledge circulates as a commons and so that the people who use it decide for themselves, not so that value is extracted from them.
 
 ## Run it yourself
 

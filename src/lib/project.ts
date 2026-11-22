@@ -21,7 +21,6 @@ const ES = (contact: string): TechnicalDocument => ({
   updated: UPDATED,
   intro: [
     "Wanderbibliothek es un proyecto comunitario y sin ánimo de lucro: un lugar donde compartir los libros que más nos han marcado, para que vuelvan a circular y el conocimiento crezca entre todas.",
-    "Esta página cuenta qué es, por qué existe y qué decisiones hay detrás de cómo está hecho.",
   ],
   sections: [
     {
@@ -67,15 +66,7 @@ const ES = (contact: string): TechnicalDocument => ({
               label: "Libros como bienes comunes",
               text: "un libro ya leído no es un objeto que se guarda, es algo que puede seguir circulando. La plataforma gestiona entregas, no propiedades: regalar un ejemplar no lo pierde, lo pone en circulación.",
             },
-            {
-              label: "Autoorganización",
-              text: "las personas que leen deciden autónomamente qué leer y cuándo reunirse, sin una dirección central.",
-            },
           ],
-        },
-        {
-          kind: "p",
-          text: "Ninguna de estas decisiones es neutral. La plataforma está hecha para que el conocimiento circule como bien común y para que quienes la usan decidan por sí mismas, no para extraer valor de ellas.",
         },
       ],
     },
@@ -115,7 +106,7 @@ const ES = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "La parte visible es solo una parte. Lo que define la plataforma es lo que no hace con los datos de nadie: no pide más de lo necesario, no los comparte con terceros y no los usa para retener a quien entra.",
+          text: "Lo que define la plataforma es lo que no hace con los datos de nadie: no pide más de lo necesario, no los comparte con terceros y no los usa para retener a quien entra.",
         },
         {
           kind: "terms",
@@ -178,7 +169,6 @@ const DE = (contact: string): TechnicalDocument => ({
   updated: UPDATED,
   intro: [
     "Wanderbibliothek ist ein Gemeinschaftsprojekt ohne kommerziellen Zweck: ein Ort, um die Bücher zu teilen, die uns am meisten geprägt haben, damit sie wieder zirkulieren und Wissen zwischen allen wächst.",
-    "Diese Seite erklärt, was das Projekt ist, warum es existiert und welche Entscheidungen hinter der Umsetzung stehen.",
   ],
   sections: [
     {
@@ -224,15 +214,7 @@ const DE = (contact: string): TechnicalDocument => ({
               label: "Bücher als Gemeingut",
               text: "ein gelesenes Buch ist kein ruhender Bestand, sondern etwas, das weiter zirkulieren kann. Die Plattform verwaltet Übergaben, nicht Eigentum: Ein Exemplar wegzugeben heißt nicht, es zu verlieren; es kommt in Umlauf.",
             },
-            {
-              label: "Selbstorganisation",
-              text: "Die Menschen, die lesen, entscheiden selbstständig, was sie lesen und wann sie sich treffen – ohne eine zentrale Leitung.",
-            },
           ],
-        },
-        {
-          kind: "p",
-          text: "Keine dieser Entscheidungen ist neutral. Die Plattform ist dafür gebaut, dass Wissen als Gemeingut zirkuliert und dass die Menschen, die sie nutzen, selbst entscheiden – nicht dafür, aus ihnen Wert zu ziehen.",
         },
       ],
     },
@@ -272,7 +254,7 @@ const DE = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "Das Sichtbare ist der kleinere Teil. Was die Plattform ausmacht, ist das, was sie mit den Daten anderer nicht tut: Sie verlangt nicht mehr als nötig, gibt sie nicht an Dritte weiter und nutzt sie nicht, um jemanden zu halten.",
+          text: "Was die Plattform ausmacht, ist das, was sie mit den Daten anderer nicht tut: Sie verlangt nicht mehr als nötig, gibt sie nicht an Dritte weiter und nutzt sie nicht, um jemanden zu halten.",
         },
         {
           kind: "terms",
@@ -335,7 +317,6 @@ const EN = (contact: string): TechnicalDocument => ({
   updated: UPDATED,
   intro: [
     "Wanderbibliothek is a community project with no commercial purpose: a place to share the books that have shaped us most, so they can circulate again and knowledge can grow between all of us.",
-    "This page explains what it is, why it exists and which decisions stand behind how it is built.",
   ],
   sections: [
     {
@@ -381,15 +362,7 @@ const EN = (contact: string): TechnicalDocument => ({
               label: "Books as commons",
               text: "a book that has been read is not idle stock; it can keep circulating. The platform manages hand-overs, not property: giving a copy away does not mean losing it; it puts it into circulation.",
             },
-            {
-              label: "Self-organisation",
-              text: "the people who read decide for themselves what to read and when to meet, with no central management.",
-            },
           ],
-        },
-        {
-          kind: "p",
-          text: "None of these decisions is neutral. The platform is built so that knowledge circulates as a commons and so that the people who use it decide for themselves, not so that value is extracted from them.",
         },
       ],
     },
@@ -429,7 +402,7 @@ const EN = (contact: string): TechnicalDocument => ({
       blocks: [
         {
           kind: "p",
-          text: "The visible part is the smaller half. What defines the platform is what it does not do with other people's data: it asks for no more than it needs, hands none of it to third parties and uses none of it to keep anyone tied to it.",
+          text: "What defines the platform is what it does not do with other people's data: it asks for no more than it needs, hands none of it to third parties and uses none of it to keep anyone tied to it.",
         },
         {
           kind: "terms",
