@@ -744,6 +744,7 @@ An instance should not depend on a single person. Before opening registration:
 - Document who controls the domain, DNS, the server provider, email and the repository.
 - Write down the handover procedure: which credentials must be transferred, where the backups are and how a restore is checked (`npm run db:verify`).
 - Once a year, check that the second person can log in, restore a backup and publish a change.
+- Once a year, publish the moderation report (`npm run informe:moderacion -- --days 365`). It prints aggregate figures with no names: reports and their outcome, measures applied, active suspensions and appeals with their average response time.
 
 The rules of conduct, moderation and appeals are published at `/normas`; the
 reference document is [`GOVERNANCE.md`](../GOVERNANCE.md).
