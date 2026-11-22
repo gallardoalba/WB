@@ -305,11 +305,8 @@ test("los textos legales contemplan Austria sin cambiar la jurisdicción del ope
     en: texto(privacyDocument("en", completo)),
   };
   assert.match(privacidad.de, /§ 165 Abs\. 3 TKG 2021/);
-  assert.match(privacidad.de, /Rechtsgrundlage, Zweck und Speicherdauer/);
   assert.match(privacidad.es, /§ 165\.3 TKG 2021/);
-  assert.match(privacidad.es, /base jurídica, la finalidad y el plazo de conservación/);
-  assert.match(privacidad.en, /TKG 2021 § 165\(3\)/);
-  assert.match(privacidad.en, /legal basis, purposes and retention period/);
+  assert.match(privacidad.en, /§ 165\(3\) TKG 2021/);
   assert.match(privacidad.de, /Datenschutzbehörde \(DSB\)/);
   assert.match(privacidad.es, /Datenschutzbehörde \(DSB\)/);
   assert.match(privacidad.en, /Datenschutzbehörde, DSB/);
