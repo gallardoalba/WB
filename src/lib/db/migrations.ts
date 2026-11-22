@@ -2164,6 +2164,68 @@ function migrateToV65(db: Db) {
   db.pragma("user_version = 65");
 }
 
+/**
+ * Limpia las filas que se quedaron sin padre.
+ *
+ * Una copia de esta base no se podía restaurar en limpio porque dos filas —una
+ * etiqueta y una entrada del muro— apuntaban a un ejemplar que ya no existía:
+ * `foreign_key_check` las marcaba y con ellas fallaban `db:verify` y
+ * `db:restore-drill`, que es justo la red que se comprueba antes de una
+ * migración destructiva. La aplicación no borra ejemplares (retirar una copia
+ * es `status = 'removed'`), así que no hay un borrado que arreglar: se limpia
+ * lo que ya estaba roto y queda red para el día en que una restauración a
+ * medias deje restos.
+ *
+ * Solo se tocan tablas derivadas: etiquetas, favoritos, «me gusta», sobres
+ * cifrados, marcas de leído, elementos de lista, avisos de disponibilidad y el
+ * muro. Se pueden recalcular o no significan nada sin su padre. El historial de
+ * un intercambio (`requests`, `messages`, `reviews`, `reports`, `appeals`,
+ * `admin_audit`) no se toca aunque una referencia esté rota: borrarlo
+ * destruiría la memoria de otras personas para dejar una comprobación limpia.
+ * Tampoco las tablas que apuntan a `users`, que nunca se borra: una cuenta
+ * eliminada se anonimiza en su sitio.
+ */
+function migrateToV66(db: Db) {
+  db.transaction(() => {
+    // Etiquetas, favoritos y «me gusta»: derivados del ejemplar o del comentario.
+    db.prepare("DELETE FROM listing_tags WHERE listing_id NOT IN (SELECT id FROM listings)").run();
+    db.prepare("DELETE FROM favorites WHERE listing_id NOT IN (SELECT id FROM listings)").run();
+    db.prepare(
+      "DELETE FROM book_comment_likes WHERE comment_id NOT IN (SELECT id FROM book_comments)",
+    ).run();
+
+    // Sobres cifrados: sin el mensaje no hay nada que descifrar.
+    db.prepare(
+      "DELETE FROM message_envelopes WHERE message_id NOT IN (SELECT id FROM messages)",
+    ).run();
+    db.prepare(
+      "DELETE FROM dm_message_envelopes WHERE message_id NOT IN (SELECT id FROM dm_messages)",
+    ).run();
+
+    // Marcas de leído y de archivo de un hilo o un intercambio que ya no está.
+    db.prepare("DELETE FROM dm_reads WHERE thread_id NOT IN (SELECT id FROM dm_threads)").run();
+    db.prepare("DELETE FROM request_reads WHERE request_id NOT IN (SELECT id FROM requests)").run();
+    db.prepare(
+      "DELETE FROM request_archives WHERE request_id NOT IN (SELECT id FROM requests)",
+    ).run();
+
+    // Listas, avisos y estados de lectura de un libro que ya no está.
+    db.prepare(
+      "DELETE FROM reading_list_items WHERE book_id NOT IN (SELECT id FROM books) OR list_id NOT IN (SELECT id FROM reading_lists)",
+    ).run();
+    db.prepare("DELETE FROM book_wants WHERE book_id NOT IN (SELECT id FROM books)").run();
+    db.prepare("DELETE FROM reading_states WHERE book_id NOT IN (SELECT id FROM books)").run();
+
+    // El muro: una entrada sin el ejemplar o el intercambio no se puede mostrar,
+    // así que solo quedaba como enlace roto.
+    db.prepare(
+      "DELETE FROM events WHERE (listing_id IS NOT NULL AND listing_id NOT IN (SELECT id FROM listings)) OR (request_id IS NOT NULL AND request_id NOT IN (SELECT id FROM requests))",
+    ).run();
+  })();
+
+  db.pragma("user_version = 66");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2298,6 +2360,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 63) migrateToV63(db);
   if (userVersion(db) < 64) migrateToV64(db);
   if (userVersion(db) < 65) migrateToV65(db);
+  if (userVersion(db) < 66) migrateToV66(db);
 
   backfillSearchKeys(db);
 }
