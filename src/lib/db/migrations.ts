@@ -8,9 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { Db } from "./index";
 import { CITIES, cityDistances } from "../cities";
 import { CATEGORIES, TAGS } from "../domain";
-import { composeStatus, workUrl } from "../mastodon-post";
 import { encryptSecret, isEncrypted, shipContext } from "../secret-box";
-import { siteUrl } from "../site";
 import { normalizeText } from "../text";
 import { workKeyFromTitle } from "../work";
 import { INDEXES, LEGACY_UPGRADE, SCHEMA_V2, SCHEMA_VERSION } from "./schema";
@@ -1321,79 +1319,23 @@ function migrateToV40(db: Db) {
 }
 
 /**
- * v41: cola de avisos en redes sociales.
+ * v41: escalón retirado.
  *
- * El bot de Mastodon no publica desde la petición: encola aquí y lo intenta el
- * `after()` (y el cron, si falla). La clave única por red y obra es lo que evita
- * que el mismo libro se anuncie tres veces porque lo pongan tres personas.
- *
- * `attempts`/`next_attempt_at` repiten el esquema de `mail_outbox`, que ya está
- * probado en producción; `external_id`/`external_url` guardan el estado creado
- * para poder borrarlo a mano si hiciera falta.
+ * Creaba la cola de avisos en redes sociales. La función se eliminó del
+ * proyecto y la v67 borra las tablas que pudieran quedar; este escalón solo
+ * mantiene la numeración para las bases antiguas.
  */
 function migrateToV41(db: Db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS social_outbox (
-      id TEXT PRIMARY KEY,
-      network TEXT NOT NULL,
-      subject TEXT NOT NULL,
-      body TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      attempts INTEGER NOT NULL DEFAULT 0,
-      next_attempt_at TEXT NOT NULL,
-      last_error TEXT,
-      external_id TEXT,
-      external_url TEXT,
-      created_at TEXT NOT NULL,
-      sent_at TEXT
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS social_outbox_subject
-      ON social_outbox(network, subject);
-    CREATE INDEX IF NOT EXISTS social_outbox_pending
-      ON social_outbox(status, next_attempt_at);
-  `);
-
   db.pragma("user_version = 41");
 }
 
-/**
- * v42: la portada del aviso en Mastodon.
- *
- * La imagen se sube **antes** de encolar el post y su id se guarda aquí: un
- * reintento adjunta el mismo medio en vez de subirlo otra vez, y la imagen que
- * se ve en el estado es la que se decidió al publicar el libro.
- */
+/** v42: escalón retirado (columna de imagen de la cola social). */
 function migrateToV42(db: Db) {
-  const columns = (db.pragma("table_info(social_outbox)") as { name: string }[]).map(
-    (column) => column.name,
-  );
-  if (!columns.includes("media_id")) {
-    db.exec("ALTER TABLE social_outbox ADD COLUMN media_id TEXT");
-  }
   db.pragma("user_version = 42");
 }
 
-/**
- * v43: un aviso por persona y día.
- *
- * `owner_id` guarda quién puso el ejemplar y `day` el día del aviso ya calculado
- * en la zona de la casa (Europe/Berlin), no en UTC: quien publica a las 00:30 en
- * Múnich no debe contar como el día anterior. El índice sostiene la consulta que
- * hace el bot antes de encolar.
- */
+/** v43: escalón retirado (columnas de autoría y día de la cola social). */
 function migrateToV43(db: Db) {
-  const columns = (db.pragma("table_info(social_outbox)") as { name: string }[]).map(
-    (column) => column.name,
-  );
-  if (!columns.includes("owner_id")) {
-    db.exec("ALTER TABLE social_outbox ADD COLUMN owner_id TEXT");
-  }
-  if (!columns.includes("day")) {
-    db.exec("ALTER TABLE social_outbox ADD COLUMN day TEXT");
-  }
-  db.exec(
-    "CREATE INDEX IF NOT EXISTS social_outbox_owner_day ON social_outbox(owner_id, day)",
-  );
   db.pragma("user_version = 43");
 }
 
@@ -1426,31 +1368,8 @@ function migrateToV44(db: Db) {
   db.pragma("user_version = 44");
 }
 
-/**
- * v45: el bot recuerda a qué estados ha dado «me gusta».
- *
- * Sin esta tabla el bot repetiría la misma publicación cada pasada (y eso sí
- * que parece spam). `status_id` es único por red, así que un estado solo se
- * pulsa una vez; `account_acct` y `created_at` sostienen la regla de «cómo
- * mucho, una vez por cuenta y por día».
- */
+/** v45: escalón retirado (memoria de «me gusta» en redes sociales). */
 function migrateToV45(db: Db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS social_likes (
-      id TEXT PRIMARY KEY,
-      network TEXT NOT NULL,
-      status_id TEXT NOT NULL,
-      account_acct TEXT NOT NULL,
-      status_url TEXT,
-      tag TEXT,
-      locale TEXT,
-      created_at TEXT NOT NULL,
-      UNIQUE (network, status_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS social_likes_created ON social_likes(network, created_at);
-    CREATE INDEX IF NOT EXISTS social_likes_account ON social_likes(network, account_acct, created_at);
-  `);
   db.pragma("user_version = 45");
 }
 
@@ -1577,64 +1496,8 @@ function migrateToV50(db: Db) {
   db.pragma("user_version = 50");
 }
 
-/**
- * Reescribe el texto de los avisos que aún esperan en la cola.
- *
- * El bot pasó a escribir siempre en alemán y cambió las etiquetas: ahora
- * combinan la casa, el tema del libro (sus etiquetas curadas o su categoría) y
- * la lectura. Lo que ya estaba encolado conservaba el texto anterior, así que se
- * recompone con la misma función que usa el alta: el aviso que salga es el que
- * habría salido hoy. Las filas enviadas o fallidas no se tocan; son historial.
- *
- * Devuelve cuántos avisos se actualizaron.
- */
-export function refreshQueuedPosts(db: Db): number {
-  const pendientes = db
-    .prepare(
-      `SELECT id, subject FROM social_outbox
-        WHERE network = 'mastodon' AND status = 'pending'
-          AND subject IN (SELECT id FROM books)`,
-    )
-    .all() as { id: string; subject: string }[];
-  if (pendientes.length === 0) return 0;
-
-  const bookStmt = db.prepare("SELECT title, author, category FROM books WHERE id = ?");
-  const tagsStmt = db.prepare(
-    `SELECT DISTINCT lt.tag FROM listing_tags lt
-       JOIN listings l ON l.id = lt.listing_id
-      WHERE l.book_id = ?
-      ORDER BY lt.tag`,
-  );
-  const update = db.prepare("UPDATE social_outbox SET body = ? WHERE id = ?");
-  const base = siteUrl();
-  let updated = 0;
-  db.transaction(() => {
-    for (const fila of pendientes) {
-      const book = bookStmt.get(fila.subject) as
-        | { title: string; author: string; category: string }
-        | undefined;
-      if (!book) continue;
-      const tags = (tagsStmt.all(fila.subject) as { tag: string }[]).map((row) => row.tag);
-      update.run(
-        composeStatus({
-          title: book.title,
-          author: book.author,
-          url: workUrl(base, fila.subject),
-          seed: fila.subject,
-          category: book.category,
-          tags,
-        }),
-        fila.id,
-      );
-      updated += 1;
-    }
-  })();
-  return updated;
-}
-
-/** v51: los avisos que esperan en la cola pasan al alemán y a las etiquetas nuevas. */
+/** v51: escalón retirado (reescritura del texto de la cola social). */
 function migrateToV51(db: Db) {
-  refreshQueuedPosts(db);
   db.pragma("user_version = 51");
 }
 
@@ -1729,14 +1592,8 @@ function migrateToV54(db: Db) {
   db.pragma("user_version = 54");
 }
 
-/**
- * v55: los avisos que esperan en la cola pierden las referencias temporales.
- *
- * El bot decía «ab heute» aunque el libro llevara días en el catálogo. Los
- * textos pendientes se recomponen con la voz nueva; los enviados no se tocan.
- */
+/** v55: escalón retirado (segunda reescritura del texto de la cola social). */
 function migrateToV55(db: Db) {
-  refreshQueuedPosts(db);
   db.pragma("user_version = 55");
 }
 
@@ -1824,10 +1681,10 @@ function migrateToV57(db: Db) {
  * v58: las tareas pendientes dejan de ser una tabla por cosa.
  *
  * `mail_outbox` tenía ya el patrón completo —estado, intentos, próximo intento,
- * último error—, pero atado al correo: un aviso de Mastodon o un «me gusta»
- * pendiente viven en su propia tabla con las mismas columnas copiadas. Eso deja
- * tres sitios donde mirar para saber qué no ha salido, y cada uno con su propia
- * forma de reintentar.
+ * último error—, pero atado al correo: otras colas pendientes vivían en su
+ * propia tabla con las mismas columnas copiadas. Eso dejaba tres sitios donde
+ * mirar para saber qué no ha salido, y cada uno con su propia forma de
+ * reintentar.
  *
  * `jobs` guarda cualquier trabajo diferido con ese mismo patrón. `kind` dice de
  * qué es y `target` es lo que se consulta por ahí (la dirección de correo, para
@@ -2226,6 +2083,20 @@ function migrateToV66(db: Db) {
   db.pragma("user_version = 66");
 }
 
+/**
+ * v67: retirada de la cola de redes sociales.
+ *
+ * Las dos tablas del bot ya no se leen ni se escriben. Se eliminan para no
+ * dejar datos huérfanos ni esquema que nadie mantiene.
+ */
+function migrateToV67(db: Db) {
+  db.exec(`
+    DROP TABLE IF EXISTS social_outbox;
+    DROP TABLE IF EXISTS social_likes;
+  `);
+  db.pragma("user_version = 67");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2361,6 +2232,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 64) migrateToV64(db);
   if (userVersion(db) < 65) migrateToV65(db);
   if (userVersion(db) < 66) migrateToV66(db);
+  if (userVersion(db) < 67) migrateToV67(db);
 
   backfillSearchKeys(db);
 }

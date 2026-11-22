@@ -8,7 +8,7 @@ The running instance serves the same content at `/techdoc`: Spanish and German f
 
 A modular monolith on Next.js 16 (App Router with Cache Components), strict TypeScript and SQLite through `better-sqlite3`. One single process: SQLite has one writer and the live notification bus lives in memory.
 
-No third-party services are required: the instance works without them. The **server** queries Open Library and the German National Library for bibliographic data, and Photon and Nominatim for city suggestions. Book covers are uploaded by users and served by this instance. Depending on configuration, the server may also use Brevo or a mail webhook, an error webhook, Cloudflare Turnstile, Mastodon and Web Push. The browser loads Cloudflare only when Turnstile is enabled and contacts its browser-selected push service only after the user activates Push.
+No third-party services are required: the instance works without them. The **server** queries Open Library and the German National Library for bibliographic data, and Photon and Nominatim for city suggestions. Book covers are uploaded by users and served by this instance. Depending on configuration, the server may also use Brevo or a mail webhook, an error webhook, Cloudflare Turnstile and Web Push. The browser loads Cloudflare only when Turnstile is enabled and contacts its browser-selected push service only after the user activates Push.
 
 The code is AGPL-3.0 licensed.
 
@@ -22,13 +22,13 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v66), seed
+    db/                connection, base schema (v2), migrations (v3–v67), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 942 unit and integration tests (123 files)
+tests/                 853 unit and integration tests (120 files)
 e2e/                   63 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -98,7 +98,7 @@ The API has 69 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v66). A new installation starts from `SCHEMA_V2` and its indexes and runs the 64 steps up to v66; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Sixteen of them matter for reading today's code:
+Migrations are versioned with `PRAGMA user_version` (currently v67). A new installation starts from `SCHEMA_V2` and its indexes and runs the 65 steps up to v67; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Seventeen of them matter for reading today's code:
 
 - **v40** — One key slot per device and one encrypted envelope per key.
 - **v44** — When an exchange closes, the receiver gets a copy of their own.
@@ -116,6 +116,7 @@ Migrations are versioned with `PRAGMA user_version` (currently v66). A new insta
 - **v64** — Drops the `(AT)` marker from Austrian cities that cannot be confused with a German one.
 - **v65** — Retires the reading circles: their nine tables, the reports and notices that pointed at them, and the counter table those tables were measured with are dropped.
 - **v66** — Deletes derived rows left without a parent (tags, favourites, likes, envelopes, read marks, list items and wall entries), so a copy restored from a backup passes `foreign_key_check` again.
+- **v67** — Drops the two leftover tables of the former social publishing queue, so no unused schema or orphan rows remain.
 
 The detail of every step lives in that file and in its git history.
 
@@ -233,7 +234,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 942 unit and integration tests in 123 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 853 unit and integration tests in 120 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

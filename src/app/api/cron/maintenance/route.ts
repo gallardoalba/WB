@@ -1,7 +1,5 @@
 import { json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
-import { processSocialOutbox, purgeSocialOutbox } from "@/lib/mastodon";
-import { processLikes, purgeSocialLikes } from "@/lib/mastodon-likes";
 import { bearerToken, safeEqual } from "@/lib/ops-auth";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
@@ -47,14 +45,6 @@ export const POST = route<undefined, "none">(
 
     const mail = await run("mail", () => processOutbox(50));
     const purgedMail = await run("purgedMail", () => purgeOutbox());
-    // Avisos de Mastodon que no salieron al publicar (instancia caída, 429):
-    // aquí van los reintentos, y los entregados antiguos se purgan.
-    const social = await run("social", () => processSocialOutbox({ limit: 5 }));
-    const purgedSocial = await run("purgedSocial", () => purgeSocialOutbox());
-    // «Me gusta» a publicaciones sobre libros. Se apaga solo si falta
-    // `MASTODON_LIKES=on`, y respeta su propio tope y su descanso.
-    const likes = await run("likes", () => processLikes());
-    const purgedLikes = await run("purgedLikes", () => purgeSocialLikes());
     const maintenance = await run("maintenance", () => runMaintenance());
     // Una instantánea firmada del catálogo público al día. Si ya hay una de
     // hoy no se repite: el cron pasa cada quince minutos.
@@ -74,10 +64,6 @@ export const POST = route<undefined, "none">(
       failed,
       mail,
       purgedMail,
-      social,
-      purgedSocial,
-      likes,
-      purgedLikes,
       transparency,
       keys,
       ...maintenance,

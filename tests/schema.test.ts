@@ -56,8 +56,6 @@ const EXPECTED_TABLES = [
   "requests",
   "reviews",
   "sessions",
-  "social_likes",
-  "social_outbox",
   "throttle",
   "transparency_snapshots",
   "user_keys",
@@ -108,7 +106,6 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "created_at",
     "finished_at",
   ],
-  social_outbox: ["network", "subject", "body", "status", "attempts", "media_id", "owner_id", "day"],
   transparency_snapshots: [
     "created_at",
     "item_count",

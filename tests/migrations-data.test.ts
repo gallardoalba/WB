@@ -158,7 +158,7 @@ test("la actualización crea las tablas e índices que llegaron después", () =>
         .prepare(
           `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN
              ('user_keys','public_key_history','message_envelopes','dm_message_envelopes',
-              'social_outbox','social_likes','books_fts')`,
+              'books_fts')`,
         )
         .all() as { name: string }[]
     ).map((fila) => fila.name);
@@ -167,8 +167,6 @@ test("la actualización crea las tablas e índices que llegaron después", () =>
       "dm_message_envelopes",
       "message_envelopes",
       "public_key_history",
-      "social_likes",
-      "social_outbox",
       "user_keys",
     ]);
 
