@@ -123,6 +123,25 @@ test("las rutas que leen la URL pública se renderizan por petición", () => {
   }
 });
 
+test("el índice público no lee la hora del sistema durante el prerender", () => {
+  // `Date.now()` en una función que también corre al prerenderizar aborta el
+  // render («encountered the unstable value Date.now()»): pasó con el índice
+  // del catálogo y se veía en cada build de `/werk/[id]`. El reloj monótono no
+  // es un dato que se pinte, así que ahí es la respuesta correcta.
+  const source = readFileSync(
+    path.join(process.cwd(), "src", "lib", "repo", "public-works.ts"),
+    "utf8",
+  );
+  // Los comentarios explican el cambio citándolo: se quitan antes de mirar.
+  const codigo = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .map((linea) => linea.replace(/\/\/.*$/, ""))
+    .join("\n");
+  assert.doesNotMatch(codigo, /Date\.now\(\)/, "usa performance.now() para el TTL");
+  assert.match(codigo, /performance\.now\(\)/);
+});
+
 test("ninguna prueba escribe en la base de desarrollo", () => {
   // Pasó una vez: un archivo de pruebas se olvidó de `WANDERBIBLIOTHEK_DB` y
   // `getDb()` abrió `.data/wanderbibliothek.db`. La prueba «pasaba» la primera
