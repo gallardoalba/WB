@@ -509,7 +509,7 @@ test("las cifras de la portada quedan al pie del panel también en pantallas anc
   const stats = await page.locator(".hero-stats").boundingBox();
   // La diferencia es el relleno inferior del panel (24 px), no un hueco grande.
   expect(hero!.y + hero!.height - (stats!.y + stats!.height)).toBeLessThan(40);
-  // Y las cuatro cifras siguen en una fila, no en una columna lateral.
+  // Y las tres cifras siguen en una fila, no en una columna lateral.
   expect(Math.round(stats!.width)).toBeGreaterThan(Math.round(hero!.width) * 0.85);
 });
 

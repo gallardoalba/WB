@@ -110,7 +110,7 @@ const ES: TechnicalDocument = {
           kind: "table",
           head: ["Ruta", "Contenido"],
           rows: [
-            ["`/`", "Portada pública: cuatro cifras y una fila de libros en el idioma de la interfaz (`BOOK_LANGUAGE_BY_LOCALE`); si no hay libros en ese idioma, enseña el catálogo entero."],
+            ["`/`", "Portada pública: tres cifras y una fila de libros en el idioma de la interfaz (`BOOK_LANGUAGE_BY_LOCALE`); si no hay libros en ese idioma, enseña el catálogo entero."],
             ["`/descubrir`", "Catálogo con búsqueda, categorías, orden y paginación en la URL. Se ve sin sesión, pero cada ejemplar muestra solo el libro y la ciudad, nunca quién lo publica; pedir un libro exige cuenta."],
             ["`/werk/[id]`", "Ficha pública de la obra con JSON-LD `Book`/`Offer`, marcada `noindex`."],
             ["`/ofrecer`", "Publicar un ejemplar: el ISBN rellena la ficha bibliográfica."],
@@ -325,7 +325,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta la suite unitaria y de integración con el runner de Node sobre SQLite en memoria; `npm run test:e2e` añade 66 pruebas de navegador con Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta la suite unitaria y de integración con el runner de Node sobre SQLite en memoria; `npm run test:e2e` añade 63 pruebas de navegador en Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -541,7 +541,7 @@ const DE: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Inhalt"],
           rows: [
-            ["`/`", "Öffentliche Startseite: vier Kennzahlen und eine Reihe Bücher in der Sprache der Oberfläche (`BOOK_LANGUAGE_BY_LOCALE`); ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
+            ["`/`", "Öffentliche Startseite: drei Kennzahlen und eine Reihe Bücher in der Sprache der Oberfläche (`BOOK_LANGUAGE_BY_LOCALE`); ohne Bücher in dieser Sprache zeigt sie den ganzen Katalog."],
             ["`/descubrir`", "Vollständiger Katalog mit Suche, Kategorien, Sortierung und Seitenzahl in der URL. Ohne Sitzung sichtbar; zum Anfragen braucht es eine."],
             ["`/werk/[id]`", "Öffentliche Werkseite mit JSON-LD `Book`/`Offer`, mit `noindex` gekennzeichnet."],
             ["`/ofrecer`", "Ein Exemplar einstellen: die ISBN füllt die bibliografischen Daten."],
@@ -756,7 +756,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt die Unit- und Integrationstests mit dem Node-Testrunner auf SQLite im Speicher aus, und `npm run test:e2e` ergänzt 66 Browser-Tests mit Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt die Unit- und Integrationstests mit dem Node-Testrunner auf SQLite im Speicher aus, und `npm run test:e2e` ergänzt 63 Browser-Tests in Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",

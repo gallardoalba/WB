@@ -86,7 +86,7 @@ export const EN: TechnicalDocument = {
           kind: "table",
           head: ["Route", "Content"],
           rows: [
-            ["`/`", "Public home page: four figures and a row of books in the interface language (`BOOK_LANGUAGE_BY_LOCALE`); with no books in that language it shows the whole catalogue."],
+            ["`/`", "Public home page: three figures and a row of books in the interface language (`BOOK_LANGUAGE_BY_LOCALE`); with no books in that language it shows the whole catalogue."],
             ["`/descubrir`", "Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a book requires an account."],
             ["`/werk/[id]`", "Public work page with JSON-LD `Book`/`Offer`, marked `noindex`."],
             ["`/ofrecer`", "Publish a copy: the ISBN fills in the bibliographic record."],
@@ -299,7 +299,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs the unit and integration suite with the Node test runner on SQLite in memory; `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
+          text: "`npm test` runs the unit and integration suite with the Node test runner on SQLite in memory; `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",
