@@ -249,6 +249,64 @@ test("volver a migrar no cambia nada ni toca los datos", () => {
   db.close();
 });
 
+test("la v66 limpia los huérfanos derivados y respeta el historial", () => {
+  // Producción llegó al despliegue con una etiqueta y una entrada del muro
+  // apuntando a un ejemplar que ya no existía: `foreign_key_check` las marcaba
+  // y con ellas fallaban `db:verify` y `db:restore-drill`.
+  const db = new Database(":memory:");
+  migrate(db);
+  const insertUser = db.prepare(
+    "INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+  );
+  insertUser.run("usr_a", "Ana", "ana@example.test", "scrypt$00$00", "2026-01-01T00:00:00.000Z");
+  insertUser.run("usr_b", "Bea", "bea@example.test", "scrypt$00$00", "2026-01-01T00:00:00.000Z");
+  db.prepare(
+    "INSERT INTO books (id, title, title_key, author, category, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run("bok_1", "Un libro", "un libro", "Autora", "Ensayo", "2026-01-01T00:00:00.000Z");
+  db.prepare(
+    "INSERT INTO listings (id, book_id, owner_id, condition, city, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run("lst_1", "bok_1", "usr_a", "good", "Stuttgart", "2026-01-01T00:00:00.000Z");
+  db.prepare("INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)").run("lst_1", "Ensayo");
+  db.prepare("INSERT INTO favorites (user_id, listing_id, created_at) VALUES (?, ?, ?)").run(
+    "usr_b",
+    "lst_1",
+    "2026-01-01T00:00:00.000Z",
+  );
+  db.prepare(
+    "INSERT INTO events (id, type, actor_id, listing_id, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run("evt_1", "published", "usr_a", "lst_1", "2026-01-01T00:00:00.000Z");
+  db.prepare(
+    "INSERT INTO requests (id, listing_id, requester_id, owner_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    "req_1",
+    "lst_1",
+    "usr_b",
+    "usr_a",
+    "pending",
+    "2026-01-01T00:00:00.000Z",
+    "2026-01-01T00:00:00.000Z",
+  );
+
+  // El ejemplar se borra por fuera de la aplicación (que nunca lo hace).
+  db.pragma("foreign_keys = OFF");
+  db.prepare("DELETE FROM listings WHERE id = ?").run("lst_1");
+  db.pragma("foreign_keys = ON");
+
+  db.pragma("user_version = 65");
+  migrate(db);
+
+  const cuenta = (sql: string) => (db.prepare(sql).get() as { c: number }).c;
+  assert.equal(cuenta("SELECT count(*) c FROM listing_tags"), 0, "la etiqueta huérfana sigue ahí");
+  assert.equal(cuenta("SELECT count(*) c FROM favorites"), 0, "el favorito huérfano sigue ahí");
+  assert.equal(cuenta("SELECT count(*) c FROM events"), 0, "la entrada del muro sigue ahí");
+  assert.equal(
+    cuenta("SELECT count(*) c FROM requests"),
+    1,
+    "el intercambio es historial y no se borra",
+  );
+  db.close();
+});
+
 test("las invariantes de la conexión siguen activas", () => {
   const db = freshDatabase();
   assert.equal(db.pragma("foreign_keys", { simple: true }), 1);
