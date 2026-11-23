@@ -43,13 +43,25 @@ async function sha256(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+const HASH = /^[0-9a-f]{64}$/;
+
 /**
  * Sube la línea hasta la raíz con las ramas que da el servidor.
  *
  * Si el servidor cambia una sola hoja —o la raíz— la cadena deja de cuadrar.
+ * Además de calcular, **valida la forma**: un índice que no es un entero, un
+ * lado que no es `left` ni `right` o un hash que no es un SHA-256 en hexadecimal
+ * son pruebas mal formadas. Hoy una prueba así no falsifica nada —habría que
+ * acertar la raíz firmada— pero aceptar estructuras inválidas es una puerta que
+ * no hace falta dejar abierta.
  */
 export async function verifyInclusion(proof: DeviceProof): Promise<boolean> {
-  if (proof.index < 0) return false;
+  if (!Number.isSafeInteger(proof.index) || proof.index < 0) return false;
+  if (!HASH.test(proof.root)) return false;
+  for (const step of proof.branch) {
+    if (step.side !== "left" && step.side !== "right") return false;
+    if (!HASH.test(step.hash)) return false;
+  }
   let hash = await sha256(`leaf:${proof.line}`);
   for (const step of proof.branch) {
     hash =
@@ -106,23 +118,35 @@ export async function verifySnapshotSignature(snapshot: KeySnapshotHeader): Prom
   return verifySignature(raw, snapshotMessage(snapshot), unpadded(snapshot.signature));
 }
 
+/** A quién tiene que pertenecer la línea de la prueba. */
+export type ExpectedDevice = { userId: string; deviceId: string; identityKey: string };
+
 /**
  * Comprueba la prueba completa: el dispositivo está en el árbol y el árbol lo
  * firmó el operador.
  *
- * `expectedIdentityKey` ata la línea a la clave que se va a usar: si el
- * servidor enseña una prueba de otra línea, o de otro momento, no cuadra.
+ * La línea tiene que ser **exactamente** la de esa cuenta y ese dispositivo.
+ * Buscar solo la clave de identidad dentro del texto no ata nada: el
+ * `deviceId` lo elige el cliente y es público, así que una cuenta hostil puede
+ * publicar un dispositivo con el mismo id y su propia clave, y el servidor
+ * podría enseñar esa línea —válida y firmada— como si fuera la del
+ * destinatario. Lo que se compara es el principio canónico
+ * `cuenta|device:<id>|<clave>|`, no una subcadena.
  */
 export async function verifyDeviceProof(
   proof: DeviceProof,
   snapshot: KeySnapshotHeader,
-  expectedIdentityKey: string,
+  expected: ExpectedDevice,
 ): Promise<{ ok: boolean; reason?: string }> {
   if (proof.root !== snapshot.merkleRoot) {
     return { ok: false, reason: "La prueba no es de la instantánea que se publicó." };
   }
-  if (!proof.line.includes(`|${expectedIdentityKey}|`)) {
-    return { ok: false, reason: "La prueba es de otro dispositivo." };
+  const prefix = `${expected.userId}|device:${expected.deviceId}|${expected.identityKey}|`;
+  if (!proof.line.startsWith(prefix)) {
+    return { ok: false, reason: "La prueba es de otra cuenta o de otro dispositivo." };
+  }
+  if (!Number.isSafeInteger(snapshot.itemCount) || proof.index >= snapshot.itemCount) {
+    return { ok: false, reason: "La prueba apunta fuera de la instantánea." };
   }
   if (!(await verifyInclusion(proof))) {
     return { ok: false, reason: "La prueba no llega a la raíz firmada." };

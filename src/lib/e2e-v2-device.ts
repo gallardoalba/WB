@@ -66,6 +66,12 @@ export type DeviceState = {
    * se repite en vez de darla por buena.
    */
   verified?: Record<string, VerifiedDevice>;
+  /**
+   * Última instantánea del directorio con la que se comprobó algo, para no
+   * aceptar una más antigua: sin esto, el servidor podía repetir una snapshot
+   * de antes de una retirada y el cliente la daba por buena.
+   */
+  lastSnapshot?: { id: string; createdAt: string; root: string };
   /** `false` mientras el alta no se haya confirmado en el servidor. */
   published?: boolean;
   /**
@@ -351,14 +357,33 @@ async function assertInDirectory(
     );
   }
   const { proof, snapshot } = answer;
-  const result = await verifyDeviceProof(proof, snapshot, device.identityKey);
+  const result = await verifyDeviceProof(proof, snapshot, {
+    userId: peerUserId,
+    deviceId: device.deviceId,
+    identityKey: device.identityKey,
+  });
   if (!result.ok) {
     throw new VerificationError(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
   }
   if (session.state.directoryKey && snapshot.publicKey !== session.state.directoryKey) {
     throw new VerificationError("La clave con la que se firma el directorio ha cambiado sin avisar.");
   }
+  // Y no se acepta volver a una instantánea anterior a una que ya se vio: es la
+  // forma barata de repetir un directorio en el que un aparato retirado seguía
+  // estando. Una instantánea más nueva que mienta sobre la retirada solo la
+  // detecta el testigo (§7 del documento); esta comprobación cierra la repetición.
+  const last = session.state.lastSnapshot;
+  if (last && snapshot.createdAt < last.createdAt) {
+    throw new VerificationError(
+      "El directorio que enseña el servidor es más antiguo que el que ya se comprobó.",
+    );
+  }
   session.state.directoryKey ??= snapshot.publicKey;
+  session.state.lastSnapshot = {
+    id: snapshot.id,
+    createdAt: snapshot.createdAt,
+    root: snapshot.merkleRoot,
+  };
   (session.state.verified ??= {})[key] = {
     identityKey: device.identityKey,
     signingKey: device.signingKey,

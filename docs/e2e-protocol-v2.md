@@ -223,6 +223,11 @@ ciphertext.
   compromised device that holds the local history.
 - A session is forgotten (`session.free()`) when the conversation closes and the
   user leaves it; reopening starts a new session.
+- The `verified` mark is keyed by `account:device` and stores the `(identity,
+  signing)` pair that was checked: it is reused while those keys are the same —
+  re-proving inclusion on every message buys nothing, because the pin is what
+  detects a substitution — and a change of either key sends the device back
+  through the directory check.
 - A browser that has no device for the account **cannot read v2-only messages**:
   the sender sees a published device on the account and does not add the v1
   copy. The way out is to activate v2 in that browser from «My account». The
@@ -258,15 +263,27 @@ Committed today (`keyDirectoryLines`):
 - each v2 device: `account|device:<device_id>|<identity_key>|updated_at`,
   revocations included through the same `updated_at`.
 
-Still missing, and not claimed anywhere else:
+What the client checks before trusting a device (`verifyDeviceProof`):
 
-- **consistency proofs** between consecutive roots, so a server cannot present
-  two histories;
-- verification in the client against the committed root before trusting a
-  device — **done for the peer's device**: `verifyDeviceProof` walks the line to
-  the root, checks the snapshot signature and pins the operator's signing key,
-  so a second history fails and a swapped signer key is noticed. What is still
-  missing is the **consistency proof between roots**.
+- the line is **exactly** the one for that account and that device —
+  `account|device:<id>|<identity_key>|` — not just "somewhere in this text the
+  expected key appears". The `deviceId` is chosen by the client and public, so a
+  hostile account can publish a device with the same id and its own keys; a
+  substring check would accept that line, which is signed and included, as if it
+  were the peer's. This is the whole point of binding the leaf to the account;
+- the proof is well formed: integer index inside the tree, `left`/`right` sides
+  and SHA-256 hashes, so a malformed structure is rejected instead of being
+  interpreted;
+- the line walks up to the snapshot root and the snapshot is signed by the
+  operator key pinned on first use;
+- the snapshot is **not older** than the last one this device already used. A
+  replay of a directory from before a revocation is signed and included, so this
+  is the cheap check that stops it; a *new* snapshot that lies about a
+  revocation is indistinguishable locally and is the witness's job.
+
+Still missing, and not claimed anywhere else: **consistency proofs** between
+consecutive roots, so a server cannot present two coherent histories to two
+observers, and a witness that is not the operator (§13).
 
 The snapshot is created once a day, and publishing a device **refreshes it** at
 that moment: without that, a new device had no inclusion proof until the next
@@ -307,6 +324,16 @@ and — the real fix — reproducible builds plus a native client later. Until a
 user can verify the build they run, v2 protects against a passive or database-
 level adversary, not against an operator who ships malicious JavaScript. This is
 documented in `/techdoc` and must not be sold otherwise.
+
+**Two more limits of the local state.** AES-GCM proves each record is intact and
+was written with that key; it does not prove it is the *newest* record. An
+attacker who keeps a copy of an older device state and can put it back (a
+restored profile, a cloned disk) would roll the ratchet back — a counter inside
+the same store rolls back with it, so real freshness needs an external anchor or
+hardware. And the state is shared by every tab, so `withLock` requires
+`navigator.locks` and **fails** without it rather than running unprotected: a
+ratchet two tabs write over each other ends with a conversation that silently
+stops decrypting, which is worse than saying the browser cannot do it.
 
 **XSS is the same limit, and it is worth saying plainly.** The device key stored
 in IndexedDB is non-extractable, so a script cannot export it; it can still ask
@@ -374,7 +401,8 @@ Required before calling v2 done:
 - a fresh device cannot read a session it was not part of;
 - after `forget`, messages cannot be decrypted with the old state;
 - the server never stores plaintext or private keys (schema assertion);
-- key-transparency consistency proof detects a rewritten history;
+- the client refuses a directory snapshot older than the one it already used,
+  and a valid proof from another account with the same device id;
 - client verification of a peer's device key against the committed root.
 
 ## 12. The ratchet library
@@ -445,7 +473,7 @@ Not implemented yet, and therefore **not** claimed by the documentation:
 consistency proofs between consecutive roots and a witness that is not the
 operator (§7 — the script exists, the independent copy is a human step), v1
 actually being switched off (the switch exists, the date is an operator
-decision).
+decision), and protection against rolling back the *local* device state (§8).
 
 ## 14. Change control
 

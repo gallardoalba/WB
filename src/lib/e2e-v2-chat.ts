@@ -81,7 +81,9 @@ let session: Session | null = null;
 let opening: Promise<Session | null> | null = null;
 
 export function v2Supported(): boolean {
-  return typeof window !== "undefined" && isSupported();
+  if (typeof window === "undefined" || !isSupported()) return false;
+  // Sin cerrojo entre pestañas no se toca el estado (ver `withLock`).
+  return Boolean((navigator as Navigator & { locks?: LockManager }).locks?.request);
 }
 
 /**
@@ -90,12 +92,20 @@ export function v2Supported(): boolean {
  * El estado (la cuenta de libolm y sus sesiones) se guarda entero: dos pestañas
  * que cifran a la vez se pisan el ratchet y, a partir de ahí, los mensajes
  * dejan de abrirse sin ningún error visible. `navigator.locks` da un cerrojo por
- * cuenta dentro del navegador; donde no exista, se sigue sin él en vez de
- * romper la mensajería.
+ * cuenta dentro del navegador.
+ *
+ * Donde no exista —Safari anterior a 15.4, Firefox anterior a 96— se falla en
+ * vez de seguir sin él: un ratchet pisado no da error, deja la conversación
+ * muda, y eso es peor que decir que este navegador no puede. La interfaz lo
+ * consulta antes con `v2Supported()`.
  */
 export async function withLock<T>(userId: string, run: () => Promise<T>): Promise<T> {
   const locks = (navigator as Navigator & { locks?: LockManager }).locks;
-  if (!locks?.request) return run();
+  if (!locks?.request) {
+    throw new Error(
+      "Este navegador no puede bloquear el estado del cifrado entre pestañas; actualízalo para usar el cifrado v2.",
+    );
+  }
   return locks.request(`wanderbibliothek:e2e-v2:${userId}`, run);
 }
 
@@ -110,7 +120,9 @@ async function withSession<T>(userId: string, run: (session: Session) => Promise
   if (!store) throw new Error("Sin almacén de dispositivo.");
   return withLock(userId, async () => {
     const state = await store.load(userId);
-    if (!state) throw new Error("no-device");
+    // `NoDeviceError`, no un `Error` suelto: el llamador distingue «no hay
+    // dispositivo» de «el dispositivo no se puede abrir».
+    if (!state) throw new NoDeviceError("No hay dispositivo en este navegador.");
     const account = await v2.unpickleAccount(state.account, state.pickleKey);
     const current: Session = { state, account };
     const result = await run(current);
@@ -196,7 +208,21 @@ export async function encryptV2(input: {
   conversation: string;
   text: string;
 }): Promise<V2EncryptResult> {
-  const current = await loadV2Session(input.userId).catch(() => null);
+  let current: Session | null;
+  try {
+    current = await loadV2Session(input.userId);
+  } catch (error) {
+    // Un dispositivo que existe pero no se puede abrir no es «no hay
+    // dispositivo»: caer a v1 ahí sería degradar en silencio justo cuando algo
+    // va mal (estado corrupto, IndexedDB roto, alta a medias).
+    return {
+      status: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo abrir el dispositivo de cifrado de este navegador: ${error.message}`
+          : "No se pudo abrir el dispositivo de cifrado de este navegador.",
+    };
+  }
   if (!current) return { status: "no-device" };
   try {
     // El cerrojo relee y guarda: las sesiones y las claves fijadas sobreviven a

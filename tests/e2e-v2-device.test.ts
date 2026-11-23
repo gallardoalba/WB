@@ -487,6 +487,60 @@ test("el dispositivo repone claves de un solo uso cuando se queda sin ellas", as
   );
 });
 
+test("no se acepta un directorio más antiguo que el que ya se comprobó", async () => {
+  // Repetir una instantánea anterior es la forma barata de resucitar un aparato
+  // que se retiró después: la firma y la inclusión siguen siendo válidas.
+  const ana = cuenta("Ana Frescura");
+  const bruno = cuenta("Bruno Frescura");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-fre1");
+  await abrir(bruno, "dispositivo-de-bruno-fre1");
+  await enviar(deAna, hilo, bruno, "primero");
+  assert.ok(deAna.session.state.lastSnapshot, "se apunta la instantánea que se usó");
+
+  // Un segundo aparato obliga a pedir prueba otra vez: el primero ya está
+  // comprobado y no se vuelve a mirar.
+  await abrir(bruno, "dispositivo-de-bruno-fre2", PASSWORD);
+  const vieja = transparency.createKeySnapshot(db.getDb(), {
+    key: SIGNING_KEY,
+    now: "2020-01-01T00:00:00.000Z",
+  });
+  const conInstantaneaVieja: DeviceApi = {
+    ...api(),
+    async deviceProof(userId: string, deviceId: string) {
+      const proof = transparency.keyInclusion(userId, `device:${deviceId}`);
+      if (!proof) throw new Error("sin prueba de directorio");
+      return {
+        proof: { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root },
+        snapshot: {
+          id: vieja.id,
+          createdAt: vieja.createdAt,
+          itemCount: vieja.itemCount,
+          merkleRoot: vieja.merkleRoot,
+          previousRoot: vieja.previousRoot,
+          signature: vieja.signature,
+          publicKey: vieja.publicKey,
+        },
+      };
+    },
+  };
+
+  const enviarCon = (con: DeviceApi) =>
+    encryptForDevices({
+      session: deAna.session,
+      api: con,
+      conversation: `request:${hilo}`,
+      text: "con instantánea vieja",
+      peerUserId: bruno,
+    });
+
+  await assert.rejects(() => enviarCon(conInstantaneaVieja), /más antiguo/);
+
+  // Con una instantánea al día, el mismo envío pasa.
+  const alDia = await enviarCon(api());
+  assert.equal(alDia.envelopes.length, 2);
+});
+
 test("el cliente rechaza un dispositivo cuya prueba no cuadra con la raíz", async () => {
   // El paquete se firma a sí mismo; sin la prueba del directorio, un servidor
   // puede enseñar un paquete legítimo de otro momento, o de otra historia.

@@ -53,9 +53,8 @@ function claveDeFirma() {
   return transparency.signingKey(base64)!;
 }
 
-async function dispositivoPublicado(userId: string) {
+async function dispositivoPublicado(userId: string, deviceId = "dispositivo-directorio-1") {
   const account = await v2.createAccount(2);
-  const deviceId = "dispositivo-directorio-1";
   const signed = v2.deviceKeys(account, deviceId);
   await repo.publishDevice(userId, { ...signed, oneTimeKeys: v2.oneTimeKeys(account, deviceId) });
   return { deviceId, identityKey: signed.identityKey };
@@ -83,7 +82,7 @@ test("la prueba de un dispositivo verifica contra la raíz firmada", async () =>
       signature: snapshot.signature,
       publicKey: snapshot.publicKey,
     },
-    identityKey,
+    { userId: ana, deviceId, identityKey },
   );
   assert.equal(resultado.ok, true, resultado.reason);
 });
@@ -106,24 +105,119 @@ test("una línea, una rama o una raíz retocadas no cuadran", async () => {
     publicKey: snapshot.publicKey,
   };
 
+  const esperado = { userId: bruno, deviceId, identityKey };
   const lineaCambiada = { line: proof.line.replace(identityKey, "Z".repeat(43)), index: proof.index, branch: proof.branch, root: proof.root };
   assert.equal(await verifyInclusion(lineaCambiada), false, "otra clave no llega a la misma raíz");
-  assert.equal(
-    (await verifyDeviceProof(lineaCambiada, cabecera, identityKey)).ok,
-    false,
-  );
+  assert.equal((await verifyDeviceProof(lineaCambiada, cabecera, esperado)).ok, false);
 
   const raizCambiada = { ...cabecera, merkleRoot: "f".repeat(64) };
   assert.equal(
-    (await verifyDeviceProof({ line: proof.line, index: proof.index, branch: proof.branch, root: "f".repeat(64) }, raizCambiada, identityKey)).ok,
+    (await verifyDeviceProof({ line: proof.line, index: proof.index, branch: proof.branch, root: "f".repeat(64) }, raizCambiada, esperado)).ok,
     false,
   );
 
   // La prueba de otro dispositivo no vale para este.
   assert.equal(
-    (await verifyDeviceProof({ line: proof.line, index: proof.index, branch: proof.branch, root: proof.root }, cabecera, "Y".repeat(43))).ok,
+    (await verifyDeviceProof(
+      { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root },
+      cabecera,
+      { ...esperado, identityKey: "Y".repeat(43) },
+    )).ok,
     false,
   );
+});
+
+test("una prueba válida de otra cuenta no sirve aunque traiga la misma clave", async () => {
+  // El `deviceId` lo elige el cliente y es público: una cuenta hostil puede
+  // publicar un dispositivo con el mismo id y su propia clave. Si la
+  // comprobación solo buscara la clave dentro de la línea, esa prueba —firmada,
+  // incluida y con la clave que el servidor acaba de enseñar— pasaría y el
+  // mensaje saldría cifrado para quien no es el destinatario.
+  const victima = cuenta("Ana Suplantada");
+  const atacante = cuenta("Mallory Suplantador");
+  const deviceId = "dispositivo-compartido";
+  await dispositivoPublicado(victima, deviceId);
+  const suyo = await dispositivoPublicado(atacante, deviceId);
+
+  const snapshot = transparency.createKeySnapshot(db.getDb(), {
+    key: claveDeFirma(),
+    now: "2027-05-01T00:00:00.000Z",
+  });
+  const proof = transparency.keyInclusion(atacante, `device:${deviceId}`)!;
+  const cabecera: KeySnapshotHeader = {
+    id: snapshot.id,
+    createdAt: snapshot.createdAt,
+    itemCount: snapshot.itemCount,
+    merkleRoot: snapshot.merkleRoot,
+    previousRoot: snapshot.previousRoot,
+    signature: snapshot.signature,
+    publicKey: snapshot.publicKey,
+  };
+  const comoSiFueraDeLaVictima = {
+    line: proof.line,
+    index: proof.index,
+    branch: proof.branch,
+    root: proof.root,
+  };
+
+  // La prueba es criptográficamente buena para la cuenta del atacante…
+  assert.equal(
+    (await verifyDeviceProof(comoSiFueraDeLaVictima, cabecera, {
+      userId: atacante,
+      deviceId,
+      identityKey: suyo.identityKey,
+    })).ok,
+    true,
+  );
+  // …y no vale para la cuenta a la que el servidor dice que pertenece.
+  const suplantada = await verifyDeviceProof(comoSiFueraDeLaVictima, cabecera, {
+    userId: victima,
+    deviceId,
+    identityKey: suyo.identityKey,
+  });
+  assert.equal(suplantada.ok, false);
+  assert.match(suplantada.reason ?? "", /otra cuenta/);
+});
+
+test("una prueba mal formada se rechaza sin calcular hashes", async () => {
+  const dani = cuenta("Dani Directorio");
+  const { deviceId, identityKey } = await dispositivoPublicado(dani, "dispositivo-malformado");
+  const snapshot = transparency.createKeySnapshot(db.getDb(), {
+    key: claveDeFirma(),
+    now: "2027-06-01T00:00:00.000Z",
+  });
+  const proof = transparency.keyInclusion(dani, `device:${deviceId}`)!;
+  const base = { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root };
+  const esperado = { userId: dani, deviceId, identityKey };
+  const cabecera: KeySnapshotHeader = {
+    id: snapshot.id,
+    createdAt: snapshot.createdAt,
+    itemCount: snapshot.itemCount,
+    merkleRoot: snapshot.merkleRoot,
+    previousRoot: snapshot.previousRoot,
+    signature: snapshot.signature,
+    publicKey: snapshot.publicKey,
+  };
+
+  assert.equal(await verifyInclusion({ ...base, index: -1 }), false);
+  assert.equal(await verifyInclusion({ ...base, index: 1.5 }), false);
+  assert.equal(
+    await verifyInclusion({ ...base, branch: [{ hash: proof.branch[0]?.hash ?? "a".repeat(64), side: "lado" as never }] }),
+    false,
+    "un lado que no es left ni right no se interpreta",
+  );
+  assert.equal(
+    await verifyInclusion({ ...base, branch: [{ hash: "no-es-un-hash", side: "left" }] }),
+    false,
+  );
+  assert.equal(
+    await verifyDeviceProof({ ...base, index: snapshot.itemCount }, cabecera, esperado).then(
+      (result) => result.ok,
+    ),
+    false,
+    "un índice fuera del árbol no vale",
+  );
+  assert.equal((await verifyDeviceProof(base, cabecera, esperado)).ok, true);
 });
 
 test("una instantánea sin firma o con otra clave no verifica", async () => {

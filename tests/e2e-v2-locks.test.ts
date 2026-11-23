@@ -66,13 +66,18 @@ test("dos cuentas distintas no se bloquean entre sí", async () => {
   assert.equal(locks.colas.size, 2, "un cerrojo por cuenta");
 });
 
-test("sin navigator.locks se sigue funcionando", async () => {
-  // Un navegador viejo no debe dejar la mensajería muda: el cerrojo es una
-  // mejora, no un requisito.
+test("sin navigator.locks se falla en vez de arriesgar el ratchet", async () => {
+  // Sin cerrojo no hay forma de garantizar exclusión entre pestañas, y dos
+  // pestañas pisándose el estado dejan la conversación muda sin ningún error:
+  // mejor decirlo antes que corromper el estado en silencio.
   stubLocks(undefined);
   let hecho = false;
-  await withLock("usr_ana", async () => {
-    hecho = true;
-  });
-  assert.equal(hecho, true);
+  await assert.rejects(
+    () =>
+      withLock("usr_ana", async () => {
+        hecho = true;
+      }),
+    /no puede bloquear el estado/,
+  );
+  assert.equal(hecho, false, "la operación no llega a ejecutarse");
 });
