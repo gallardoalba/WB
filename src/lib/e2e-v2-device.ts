@@ -20,22 +20,52 @@
 import * as v2 from "./e2e-v2";
 import { verifyDeviceProof, type DeviceProof, type KeySnapshotHeader } from "./e2e-v2-directory";
 
+/** Lo que se comprobó de un dispositivo la última vez que se miró el directorio. */
+export type VerifiedDevice = {
+  identityKey: string;
+  signingKey: string;
+  /** Raíz de la instantánea en la que estaba. Solo sirve para depurar. */
+  root: string;
+};
+
+/**
+ * Clave de las tablas locales de un dispositivo ajeno.
+ *
+ * El `deviceId` lo elige el cliente y es público, así que dos cuentas pueden
+ * tener el mismo: con el id a secas, la sesión, el pin y la verificación de una
+ * cuenta valdrían para la otra, y un dispositivo podría heredar la confianza de
+ * un desconocido. La cuenta forma parte de la clave.
+ */
+export function deviceStateKey(userId: string, deviceId: string): string {
+  return `${userId}:${deviceId}`;
+}
+
 /** Lo que se guarda en el dispositivo. Nunca sale de aquí en claro. */
 export type DeviceState = {
   userId: string;
   deviceId: string;
   /** Cuenta de libolm serializada (`pickle`). */
   account: string;
-  /** Una sesión por dispositivo de la otra parte, también serializada. */
+  /**
+   * Una sesión por dispositivo de la otra parte, también serializada. La clave
+   * es `${cuenta}:${dispositivo}` (`deviceStateKey`).
+   */
   sessions: Record<string, string>;
-  /** Claves de los dispositivos ya vistos, para detectar sustituciones. */
+  /**
+   * Claves de los dispositivos ya vistos, para detectar sustituciones. Misma
+   * clave compuesta que `sessions`.
+   */
   pins: Record<string, v2.PinnedDevice>;
   /** Secreto local del bote de libolm; viaja dentro del estado ya cifrado. */
   pickleKey: string;
   /** Clave con la que el operador firma el directorio; se fija la primera vez. */
   directoryKey?: string | null;
-  /** Dispositivos cuya inclusión en el directorio ya se comprobó. */
-  verified?: string[];
+  /**
+   * Dispositivos cuya inclusión en el directorio ya se comprobó, con las claves
+   * que se vieron entonces: si el dispositivo cambia de clave, la comprobación
+   * se repite en vez de darla por buena.
+   */
+  verified?: Record<string, VerifiedDevice>;
   /** `false` mientras el alta no se haya confirmado en el servidor. */
   published?: boolean;
   /**
@@ -294,18 +324,22 @@ export async function replenishKeys(
  * Comprueba que un dispositivo está en el directorio firmado y que la clave del
  * operador no ha cambiado desde la primera vez.
  *
- * Se hace **una vez por dispositivo**: la prueba cuesta dos peticiones y el
- * resultado no cambia mientras el dispositivo no cambie. Si el servidor no
- * ofrece la prueba, se sigue sin ella (es una comprobación añadida, no un
- * requisito para hablar) pero queda constancia en `verified`.
+ * Se hace **una vez por dispositivo y clave**: la prueba cuesta dos peticiones y
+ * el resultado no cambia mientras el dispositivo no cambie. Si el dispositivo
+ * cambia de clave, la comprobación se repite: darla por buena para siempre
+ * dejaba pasar un paquete nuevo sin volver a mirar el directorio.
  */
 async function assertInDirectory(
   session: Session,
   api: DeviceApi,
   peerUserId: string,
-  device: { deviceId: string; identityKey: string },
+  device: { deviceId: string; identityKey: string; signingKey: string },
 ): Promise<void> {
-  if (session.state.verified?.includes(device.deviceId)) return;
+  const key = deviceStateKey(peerUserId, device.deviceId);
+  const seen = session.state.verified?.[key];
+  if (seen && seen.identityKey === device.identityKey && seen.signingKey === device.signingKey) {
+    return;
+  }
 
   // El tipo ya la exige, pero un adaptador escrito en JavaScript puede omitirla:
   // sin prueba no hay sesión, en vez de seguir como si el directorio cuadrara.
@@ -325,7 +359,11 @@ async function assertInDirectory(
     throw new VerificationError("La clave con la que se firma el directorio ha cambiado sin avisar.");
   }
   session.state.directoryKey ??= snapshot.publicKey;
-  session.state.verified = [...(session.state.verified ?? []), device.deviceId];
+  (session.state.verified ??= {})[key] = {
+    identityKey: device.identityKey,
+    signingKey: device.signingKey,
+    root: snapshot.merkleRoot,
+  };
 }
 
 /**
@@ -349,7 +387,8 @@ export async function encryptForDevices(input: {
 
   const envelopes: OutgoingEnvelope[] = [];
   for (const device of devices) {
-    const existing = session.state.sessions[device.deviceId];
+    const key = deviceStateKey(peerUserId, device.deviceId);
+    const existing = session.state.sessions[key];
     let sessionFor: v2.OlmSession;
     if (existing) {
       sessionFor = await v2.unpickleSession(existing, session.state.pickleKey);
@@ -361,11 +400,7 @@ export async function encryptForDevices(input: {
       if (bundle.identityKey !== device.identityKey || bundle.signingKey !== device.signingKey) {
         throw new VerificationError("El paquete reclamado no coincide con el del registro.");
       }
-      sessionFor = await v2.startVerifiedSession(
-        session.account,
-        bundle,
-        session.state.pins[device.deviceId],
-      );
+      sessionFor = await v2.startVerifiedSession(session.account, bundle, session.state.pins[key]);
     }
 
     const envelope = v2.encrypt(sessionFor, { conversation, text });
@@ -374,11 +409,8 @@ export async function encryptForDevices(input: {
       type: envelope.type,
       body: envelope.body,
     });
-    session.state.sessions[device.deviceId] = v2.pickleSession(
-      sessionFor,
-      session.state.pickleKey,
-    );
-    session.state.pins[device.deviceId] ??= {
+    session.state.sessions[key] = v2.pickleSession(sessionFor, session.state.pickleKey);
+    session.state.pins[key] ??= {
       identityKey: device.identityKey,
       signingKey: device.signingKey,
     };
@@ -436,7 +468,8 @@ export async function decryptThread(input: {
     if (!envelope || cache[message.id] !== undefined) return false;
     // Un mensaje normal con sesión viva se abre sin registro; un pre-clave
     // puede tener que abrir una sesión nueva y entonces sí hace falta.
-    return (envelope.type ?? 0) === 0 || !session.state.sessions[message.senderDeviceId];
+    if ((envelope.type ?? 0) === 0) return true;
+    return !session.state.sessions[deviceStateKey(peerUserId, message.senderDeviceId)];
   });
   const registry = needsRegistry
     ? new Map((await api.listDevices(peerUserId)).map((device) => [device.deviceId, device]))
@@ -500,12 +533,13 @@ async function openEnvelope(
   envelope: { type: number; body: string },
   conversation: string,
 ): Promise<string> {
-  const saved = session.state.sessions[deviceId];
+  const key = deviceStateKey(peerUserId, deviceId);
+  const saved = session.state.sessions[key];
   if (saved) {
     const previous = await v2.unpickleSession(saved, session.state.pickleKey);
     try {
       const text = v2.decrypt(previous, envelope, conversation);
-      session.state.sessions[deviceId] = v2.pickleSession(previous, session.state.pickleKey);
+      session.state.sessions[key] = v2.pickleSession(previous, session.state.pickleKey);
       return text;
     } catch (error) {
       // Solo un mensaje de pre-clave puede abrir una sesión nueva; con un
@@ -525,7 +559,7 @@ async function openEnvelope(
   const fresh = await acceptFromRegistry(session, api, peerUserId, device, envelope);
   try {
     const text = v2.decrypt(fresh, envelope, conversation);
-    session.state.sessions[deviceId] = v2.pickleSession(fresh, session.state.pickleKey);
+    session.state.sessions[key] = v2.pickleSession(fresh, session.state.pickleKey);
     return text;
   } finally {
     v2.forgetSession(fresh);
@@ -546,14 +580,15 @@ async function acceptFromRegistry(
   await assertInDirectory(session, api, peerUserId, device);
   // El par completo, como en el camino de envío: comprobar solo la identidad
   // dejaba cambiar la clave de firma sin que se notara.
-  const pinned = session.state.pins[device.deviceId];
+  const key = deviceStateKey(peerUserId, device.deviceId);
+  const pinned = session.state.pins[key];
   if (
     pinned &&
     (pinned.identityKey !== device.identityKey || pinned.signingKey !== device.signingKey)
   ) {
     throw new VerificationError("El dispositivo de la otra persona ha cambiado de clave sin avisar.");
   }
-  session.state.pins[device.deviceId] = {
+  session.state.pins[key] = {
     identityKey: device.identityKey,
     signingKey: device.signingKey,
   };

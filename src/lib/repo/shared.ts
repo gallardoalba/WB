@@ -365,6 +365,20 @@ export function assertV2Envelopes(
       throw new ApiError(409, "La otra persona tiene un dispositivo que ya no existe.");
     }
   }
+
+  // Todos los aparatos activos de la otra parte, no solo algunos: con un sobre
+  // de menos, ese dispositivo se queda sin leer el mensaje y nadie se entera
+  // hasta que lo intenta. v1 ya exigía cobertura completa; v2 también.
+  const devices = db
+    .prepare(
+      `SELECT d.device_id FROM device_keys d
+         JOIN users u ON u.id = d.user_id
+        WHERE d.user_id = ? AND d.revoked_at IS NULL AND u.is_suspended = 0`,
+    )
+    .all(peerUserId) as { device_id: string }[];
+  if (devices.some((device) => !seen.has(device.device_id))) {
+    throw new ApiError(409, FALTAN_SOBRES);
+  }
 }
 
 /**
@@ -388,17 +402,28 @@ export function bothHaveV2Devices(a: string, b: string): boolean {
 }
 
 /**
- * Rechaza un mensaje que se queda en v1 cuando los dos lados podían usar v2.
+ * Rechaza los sobres de v1 cuando los dos lados podían usar v2.
  *
  * El cliente que ya manda los dos formatos no se entera; el que se quedó atrás
  * recibe un error explicable en vez de degradar la conversación en silencio.
+ *
+ * También se rechaza la mezcla: un mensaje con sobres de v1 **y** de v2 deja en
+ * la base una copia cifrada con la clave estática por conversación, que es justo
+ * lo que v2 evita. La interfaz no la manda; el servidor no debe aceptarla de un
+ * cliente manipulado.
  */
-export function assertNotDowngraded(senderId: string, peerId: string, hasV2: boolean): void {
-  if (hasV2) return;
+export function assertNoV1WhenV2(
+  senderId: string,
+  peerId: string,
+  envelopes: { hasV1: boolean; hasV2: boolean },
+): void {
+  if (!envelopes.hasV1) return;
   if (!bothHaveV2Devices(senderId, peerId)) return;
   throw new ApiError(
     409,
-    "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
+    envelopes.hasV2
+      ? "Un mensaje no puede llevar a la vez sobres de v1 y de v2 en una conversación que ya usa el cifrado v2."
+      : "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
   );
 }
 

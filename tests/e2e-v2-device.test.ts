@@ -54,7 +54,8 @@ const SIGNING_KEY = transparency.signingKey(
 /** Instantánea nueva y prueba del dispositivo: lo que da un servidor honrado. */
 function deviceProof(userId: string, deviceId: string) {
   const snapshot = transparency.createKeySnapshot(db.getDb(), { key: SIGNING_KEY });
-  const proof = transparency.keyInclusion(userId, `device:${deviceId}`)!;
+  const proof = transparency.keyInclusion(userId, `device:${deviceId}`);
+  assert.ok(proof, `la instantánea ${snapshot.id} debería incluir a ${deviceId}`);
   return {
     proof: { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root },
     snapshot: {
@@ -350,6 +351,21 @@ test("un mensaje pendiente del remitente retirado se abre con su sesión", async
   assert.deepEqual(leido.failures, []);
 });
 
+test("un pre-clave de un dispositivo que ya no está en el registro se rechaza", async () => {
+  // Sin sesión previa y sin clave de identidad en el registro no hay nada que
+  // verificar: se para la lectura en vez de abrir una sesión a ciegas.
+  const ana = cuenta("Ana Sin Registro");
+  const bruno = cuenta("Bruno Sin Registro");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-09");
+  const deBruno = await abrir(bruno, "dispositivo-de-bruno-9");
+
+  await enviar(deAna, hilo, bruno, "pendiente");
+  repo.revokeDevice(ana, "dispositivo-de-ana-09");
+
+  await assert.rejects(() => leer(deBruno, hilo, ana), /no está en el registro/);
+});
+
 test("un dispositivo que cambia de clave se rechaza en vez de aceptarse", async () => {
   const ana = cuenta("Ana Cambia");
   const bruno = cuenta("Bruno Cambia");
@@ -531,7 +547,7 @@ test("el cliente rechaza un dispositivo cuya prueba no cuadra con la raíz", asy
 
   // Con una prueba retocada, no se abre sesión contra ese dispositivo.
   deAna.session.state.sessions = {};
-  deAna.session.state.verified = [];
+  deAna.session.state.verified = {};
   currentUser = ana;
   await assert.rejects(
     () =>
@@ -543,5 +559,38 @@ test("el cliente rechaza un dispositivo cuya prueba no cuadra con la raíz", asy
         peerUserId: bruno,
       }),
     /directorio/,
+  );
+});
+
+test("el mismo id de dispositivo en dos cuentas no comparte nada", async () => {
+  const ana = cuenta("Ana Duplicado");
+  const bruno = cuenta("Bruno Duplicado");
+  const carla = cuenta("Carla Duplicado");
+  const conBruno = intercambio(ana, bruno);
+  const conCarla = intercambio(ana, carla);
+
+  // El identificador lo elige el cliente y es público: dos cuentas pueden
+  // publicar el mismo. Si el estado local se guardara por id a secas, la
+  // sesión y la confianza de una valdrían para la otra.
+  const deAna = await abrir(ana, "dispositivo-de-ana-dup1");
+  const deBruno = await abrir(bruno, "dispositivo-repetido-a");
+  const deCarla = await abrir(carla, "dispositivo-repetido-a");
+
+  await enviar(deAna, conBruno, bruno, "para bruno");
+  await enviar(deAna, conCarla, carla, "para carla");
+
+  assert.deepEqual(
+    Object.keys(deAna.session.state.sessions).sort(),
+    [`${bruno}:dispositivo-repetido-a`, `${carla}:dispositivo-repetido-a`].sort(),
+  );
+  assert.equal(Object.keys(deAna.session.state.pins).length, 2, "un pin por cuenta, no uno compartido");
+
+  assert.deepEqual(
+    (await recibir(deBruno, conBruno, ana)).map((message) => message.text),
+    ["para bruno"],
+  );
+  assert.deepEqual(
+    (await recibir(deCarla, conCarla, ana)).map((message) => message.text),
+    ["para carla"],
   );
 });

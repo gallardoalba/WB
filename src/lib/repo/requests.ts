@@ -16,7 +16,7 @@ import { canTransition, listingStatusFor } from "../request-flow";
 import { normalizeCoverUrl, normalizeText } from "../text";
 import {
   areBlocked,
-  assertNotDowngraded,
+  assertNoV1WhenV2,
   assertV1StillAllowed,
   assertV2Envelopes,
   FALTAN_SOBRES,
@@ -1030,8 +1030,8 @@ export function addEncryptedMessage(
   const request = assertCanMessage(requestId, userId);
   const otherId = otherParticipant(request, userId);
 
-  // Un mensaje puede ir con sobres v1 (una ranura por aparato), con sobres v2
-  // (un dispositivo por sobre) o con los dos, mientras conviven los clientes.
+  // Un mensaje va con sobres v1 (una ranura por aparato) o con sobres v2 (un
+  // dispositivo por sobre), nunca con los dos a la vez.
   if (input.v2) {
     assertV2Envelopes(userId, otherId, input.v2);
   }
@@ -1047,7 +1047,7 @@ export function addEncryptedMessage(
     }
   }
   if (!usesV1 && !input.v2) throw new ApiError(400, "Falta el sobre cifrado.");
-  assertNotDowngraded(userId, otherId, Boolean(input.v2));
+  assertNoV1WhenV2(userId, otherId, { hasV1: usesV1, hasV2: Boolean(input.v2) });
 
   return storeMessage({
     requestId,

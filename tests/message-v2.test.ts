@@ -5,8 +5,8 @@
  * va y quién escribe. Eso es justo lo que se prueba aquí: que un tercero no
  * escriba en un hilo ajeno, que el sobre no pueda ir dirigido a un dispositivo
  * de otra cuenta (dejaría al destinatario real sin poder abrirlo), que un
- * dispositivo retirado cancele el envío, y que los dos formatos convivan en el
- * mismo mensaje sin pisarse.
+ * dispositivo retirado cancele el envío, que la otra parte reciba un sobre en
+ * cada uno de sus aparatos, y que v1 no se cuele donde ya se puede usar v2.
  */
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
@@ -95,11 +95,67 @@ test("un mensaje v2 se guarda y se devuelve con su protocolo", async () => {
   ]);
 });
 
-test("los dos formatos caben en el mismo mensaje", async () => {
-  const ana = cuenta("Ana Doble");
-  const bruno = cuenta("Bruno Doble");
-  const deAna = await dispositivo(ana, "dispositivo-de-ana-02");
-  const deBruno = await dispositivo(bruno, "dispositivo-de-bruno-2");
+test("v1 no se cuela cuando la conversación ya puede usar v2", async () => {
+  const casos = [
+    { nombre: "solo v2", v1: false, v2: true, error: null },
+    {
+      nombre: "solo v1",
+      v1: true,
+      v2: false,
+      error: /ya usa el cifrado v2/,
+    },
+    {
+      nombre: "v1 y v2 a la vez",
+      v1: true,
+      v2: true,
+      error: /a la vez sobres de v1 y de v2/,
+    },
+  ] as const;
+
+  for (const caso of casos) {
+    const ana = cuenta(`Ana Mezcla ${caso.nombre}`);
+    const bruno = cuenta(`Bruno Mezcla ${caso.nombre}`);
+    const deAna = await dispositivo(ana, `dispositivo-de-ana-${caso.nombre}`);
+    const deBruno = await dispositivo(bruno, `dispositivo-de-bruno-${caso.nombre}`);
+    const hilo = intercambio(ana, bruno);
+    const claveAna = repo.setPublicKey(ana, { kty: "EC", crv: "P-256", x: "a".repeat(43), y: "b".repeat(43) });
+    const claveBruno = repo.setPublicKey(bruno, { kty: "EC", crv: "P-256", x: "c".repeat(43), y: "d".repeat(43) });
+
+    const enviar = () =>
+      repo.addEncryptedMessage(hilo, ana, {
+        ...(caso.v1
+          ? {
+              keyId: claveAna.keyId,
+              envelopes: [{ keyId: claveBruno.keyId, ciphertext: "sobre-v1", iv: "iv-v1" }],
+            }
+          : {}),
+        ...(caso.v2
+          ? { v2: { senderDeviceId: deAna.deviceId, envelopes: [sobre(deBruno.deviceId)] } }
+          : {}),
+      });
+
+    if (!caso.error) {
+      const mensaje = enviar();
+      const [guardado] = repo.listMessages(hilo, ana).messages;
+      assert.equal(guardado?.id, mensaje.id, `${caso.nombre}: se guarda`);
+      continue;
+    }
+    // Mezclar dejaría en la base una copia cifrada con la clave estática por
+    // conversación, que es justo lo que v2 evita: el servidor no la acepta
+    // aunque la interfaz nunca la mande.
+    assert.throws(
+      enviar,
+      (error: { status?: number; message?: string }) =>
+        error.status === 409 && caso.error.test(error.message ?? ""),
+      `${caso.nombre}: se rechaza`,
+    );
+    assert.equal(repo.listMessages(hilo, ana).messages.length, 0, `${caso.nombre}: no se guarda nada`);
+  }
+});
+
+test("donde la otra persona no tiene v2, v1 sigue valiendo", async () => {
+  const ana = cuenta("Ana V1 Suelta");
+  const bruno = cuenta("Bruno V1 Suelta");
   const hilo = intercambio(ana, bruno);
   const claveAna = repo.setPublicKey(ana, { kty: "EC", crv: "P-256", x: "a".repeat(43), y: "b".repeat(43) });
   const claveBruno = repo.setPublicKey(bruno, { kty: "EC", crv: "P-256", x: "c".repeat(43), y: "d".repeat(43) });
@@ -107,13 +163,8 @@ test("los dos formatos caben en el mismo mensaje", async () => {
   const mensaje = repo.addEncryptedMessage(hilo, ana, {
     keyId: claveAna.keyId,
     envelopes: [{ keyId: claveBruno.keyId, ciphertext: "sobre-v1", iv: "iv-v1" }],
-    v2: { senderDeviceId: deAna.deviceId, envelopes: [sobre(deBruno.deviceId)] },
   });
-
-  const [guardado] = repo.listMessages(hilo, ana).messages;
-  assert.equal(guardado?.id, mensaje.id);
-  const protocolos = guardado!.envelopes.map((envelope) => envelope.protocol ?? 1).sort();
-  assert.deepEqual(protocolos, [1, 2], "uno de cada: así leen los clientes viejos y los nuevos");
+  assert.equal(repo.listMessages(hilo, ana).messages[0]?.id, mensaje.id);
 });
 
 test("un tercero no escribe en un hilo ajeno", async () => {
@@ -155,6 +206,71 @@ test("el sobre no puede ir a un dispositivo de otra cuenta", async () => {
       }),
     (error: { status?: number }) => error.status === 409,
   );
+});
+
+test("todos los aparatos de la otra parte reciben su sobre", async () => {
+  const ana = cuenta("Ana Cobertura");
+  const bruno = cuenta("Bruno Cobertura");
+  const deAna = await dispositivo(ana, "dispositivo-de-ana-cob1");
+  const uno = await dispositivo(bruno, "dispositivo-de-bruno-cob1");
+  const dos = await dispositivo(bruno, "dispositivo-de-bruno-cob2");
+  const tres = await dispositivo(bruno, "dispositivo-de-bruno-cob3");
+  const hilo = intercambio(ana, bruno);
+
+  // Con dos de tres, el tercero se quedaría sin leer el mensaje y nadie se
+  // enteraría hasta que lo abriera.
+  assert.throws(
+    () =>
+      repo.addEncryptedMessage(hilo, ana, {
+        v2: {
+          senderDeviceId: deAna.deviceId,
+          envelopes: [sobre(uno.deviceId), sobre(dos.deviceId)],
+        },
+      }),
+    (error: { status?: number; message?: string }) =>
+      error.status === 409 && /Faltan sobres/.test(error.message ?? ""),
+  );
+
+  repo.addEncryptedMessage(hilo, ana, {
+    v2: {
+      senderDeviceId: deAna.deviceId,
+      envelopes: [sobre(uno.deviceId), sobre(dos.deviceId), sobre(tres.deviceId)],
+    },
+  });
+  assert.equal(repo.listMessages(hilo, bruno).messages.length, 1);
+});
+
+test("un aparato nuevo invalida la lista con la que se cifró", async () => {
+  const ana = cuenta("Ana Carrera");
+  const bruno = cuenta("Bruno Carrera");
+  const deAna = await dispositivo(ana, "dispositivo-de-ana-car1");
+  const viejo = await dispositivo(bruno, "dispositivo-de-bruno-car1");
+  const hilo = intercambio(ana, bruno);
+  const sobres = [sobre(viejo.deviceId)];
+
+  repo.addEncryptedMessage(hilo, ana, { v2: { senderDeviceId: deAna.deviceId, envelopes: sobres } });
+
+  // La otra persona añade un aparato entre que el cliente lee la lista y
+  // envía: el mensaje se rechaza y se reintenta con la lista nueva, que es
+  // mejor que dejarla con un aparato mudo sin avisar.
+  const nuevo = await dispositivo(bruno, "dispositivo-de-bruno-car2");
+  assert.throws(
+    () =>
+      repo.addEncryptedMessage(hilo, ana, {
+        v2: { senderDeviceId: deAna.deviceId, envelopes: sobres },
+      }),
+    (error: { status?: number }) => error.status === 409,
+  );
+
+  // Con la lista nueva entra, y al retirar el viejo basta con los que quedan.
+  repo.addEncryptedMessage(hilo, ana, {
+    v2: { senderDeviceId: deAna.deviceId, envelopes: [sobre(viejo.deviceId), sobre(nuevo.deviceId)] },
+  });
+  repo.revokeDevice(bruno, viejo.deviceId);
+  repo.addEncryptedMessage(hilo, ana, {
+    v2: { senderDeviceId: deAna.deviceId, envelopes: [sobre(nuevo.deviceId)] },
+  });
+  assert.equal(repo.listMessages(hilo, bruno).messages.length, 3);
 });
 
 test("un dispositivo retirado o ajeno no puede firmar el envío", async () => {

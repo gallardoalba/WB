@@ -156,9 +156,19 @@ Server-side rules, all tested:
   party and **only** them;
 - the sender device is the caller's own and is not revoked;
 - a suspended account neither sends nor receives;
+- **the envelope covers every active device** of the other party: one for each,
+  no duplicates, no extras. A message that leaves one device out is refused
+  (`409`, `FALTAN_SOBRES`) instead of being stored half-delivered. This is the
+  same rule v1 already had. The cost is a race — a device added between the
+  client reading the list and sending the message gets the request rejected —
+  and the answer is to reload and send again, not to weaken the rule;
 - once both sides have a v2 device, a v1-only message is **refused** (`409`):
   the conversation cannot fall back to the protocol without forward secrecy
-  (§10).
+  (§10);
+- **v1 and v2 cannot travel together** (`409`). The client only sends one of
+  the two; a message with both would leave in the database a copy encrypted
+  with the per-conversation static key, which is exactly what v2 removes, so
+  the server does not take it even from a modified client.
 
 What is encrypted is not the bare text but a sealed record:
 
@@ -189,6 +199,10 @@ ciphertext.
 - The envelope is part of the message, not a mailbox: it is deleted with the
   message (the foreign key cascades) and with the account, and there is no
   separate retention. **Acknowledging is not required to delete anything.**
+- The client keys its session, pin and verification tables by
+  `account:device`, not by the bare device id: the id is chosen by the client
+  and public, so two accounts can publish the same one, and a bare id would let
+  a device inherit the trust and the ratchet of a stranger.
 - Out-of-order messages are kept as skipped keys, capped per session; beyond
   the cap the oldest are dropped and those messages are unrecoverable by
   design.
@@ -217,7 +231,7 @@ ciphertext.
 | Substitute a device identity key | The bundle is signed by the device, device keys are in the key-transparency set (§7) and safety numbers compare them | The signature proves a device key, not a person: only the transparency check or an out-of-band comparison binds it to the account |
 | Add a device to someone's account | Password for anything but the first device; notification to the owner; the device enters the committed set (§7) | A hostile operator can still add one and rely on nobody checking |
 | Move an envelope to another conversation | The conversation is inside the ciphertext and `decrypt` refuses a mismatch | — |
-| Force the thread back to v1 | Anti-downgrade rule (§10): v2 is required once both devices have published keys | The server does not yet reject a v2 message that also carries v1 envelopes |
+| Force the thread back to v1 | Anti-downgrade rule (§10): v2 is required once both devices have published keys, and a message that carries v1 envelopes alongside v2 ones is refused | The last client on v1 can still read what it wrote; it cannot write |
 | Replay an envelope | Rejected by the ratchet | — |
 | Drop or delay messages | Not prevented | Visible as gaps |
 | Learn who talks to whom | Not prevented | §9 |
