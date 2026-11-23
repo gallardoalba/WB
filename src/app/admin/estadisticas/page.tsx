@@ -22,7 +22,11 @@ import {
 } from "lucide-react";
 
 import { PageHeader, SiteShell } from "@/components/site-shell";
-import { StatsChart, type StatsChartTone } from "@/components/stats-chart";
+import {
+  StatsBars,
+  StatsChart,
+  type StatsChartTone,
+} from "@/components/stats-chart";
 import { readBuildInfo } from "@/lib/build-info";
 import { getLocale } from "@/lib/i18n-server";
 import { translate } from "@/lib/i18n";
@@ -138,6 +142,11 @@ function formatPercentParts(
   };
 }
 
+function formatPercent(value: number | null, locale: string): string {
+  const formatted = formatPercentParts(value, locale);
+  return formatted.unit ? `${formatted.value} ${formatted.unit}` : formatted.value;
+}
+
 function formatDate(value: string | null, locale: string, empty: string): string {
   if (!value) return empty;
   const date = new Date(value);
@@ -199,12 +208,39 @@ function seriesStats(values: readonly (number | null)[]): SeriesStats | null {
   return { min, max, avg, last: finite[finite.length - 1]!, count: finite.length };
 }
 
+type RequestBucket = { label: string; total: number };
+
+function bucketRequests(
+  samples: readonly MetricsSample[],
+  values: readonly (number | null)[],
+  byDay: boolean,
+  locale: string,
+): RequestBucket[] {
+  const buckets = new Map<string, RequestBucket>();
+  samples.forEach((sample, index) => {
+    const delta = values[index];
+    if (delta === null || !Number.isFinite(delta)) return;
+    const date = new Date(sample.at);
+    const key = byDay
+      ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+      : `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+    const label = byDay
+      ? date.toLocaleDateString(locale, { day: "2-digit", month: "short" })
+      : date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    const bucket = buckets.get(key) ?? { label, total: 0 };
+    bucket.total += delta;
+    buckets.set(key, bucket);
+  });
+  return [...buckets.values()];
+}
+
 function StatPanel({
   title,
   icon,
   value,
   unit,
   hint,
+  gauge,
   series,
   tone = "neutral",
   span = 4,
@@ -216,6 +252,7 @@ function StatPanel({
   value: string | number;
   unit?: string;
   hint?: string;
+  gauge?: number | null;
   series?: readonly (number | null)[];
   tone?: StatsChartTone;
   span?: 3 | 4;
@@ -227,10 +264,10 @@ function StatPanel({
       className={`stats-panel stats-stat-panel stats-panel--${tone} stats-col-${span}`}
     >
       <header className="stats-panel-head">
-        <span className="stats-panel-title">
+        <h3 className="stats-panel-title" title={title}>
           {icon}
           {title}
-        </span>
+        </h3>
         <Ellipsis className="stats-panel-menu" size={14} aria-hidden="true" />
       </header>
       <div className="stats-stat-body">
@@ -240,6 +277,11 @@ function StatPanel({
         </div>
         {hint ? <span className="stats-stat-hint">{hint}</span> : null}
       </div>
+      {gauge !== null && gauge !== undefined ? (
+        <div className="stats-gauge" aria-hidden="true">
+          <span style={{ width: `${Math.min(100, Math.max(0, gauge))}%` }} />
+        </div>
+      ) : null}
       {series ? (
         <StatsChart
           id={id}
@@ -262,6 +304,7 @@ function TimeseriesPanel({
   id,
   format,
   from,
+  mid,
   to,
   t,
   emptyLabel,
@@ -274,6 +317,7 @@ function TimeseriesPanel({
   id: string;
   format: (value: number) => string;
   from?: string;
+  mid?: string;
   to?: string;
   t: (text: string) => string;
   emptyLabel: string;
@@ -287,10 +331,10 @@ function TimeseriesPanel({
       }`}
     >
       <header className="stats-panel-head">
-        <span className="stats-panel-title">
+        <h3 className="stats-panel-title" title={title}>
           {icon}
           {title}
-        </span>
+        </h3>
         <span className="stats-panel-current">
           {stats ? format(stats.last) : "—"}
         </span>
@@ -299,24 +343,27 @@ function TimeseriesPanel({
         {stats ? (
           <div className="stats-chart-y" aria-hidden="true">
             <span>{format(stats.max)}</span>
+            <span>{format((stats.max + stats.min) / 2)}</span>
             <span>{format(stats.min)}</span>
           </div>
         ) : null}
-        <StatsChart
-          id={id}
-          values={values}
-          label={title}
-          tone={tone}
-          emptyLabel={emptyLabel}
-        />
+        <div className="stats-chart-plot">
+          <StatsChart
+            id={id}
+            values={values}
+            label={title}
+            tone={tone}
+            emptyLabel={emptyLabel}
+          />
+          <div className="stats-chart-x" aria-hidden="true">
+            <span>{from}</span>
+            <span>{mid}</span>
+            <span>{to}</span>
+          </div>
+        </div>
       </div>
       {stats ? (
         <div className="stats-chart-meta">
-          <span className="stats-chart-range">
-            {from}
-            {from && to ? " → " : ""}
-            {to}
-          </span>
           <span className="stats-chart-stats">
             <span>
               {t("Mín.")} <b>{format(stats.min)}</b>
@@ -339,14 +386,14 @@ function TimeseriesPanel({
 
 function StatsRow({ title, icon }: { title: string; icon?: ReactNode }) {
   return (
-    <div className="stats-row">
+    <h2 className="stats-row">
       <span className="stats-row-title">
         <ChevronDown size={13} aria-hidden="true" />
         {icon}
         {title}
       </span>
       <span className="stats-row-line" aria-hidden="true" />
-    </div>
+    </h2>
   );
 }
 
@@ -399,7 +446,7 @@ export default async function StatisticsPage({
             <li>{t("Escanea el código QR con una aplicación de códigos (o guarda la clave).")}</li>
             <li>{t("Escribe el código de seis cifras que te muestre la aplicación.")}</li>
           </ol>
-          <Link href="/cuenta" className="primary-button small">
+          <Link href={localePath(locale, "/cuenta")} className="primary-button small">
             {t("Ir a mi cuenta")}
           </Link>
         </section>
@@ -436,6 +483,15 @@ export default async function StatisticsPage({
     streams: seriesOf(windowSamples, "streams"),
   };
 
+  const requestBuckets = bucketRequests(
+    windowSamples,
+    series.requests,
+    range === "7d",
+    locale,
+  );
+  const statusSamples = windowSamples.slice(-48);
+  const statusErrors = deltasOf(statusSamples, "errors");
+
   const requestTotal = series.requests.reduce<number>(
     (sum, value) => sum + (value ?? 0),
     0,
@@ -452,10 +508,20 @@ export default async function StatisticsPage({
   const from = formatShortTime(firstAt, locale, range === "7d");
   const to = formatShortTime(lastAt, locale, range === "7d");
   const from7d = formatShortTime(samples7d[0]?.at, locale, true);
+  const mid7d = formatShortTime(
+    samples7d[Math.floor(samples7d.length / 2)]?.at,
+    locale,
+    true,
+  );
   const to7d = formatShortTime(
     samples7d[samples7d.length - 1]?.at,
     locale,
     true,
+  );
+  const mid = formatShortTime(
+    windowSamples[Math.floor(windowSamples.length / 2)]?.at,
+    locale,
+    range === "7d",
   );
 
   const rss = formatBytesParts(values.rssBytes, locale);
@@ -467,7 +533,94 @@ export default async function StatisticsPage({
   const cpu = formatPercentParts(host.processCpuRatio, locale);
   const uptime = formatDuration(values.uptimeSeconds);
   const backup = formatDate(backupAt, locale, t("Ninguna"));
-  const jobsTone: StatsChartTone = values.jobsFailed > 0 ? "red" : "yellow";
+  const newestSampleAt = windowSamples[windowSamples.length - 1]?.at;
+  const diskUsedRatio =
+    host.diskTotalBytes && host.diskTotalBytes > 0 && host.diskFreeBytes !== null
+      ? Math.min(1, Math.max(0, 1 - host.diskFreeBytes / host.diskTotalBytes))
+      : null;
+  const loadRatio =
+    host.load1 !== null && host.cpuCount > 0
+      ? Math.min(1, Math.max(0, host.load1 / host.cpuCount))
+      : null;
+  const cpuRatio = host.processCpuRatio;
+  const backupAgeHours =
+    backupAt && newestSampleAt
+      ? (Date.parse(newestSampleAt) - Date.parse(backupAt)) / 3_600_000
+      : null;
+  const p95Tone: StatsChartTone =
+    p95Last === null
+      ? "neutral"
+      : p95Last > 1_000
+        ? "red"
+        : p95Last > 500
+          ? "orange"
+          : "green";
+  const errorTone: StatsChartTone = errorTotal > 0 ? "red" : "green";
+  const jobsTone: StatsChartTone =
+    values.jobsFailed > 0
+      ? "red"
+      : values.jobsPending > 0
+        ? "yellow"
+        : "green";
+  const delayTone: StatsChartTone =
+    values.jobsOverdueMinutes > 60
+      ? "red"
+      : values.jobsOverdueMinutes > 0
+        ? "orange"
+        : "green";
+  const diskTone: StatsChartTone =
+    diskUsedRatio === null
+      ? "cyan"
+      : diskUsedRatio > 0.9
+        ? "red"
+        : diskUsedRatio > 0.75
+          ? "orange"
+          : "green";
+  const loadTone: StatsChartTone =
+    loadRatio === null
+      ? "purple"
+      : loadRatio > 0.9
+        ? "red"
+        : loadRatio > 0.7
+          ? "orange"
+          : "green";
+  const cpuTone: StatsChartTone =
+    cpuRatio === null
+      ? "purple"
+      : cpuRatio > 0.9
+        ? "red"
+        : cpuRatio > 0.7
+          ? "orange"
+          : "green";
+  const backupTone: StatsChartTone =
+    !backupAt
+      ? "red"
+      : backupAgeHours === null
+        ? "neutral"
+        : backupAgeHours > 168
+          ? "red"
+          : backupAgeHours > 48
+            ? "orange"
+            : "green";
+  const healthTone: "green" | "orange" | "red" =
+    values.jobsFailed > 0 ||
+    (diskUsedRatio ?? 0) > 0.9 ||
+    !backupAt ||
+    (backupAgeHours !== null && backupAgeHours > 168)
+      ? "red"
+      : errorTotal > 0 ||
+          (p95Last ?? 0) > 500 ||
+          (diskUsedRatio ?? 0) > 0.75 ||
+          (loadRatio ?? 0) > 0.9 ||
+          (backupAgeHours !== null && backupAgeHours > 48)
+        ? "orange"
+        : "green";
+  const healthLabel =
+    healthTone === "green"
+      ? t("Operativo")
+      : healthTone === "orange"
+        ? t("Atención")
+        : t("Revisar");
   const recent = windowSamples.slice(-12).reverse();
 
   return (
@@ -485,9 +638,9 @@ export default async function StatisticsPage({
             <p>{t("Estado del servidor y de la aplicación")}</p>
           </div>
           <div className="stats-toolbar-actions">
-            <span className="stats-live">
+            <span className={`stats-live stats-live--${healthTone}`}>
               <span className="stats-live-dot" aria-hidden="true" />
-              {t("Operativo")}
+              {healthLabel}
             </span>
             <div className="stats-range" role="group" aria-label={t("Rango de tiempo")}>
               {(["6h", "24h", "7d"] as const).map((key) => (
@@ -519,6 +672,7 @@ export default async function StatisticsPage({
             icon={<Server size={13} aria-hidden="true" />}
             value={uptime}
             hint={`v${values.schemaVersion}`}
+            tone="green"
             id="stat-uptime"
             emptyLabel={emptyLabel}
           />
@@ -536,9 +690,14 @@ export default async function StatisticsPage({
             title={t("Carga (1 min)")}
             icon={<Cpu size={13} aria-hidden="true" />}
             value={host.load1 === null ? "—" : host.load1.toFixed(2)}
-            hint={`${host.cpuCount} CPU`}
+            hint={
+              loadRatio === null
+                ? `${host.cpuCount} CPU`
+                : `${host.cpuCount} CPU · ${formatPercent(loadRatio, locale)}`
+            }
+            gauge={loadRatio === null ? null : loadRatio * 100}
             series={series.load}
-            tone="purple"
+            tone={loadTone}
             id="stat-load"
             emptyLabel={emptyLabel}
           />
@@ -547,8 +706,14 @@ export default async function StatisticsPage({
             icon={<HardDrive size={13} aria-hidden="true" />}
             value={disk.value}
             unit={disk.unit}
+            hint={
+              diskUsedRatio === null
+                ? undefined
+                : `${formatPercent(diskUsedRatio, locale)} ${t("usado")}`
+            }
+            gauge={diskUsedRatio === null ? null : diskUsedRatio * 100}
             series={series.disk}
-            tone="cyan"
+            tone={diskTone}
             id="stat-disk"
             emptyLabel={emptyLabel}
           />
@@ -568,8 +733,9 @@ export default async function StatisticsPage({
             value={cpu.value}
             unit={cpu.unit}
             hint={`${host.cpuCount} CPU`}
+            gauge={cpuRatio === null ? null : cpuRatio * 100}
             series={series.cpu}
-            tone="purple"
+            tone={cpuTone}
             id="stat-cpu"
             emptyLabel={emptyLabel}
           />
@@ -593,7 +759,7 @@ export default async function StatisticsPage({
             value={formatNumber(errorTotal, locale)}
             hint={rangeLabel}
             series={series.errors}
-            tone="red"
+            tone={errorTone}
             id="stat-errors"
             emptyLabel={emptyLabel}
           />
@@ -605,7 +771,7 @@ export default async function StatisticsPage({
             unit={p95.unit}
             hint={rangeLabel}
             series={series.p95}
-            tone="orange"
+            tone={p95Tone}
             id="stat-p95"
             emptyLabel={emptyLabel}
           />
@@ -667,7 +833,7 @@ export default async function StatisticsPage({
             icon={<Clock size={13} aria-hidden="true" />}
             value={`${values.jobsOverdueMinutes} min`}
             series={series.delay}
-            tone="orange"
+            tone={delayTone}
             id="stat-delay"
             emptyLabel={emptyLabel}
           />
@@ -675,7 +841,7 @@ export default async function StatisticsPage({
             title={t("Última copia")}
             icon={<HardDrive size={13} aria-hidden="true" />}
             value={backup}
-            tone="neutral"
+            tone={backupTone}
             id="stat-backup"
             emptyLabel={emptyLabel}
           />
@@ -743,6 +909,7 @@ export default async function StatisticsPage({
             id="series-requests"
             format={(value) => formatNumber(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -755,6 +922,7 @@ export default async function StatisticsPage({
             id="series-errors"
             format={(value) => formatNumber(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -767,6 +935,7 @@ export default async function StatisticsPage({
             id="series-p95"
             format={(value) => formatMilliseconds(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -779,6 +948,7 @@ export default async function StatisticsPage({
             id="series-rss"
             format={(value) => formatBytes(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -791,6 +961,7 @@ export default async function StatisticsPage({
             id="series-load"
             format={(value) => formatFixed(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -803,6 +974,7 @@ export default async function StatisticsPage({
             id="series-wal"
             format={(value) => formatBytes(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -815,6 +987,7 @@ export default async function StatisticsPage({
             id="series-disk"
             format={(value) => formatBytes(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -827,6 +1000,7 @@ export default async function StatisticsPage({
             id="series-db"
             format={(value) => formatBytes(value, locale)}
             from={from}
+            mid={mid}
             to={to}
             t={t}
             emptyLabel={emptyLabel}
@@ -839,18 +1013,107 @@ export default async function StatisticsPage({
             id="series-requests-7d"
             format={(value) => formatNumber(value, locale)}
             from={from7d}
+            mid={mid7d}
             to={to7d}
             t={t}
             emptyLabel={emptyLabel}
             wide
           />
 
+          <article className="stats-panel stats-bars-panel stats-panel--green stats-col-12">
+            <header className="stats-panel-head">
+              <h3 className="stats-panel-title">
+                <BarChart3 size={13} aria-hidden="true" />
+                {range === "7d"
+                  ? t("Peticiones por día")
+                  : t("Peticiones por hora")}
+              </h3>
+              <span className="stats-panel-current">
+                {formatNumber(requestTotal, locale)}
+              </span>
+            </header>
+            <StatsBars
+              id="bars-requests"
+              values={requestBuckets.map((bucket) => bucket.total)}
+              labels={requestBuckets.map((bucket) => bucket.label)}
+              label={
+                range === "7d"
+                  ? t("Peticiones por día")
+                  : t("Peticiones por hora")
+              }
+              tone="green"
+              emptyLabel={emptyLabel}
+            />
+          </article>
+
+          <article className="stats-panel stats-status-panel stats-col-12">
+            <header className="stats-panel-head">
+              <h3 className="stats-panel-title">
+                <Activity size={13} aria-hidden="true" />
+                {t("Estado de las muestras")}
+              </h3>
+              <span className="stats-panel-sub">
+                {statusSamples.length} {t("Filas")} · {t("Cada 15 minutos")}
+              </span>
+            </header>
+            {statusSamples.length > 0 ? (
+              <>
+                <div className="stats-status-history">
+                  {statusSamples.map((sample, index) => {
+                    const errorDelta = statusErrors[index] ?? 0;
+                    const tone: StatsChartTone =
+                      sample.jobsFailed > 0 || errorDelta > 0
+                        ? "red"
+                        : (sample.p95Ms ?? 0) > 500
+                          ? "orange"
+                          : "green";
+                    const description = `${formatDate(sample.at, locale, "—")} · ${t("Errores")}: ${errorDelta} · ${t("Latencia p95")}: ${formatMilliseconds(sample.p95Ms, locale)}`;
+                    return (
+                      <span
+                        key={sample.at}
+                        className={`stats-status-cell stats-status-cell--${tone}`}
+                        role="img"
+                        aria-label={description}
+                        title={description}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="stats-status-legend">
+                  <span>
+                    <i
+                      className="stats-status-dot stats-status-dot--green"
+                      aria-hidden="true"
+                    />
+                    {t("Operativo")}
+                  </span>
+                  <span>
+                    <i
+                      className="stats-status-dot stats-status-dot--orange"
+                      aria-hidden="true"
+                    />
+                    {t("Latencia p95")}
+                  </span>
+                  <span>
+                    <i
+                      className="stats-status-dot stats-status-dot--red"
+                      aria-hidden="true"
+                    />
+                    {t("Errores")}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="stats-empty">{emptyLabel}</p>
+            )}
+          </article>
+
           <article className="stats-panel stats-table-panel stats-col-12">
             <header className="stats-panel-head">
-              <span className="stats-panel-title">
+              <h3 className="stats-panel-title">
                 <Clock size={13} aria-hidden="true" />
                 {t("Muestras recientes")}
-              </span>
+              </h3>
               <span className="stats-panel-sub">
                 {recent.length} {t("Filas")} · {t("Cada 15 minutos")}
               </span>

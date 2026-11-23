@@ -120,6 +120,28 @@
   box-shadow: 0 0 0 3px rgba(115, 191, 105, 0.14);
 }
 
+.stats-live--orange {
+  border-color: rgba(255, 152, 48, 0.32);
+  background: rgba(255, 152, 48, 0.08);
+  color: var(--gf-orange);
+}
+
+.stats-live--orange .stats-live-dot {
+  background: var(--gf-orange);
+  box-shadow: 0 0 0 3px rgba(255, 152, 48, 0.14);
+}
+
+.stats-live--red {
+  border-color: rgba(242, 73, 92, 0.34);
+  background: rgba(242, 73, 92, 0.09);
+  color: var(--gf-red);
+}
+
+.stats-live--red .stats-live-dot {
+  background: var(--gf-red);
+  box-shadow: 0 0 0 3px rgba(242, 73, 92, 0.15);
+}
+
 .stats-range {
   display: inline-flex;
   overflow: hidden;
@@ -206,6 +228,7 @@
 .stats-panel {
   position: relative;
   display: flex;
+  height: 100%;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
@@ -252,6 +275,7 @@
 }
 
 .stats-panel-title {
+  margin: 0;
   display: inline-flex;
   min-width: 0;
   align-items: center;
@@ -351,7 +375,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 1px 0;
+  padding: 1px 0 15px;
   color: var(--gf-text-faint);
   font-family: var(--gf-mono);
   font-size: 10px;
@@ -364,6 +388,29 @@
 .stats-chart {
   min-width: 0;
   color: var(--gf-green);
+}
+
+.stats-chart-plot {
+  min-width: 0;
+}
+
+.stats-chart-x {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 1px 0;
+  color: var(--gf-text-faint);
+  font-family: var(--gf-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-chart-x span:nth-child(2) {
+  text-align: center;
+}
+
+.stats-chart-x span:last-child {
+  text-align: right;
 }
 
 .stats-chart--green { color: var(--gf-green); }
@@ -392,6 +439,13 @@
 
 .stats-chart-grid line {
   stroke: rgba(216, 217, 218, 0.075);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.stats-chart-average {
+  stroke: rgba(216, 217, 218, 0.28);
+  stroke-dasharray: 4 4;
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
@@ -439,13 +493,7 @@
   padding: 5px 12px 9px;
   border-top: 1px solid var(--gf-border-weak);
   color: var(--gf-text-faint);
-  font-size: 10px;
-}
-
-.stats-chart-range {
-  font-family: var(--gf-mono);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  font-size: 11px;
 }
 
 .stats-chart-stats {
@@ -461,6 +509,119 @@
   font-family: var(--gf-mono);
   font-weight: 500;
 }
+
+.stats-gauge {
+  height: 4px;
+  margin: 0 12px 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.stats-gauge span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--panel-accent, var(--gf-text-faint));
+  opacity: 0.9;
+}
+
+.stats-bars {
+  padding: 8px 10px 0;
+}
+
+.stats-bars-x {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 1px 1px 9px;
+  color: var(--gf-text-faint);
+  font-family: var(--gf-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-bars-x span {
+  flex: 1;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-bars-x span:first-child {
+  text-align: left;
+}
+
+.stats-bars-x span:last-child {
+  text-align: right;
+}
+
+.stats-bar {
+  fill: currentColor;
+  opacity: 0.8;
+  transition: opacity 0.12s;
+}
+
+.stats-bar:hover {
+  opacity: 1;
+}
+
+.stats-status-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 10px 12px 4px;
+}
+
+.stats-status-cell {
+  flex: 1 1 8px;
+  min-width: 6px;
+  height: 24px;
+  border-radius: 1px;
+}
+
+.stats-status-cell--green {
+  background: rgba(115, 191, 105, 0.62);
+}
+
+.stats-status-cell--orange {
+  background: rgba(255, 152, 48, 0.62);
+}
+
+.stats-status-cell--red {
+  background: rgba(242, 73, 92, 0.68);
+}
+
+.stats-status-cell--neutral {
+  background: rgba(158, 163, 168, 0.4);
+}
+
+.stats-status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 0 12px 12px;
+  color: var(--gf-text-faint);
+  font-size: 11px;
+}
+
+.stats-status-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stats-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.stats-status-dot--green { background: var(--gf-green); }
+.stats-status-dot--orange { background: var(--gf-orange); }
+.stats-status-dot--red { background: var(--gf-red); }
 
 /* Filas con título, como las «rows» plegables de Grafana. */
 
@@ -652,6 +813,5 @@
 
   .stats-chart-meta {
     align-items: flex-start;
-    flex-direction: column;
   }
 }
