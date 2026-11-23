@@ -61,7 +61,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
 | `/cuenta` | Settings: profile, notifications, password, encryption, second factor, journey visibility, welcome tour, export and deletion. |
 | `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
-| `/admin/estadisticas` | Native operational dashboard for administrators: live metrics, 24 h/7 d history from `metrics_samples` and community figures. Requires an active second factor. |
+| `/admin/estadisticas` | Native operational dashboard for administrators, reachable from **Administration → Statistics**: live metrics, selectable 6 h/24 h/7 d history from `metrics_samples`, community figures and a Grafana-style panel grid. Requires an active second factor. |
 | `/datenschutz`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
 | `/techdoc` | Technical documentation page (Spanish, German and English). |

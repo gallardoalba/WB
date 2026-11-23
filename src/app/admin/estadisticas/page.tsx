@@ -2,14 +2,32 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Activity,
+  BarChart3,
+  ChevronDown,
+  Clock,
+  Cpu,
+  Database,
+  Ellipsis,
+  Gauge,
+  HardDrive,
+  MemoryStick,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 
-import { AdminSparkline } from "@/components/admin-sparkline";
 import { PageHeader, SiteShell } from "@/components/site-shell";
+import { StatsChart, type StatsChartTone } from "@/components/stats-chart";
 import { readBuildInfo } from "@/lib/build-info";
 import { getLocale } from "@/lib/i18n-server";
 import { translate } from "@/lib/i18n";
 import { hostMetrics } from "@/lib/host-metrics";
+import { localePath } from "@/lib/locale";
 import {
   latestBackupAt,
   listRecentMetricsSamples,
@@ -21,6 +39,21 @@ import { getCommunityMetrics, getTotpState } from "@/lib/repo";
 
 export const instant = false;
 
+type RangeKey = "6h" | "24h" | "7d";
+
+const RANGE_HOURS: Record<RangeKey, number> = { "6h": 6, "24h": 24, "7d": 168 };
+const RANGE_LIMIT: Record<RangeKey, number> = { "6h": 300, "24h": 600, "7d": 1_200 };
+const RANGE_LABEL: Record<RangeKey, string> = {
+  "6h": "Últimas 6 horas",
+  "24h": "Últimas 24 horas",
+  "7d": "Últimos 7 días",
+};
+
+function parseRange(value: string | string[] | undefined): RangeKey {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "6h" || raw === "7d" ? raw : "24h";
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return {
@@ -29,8 +62,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-function formatBytes(value: number | null | undefined, locale: string): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+type FormattedValue = { value: string; unit: string };
+
+function formatBytesParts(
+  value: number | null | undefined,
+  locale: string,
+): FormattedValue {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return { value: "—", unit: "" };
+  }
   const units = ["B", "KB", "MB", "GB", "TB"];
   let size = value;
   let unit = 0;
@@ -38,8 +78,15 @@ function formatBytes(value: number | null | undefined, locale: string): string {
     size /= 1024;
     unit += 1;
   }
-  const formatted = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(size);
-  return `${formatted} ${units[unit]}`;
+  return {
+    value: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(size),
+    unit: units[unit]!,
+  };
+}
+
+function formatBytes(value: number | null | undefined, locale: string): string {
+  const formatted = formatBytesParts(value, locale);
+  return formatted.unit ? `${formatted.value} ${formatted.unit}` : formatted.value;
 }
 
 function formatDuration(seconds: number): string {
@@ -55,15 +102,40 @@ function formatNumber(value: number, locale: string): string {
   return new Intl.NumberFormat(locale).format(value);
 }
 
-function formatMilliseconds(value: number | null, locale: string): string {
-  if (value === null) return "—";
-  const formatted = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
-  return `${formatted} ms`;
+function formatFixed(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
-function formatPercent(value: number | null, locale: string): string {
-  if (value === null) return "—";
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value * 100)} %`;
+function formatMillisecondsParts(
+  value: number | null,
+  locale: string,
+): FormattedValue {
+  if (value === null) return { value: "—", unit: "" };
+  return {
+    value: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value),
+    unit: "ms",
+  };
+}
+
+function formatMilliseconds(value: number | null, locale: string): string {
+  const formatted = formatMillisecondsParts(value, locale);
+  return formatted.unit ? `${formatted.value} ${formatted.unit}` : formatted.value;
+}
+
+function formatPercentParts(
+  value: number | null,
+  locale: string,
+): FormattedValue {
+  if (value === null) return { value: "—", unit: "" };
+  return {
+    value: new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
+      value * 100,
+    ),
+    unit: "%",
+  };
 }
 
 function formatDate(value: string | null, locale: string, empty: string): string {
@@ -72,6 +144,19 @@ function formatDate(value: string | null, locale: string, empty: string): string
   return Number.isNaN(date.getTime())
     ? empty
     : date.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+}
+
+function formatShortTime(
+  value: string | undefined,
+  locale: string,
+  longRange: boolean,
+): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return longRange
+    ? date.toLocaleDateString(locale, { day: "2-digit", month: "short" })
+    : date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
 function seriesOf(
@@ -95,27 +180,181 @@ function deltasOf(
   });
 }
 
-function Stat({
-  label,
+type SeriesStats = {
+  min: number;
+  max: number;
+  avg: number;
+  last: number;
+  count: number;
+};
+
+function seriesStats(values: readonly (number | null)[]): SeriesStats | null {
+  const finite = values.filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
+  if (finite.length === 0) return null;
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
+  const avg = finite.reduce((sum, value) => sum + value, 0) / finite.length;
+  return { min, max, avg, last: finite[finite.length - 1]!, count: finite.length };
+}
+
+function StatPanel({
+  title,
+  icon,
   value,
+  unit,
   hint,
+  series,
+  tone = "neutral",
+  span = 4,
+  id,
+  emptyLabel,
 }: {
-  label: string;
+  title: string;
+  icon?: ReactNode;
   value: string | number;
+  unit?: string;
   hint?: string;
+  series?: readonly (number | null)[];
+  tone?: StatsChartTone;
+  span?: 3 | 4;
+  id: string;
+  emptyLabel: string;
 }) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>
-        {value}
-        {hint ? <small>{hint}</small> : null}
-      </dd>
+    <article
+      className={`stats-panel stats-stat-panel stats-panel--${tone} stats-col-${span}`}
+    >
+      <header className="stats-panel-head">
+        <span className="stats-panel-title">
+          {icon}
+          {title}
+        </span>
+        <Ellipsis className="stats-panel-menu" size={14} aria-hidden="true" />
+      </header>
+      <div className="stats-stat-body">
+        <div className="stats-stat-main">
+          <strong className="stats-stat-value">{value}</strong>
+          {unit ? <span className="stats-stat-unit">{unit}</span> : null}
+        </div>
+        {hint ? <span className="stats-stat-hint">{hint}</span> : null}
+      </div>
+      {series ? (
+        <StatsChart
+          id={id}
+          values={series}
+          label={title}
+          tone={tone}
+          compact
+          emptyLabel={emptyLabel}
+        />
+      ) : null}
+    </article>
+  );
+}
+
+function TimeseriesPanel({
+  title,
+  icon,
+  values,
+  tone,
+  id,
+  format,
+  from,
+  to,
+  t,
+  emptyLabel,
+  wide = false,
+}: {
+  title: string;
+  icon?: ReactNode;
+  values: readonly (number | null)[];
+  tone: StatsChartTone;
+  id: string;
+  format: (value: number) => string;
+  from?: string;
+  to?: string;
+  t: (text: string) => string;
+  emptyLabel: string;
+  wide?: boolean;
+}) {
+  const stats = seriesStats(values);
+  return (
+    <article
+      className={`stats-panel stats-timeseries stats-panel--${tone} ${
+        wide ? "stats-col-12" : "stats-col-6"
+      }`}
+    >
+      <header className="stats-panel-head">
+        <span className="stats-panel-title">
+          {icon}
+          {title}
+        </span>
+        <span className="stats-panel-current">
+          {stats ? format(stats.last) : "—"}
+        </span>
+      </header>
+      <div className="stats-chart-body">
+        {stats ? (
+          <div className="stats-chart-y" aria-hidden="true">
+            <span>{format(stats.max)}</span>
+            <span>{format(stats.min)}</span>
+          </div>
+        ) : null}
+        <StatsChart
+          id={id}
+          values={values}
+          label={title}
+          tone={tone}
+          emptyLabel={emptyLabel}
+        />
+      </div>
+      {stats ? (
+        <div className="stats-chart-meta">
+          <span className="stats-chart-range">
+            {from}
+            {from && to ? " → " : ""}
+            {to}
+          </span>
+          <span className="stats-chart-stats">
+            <span>
+              {t("Mín.")} <b>{format(stats.min)}</b>
+            </span>
+            <span>
+              {t("Media")} <b>{format(stats.avg)}</b>
+            </span>
+            <span>
+              {t("Máx.")} <b>{format(stats.max)}</b>
+            </span>
+            <span>
+              {t("Actual")} <b>{format(stats.last)}</b>
+            </span>
+          </span>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function StatsRow({ title, icon }: { title: string; icon?: ReactNode }) {
+  return (
+    <div className="stats-row">
+      <span className="stats-row-title">
+        <ChevronDown size={13} aria-hidden="true" />
+        {icon}
+        {title}
+      </span>
+      <span className="stats-row-line" aria-hidden="true" />
     </div>
   );
 }
 
-export default async function StatisticsPage() {
+export default async function StatisticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await connection();
   const user = await requirePageUser("/admin/estadisticas");
   if (!user || !user.isAdmin) notFound();
@@ -123,10 +362,19 @@ export default async function StatisticsPage() {
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) =>
     translate(locale, text, vars);
+  const params = await searchParams;
+  const range = parseRange(params.range);
+  const refreshParam = Array.isArray(params.refresh)
+    ? params.refresh[0]
+    : params.refresh;
+  const nextRefresh = refreshParam === "1" ? "0" : "1";
+  const rangeLabel = t(RANGE_LABEL[range]);
+  const emptyLabel = t("Sin datos");
+  const basePath = localePath(locale, "/admin/estadisticas");
 
   if (process.env.NODE_ENV === "production" && !getTotpState(user.id).enabled) {
     return (
-      <SiteShell user={user} section="admin" title={t("Estadísticas")}>
+      <SiteShell user={user} section="admin-stats" title={t("Estadísticas")}>
         <PageHeader
           title={t("Estadísticas")}
           description={t("Estado del servidor y de la aplicación")}
@@ -162,187 +410,515 @@ export default async function StatisticsPage() {
   const values = metricsValues({ commit: readBuildInfo().commit });
   const host = hostMetrics();
   const community = getCommunityMetrics();
-  const samples24h = listRecentMetricsSamples(24, 200);
-  const samples7d = listRecentMetricsSamples(24 * 7, 1_000);
+  const windowSamples = listRecentMetricsSamples(
+    RANGE_HOURS[range],
+    RANGE_LIMIT[range],
+  );
+  const samples7d =
+    range === "7d" ? windowSamples : listRecentMetricsSamples(24 * 7, 1_000);
   const backupAt = latestBackupAt();
 
-  const charts = [
-    {
-      label: `${t("Peticiones")} · ${t("Últimas 24 horas")}`,
-      values: deltasOf(samples24h, "requests"),
-    },
-    {
-      label: `${t("Errores")} · ${t("Últimas 24 horas")}`,
-      values: deltasOf(samples24h, "errors"),
-    },
-    {
-      label: `${t("Latencia p95")} · ${t("Últimas 24 horas")}`,
-      values: seriesOf(samples24h, "p95Ms"),
-    },
-    {
-      label: `${t("Memoria (RSS)")} · ${t("Últimas 24 horas")}`,
-      values: seriesOf(samples24h, "rssBytes"),
-    },
-    {
-      label: `${t("WAL")} · ${t("Últimas 24 horas")}`,
-      values: seriesOf(samples24h, "walBytes"),
-    },
-    {
-      label: `${t("Disco libre")} · ${t("Últimas 24 horas")}`,
-      values: seriesOf(samples24h, "diskFreeBytes"),
-    },
-    {
-      label: `${t("Peticiones")} · ${t("Últimos 7 días")}`,
-      values: deltasOf(samples7d, "requests"),
-    },
-  ];
+  const series = {
+    requests: deltasOf(windowSamples, "requests"),
+    errors: deltasOf(windowSamples, "errors"),
+    requests7d: deltasOf(samples7d, "requests"),
+    p95: seriesOf(windowSamples, "p95Ms"),
+    rss: seriesOf(windowSamples, "rssBytes"),
+    heap: seriesOf(windowSamples, "heapUsedBytes"),
+    load: seriesOf(windowSamples, "load1"),
+    cpu: seriesOf(windowSamples, "processCpuRatio"),
+    wal: seriesOf(windowSamples, "walBytes"),
+    disk: seriesOf(windowSamples, "diskFreeBytes"),
+    db: seriesOf(windowSamples, "dbBytes"),
+    freePages: seriesOf(windowSamples, "freePages"),
+    jobs: seriesOf(windowSamples, "jobsPending"),
+    delay: seriesOf(windowSamples, "jobsOverdueMinutes"),
+    streams: seriesOf(windowSamples, "streams"),
+  };
 
-  const recent = samples24h.slice(-10).reverse();
+  const requestTotal = series.requests.reduce<number>(
+    (sum, value) => sum + (value ?? 0),
+    0,
+  );
+  const errorTotal = series.errors.reduce<number>(
+    (sum, value) => sum + (value ?? 0),
+    0,
+  );
+  const p95Last = seriesStats(series.p95)?.last ?? values.latency.p95;
+  const streamsLast = seriesStats(series.streams)?.last ?? values.streams;
+
+  const firstAt = windowSamples[0]?.at;
+  const lastAt = windowSamples[windowSamples.length - 1]?.at;
+  const from = formatShortTime(firstAt, locale, range === "7d");
+  const to = formatShortTime(lastAt, locale, range === "7d");
+  const from7d = formatShortTime(samples7d[0]?.at, locale, true);
+  const to7d = formatShortTime(
+    samples7d[samples7d.length - 1]?.at,
+    locale,
+    true,
+  );
+
+  const rss = formatBytesParts(values.rssBytes, locale);
+  const heap = formatBytesParts(values.heapUsedBytes, locale);
+  const disk = formatBytesParts(host.diskFreeBytes, locale);
+  const db = formatBytesParts(values.dbBytes, locale);
+  const wal = formatBytesParts(values.walBytes, locale);
+  const p95 = formatMillisecondsParts(p95Last, locale);
+  const cpu = formatPercentParts(host.processCpuRatio, locale);
+  const uptime = formatDuration(values.uptimeSeconds);
+  const backup = formatDate(backupAt, locale, t("Ninguna"));
+  const jobsTone: StatsChartTone = values.jobsFailed > 0 ? "red" : "yellow";
+  const recent = windowSamples.slice(-12).reverse();
 
   return (
-    <SiteShell user={user} section="admin" title={t("Estadísticas")}>
-      <PageHeader
-        title={t("Estadísticas")}
-        description={t("Estado del servidor y de la aplicación")}
-        aside={<span className="shelf-count">{t("Operativo")}</span>}
-      />
-
-      <p className="admin-nav">
-        <Link className="text-link" href="/admin">
-          {t("Volver a moderación")}
-        </Link>
-      </p>
-
-      <div className="admin-sections">
-        <section aria-labelledby="stats-server">
-          <h2 className="admin-title" id="stats-server">
-            {t("Servidor")}
-          </h2>
-          <dl className="aside-stats admin-stat-grid">
-            <Stat label={t("Uptime")} value={formatDuration(values.uptimeSeconds)} />
-            <Stat label={t("Memoria (RSS)")} value={formatBytes(values.rssBytes, locale)} />
-            <Stat label={t("Heap")} value={formatBytes(values.heapUsedBytes, locale)} />
-            <Stat
-              label={t("Carga (1 min)")}
-              value={host.load1 === null ? "—" : host.load1.toFixed(2)}
-              hint={`${host.cpuCount} CPU`}
-            />
-            <Stat label={t("Disco libre")} value={formatBytes(host.diskFreeBytes, locale)} />
-            <Stat label="CPU" value={formatPercent(host.processCpuRatio, locale)} />
-          </dl>
-        </section>
-
-        <section aria-labelledby="stats-app">
-          <h2 className="admin-title" id="stats-app">
-            {t("Aplicación")}
-          </h2>
-          <dl className="aside-stats admin-stat-grid">
-            <Stat label={t("Peticiones")} value={formatNumber(values.requests, locale)} />
-            <Stat label={t("Errores")} value={formatNumber(values.errors, locale)} />
-            <Stat label={t("Latencia p95")} value={formatMilliseconds(values.latency.p95, locale)} />
-            <Stat label={t("Conexiones SSE")} value={formatNumber(values.streams, locale)} />
-          </dl>
-        </section>
-
-        <section aria-labelledby="stats-db">
-          <h2 className="admin-title" id="stats-db">
-            {t("Base de datos")}
-          </h2>
-          <dl className="aside-stats admin-stat-grid">
-            <Stat label={t("Tamaño de la BD")} value={formatBytes(values.dbBytes, locale)} />
-            <Stat label={t("WAL")} value={formatBytes(values.walBytes, locale)} />
-            <Stat label={t("Páginas libres")} value={formatNumber(values.freePages, locale)} />
-            <Stat
-              label={t("Trabajos")}
-              value={`${t("Pendientes")}: ${values.jobsPending} · ${t("En curso")}: ${values.jobsRunning} · ${t("Fallidos")}: ${values.jobsFailed}`}
-            />
-            <Stat label={t("Retraso máximo")} value={`${values.jobsOverdueMinutes} min`} />
-            <Stat label={t("Última copia")} value={formatDate(backupAt, locale, t("Ninguna"))} />
-          </dl>
-        </section>
-
-        <section aria-labelledby="stats-community">
-          <h2 className="admin-title" id="stats-community">
-            {t("Métricas de comunidad")}
-          </h2>
-          <dl className="aside-stats admin-stat-grid">
-            <Stat label={t("Conversaciones")} value={formatNumber(community.conversations, locale)} />
-            <Stat
-              label={t("Con actividad en su 2.ª semana")}
-              value={formatNumber(community.retention7d, locale)}
-            />
-            <Stat
-              label={t("Libros disponibles")}
-              value={formatNumber(community.availableListings, locale)}
-            />
-            <Stat label={t("Solicitudes (30 d)")} value={formatNumber(community.requests30d, locale)} />
-            <Stat label={t("Completados (30 d)")} value={formatNumber(community.completed30d, locale)} />
-            <Stat
-              label={t("Completados por usuario activo (30 d)")}
-              value={
-                community.activeUsers30d > 0
-                  ? (community.completed30d / community.activeUsers30d).toFixed(2)
-                  : "—"
-              }
-            />
-          </dl>
-        </section>
-
-        <section aria-labelledby="stats-history">
-          <h2 className="admin-title" id="stats-history">
-            {t("Histórico")}
-          </h2>
-          {samples24h.length < 2 ? (
-            <p className="admin-empty">
-              {t(
-                "Sin histórico todavía. La primera muestra se guarda en el próximo mantenimiento.",
-              )}
-            </p>
-          ) : (
-            <div className="admin-sparkline-grid">
-              {charts.map((chart) => (
-                <div className="admin-sparkline-card" key={chart.label}>
-                  <span>{chart.label}</span>
-                  <AdminSparkline values={chart.values} label={chart.label} />
-                </div>
+    <SiteShell
+      user={user}
+      section="admin-stats"
+      title={t("Estadísticas")}
+      wide
+    >
+      <div className="stats-dashboard">
+        <header className="stats-toolbar">
+          <div className="stats-toolbar-title">
+            <span className="stats-toolbar-eyebrow">{t("Administración")}</span>
+            <h1>{t("Estadísticas")}</h1>
+            <p>{t("Estado del servidor y de la aplicación")}</p>
+          </div>
+          <div className="stats-toolbar-actions">
+            <span className="stats-live">
+              <span className="stats-live-dot" aria-hidden="true" />
+              {t("Operativo")}
+            </span>
+            <div className="stats-range" role="group" aria-label={t("Rango de tiempo")}>
+              {(["6h", "24h", "7d"] as const).map((key) => (
+                <Link
+                  key={key}
+                  className={range === key ? "stats-range-active" : undefined}
+                  href={`${basePath}?range=${key}`}
+                  aria-current={range === key ? "true" : undefined}
+                >
+                  {key === "6h" ? "6 h" : key === "24h" ? "24 h" : "7 d"}
+                </Link>
               ))}
             </div>
-          )}
-        </section>
+            <Link
+              className="stats-refresh"
+              href={`${basePath}?range=${range}&refresh=${nextRefresh}`}
+              aria-label={t("Actualizar")}
+              title={t("Actualizar")}
+            >
+              <RefreshCw size={15} />
+            </Link>
+          </div>
+        </header>
 
-        {recent.length > 0 ? (
-          <section aria-labelledby="stats-recent">
-            <h2 className="admin-title" id="stats-recent">
-              {t("Muestras recientes")}
-            </h2>
-            <div className="admin-table-scroll">
-              <table className="admin-sample-table">
-                <thead>
-                  <tr>
-                    <th>{t("Hora")}</th>
-                    <th>{t("Peticiones")}</th>
-                    <th>{t("Errores")}</th>
-                    <th>{t("Latencia p95")}</th>
-                    <th>{t("WAL")}</th>
-                    <th>{t("Fallidos")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((sample) => (
-                    <tr key={sample.at}>
-                      <td>{formatDate(sample.at, locale, "—")}</td>
-                      <td>{formatNumber(sample.requests, locale)}</td>
-                      <td>{formatNumber(sample.errors, locale)}</td>
-                      <td>{formatMilliseconds(sample.p95Ms, locale)}</td>
-                      <td>{formatBytes(sample.walBytes, locale)}</td>
-                      <td>{formatNumber(sample.jobsFailed, locale)}</td>
+        <div className="stats-grid">
+          <StatsRow title={t("Servidor")} icon={<Server size={13} aria-hidden="true" />} />
+          <StatPanel
+            title={t("Uptime")}
+            icon={<Server size={13} aria-hidden="true" />}
+            value={uptime}
+            hint={`v${values.schemaVersion}`}
+            id="stat-uptime"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Memoria (RSS)")}
+            icon={<MemoryStick size={13} aria-hidden="true" />}
+            value={rss.value}
+            unit={rss.unit}
+            series={series.rss}
+            tone="blue"
+            id="stat-rss"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Carga (1 min)")}
+            icon={<Cpu size={13} aria-hidden="true" />}
+            value={host.load1 === null ? "—" : host.load1.toFixed(2)}
+            hint={`${host.cpuCount} CPU`}
+            series={series.load}
+            tone="purple"
+            id="stat-load"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Disco libre")}
+            icon={<HardDrive size={13} aria-hidden="true" />}
+            value={disk.value}
+            unit={disk.unit}
+            series={series.disk}
+            tone="cyan"
+            id="stat-disk"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Heap")}
+            icon={<MemoryStick size={13} aria-hidden="true" />}
+            value={heap.value}
+            unit={heap.unit}
+            series={series.heap}
+            tone="blue"
+            id="stat-heap"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("CPU")}
+            icon={<Cpu size={13} aria-hidden="true" />}
+            value={cpu.value}
+            unit={cpu.unit}
+            hint={`${host.cpuCount} CPU`}
+            series={series.cpu}
+            tone="purple"
+            id="stat-cpu"
+            emptyLabel={emptyLabel}
+          />
+
+          <StatsRow title={t("Aplicación")} icon={<Activity size={13} aria-hidden="true" />} />
+          <StatPanel
+            title={t("Peticiones")}
+            span={3}
+            icon={<BarChart3 size={13} aria-hidden="true" />}
+            value={formatNumber(requestTotal, locale)}
+            hint={rangeLabel}
+            series={series.requests}
+            tone="green"
+            id="stat-requests"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Errores")}
+            span={3}
+            icon={<TriangleAlert size={13} aria-hidden="true" />}
+            value={formatNumber(errorTotal, locale)}
+            hint={rangeLabel}
+            series={series.errors}
+            tone="red"
+            id="stat-errors"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Latencia p95")}
+            span={3}
+            icon={<Gauge size={13} aria-hidden="true" />}
+            value={p95.value}
+            unit={p95.unit}
+            hint={rangeLabel}
+            series={series.p95}
+            tone="orange"
+            id="stat-p95"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Conexiones SSE")}
+            span={3}
+            icon={<Activity size={13} aria-hidden="true" />}
+            value={formatNumber(streamsLast, locale)}
+            hint={rangeLabel}
+            series={series.streams}
+            tone="blue"
+            id="stat-sse"
+            emptyLabel={emptyLabel}
+          />
+
+          <StatsRow title={t("Base de datos")} icon={<Database size={13} aria-hidden="true" />} />
+          <StatPanel
+            title={t("Tamaño de la BD")}
+            icon={<Database size={13} aria-hidden="true" />}
+            value={db.value}
+            unit={db.unit}
+            series={series.db}
+            tone="blue"
+            id="stat-db"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("WAL")}
+            icon={<Database size={13} aria-hidden="true" />}
+            value={wal.value}
+            unit={wal.unit}
+            series={series.wal}
+            tone="yellow"
+            id="stat-wal"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Páginas libres")}
+            icon={<Database size={13} aria-hidden="true" />}
+            value={formatNumber(values.freePages, locale)}
+            series={series.freePages}
+            tone="neutral"
+            id="stat-free-pages"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Trabajos")}
+            icon={<Clock size={13} aria-hidden="true" />}
+            value={formatNumber(values.jobsPending, locale)}
+            unit={t("Pendientes")}
+            hint={`${t("En curso")}: ${values.jobsRunning} · ${t("Fallidos")}: ${values.jobsFailed}`}
+            series={series.jobs}
+            tone={jobsTone}
+            id="stat-jobs"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Retraso máximo")}
+            icon={<Clock size={13} aria-hidden="true" />}
+            value={`${values.jobsOverdueMinutes} min`}
+            series={series.delay}
+            tone="orange"
+            id="stat-delay"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Última copia")}
+            icon={<HardDrive size={13} aria-hidden="true" />}
+            value={backup}
+            tone="neutral"
+            id="stat-backup"
+            emptyLabel={emptyLabel}
+          />
+
+          <StatsRow title={t("Métricas de comunidad")} icon={<Users size={13} aria-hidden="true" />} />
+          <StatPanel
+            title={t("Conversaciones")}
+            icon={<Users size={13} aria-hidden="true" />}
+            value={formatNumber(community.conversations, locale)}
+            tone="blue"
+            id="stat-conversations"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Con actividad en su 2.ª semana")}
+            icon={<Users size={13} aria-hidden="true" />}
+            value={formatNumber(community.retention7d, locale)}
+            tone="green"
+            id="stat-retention"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Libros disponibles")}
+            icon={<BarChart3 size={13} aria-hidden="true" />}
+            value={formatNumber(community.availableListings, locale)}
+            tone="green"
+            id="stat-books"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Solicitudes (30 d)")}
+            icon={<Activity size={13} aria-hidden="true" />}
+            value={formatNumber(community.requests30d, locale)}
+            tone="yellow"
+            id="stat-requests-30d"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Completados (30 d)")}
+            icon={<Activity size={13} aria-hidden="true" />}
+            value={formatNumber(community.completed30d, locale)}
+            tone="green"
+            id="stat-completed-30d"
+            emptyLabel={emptyLabel}
+          />
+          <StatPanel
+            title={t("Completados por usuario activo (30 d)")}
+            icon={<Gauge size={13} aria-hidden="true" />}
+            value={
+              community.activeUsers30d > 0
+                ? (community.completed30d / community.activeUsers30d).toFixed(2)
+                : "—"
+            }
+            tone="neutral"
+            id="stat-completed-ratio"
+            emptyLabel={emptyLabel}
+          />
+
+          <StatsRow title={t("Series temporales")} icon={<BarChart3 size={13} aria-hidden="true" />} />
+          <TimeseriesPanel
+            title={`${t("Peticiones")} · ${rangeLabel}`}
+            icon={<BarChart3 size={13} aria-hidden="true" />}
+            values={series.requests}
+            tone="green"
+            id="series-requests"
+            format={(value) => formatNumber(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Errores")} · ${rangeLabel}`}
+            icon={<TriangleAlert size={13} aria-hidden="true" />}
+            values={series.errors}
+            tone="red"
+            id="series-errors"
+            format={(value) => formatNumber(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Latencia p95")} · ${rangeLabel}`}
+            icon={<Gauge size={13} aria-hidden="true" />}
+            values={series.p95}
+            tone="orange"
+            id="series-p95"
+            format={(value) => formatMilliseconds(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Memoria (RSS)")} · ${rangeLabel}`}
+            icon={<MemoryStick size={13} aria-hidden="true" />}
+            values={series.rss}
+            tone="blue"
+            id="series-rss"
+            format={(value) => formatBytes(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Carga (1 min)")} · ${rangeLabel}`}
+            icon={<Cpu size={13} aria-hidden="true" />}
+            values={series.load}
+            tone="purple"
+            id="series-load"
+            format={(value) => formatFixed(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("WAL")} · ${rangeLabel}`}
+            icon={<Database size={13} aria-hidden="true" />}
+            values={series.wal}
+            tone="yellow"
+            id="series-wal"
+            format={(value) => formatBytes(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Disco libre")} · ${rangeLabel}`}
+            icon={<HardDrive size={13} aria-hidden="true" />}
+            values={series.disk}
+            tone="cyan"
+            id="series-disk"
+            format={(value) => formatBytes(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Tamaño de la BD")} · ${rangeLabel}`}
+            icon={<Database size={13} aria-hidden="true" />}
+            values={series.db}
+            tone="blue"
+            id="series-db"
+            format={(value) => formatBytes(value, locale)}
+            from={from}
+            to={to}
+            t={t}
+            emptyLabel={emptyLabel}
+          />
+          <TimeseriesPanel
+            title={`${t("Peticiones")} · ${t("Últimos 7 días")}`}
+            icon={<BarChart3 size={13} aria-hidden="true" />}
+            values={series.requests7d}
+            tone="green"
+            id="series-requests-7d"
+            format={(value) => formatNumber(value, locale)}
+            from={from7d}
+            to={to7d}
+            t={t}
+            emptyLabel={emptyLabel}
+            wide
+          />
+
+          <article className="stats-panel stats-table-panel stats-col-12">
+            <header className="stats-panel-head">
+              <span className="stats-panel-title">
+                <Clock size={13} aria-hidden="true" />
+                {t("Muestras recientes")}
+              </span>
+              <span className="stats-panel-sub">
+                {recent.length} {t("Filas")} · {t("Cada 15 minutos")}
+              </span>
+            </header>
+            {recent.length > 0 ? (
+              <div className="stats-table-wrap">
+                <table className="stats-table">
+                  <thead>
+                    <tr>
+                      <th>{t("Hora")}</th>
+                      <th>{t("Peticiones")}</th>
+                      <th>{t("Errores")}</th>
+                      <th>{t("Latencia p95")}</th>
+                      <th>{t("WAL")}</th>
+                      <th>{t("Fallidos")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
+                  </thead>
+                  <tbody>
+                    {recent.map((sample) => {
+                      const p95Tone: StatsChartTone =
+                        sample.p95Ms === null
+                          ? "neutral"
+                          : sample.p95Ms > 1_000
+                            ? "red"
+                            : sample.p95Ms > 500
+                              ? "orange"
+                              : "green";
+                      return (
+                        <tr key={sample.at}>
+                          <td className="stats-table-time">
+                            {formatDate(sample.at, locale, "—")}
+                          </td>
+                          <td>{formatNumber(sample.requests, locale)}</td>
+                          <td>
+                            <span
+                              className={`stats-badge stats-badge--${
+                                sample.errors > 0 ? "red" : "green"
+                              }`}
+                            >
+                              {formatNumber(sample.errors, locale)}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`stats-badge stats-badge--${p95Tone}`}>
+                              {formatMilliseconds(sample.p95Ms, locale)}
+                            </span>
+                          </td>
+                          <td>{formatBytes(sample.walBytes, locale)}</td>
+                          <td>
+                            <span
+                              className={`stats-badge stats-badge--${
+                                sample.jobsFailed > 0 ? "red" : "green"
+                              }`}
+                            >
+                              {formatNumber(sample.jobsFailed, locale)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="stats-empty">{emptyLabel}</p>
+            )}
+          </article>
+        </div>
       </div>
     </SiteShell>
   );

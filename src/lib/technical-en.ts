@@ -100,7 +100,7 @@ export const EN: TechnicalDocument = {
             ["`/u/[id]`", "Public profile: biography, figures, reviews, shelf and following."],
             ["`/cuenta`", "Settings: profile, notifications, password, encryption, second factor, export and deletion."],
             ["`/admin`", "Community moderation; requires an active second factor."],
-            ["`/admin/estadisticas`", "Native statistics dashboard; requires an active second factor."],
+            ["`/admin/estadisticas`", "Native statistics dashboard with a 6 h/24 h/7 d range; requires an active second factor."],
             ["`/datenschutz`, `/aviso-legal`", "Privacy policy (art. 13 GDPR) and legal notice (§ 5 DDG)."],
             ["`/verificar`, `/restablecer`", "Email confirmation and a new password from the link."],
             ["`/techdoc`", "This page."],
