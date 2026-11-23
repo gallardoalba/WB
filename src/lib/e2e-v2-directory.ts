@@ -145,6 +145,16 @@ export async function verifyDeviceProof(
   if (!proof.line.startsWith(prefix)) {
     return { ok: false, reason: "La prueba es de otra cuenta o de otro dispositivo." };
   }
+  // La línea lleva el estado de retirada en el último campo: `revoked:-` es
+  // activo. Sin esta comprobación, la prueba de un aparato retirado —que sigue
+  // en el árbol— se aceptaría como si estuviera vivo.
+  const fields = proof.line.split("|");
+  if (fields.length !== 5) {
+    return { ok: false, reason: "La línea del directorio no tiene el formato esperado." };
+  }
+  if (fields[4] !== "revoked:-") {
+    return { ok: false, reason: "Ese dispositivo está retirado en el directorio." };
+  }
   if (!Number.isSafeInteger(snapshot.itemCount) || proof.index >= snapshot.itemCount) {
     return { ok: false, reason: "La prueba apunta fuera de la instantánea." };
   }

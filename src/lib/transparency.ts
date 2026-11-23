@@ -552,17 +552,69 @@ export function keyDirectoryLines(db: Db = getDb()): string[] {
     .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
   const devices = db
     .prepare(
-      `SELECT user_id, device_id, identity_key, updated_at FROM device_keys
+      `SELECT user_id, device_id, identity_key, updated_at, revoked_at FROM device_keys
         ORDER BY user_id, device_id`,
     )
-    .all() as { user_id: string; device_id: string; identity_key: string; updated_at: string }[];
+    .all() as {
+    user_id: string;
+    device_id: string;
+    identity_key: string;
+    updated_at: string;
+    revoked_at: string | null;
+  }[];
 
   return [
-    ...slots.map((row) => `${row.user_id}|${row.platform}|${row.key_id}|${row.updated_at}`),
-    ...devices.map(
-      (row) => `${row.user_id}|device:${row.device_id}|${row.identity_key}|${row.updated_at}`,
+    ...slots.map((row) => slotDirectoryLine({
+      userId: row.user_id,
+      platform: row.platform,
+      keyId: row.key_id,
+      updatedAt: row.updated_at,
+    })),
+    ...devices.map((row) =>
+      deviceDirectoryLine({
+        userId: row.user_id,
+        deviceId: row.device_id,
+        identityKey: row.identity_key,
+        updatedAt: row.updated_at,
+        revokedAt: row.revoked_at,
+      }),
     ),
   ];
+}
+
+/**
+ * Línea canónica de un dispositivo en el directorio.
+ *
+ * Lleva el estado de retirada: sin él, la prueba de inclusión demuestra que el
+ * aparato *estuvo* en el directorio, nunca que siga activo, y un servidor podía
+ * presentar la línea de uno retirado como si valiera. `revoked:-` es activo; con
+ * fecha, retirado. Se construye en un solo sitio para que el alta, la retirada y
+ * la instantánea no puedan escribir formatos distintos.
+ */
+export function deviceDirectoryLine(input: {
+  userId: string;
+  deviceId: string;
+  identityKey: string;
+  updatedAt: string;
+  revokedAt: string | null;
+}): string {
+  return [
+    input.userId,
+    `device:${input.deviceId}`,
+    input.identityKey,
+    input.updatedAt,
+    `revoked:${input.revokedAt ?? "-"}`,
+  ].join("|");
+}
+
+/** Línea canónica de una ranura de v1. */
+export function slotDirectoryLine(input: {
+  userId: string;
+  platform: string;
+  keyId: string;
+  updatedAt: string;
+}): string {
+  return [input.userId, input.platform, input.keyId, input.updatedAt].join("|");
 }
 
 export function keySnapshotMessage(

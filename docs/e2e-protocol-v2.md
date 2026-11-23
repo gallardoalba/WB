@@ -260,8 +260,12 @@ Merkle root, a hash chain, and per-account inclusion proofs
 Committed today (`keyDirectoryLines`):
 
 - each v1 platform slot: `account|slot|fingerprint|updated_at`;
-- each v2 device: `account|device:<device_id>|<identity_key>|updated_at`,
-  revocations included through the same `updated_at`.
+- each v2 device:
+  `account|device:<device_id>|<identity_key>|updated_at|revoked:<date|->`.
+  The last field is what makes inclusion mean something about *state*: without
+  it a proof only shows the device was once in the directory, so the leaf of a
+  revoked device would verify forever. The client refuses anything that is not
+  `revoked:-`, and says so instead of opening a session.
 
 What the client checks before trusting a device (`verifyDeviceProof`):
 
@@ -276,6 +280,8 @@ What the client checks before trusting a device (`verifyDeviceProof`):
   interpreted;
 - the line walks up to the snapshot root and the snapshot is signed by the
   operator key pinned on first use;
+- the device is **active** in that line (`revoked:-`), not merely present: the
+  directory keeps history, so a revoked device is still in the tree;
 - the snapshot is **not older** than the last one this device already used. A
   replay of a directory from before a revocation is signed and included, so this
   is the cheap check that stops it; a *new* snapshot that lies about a

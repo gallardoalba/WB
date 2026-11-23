@@ -53,6 +53,27 @@ function claveDeFirma() {
   return transparency.signingKey(base64)!;
 }
 
+/** La cabecera pública de una instantánea, como la sirve la ruta. */
+function cabeceraDe(snapshot: {
+  id: string;
+  createdAt: string;
+  itemCount: number;
+  merkleRoot: string;
+  previousRoot: string | null;
+  signature: string | null;
+  publicKey: string | null;
+}): KeySnapshotHeader {
+  return {
+    id: snapshot.id,
+    createdAt: snapshot.createdAt,
+    itemCount: snapshot.itemCount,
+    merkleRoot: snapshot.merkleRoot,
+    previousRoot: snapshot.previousRoot,
+    signature: snapshot.signature,
+    publicKey: snapshot.publicKey,
+  };
+}
+
 async function dispositivoPublicado(userId: string, deviceId = "dispositivo-directorio-1") {
   const account = await v2.createAccount(2);
   const signed = v2.deviceKeys(account, deviceId);
@@ -218,6 +239,47 @@ test("una prueba mal formada se rechaza sin calcular hashes", async () => {
     "un índice fuera del árbol no vale",
   );
   assert.equal((await verifyDeviceProof(base, cabecera, esperado)).ok, true);
+});
+
+test("la prueba de un dispositivo retirado no se acepta como si estuviera activo", async () => {
+  // El aparato sigue en el árbol —el directorio es un histórico—, así que la
+  // inclusión verifica; lo que dice que ya no vale es el estado de la línea.
+  const elena = cuenta("Elena Retirada");
+  const deviceId = "dispositivo-retirado-1";
+  const { identityKey } = await dispositivoPublicado(elena, deviceId);
+
+  const alPublicar = transparency.createKeySnapshot(db.getDb(), {
+    key: claveDeFirma(),
+    now: "2027-07-01T00:00:00.000Z",
+  });
+  assert.equal(
+    (await verifyDeviceProof(
+      (() => {
+        const proof = transparency.keyInclusion(elena, `device:${deviceId}`)!;
+        return { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root };
+      })(),
+      cabeceraDe(alPublicar),
+      { userId: elena, deviceId, identityKey },
+    )).ok,
+    true,
+    "recién publicado, vale",
+  );
+
+  repo.revokeDevice(elena, deviceId);
+  const trasRetirar = transparency.createKeySnapshot(db.getDb(), {
+    key: claveDeFirma(),
+    now: "2027-07-02T00:00:00.000Z",
+  });
+  const prueba = transparency.keyInclusion(elena, `device:${deviceId}`)!;
+  assert.match(prueba.line, /\|revoked:\d{4}-/, "la línea lleva la fecha de retirada");
+
+  const tras = await verifyDeviceProof(
+    { line: prueba.line, index: prueba.index, branch: prueba.branch, root: prueba.root },
+    cabeceraDe(trasRetirar),
+    { userId: elena, deviceId, identityKey },
+  );
+  assert.equal(tras.ok, false);
+  assert.match(tras.reason ?? "", /retirado/);
 });
 
 test("una instantánea sin firma o con otra clave no verifica", async () => {
