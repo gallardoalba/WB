@@ -153,7 +153,11 @@ export async function activateV2(userId: string, password?: string): Promise<Ses
   if (!v2Supported() || !store) {
     throw new Error("Este navegador no puede guardar la clave de cifrado.");
   }
-  const created = await openDevice({ userId, store, api: httpApi, password });
+  // Dentro del cerrojo: dos pestañas activando a la vez publicarían dos
+  // dispositivos y la segunda pisaría el estado de la primera.
+  const created = await withLock(userId, () =>
+    openDevice({ userId, store, api: httpApi, password }),
+  );
   session = created;
   return created;
 }

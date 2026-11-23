@@ -75,8 +75,15 @@ export type DeviceApi = {
    * a cada uno. Para los propios es lo que dispara la reposición.
    */
   ownDevices(userId: string): Promise<{ deviceId: string; oneTimeKeys: number }[]>;
-  /** Prueba de que el dispositivo está en la última instantánea firmada. */
-  deviceProof?(
+  /**
+   * Prueba de que el dispositivo está en la última instantánea firmada.
+   *
+   * Es **obligatoria**: sin ella no se abre sesión. Dejarla opcional hacía que
+   * un adaptador incompleto —o una integración futura— desactivara en silencio
+   * la comprobación del directorio, que es la que impide confiar en la lista de
+   * dispositivos que sirve el servidor.
+   */
+  deviceProof(
     userId: string,
     deviceId: string,
   ): Promise<{ proof: DeviceProof; snapshot: KeySnapshotHeader }>;
@@ -252,10 +259,18 @@ async function assertInDirectory(
   peerUserId: string,
   device: { deviceId: string; identityKey: string },
 ): Promise<void> {
-  if (!api.deviceProof) return;
   if (session.state.verified?.includes(device.deviceId)) return;
 
-  const { proof, snapshot } = await api.deviceProof(peerUserId, device.deviceId);
+  // El tipo ya la exige, pero un adaptador escrito en JavaScript puede omitirla:
+  // sin prueba no hay sesión, en vez de seguir como si el directorio cuadrara.
+  const answer: { proof: DeviceProof; snapshot: KeySnapshotHeader } | null | undefined =
+    await api.deviceProof?.(peerUserId, device.deviceId);
+  if (!answer?.proof || !answer.snapshot) {
+    throw new Error(
+      "El servidor no ha dado prueba de que ese dispositivo esté en el directorio firmado.",
+    );
+  }
+  const { proof, snapshot } = answer;
   const result = await verifyDeviceProof(proof, snapshot, device.identityKey);
   if (!result.ok) {
     throw new Error(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
@@ -444,8 +459,13 @@ async function acceptFromRegistry(
   envelope: { type: number; body: string },
 ): Promise<v2.OlmSession> {
   await assertInDirectory(session, api, peerUserId, device);
+  // El par completo, como en el camino de envío: comprobar solo la identidad
+  // dejaba cambiar la clave de firma sin que se notara.
   const pinned = session.state.pins[device.deviceId];
-  if (pinned && pinned.identityKey !== device.identityKey) {
+  if (
+    pinned &&
+    (pinned.identityKey !== device.identityKey || pinned.signingKey !== device.signingKey)
+  ) {
     throw new Error("El dispositivo de la otra persona ha cambiado de clave sin avisar.");
   }
   session.state.pins[device.deviceId] = {

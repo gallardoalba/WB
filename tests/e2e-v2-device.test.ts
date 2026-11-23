@@ -11,6 +11,7 @@
 import "./olm-setup.ts";
 
 import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
 import { before, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
@@ -20,6 +21,7 @@ import "./olm-setup.ts";
 import type { DeviceApi, DeviceState, DeviceStore } from "../src/lib/e2e-v2-device.ts";
 import { decryptThread, encryptForDevices, openDevice } from "../src/lib/e2e-v2-device.ts";
 import { hashPasswordSync } from "../src/lib/password.ts";
+import * as transparency from "../src/lib/transparency.ts";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
 type DbModule = typeof import("../src/lib/db/index.ts");
@@ -36,6 +38,36 @@ const PASSWORD = "una-contraseña-larga";
 
 /** La API actúa como la cuenta de la sesión, igual que `route()`. */
 let currentUser: string;
+
+/**
+ * Clave del operador para las instantáneas del directorio.
+ *
+ * Sin una instantánea **firmada** la prueba de inclusión no vale, y la prueba es
+ * obligatoria: este es el adversario que se comporta bien, el que firma lo que
+ * publica.
+ */
+const { privateKey: OPERATOR_KEY } = generateKeyPairSync("ed25519");
+const SIGNING_KEY = transparency.signingKey(
+  Buffer.from(OPERATOR_KEY.export({ format: "der", type: "pkcs8" })).toString("base64"),
+)!;
+
+/** Instantánea nueva y prueba del dispositivo: lo que da un servidor honrado. */
+function deviceProof(userId: string, deviceId: string) {
+  const snapshot = transparency.createKeySnapshot(db.getDb(), { key: SIGNING_KEY });
+  const proof = transparency.keyInclusion(userId, `device:${deviceId}`)!;
+  return {
+    proof: { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root },
+    snapshot: {
+      id: snapshot.id,
+      createdAt: snapshot.createdAt,
+      itemCount: snapshot.itemCount,
+      merkleRoot: snapshot.merkleRoot,
+      previousRoot: snapshot.previousRoot,
+      signature: snapshot.signature,
+      publicKey: snapshot.publicKey,
+    },
+  };
+}
 
 function api(): DeviceApi {
   return {
@@ -71,6 +103,9 @@ function api(): DeviceApi {
       const bundle = repo.claimOneTimeKey(userId, deviceId);
       if (!bundle?.oneTimeKey) throw new Error("Sin claves de un solo uso.");
       return { ...bundle, oneTimeKey: bundle.oneTimeKey };
+    },
+    async deviceProof(userId, deviceId) {
+      return deviceProof(userId, deviceId);
     },
   };
 }
@@ -244,6 +279,54 @@ test("un dispositivo que cambia de clave se rechaza en vez de aceptarse", async 
   await enviar(deAna, hilo, bruno, "segundo");
 
   await assert.rejects(() => recibir(deBruno, hilo, ana), /cambiado de clave/);
+});
+
+test("cambiar solo la clave de firma también se rechaza", async () => {
+  // El pin guardaba el par completo, pero la recepción solo comparaba la
+  // identidad: un cambio de `signing_key` pasaba desapercibido.
+  const ana = cuenta("Ana Firma");
+  const bruno = cuenta("Bruno Firma");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-05");
+  const deBruno = await abrir(bruno, "dispositivo-de-bruno-5");
+
+  await enviar(deAna, hilo, bruno, "primero");
+  await recibir(deBruno, hilo, ana);
+
+  db.getDb()
+    .prepare("UPDATE device_keys SET signing_key = ? WHERE device_id = ?")
+    .run("Z".repeat(43), "dispositivo-de-ana-05");
+
+  deAna.session.state.sessions = {};
+  await enviar(deAna, hilo, bruno, "segundo");
+
+  await assert.rejects(() => recibir(deBruno, hilo, ana), /cambiado de clave/);
+});
+
+test("sin la prueba del directorio no se abre sesión", async () => {
+  // El adaptador incompleto se rechaza en vez de seguir sin comprobar el
+  // directorio firmado: la verificación es obligatoria, no opcional.
+  const ana = cuenta("Ana Sin Prueba");
+  const bruno = cuenta("Bruno Sin Prueba");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-06");
+  await abrir(bruno, "dispositivo-de-bruno-6");
+
+  const sinPrueba = { ...api() } as DeviceApi;
+  delete (sinPrueba as { deviceProof?: unknown }).deviceProof;
+
+  currentUser = ana;
+  await assert.rejects(
+    () =>
+      encryptForDevices({
+        session: deAna.session,
+        api: sinPrueba,
+        conversation: `request:${hilo}`,
+        text: "sin directorio",
+        peerUserId: bruno,
+      }),
+    /directorio firmado/,
+  );
 });
 
 test("abrir el dispositivo dos veces reutiliza el que ya hay", async () => {

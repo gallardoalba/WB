@@ -242,9 +242,12 @@ checks every signature and both hash chains, and appends one line per snapshot
 (`id`, `createdAt`, `merkleRoot`, `previousRoot`, `itemCount`, `signature`,
 `publicKey`, `seenAt`) to a JSONL file; `--check` re-verifies without writing and
 fails if a pinned root changed, a signature changed, a snapshot disappeared or a
-chain broke. The daily `testigo` workflow runs it and keeps the file as an
-artifact — which only counts as evidence if it is also copied **outside** the
-instance: an artifact that only the witness holds is worth nothing once the
+chain broke. The daily `testigo` workflow runs it, **recovers the file from the
+previous successful run** (otherwise the comparison would only span the
+snapshots of one day, which is useless for detection) and keeps it as an
+artifact; if there is history and it cannot be recovered, the run fails instead
+of pretending it is the first day. An artifact only counts as evidence if it is
+also copied **outside** the instance: an artifact that only the witness holds is worth nothing once the
 witness is the one being watched. Until those copies exist, and until
 consistency proofs land, the log still detects substitution only the day
 somebody diffs two roots; §2's bundle signature is what makes a substitution
@@ -366,10 +369,10 @@ Shipped in this release:
 | `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | the static scan in `tests/route.test.ts` (wrapper, quota and origin for every route file) plus the repository behind them in `tests/devices.test.ts` |
 | Device keys in the signed key directory | `src/lib/transparency.ts` | `tests/key-transparency.test.ts` |
 | Envelopes carried inside each message (v1 slot or v2 device), refused from outsiders | `src/lib/repo/shared.ts`, `requests.ts`, `direct.ts`, migration v71 | `tests/message-v2.test.ts` |
-| Client: open the device, send to every device, decrypt and acknowledge, pin peers | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
+| Client: open the device, send to every device, decrypt and acknowledge, pin peers (the **full pair**, identity and signing key, on both the send and the receive path) | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
 | Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
-| Client check that a device is in the signed directory (inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
+| Client check that a device is in the signed directory (mandatory: without proof no session is opened; inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
 | One-time keys replenished on their own when the device runs low | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Cap that keeps the fan-out affordable: 5 devices per account | `src/lib/repo/devices.ts` | `tests/devices.test.ts` |
 | Device state serialised across tabs (`navigator.locks`), re-read inside the lock | `src/lib/e2e-v2-chat.ts` | `tests/e2e-v2-locks.test.ts` |
