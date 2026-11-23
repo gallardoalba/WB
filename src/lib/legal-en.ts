@@ -107,7 +107,7 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
         heading: "5. Cookies and local storage",
         body: [
           "Two technical cookies and no others: the session cookie (HttpOnly, Secure, SameSite=Lax, 14 days) for sign-in and, only after a manual language change, the language preference (1 year). Neither is used for advertising or analytics, and both are strictly necessary to provide the service (Germany: § 25(2) TDDDG; Austria: § 165(3) TKG 2021).",
-          "The browser retains the chosen theme, dismissed onboarding tour and checklist, and messaging-key fingerprints until site data is cleared. These values are not sent to the server.",
+          "The browser retains the chosen theme, dismissed onboarding tour and messaging-key fingerprints until site data is cleared; these values are not sent to the server. The dismissed checklist is stored in the account.",
           "For end-to-end encryption, the browser stores a non-exportable private key in IndexedDB. The server does not receive it; the application can use it for cryptographic operations. After account deletion, the local key remains until the browser's site data is cleared.",
           "In production, a service worker is registered automatically; it does not cache page responses and supports Push. A Push subscription is created only after activation and browser permission; that permission does not replace information about data processing.",
           ...(config.webPushEnabled

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   ArrowDownUp,
+  BarChart3,
   BookOpen,
   Compass,
   Heart,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import type { SessionUser, View } from "@/lib/domain";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
+import { localePath } from "@/lib/locale";
 import { AccountMenu } from "./account-menu";
 import { useI18n } from "./i18n-provider";
 
@@ -44,7 +46,7 @@ export function AppSidebar({
   /** Adelantar la descarga de una vista al pasar por encima. */
   onPrefetch?: (view: View) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const privateClass = (active: boolean, locked: boolean) =>
     ["nav-item", active ? "active" : "", locked ? "locked" : ""].filter(Boolean).join(" ");
   /**
@@ -156,6 +158,15 @@ export function AppSidebar({
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>
+          {user.isAdmin ? (
+            <Link
+              className="nav-item"
+              href={localePath(locale, "/admin/estadisticas")}
+            >
+              <BarChart3 size={18} />
+              <span>{t("Estadísticas")}</span>
+            </Link>
+          ) : null}
         </nav>
       ) : null}
 

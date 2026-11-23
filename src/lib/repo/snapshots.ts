@@ -137,6 +137,7 @@ const NO_ONBOARDING: OnboardingProgress = {
   published: false,
   requested: false,
   following: false,
+  dismissed: false,
 };
 
 /**
@@ -166,5 +167,6 @@ function onboardingProgress(
     published: published > 0,
     requested: Boolean(row?.requested),
     following: Boolean(row?.following),
+    dismissed: user.onboardingChecklistDismissed,
   };
 }
