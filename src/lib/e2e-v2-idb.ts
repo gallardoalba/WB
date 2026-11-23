@@ -45,17 +45,51 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-/** Clave local de cifrado: aleatoria, no exportable y guardada en IndexedDB. */
+/** Lee la clave local, si ya existe. */
+async function readLocalKey(db: IDBDatabase): Promise<CryptoKey | undefined> {
+  return (await request(
+    db.transaction(KEY_STORE, "readonly").objectStore(KEY_STORE).get("local"),
+  )) as CryptoKey | undefined;
+}
+
+/**
+ * Clave local de cifrado: aleatoria, no exportable y guardada en IndexedDB.
+ *
+ * La creación es **atómica**: dos pestañas que abren el dispositivo a la vez
+ * pueden no encontrar la clave y generar una cada una; la segunda vuelve a leer
+ * dentro de la misma transacción de escritura y se queda con la que guardó la
+ * primera. Sin eso, una de las dos cifraba el estado con una clave que ya no
+ * estaba en IndexedDB y el dispositivo dejaba de abrirse.
+ *
+ * La clave se genera **antes** de abrir la transacción a propósito: una
+ * transacción de IndexedDB se cierra si se queda sin peticiones pendientes, y
+ * `generateKey` es asíncrono.
+ */
 async function localKey(db: IDBDatabase): Promise<CryptoKey> {
-  const store = db.transaction(KEY_STORE, "readwrite").objectStore(KEY_STORE);
-  const existing = (await request(store.get("local"))) as CryptoKey | undefined;
+  const existing = await readLocalKey(db);
   if (existing) return existing;
-  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, [
+
+  const candidate = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, [
     "encrypt",
     "decrypt",
   ]);
-  await request(store.put(key, "local"));
-  return key;
+
+  return new Promise<CryptoKey>((resolve, reject) => {
+    const store = db.transaction(KEY_STORE, "readwrite").objectStore(KEY_STORE);
+    const current = store.get("local");
+    current.onsuccess = () => {
+      const stored = current.result as CryptoKey | undefined;
+      if (stored) {
+        resolve(stored);
+        return;
+      }
+      const put = store.put(candidate, "local");
+      put.onsuccess = () => resolve(candidate);
+      put.onerror = () => reject(put.error ?? new Error("No se pudo guardar la clave local."));
+    };
+    current.onerror = () =>
+      reject(current.error ?? new Error("No se pudo leer la clave local."));
+  });
 }
 
 export function isSupported(): boolean {

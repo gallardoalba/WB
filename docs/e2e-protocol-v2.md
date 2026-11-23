@@ -1,9 +1,10 @@
 # End-to-end encryption v2: protocol, threat model and migration
 
-Status: **server side implemented, client side pending** (§13). Protocol version
-`wanderbibliothek:v2`. v1 ([`e2e-protocol.md`](./e2e-protocol.md)) stays in
-service until the client ships; this document says in every section what exists
-and what does not.
+Status: **implemented on both sides**, with the limits listed here and in §13.
+Protocol version `wanderbibliothek:v2`. v1
+([`e2e-protocol.md`](./e2e-protocol.md)) stays in service until the operator sets
+`E2E_V1_SUNSET`; this document says in every section what exists and what does
+not.
 
 ## 0. Why v2 exists
 
@@ -54,7 +55,7 @@ Non-goals, stated so nobody assumes them:
 | Concept | Value |
 |---|---|
 | Device identity | libolm `Account` (Curve25519 identity key + Ed25519 signing key) |
-| Device id | Random 16-byte base64url, generated on the device |
+| Device id | Random 18-byte base64url (24 characters), generated on the device |
 | Account ↔ device | `device_keys(user_id, device_id)` — one row per device |
 | Private material | IndexedDB, never exported, never sent |
 | Server knows | device id, public identity key, one-time public keys |
@@ -216,7 +217,7 @@ ciphertext.
 | Substitute a device identity key | The bundle is signed by the device, device keys are in the key-transparency set (§7) and safety numbers compare them | The signature proves a device key, not a person: only the transparency check or an out-of-band comparison binds it to the account |
 | Add a device to someone's account | Password for anything but the first device; notification to the owner; the device enters the committed set (§7) | A hostile operator can still add one and rely on nobody checking |
 | Move an envelope to another conversation | The conversation is inside the ciphertext and `decrypt` refuses a mismatch | — |
-| Force the thread back to v1 | Anti-downgrade rule (§10): v2 is required once both devices have published keys | Not implemented until the client ships |
+| Force the thread back to v1 | Anti-downgrade rule (§10): v2 is required once both devices have published keys | The server does not yet reject a v2 message that also carries v1 envelopes |
 | Replay an envelope | Rejected by the ratchet | — |
 | Drop or delay messages | Not prevented | Visible as gaps |
 | Learn who talks to whom | Not prevented | §9 |
@@ -295,8 +296,8 @@ state raise the cost; they do not turn XSS into a non-event.
 
 v2 does not hide who talks to whom. Concrete reductions, in order:
 
-1. Retention: closed exchanges keep envelopes for a bounded period; the cron
-   purges the rest.
+1. Retention: a v2 envelope is part of its message and disappears with it (and
+   with the account); there is no separate mailbox with its own clock.
 2. Message size: padded to 256-byte blocks inside the sealed record (§4),
    so the length only narrows the message to a bucket.
 3. Opaque conversation ids: `request:` and `dm:` ids are already random.
@@ -313,8 +314,9 @@ v2 does not hide who talks to whom. Concrete reductions, in order:
    weaker copy around.
 1. Clients publish a device bundle on first use; v1 `user_keys` rows become a
    read-only `web` device for existing accounts.
-2. A thread uses v2 as soon as both devices have a session; otherwise it stays
-   on v1. Both formats coexist; the server stores and returns either.
+2. A thread uses v2 as soon as the other person has a device (0); while nobody
+   on the other side has one, it stays on v1. Both formats coexist; the server
+   stores and returns either.
 3. A message is never re-encrypted in place: rewriting ciphertext would break
    the ratchet.
 4. v1 is removed once no thread has produced a v1 envelope in 90 days. The

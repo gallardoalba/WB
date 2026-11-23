@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { indexedDbStore } from "../src/lib/e2e-v2-idb.ts";
+import { forgetDevice, indexedDbStore } from "../src/lib/e2e-v2-idb.ts";
 import type { DeviceState } from "../src/lib/e2e-v2-device.ts";
 
 type Handler = (() => void) | null;
@@ -144,5 +144,31 @@ test("sin registro devuelve null y no toca la base de la identidad v1", async ()
     assert.equal(db.stores.has("identity"), false, "nada de la identidad de v1 aquí");
     assert.ok(db.stores.has("device-v2"));
     assert.ok(db.stores.has("device-key-v2"));
+  });
+});
+
+test("olvidar el dispositivo borra su estado y deja el de las demás cuentas", async () => {
+  await withFakeIndexedDb(async () => {
+    const store = indexedDbStore();
+    await store.save(estado("usr_ana"));
+    await store.save(estado("usr_bruno"));
+
+    await forgetDevice("usr_ana");
+
+    assert.equal(await store.load("usr_ana"), null, "el de Ana ya no está");
+    assert.ok(await store.load("usr_bruno"), "el de Bruno no se toca");
+  });
+});
+
+test("dos aperturas simultáneas de un almacén vacío acaban con la misma clave", async () => {
+  // La creación de la clave no era atómica: dos pestañas podían generarla a la
+  // vez y una guardaba un estado cifrado con una clave que ya no estaba.
+  await withFakeIndexedDb(async () => {
+    const store = indexedDbStore();
+    await Promise.all([store.load("usr_ana"), store.load("usr_ana")]);
+
+    await store.save(estado("usr_ana"));
+    const leido = await store.load("usr_ana");
+    assert.equal(leido?.deviceId, "dispositivo-de-prueba-01", "el estado se vuelve a abrir");
   });
 });
