@@ -317,15 +317,15 @@
   margin-top: 20px;
 }
 
-/* Cuatro cifras: ejemplares, intercambios, lectores y clubes.
-   Cuatro columnas iguales con una regla fina entre ellas —como estaban antes—
+/* Tres cifras: ejemplares, intercambios y lectores.
+   Tres columnas iguales con una regla fina entre ellas —como estaban antes—
    pero con la cifra y el rótulo **centrados** en su columna: con el texto
    pegado a la izquierda, cada columna dejaba detrás media columna vacía y la
    banda parecía una tabla descolocada. Sin iconos ni fondo propio: la cifra y
    su rótulo, nada más. */
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   column-gap: 0;
   row-gap: 10px;
   width: 100%;
@@ -509,8 +509,8 @@
 
 /* Destructivo de verdad: mismo patrón de contraste que el secundario (relleno
    suave y texto coral) porque el coral macizo con texto blanco se perdía en
-   modo oscuro. Antes el modificador `.danger` no pintaba nada fuera de
-   `.club-danger`, así que un «Eliminar» del primario salía verde. */
+   modo oscuro. Antes el modificador `.danger` no pintaba nada en los botones
+   primarios, así que un «Eliminar» salía verde. */
 .primary-button.danger {
   border-color: color-mix(in srgb, var(--coral) 45%, transparent);
   background: var(--coral-soft);

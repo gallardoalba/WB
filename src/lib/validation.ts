@@ -41,60 +41,6 @@ const tagsField = z
   .transform((values) => [...new Set(values.filter((value) => (TAGS as readonly string[]).includes(value)))])
   .refine((values) => values.length <= 3, "Puedes elegir hasta 3 etiquetas.");
 
-/**
- * Próximo encuentro del club. Acepta el valor de `<input type="datetime-local">`
- * o un ISO completo y lo guarda normalizado; vacío significa «sin fecha».
- */
-const meetsAtField = z
-  .string()
-  .trim()
-  .max(40, "La fecha del encuentro no es válida.")
-  .optional()
-  .default("")
-  .transform((value) => {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toISOString();
-  });
-
-const joinPolicyField = z
-  .enum(["open", "approval"], { error: "Elige cómo se entra al club." })
-  .optional()
-  .default("open");
-
-/** Variantes sin `default`: un PATCH parcial no debe vaciar lo que no envía. */
-const meetsAtOptionalField = z
-  .string()
-  .trim()
-  .max(40, "La fecha del encuentro no es válida.")
-  .optional()
-  .transform((value) => {
-    if (value === undefined || value === "") return value;
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
-  });
-
-const meetsPlaceOptionalField = z
-  .string()
-  .trim()
-  .max(120, "El sitio del encuentro no puede superar 120 caracteres.")
-  .optional();
-
-const meetsLinkOptionalField = z
-  .string()
-  .trim()
-  .max(300, "El enlace no puede superar 300 caracteres.")
-  .optional()
-  .refine(
-    (value) => value === undefined || value === "" || /^https?:\/\//i.test(value),
-    "El enlace debe empezar por http:// o https://.",
-  );
-
-const joinPolicyOptionalField = z
-  .enum(["open", "approval"], { error: "Elige cómo se entra al club." })
-  .optional();
-
 const trimmed = (min: number, max: number, label: string) =>
   z
     .string()
@@ -183,11 +129,6 @@ export const listingSchema = z.object({
     .refine((value) => value === null || isValidIsbn(value), "El ISBN no es válido."),
   city: cityField,
   tags: tagsField,
-  // El formulario sube la portada en una petición **posterior** a esta (necesita
-  // el id del libro). Con esta marca, el aviso de Mastodon espera unos segundos
-  // a que la imagen esté en disco antes de pintar la tarjeta; sin ella no hay
-  // nada que esperar y el aviso sale de inmediato.
-  withCover: z.boolean().optional(),
 });
 
 export const requestSchema = z.object({
@@ -258,13 +199,6 @@ export const commentLikeSchema = z.object({
   liked: z.boolean(),
 });
 
-/** Mensaje del foro de un club: texto y, si es respuesta, el mensaje padre. */
-/**
- * Un mensaje del tablón, en claro (v1) o cifrado (v2).
- *
- * Con `v2` el texto no viaja en `body`: va dentro de un sobre por dispositivo
- * de cada miembro, y el servidor no puede abrirlos.
- */
 /** Identificador del dispositivo v2: 16–64 caracteres seguros para una URL. */
 export const deviceIdSchema = z
   .string()
@@ -288,65 +222,6 @@ const deviceEnvelopeFields = z.object({
     .regex(/^[A-Za-z0-9+/=]+$/, "El sobre no es válido."),
 });
 
-export const clubPostSchema = z
-  .object({
-    body: trimmed(2, 800, "El mensaje").optional(),
-    parentId: z
-      .string()
-      .min(1, "Falta el mensaje al que respondes.")
-      .max(80, "Ese identificador no es válido.")
-      .optional(),
-    v2: z
-      .object({
-        senderDeviceId: deviceIdSchema,
-        envelopes: z
-          .array(deviceEnvelopeFields)
-          .min(1, "Falta el sobre cifrado.")
-          .max(200, "Demasiados dispositivos en un solo mensaje."),
-      })
-      .optional(),
-  })
-  .refine((value) => Boolean(value.v2) || Boolean(value.body), {
-    message: "Escribe un mensaje.",
-    path: ["body"],
-  });
-
-/**
- * Revelar un mensaje del club a quien lo modera.
- *
- * `reason` no es burocracia: la revelación queda en el registro con nombre y
- * motivo, y quien modera necesita saber qué está mirando y por qué.
- */
-export const clubRevealSchema = z.object({
-  reason: trimmed(5, 500, "El motivo"),
-  envelopes: z
-    .array(deviceEnvelopeFields)
-    .min(1, "Falta el contenido revelado.")
-    .max(50, "Demasiados dispositivos en una revelación."),
-});
-
-export const clubPostLikeSchema = z.object({
-  liked: z.boolean(),
-});
-
-/** Votación de la próxima lectura: entre dos y cinco obras del catálogo. */
-export const clubPollSchema = z.object({
-  question: trimmed(3, 120, "La pregunta de la votación"),
-  bookIds: z
-    .array(
-      z
-        .string()
-        .min(1, "Falta un libro en la votación.")
-        .max(64, "Ese identificador no es válido."),
-    )
-    .min(2, "Propón al menos dos libros.")
-    .max(5, "Cinco libros es el máximo para una votación."),
-});
-
-export const clubPollVoteSchema = z.object({
-  optionId: z.string().min(1, "Falta la opción.").max(64, "Ese identificador no es válido."),
-});
-
 export const followSchema = z.object({
   follow: z.boolean(),
 });
@@ -367,107 +242,7 @@ export const readingListItemSchema = z.object({
   bookId: z.string().min(1, "Falta el libro.").max(64, "Ese identificador no es válido."),
 });
 
-/**
- * Dónde se ve el club y cómo entrar a la videollamada. El enlace solo admite
- * `http(s)`: un `javascript:` acabaria siendo un agujero en un enlace público.
- */
-const meetsPlaceField = z
-  .string()
-  .trim()
-  .max(120, "El sitio del encuentro no puede superar 120 caracteres.")
-  .optional()
-  .default("");
-
-const meetsLinkField = z
-  .string()
-  .trim()
-  .max(300, "El enlace no puede superar 300 caracteres.")
-  .optional()
-  .default("")
-  .refine(
-    (value) => value === "" || /^https?:\/\//i.test(value),
-    "El enlace debe empezar por http:// o https://.",
-  );
-
-export const clubSchema = z.object({
-  name: trimmed(3, 60, "El nombre del club"),
-  city: cityField,
-  description: z
-    .string()
-    .trim()
-    .max(280, "La descripción no puede superar 280 caracteres.")
-    .optional()
-    .default(""),
-  bookId: z.string().min(1, "Falta el libro del club.").optional(),
-  meetsOn: z.string().trim().max(80, "El día de encuentro es demasiado largo.").optional().default(""),
-  meetsAt: meetsAtField,
-  meetsPlace: meetsPlaceField,
-  meetsLink: meetsLinkField,
-  joinPolicy: joinPolicyField,
-});
-
-export const clubMembershipSchema = z.object({
-  joined: z.boolean(),
-});
-
-export const clubInviteSchema = z.object({
-  userId: z
-    .string()
-    .min(1, "Falta la persona a invitar.")
-    .max(64, "Ese identificador no es válido."),
-});
-
-export const clubMemberDecisionSchema = z.object({
-  approve: z.boolean(),
-});
-
-export const clubTransferSchema = z.object({
-  userId: z
-    .string()
-    .min(1, "Falta la persona a la que ceder el club.")
-    .max(64, "Ese identificador no es válido."),
-});
-
-export const clubModeratorSchema = z.object({
-  userId: z
-    .string()
-    .min(1, "Falta la persona a la que nombrar.")
-    .max(64, "Ese identificador no es válido."),
-  moderator: z.boolean(),
-});
-
-export const clubAttendanceSchema = z.object({
-  attending: z.boolean(),
-});
-
 export const readingListUpdateSchema = readingListSchema;
-
-export const clubUpdateSchema = z.object({
-  name: trimmed(3, 60, "El nombre del club"),
-  description: z
-    .string()
-    .trim()
-    .max(280, "La descripción no puede superar 280 caracteres.")
-    .optional(),
-  meetsOn: z.string().trim().max(80, "El día de encuentro es demasiado largo.").optional(),
-  meetsAt: meetsAtOptionalField,
-  meetsPlace: meetsPlaceOptionalField,
-  meetsLink: meetsLinkOptionalField,
-  bookId: z.string().min(1, "Falta el libro del club.").nullable().optional(),
-  joinPolicy: joinPolicyOptionalField,
-  // Sin `default(0)`: un PATCH parcial no debe reiniciar el progreso del club.
-  progress: z.coerce
-    .number()
-    .int()
-    .min(0, "El progreso va del 0 al 100.")
-    .max(100, "El progreso va del 0 al 100.")
-    .optional(),
-  progressNote: z
-    .string()
-    .trim()
-    .max(80, "La nota de progreso no puede superar 80 caracteres.")
-    .optional(),
-});
 
 /**
  * Sobre cifrado (AES-GCM): el servidor no sabe qué contiene, solo comprueba
@@ -598,7 +373,7 @@ export const catalogParamsSchema = z.object({
     .transform((value) => (value && (TAGS as readonly string[]).includes(value) ? value : ""))
     .default(""),
   // Pestaña y ámbito del panel de comunidad: viajan en la URL para poder
-  // compartir «Clubes de Stuttgart» o el muro de actividad.
+  // compartir la vista que se está mirando.
   tab: z.enum(COMMUNITY_TABS, { error: "Esa pestaña no existe." }).optional().default("conversations"),
   scope: z.enum(COMMUNITY_SCOPES, { error: "Ese ámbito no existe." }).optional().default("region"),
   page: z.coerce
@@ -717,8 +492,6 @@ export const adminActionSchema = z.object({
     "hide_listing",
     "suspend_user",
     "hide_comment",
-    "hide_club",
-    "hide_club_post",
     "cancel_request",
   ]),
   reason: z.string().trim().max(300).optional(),
@@ -764,14 +537,10 @@ export const moderationSchema = z.object({
       "unsuspend_user",
       "hide_comment",
       "restore_comment",
-      "hide_club",
-      "restore_club",
-      "hide_club_post",
-      "restore_club_post",
     ],
     { error: "Esa acción no existe." },
   ),
-  targetType: z.enum(["listing", "user", "comment", "club", "club_post"], {
+  targetType: z.enum(["listing", "user", "comment"], {
     error: "Ese tipo de contenido no existe.",
   }),
   targetId: z.string().min(1, "Falta el objetivo.").max(64, "Ese identificador no es válido."),

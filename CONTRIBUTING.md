@@ -18,14 +18,14 @@ All of this has to pass; CI runs the same:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 1062 unit and integration tests (137 files)
+npm test            # 924 unit and integration tests (131 files)
 npm run build
-npm run test:e2e    # Playwright: 64 cases in 12 files (Chromium); first time:
+npm run test:e2e    # Playwright: 63 cases in 11 files (Chromium); first time:
                     # npx playwright install chromium
-npm run test:e2e:smoke  # WebCrypto/IndexedDB en Firefox y WebKit
+npm run test:e2e:smoke  # WebCrypto/IndexedDB on Firefox and WebKit
                     # npx playwright install firefox webkit
-npm run db:works    # informe de agrupación por obra (ediciones, colisiones)
-npm run mail:health # SPF, DKIM, DMARC y estado de la cola de correo
+npm run db:works    # works-grouping report (editions, collisions)
+npm run mail:health # SPF, DKIM, DMARC and the mail-queue state
 ```
 
 `npm run test:e2e` starts its own server on `localhost:3100`. If you already have
@@ -44,8 +44,8 @@ directory).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 1062 pruebas unitarias y de integración (137 ficheros),
-  build y 64/64 E2E (Chromium) y el humo en Firefox/WebKit.
+  Validado: tsc, eslint, 924 pruebas unitarias y de integración (131 ficheros),
+  build y 63/63 E2E (Chromium) y el humo en Firefox/WebKit.
   ```
 
 - **UI language**: strings are written in Spanish, and the German and English

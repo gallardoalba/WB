@@ -175,12 +175,6 @@ export function seed(db: Db) {
   // El reloj lo aporta SQLite: evita `new Date()` en el camino de render.
   const clock = db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now', ?) AS ts");
   const isoAgo = (minutes: number) => (clock.get(`-${minutes} minutes`) as { ts: string }).ts;
-  // Próximo encuentro del club de ejemplo: dentro de dos semanas. Se calcula
-  // aquí y no al cargar el módulo: `seed.ts` entra en el grafo del render y un
-  // `Date.now()` en el ámbito del módulo lo convierte en valor inestable al
-  // prerenderizar (Next lo denuncia en cada arranque).
-  const seedMeeting = (clock.get("+14 days") as { ts: string }).ts;
-
   const password = DEMO_PASSWORD_HASH;
 
   db.transaction(() => {
@@ -341,86 +335,5 @@ export function seed(db: Db) {
     insertFollow.run("usr_ana", "usr_clara", isoAgo(600));
     insertFollow.run("usr_ana", "usr_diego", isoAgo(500));
     insertFollow.run("usr_clara", "usr_ana", isoAgo(400));
-
-    // Club de lectura de ejemplo: sin esto, la función más social de la
-    // plataforma no aparecía en una instalación de demostración y no había
-    // forma de verla (ni de probarla de punta a punta).
-    db.prepare(
-      `INSERT INTO clubs (id, owner_id, name, city, description, book_id, meets_on, meets_at,
-                          meets_place, meets_link, join_policy, progress, progress_note,
-                          status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', 'open', 40, ?, 'visible', ?)`,
-    ).run(
-      "clb_seed_1",
-      "usr_clara",
-      "Los martes de la biblioteca",
-      "Stuttgart",
-      "Narrativa contemporánea, un libro al mes y una cita que no se negocia.",
-      "bok_1",
-      "Último martes del mes, 19:00",
-      seedMeeting,
-      "Cafetería del Stadtmuseum, mesa larga",
-      "Vamos por la mitad",
-      isoAgo(900),
-    );
-
-    const insertMember = db.prepare(
-      "INSERT INTO club_members (club_id, user_id, joined_at, status) VALUES (?, ?, ?, ?)",
-    );
-    insertMember.run("clb_seed_1", "usr_clara", isoAgo(900), "member");
-    insertMember.run("clb_seed_1", "usr_ana", isoAgo(860), "member");
-    insertMember.run("clb_seed_1", "usr_lucia", isoAgo(720), "member");
-    insertMember.run("clb_seed_1", "usr_marcos", isoAgo(300), "pending");
-
-    db.prepare(
-      "INSERT INTO club_attendance (club_id, user_id, meets_key, created_at) VALUES (?, ?, ?, ?)",
-    ).run("clb_seed_1", "usr_ana", seedMeeting, isoAgo(200));
-    db.prepare(
-      "INSERT INTO club_attendance (club_id, user_id, meets_key, created_at) VALUES (?, ?, ?, ?)",
-    ).run("clb_seed_1", "usr_clara", seedMeeting, isoAgo(180));
-
-    // Foro del club: dos mensajes y una respuesta, para ver el tablón vivo.
-    const insertPost = db.prepare(
-      `INSERT INTO club_posts (id, club_id, author_id, parent_id, body, status, created_at)
-       VALUES (?, 'clb_seed_1', ?, ?, ?, 'visible', ?)`,
-    );
-    insertPost.run(
-      "cpost_seed_1",
-      "usr_clara",
-      null,
-      "Empezamos el martes: los seis primeros capítulos. ¿Nos traemos cada una una cita que nos haya llamado la atención?",
-      isoAgo(400),
-    );
-    insertPost.run(
-      "cpost_seed_2",
-      "usr_ana",
-      "cpost_seed_1",
-      "Me parece bien. Yo llevo una del segundo que no me puedo quitar de la cabeza.",
-      isoAgo(320),
-    );
-    insertPost.run(
-      "cpost_seed_3",
-      "usr_lucia",
-      null,
-      "Propongo que el siguiente sea de no ficción: nos toca salir de la novela un poco.",
-      isoAgo(150),
-    );
-
-    db.prepare(
-      "INSERT INTO club_post_likes (post_id, user_id, created_at) VALUES (?, ?, ?)",
-    ).run("cpost_seed_1", "usr_lucia", isoAgo(300));
-
-    // Votación abierta de la próxima lectura, con un voto ya emitido.
-    db.prepare(
-      "INSERT INTO club_polls (id, club_id, question, created_at, closed_at) VALUES (?, 'clb_seed_1', ?, ?, NULL)",
-    ).run("poll_seed_1", "¿Qué leemos después?", isoAgo(140));
-    const insertOption = db.prepare(
-      "INSERT INTO club_poll_options (id, poll_id, book_id, position) VALUES (?, 'poll_seed_1', ?, ?)",
-    );
-    insertOption.run("opt_seed_1", "bok_3", 0);
-    insertOption.run("opt_seed_2", "bok_4", 1);
-    db.prepare(
-      "INSERT INTO club_poll_votes (poll_id, user_id, option_id, created_at) VALUES (?, ?, ?, ?)",
-    ).run("poll_seed_1", "usr_ana", "opt_seed_1", isoAgo(120));
   })();
 }

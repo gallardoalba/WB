@@ -36,13 +36,9 @@ export type LegalConfig = {
   turnstileWidgetEnabled: boolean;
   turnstileVerificationEnabled: boolean;
   webPushEnabled: boolean;
-  mastodonEnabled: boolean;
-  mastodonLikesEnabled: boolean;
   errorWebhookEnabled: boolean;
   complete: boolean;
 };
-
-const ENABLED_VALUES = new Set(["1", "on", "true", "yes", "sí", "si"]);
 
 export function legalConfig(env: Record<string, string | undefined> = process.env): LegalConfig {
   const controller = env.LEGAL_CONTROLLER?.trim() ?? "";
@@ -56,8 +52,6 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
     : env.BREVO_API_KEY?.trim() && env.MAIL_FROM?.trim()
       ? "brevo"
       : null;
-  const mastodonEnabled = Boolean(env.MASTODON_TOKEN?.trim());
-  const likesPerDay = Number.parseInt(env.MASTODON_LIKES_PER_DAY ?? "", 10);
   return {
     controller,
     address,
@@ -69,11 +63,6 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
     turnstileWidgetEnabled: Boolean(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()),
     turnstileVerificationEnabled: Boolean(env.TURNSTILE_SECRET?.trim()),
     webPushEnabled: Boolean(env.VAPID_PUBLIC_KEY?.trim() && env.VAPID_PRIVATE_KEY?.trim()),
-    mastodonEnabled,
-    mastodonLikesEnabled:
-      mastodonEnabled &&
-      ENABLED_VALUES.has((env.MASTODON_LIKES ?? "").trim().toLowerCase()) &&
-      (!Number.isFinite(likesPerDay) || likesPerDay > 0),
     errorWebhookEnabled: Boolean(env.ERROR_WEBHOOK_URL?.trim()),
     complete: Boolean(controller && address && contact),
   };
@@ -149,20 +138,6 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         : "Web Push: solo tras activarlo y conceder permiso, el servidor guarda el endpoint, las claves de suscripción y el agente de usuario. El servicio push del navegador (por ejemplo, Google/FCM, Mozilla, Apple o Microsoft) recibe el contenido cifrado y los metadatos de entrega, y también puede tratar datos de conexión del navegador, incluida la dirección IP.",
     );
   }
-  if (config.mastodonEnabled) {
-    optionalRecipients.push(
-      german
-        ? "Mastodon: Die konfigurierte Instanz erhält Beiträge zu Werken, die das Team veröffentlicht, mit Titel, Autor, öffentlicher URL und Cover; die Sichtbarkeit hängt von der Konfiguration ab."
-        : "Mastodon: la instancia configurada recibe publicaciones de obras anunciadas por el equipo, con título, autoría, URL pública y portada; la visibilidad depende de la configuración.",
-    );
-  }
-  if (config.mastodonLikesEnabled) {
-    optionalRecipients.push(
-      german
-        ? "Mastodon-Likes: Die Anwendung liest öffentliche Hashtag-Beiträge und Kontoprofile und kann passende öffentliche Beiträge über das konfigurierte Konto mit „Gefällt mir“ markieren."
-        : "Mastodon Likes: la aplicación consulta publicaciones públicas por hashtag y perfiles de cuentas, y puede marcar publicaciones públicas adecuadas con «me gusta» desde la cuenta configurada.",
-    );
-  }
   if (config.errorWebhookEnabled) {
     optionalRecipients.push(
       german
@@ -200,15 +175,14 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "Sitzungen: 14 Tage, höchstens 30 Tage ab Anmeldung.",
             "Bestätigungs- und Reset-Links: 24 Stunden bzw. 1 Stunde; sie sind einmalig gültig. Der Einspruchslink: 30 Tage.",
             "E-Mail-Warteschlange: erledigte oder fehlgeschlagene Aufträge bis zu 7 Tage, offene oder laufende bis zu 30 Tage ab Erstellung. Die Aufbewahrung beim E-Mail-Anbieter richtet sich nach dessen Bedingungen.",
-            "Falls die optionale Mastodon-Like-Funktion verwendet wurde: Status- und Kontokennung, URL, Hashtag, Sprache und Zeitpunkt werden nach 180 Tagen gelöscht.",
             ...(config.webPushEnabled
               ? ["Push-Abonnements: bis zur Abmeldung, Kontolöschung oder bis der Push-Dienst meldet, dass ein Endpunkt nicht mehr existiert; höchstens sechs Geräte je Konto."]
               : []),
             "IP-Pseudonyme: höchstens 1 Tag.",
-            "Benachrichtigungen: 90 Tage nach dem Lesen, spätestens 180 Tage nach Entstehung. Aktivität im öffentlichen Bereich und in Clubs: 180 Tage.",
+            "Benachrichtigungen: 90 Tage nach dem Lesen, spätestens 180 Tage nach Entstehung. Aktivität im öffentlichen Bereich: 180 Tage.",
             "Moderationsprotokoll: bis zu 730 Tage (konfigurierbar). Sanktionen: solange sie aktiv sind; Grund und Frist werden beim Aufheben gelöscht.",
-            "Entschiedene Einsprüche: 2 Jahre nach der Entscheidung.",
-            "Erledigte Meldungen: 1 Jahr nach ihrer Erledigung.",
+            "Entschiedene Einsprüche: 2 Jahre nach ihrer Einreichung.",
+            "Erledigte Meldungen: 1 Jahr nach ihrer Einreichung.",
             "Konto und Profil: bis zur Löschung des Kontos.",
             "Server-Logs: IP-Adresse, Pfad ohne Query-String und Antwortcode, gemäß der Rotation des Systems (logrotate, standardmäßig 14 Tage). Suchbegriffe und Einmal-Links werden nicht protokolliert.",
           ],
@@ -220,7 +194,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "Bibliografische Daten: Der Server fragt die Deutsche Nationalbibliothek (services.dnb.de) und Open Library ab. Diese erhalten die ISBN und die IP des Servers, nicht die IP der besuchenden Person; Cover werden nicht von dort geladen.",
             "Ortsnamen: während des Tippens fragt der Server die Ortsliste bei Photon (Komoot GmbH) ab, einer Suche über die Daten von OpenStreetMap; anschließend gleicht er den gewählten Namen mit Nominatim (OpenStreetMap Foundation) ab, um Tippfehler zu erkennen. Übertragen wird nur der eingetippte Text bzw. der Ortsname, keine IP-Adresse der Besucherin oder des Besuchers.",
             ...optionalRecipients,
-            "Hosting: der Anbieter, bei dem dieser Dienst läuft.",
+            "Hosting: netcup GmbH.",
             "Es gibt keine Analyse-, Werbe- oder Tracking-Dienste und keine externen Schriftarten.",
             "Internationale Übermittlungen: Die konkreten Empfänger und etwaige Übermittlungen außerhalb des EWR hängen von der Konfiguration ab. Der Betreiber dieser Instanz muss die eingesetzten Anbieter, deren Standorte und die jeweils geltenden Garantien angeben; der Anwendungscode kann diese Verträge nicht bestätigen.",
           ],
@@ -228,8 +202,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         {
           heading: "5. Cookies und lokale Speicherung",
           body: [
-            "Zwei Cookies: die Sitzung (HttpOnly, Secure, SameSite=Lax, 14 Tage) zur Anmeldung und, nur nach manuellem Sprachwechsel, die Spracheinstellung (1 Jahr). Keines dient Werbung oder Analyse. Ob eine Einwilligung für den Zugriff auf das Endgerät nötig ist, muss für jeden Zweck nach dem anwendbaren Recht beurteilt werden (in Deutschland § 25 TDDDG, in Österreich § 165 Abs. 3 TKG 2021). § 165 Abs. 3 TKG 2021 verpflichtet Anbieter von Diensten der Informationsgesellschaft außerdem, über verarbeitete personenbezogene Daten, Rechtsgrundlage, Zweck und Speicherdauer zu informieren. Die Erhebung solcher Daten setzt grundsätzlich eine aktive Einwilligung auf Basis klarer und umfassender Informationen voraus; technische Speicherung oder Zugriff bleiben insbesondere für die Nachrichtenübermittlung oder einen für einen ausdrücklich gewünschten Dienst unbedingt erforderlichen Zugriff möglich. Dieser Hinweis ersetzt keine erforderliche Information oder Einwilligung.",
-            "Im Browser bleiben das gewählte Design, die ausgeblendete Einführung und Checkliste sowie die Fingerabdrücke der Gesprächsschlüssel gespeichert, bis die Websitedaten gelöscht werden. Diese Werte werden nicht an den Server übertragen.",
+            "Zwei technisch notwendige Cookies, keine weiteren: die Sitzung (HttpOnly, Secure, SameSite=Lax, 14 Tage) zur Anmeldung und, nur nach manuellem Sprachwechsel, die Spracheinstellung (1 Jahr). Keines dient Werbung oder Analyse, beide sind für den Dienst unbedingt erforderlich (Deutschland: § 25 Abs. 2 TDDDG; Österreich: § 165 Abs. 3 TKG 2021).",
+            "Im Browser bleiben das gewählte Design, die ausgeblendete Einführung und die Fingerabdrücke der Gesprächsschlüssel gespeichert, bis die Websitedaten gelöscht werden; diese Werte werden nicht an den Server übertragen. Die ausgeblendete Checkliste wird im Konto gespeichert.",
             "Für die Ende-zu-Ende-Verschlüsselung speichert der Browser einen nicht exportierbaren privaten Schlüssel in IndexedDB. Der Server erhält ihn nicht; die Anwendung kann ihn für Verschlüsselungsoperationen verwenden. Nach Kontolöschung bleibt der lokale Schlüssel bestehen, bis die Websitedaten im Browser gelöscht werden.",
             "Der Service Worker wird in Produktion automatisch registriert, speichert keine Seitenantworten im Cache und dient der Push-Funktion. Push wird erst nach Aktivierung und Browser-Berechtigung abonniert; die Browser-Berechtigung allein ersetzt keine Information über die Datenverarbeitung.",
             ...(config.webPushEnabled
@@ -258,7 +232,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           body: [
             "Auskunft und Datenübertragbarkeit: „Daten herunterladen“ im Konto erzeugt eine JSON-Datei mit allen gespeicherten Angaben.",
             "Berichtigung: Name, Stadt und Biografie lassen sich jederzeit ändern.",
-            "Löschung: „Konto löschen“ anonymisiert das Konto und entfernt Sitzungen, Benachrichtigungen, Listen, eigene Clubs, Blockierungen, Lesezeichen, persönliche Notizen und Bewertungen — auch die erhaltenen. Nachrichten zu Tauschvorgängen bleiben mit anonymisiertem Autor erhalten, weil sie zum Verlauf anderer Personen gehören; Direktnachrichten werden vollständig gelöscht, auch für die andere Person.",
+            "Löschung: „Konto löschen“ anonymisiert das Konto und entfernt Sitzungen, Benachrichtigungen, Listen, Blockierungen, Lesezeichen, persönliche Notizen und Bewertungen — auch die erhaltenen. Nachrichten zu Tauschvorgängen bleiben mit anonymisiertem Autor erhalten, weil sie zum Verlauf anderer Personen gehören; Direktnachrichten werden vollständig gelöscht, auch für die andere Person.",
             "Widerspruch gegen Benachrichtigungs-E-Mails: jederzeit im Konto.",
             "Beschwerde: bei der zuständigen Datenschutz-Aufsichtsbehörde. In Deutschland ist dies regelmäßig die Behörde des zuständigen Bundeslandes; in Österreich die Datenschutzbehörde (DSB).",
             "Einschränkung der Verarbeitung: Solange ein Widerspruch oder eine Löschung geprüft wird, können Sie die Verarbeitung einschränken lassen; melden Sie sich dafür bei der oben genannte Kontaktadresse.",
@@ -315,15 +289,14 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Sesiones: 14 días, con un máximo de 30 desde el acceso.",
           "Enlaces de confirmación y restablecimiento: 24 horas y 1 hora; son de un solo uso. El enlace de apelación: 30 días.",
           "Cola de correo: los trabajos terminados o fallidos se conservan hasta 7 días y los pendientes o en curso hasta 30 días desde su creación. La conservación del mensaje por el proveedor de correo depende de sus propias condiciones.",
-          "Si se ha usado la función opcional de likes de Mastodon: los identificadores de la publicación y la cuenta, la URL, el hashtag, el idioma y la fecha se eliminan a los 180 días.",
           ...(config.webPushEnabled
             ? ["Suscripciones Push: hasta que la persona se dé de baja, borre su cuenta o el servicio Push indique que el endpoint ya no existe; máximo seis dispositivos por cuenta."]
             : []),
           "Pseudónimos de IP: como máximo 1 día.",
-          "Avisos: 90 días tras leerse y 180 como máximo. Actividad pública y de clubes: 180 días.",
+          "Avisos: 90 días tras leerse y 180 como máximo. Actividad pública: 180 días.",
           "Auditoría de moderación: hasta 730 días (configurable). Sanciones: mientras estén activas; el motivo y el plazo se borran al levantarse la sanción.",
-          "Apelaciones resueltas: 2 años desde su resolución.",
-          "Denuncias resueltas: 1 año desde su resolución.",
+          "Apelaciones resueltas: 2 años desde su presentación.",
+          "Denuncias resueltas: 1 año desde su presentación.",
           "Cuenta y perfil: hasta que se borra la cuenta.",
           "Registros del servidor: dirección IP, ruta sin la cadena de consulta y código de respuesta, según la rotación del sistema (`logrotate`, 14 días por defecto). No se registran las búsquedas ni los enlaces de un solo uso.",
         ],
@@ -335,7 +308,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Datos bibliográficos: el servidor consulta la Deutsche Nationalbibliothek (services.dnb.de) y Open Library. Reciben el ISBN y la IP del servidor, no la IP de quien navega; las portadas ya no se descargan de esos servicios.",
           "Nombres de municipio: mientras se escribe, el servidor pide la lista de municipios a Photon (Komoot GmbH), un buscador sobre los datos de OpenStreetMap; después contrasta el nombre elegido con Nominatim (OpenStreetMap Foundation) para detectar erratas. Se envía solo el texto escrito o el nombre del municipio, nunca la IP de quien navega.",
           ...optionalRecipients,
-          "Alojamiento: el proveedor donde se ejecuta el servicio.",
+          "Alojamiento: netcup GmbH.",
           "No hay servicios de analítica, publicidad ni seguimiento, ni tipografías externas.",
           "Transferencias internacionales: los destinatarios concretos y las transferencias fuera del EEE dependen de la configuración. Quien administra esta instalación debe indicar los proveedores empleados, sus ubicaciones y las garantías aplicables; el código no puede confirmar contratos ni mecanismos de transferencia.",
         ],
@@ -343,8 +316,8 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
       {
         heading: "5. Cookies y almacenamiento local",
         body: [
-          "Dos cookies técnicas: la de sesión (HttpOnly, Secure, SameSite=Lax, 14 días) para iniciar sesión y, solo tras cambiar el idioma manualmente, la preferencia de idioma (1 año). Ninguna sirve para publicidad ni analítica. La necesidad de consentimiento para acceder al dispositivo se debe valorar para cada finalidad según la ley aplicable (en Alemania, § 25 TDDDG; en Austria, § 165.3 TKG 2021). El § 165.3 TKG 2021 también obliga a los prestadores de servicios de la sociedad de la información a informar sobre los datos personales tratados, la base jurídica, la finalidad y el plazo de conservación. Por regla general, la obtención de esos datos requiere consentimiento activo basado en información clara y completa; la norma permite, entre otras, excepciones para transmitir un mensaje o para el acceso estrictamente necesario a un servicio solicitado expresamente. Este aviso no sustituye la información ni el consentimiento que sean necesarios.",
-          "En el navegador permanecen el tema elegido, la guía y la lista de inicio descartadas, y las huellas de las claves de mensajería hasta que se borren los datos del sitio. Estos valores no se envían al servidor.",
+          "Dos cookies técnicas y ninguna más: la de sesión (HttpOnly, Secure, SameSite=Lax, 14 días) para iniciar sesión y, solo tras cambiar el idioma manualmente, la preferencia de idioma (1 año). Ninguna sirve para publicidad ni analítica, y ambas son estrictamente necesarias para el servicio (Alemania: § 25.2 TDDDG; Austria: § 165.3 TKG 2021).",
+          "En el navegador permanecen el tema elegido, la guía descartada y las huellas de las claves de mensajería hasta que se borren los datos del sitio; estos valores no se envían al servidor. La lista de inicio descartada se guarda en la cuenta.",
           "Para el cifrado de extremo a extremo, el navegador guarda una clave privada no exportable en IndexedDB. El servidor no la recibe; la aplicación puede usarla para operaciones criptográficas. Tras borrar la cuenta, la clave local permanece hasta que se borren los datos del sitio en el navegador.",
           "En producción se registra automáticamente un service worker; no guarda respuestas de páginas en caché y se usa para la función Push. La suscripción Push solo se crea tras activarla y conceder permiso en el navegador; ese permiso no sustituye la información sobre el tratamiento de datos.",
           ...(config.webPushEnabled
@@ -373,7 +346,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         body: [
           "Acceso y portabilidad: «Descargar datos» en la cuenta genera un JSON con todo lo guardado.",
           "Rectificación: nombre, ciudad y biografía se cambian cuando quieras.",
-          "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, clubes propios, bloqueos, favoritos, notas personales, las claves de dispositivo publicadas y las valoraciones, también las recibidas. Los mensajes de intercambio se conservan con el autor ya anonimizado porque forman parte del historial de otras personas; las conversaciones directas se borran enteras, también para la otra persona.",
+          "Supresión: «Borrar cuenta» anonimiza la cuenta y elimina sesiones, avisos, listas, bloqueos, favoritos, notas personales, las claves de dispositivo publicadas y las valoraciones, también las recibidas. Los mensajes de intercambio se conservan con el autor ya anonimizado porque forman parte del historial de otras personas; las conversaciones directas se borran enteras, también para la otra persona.",
           "Oposición a los correos de aviso: en cualquier momento desde la cuenta.",
           "Reclamación: ante la autoridad de control de protección de datos competente. En Alemania, normalmente la del estado federado correspondiente; en Austria, la Datenschutzbehörde (DSB).",
           "Limitación del tratamiento: mientras se resuelve una oposición o un borrado, puedes pedir que se limite el tratamiento escribiendo a la dirección de contacto de arriba.",
@@ -422,7 +395,7 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
       updated: UPDATED,
       intro: [
         "Angaben gemäß § 5 DDG.",
-        "Diese Vorlage geht von einem in Deutschland niedergelassenen Anbieter aus. Die Nutzung aus Österreich ändert den Sitz des Anbieters nicht. Ist der Anbieter in Österreich niedergelassen, sind die Angaben nach § 5 ECG und – falls das Angebot darunter fällt – die Offenlegungspflichten nach § 25 MedienG zu prüfen und gegebenenfalls zu ergänzen.",
+        "Dieses Impressum richtet sich nach den Anforderungen, die für in Deutschland niedergelassene Anbieter gelten. Die Nutzung aus Österreich ändert den Sitz des Anbieters nicht und auch nicht die rechtlichen Anforderungen, die für ihn gelten. In Österreich niedergelassene Anbieter müssen sicherstellen, dass ihr Impressum die einschlägigen österreichischen Offenlegungspflichten erfüllt, insbesondere § 5 ECG und – soweit anwendbar – § 25 MedienG.",
       ],
       sections: [
         { heading: "Diensteanbieter", body: details },
@@ -446,7 +419,7 @@ export function imprintDocument(locale: Locale, config: LegalConfig): LegalDocum
     updated: UPDATED,
     intro: [
       "Datos identificativos del prestador del servicio conforme a la plantilla alemana.",
-      "Esta plantilla parte de un prestador establecido en Alemania. El uso desde Austria no cambia por sí solo el lugar de establecimiento. Si el prestador está establecido en Austria, deben revisarse las indicaciones del § 5 ECG y, si el servicio entra en su ámbito, las obligaciones de publicación del § 25 MedienG, y completarlas cuando corresponda.",
+      "Este aviso legal se basa en los requisitos aplicables a los prestadores establecidos en Alemania. El uso del sitio web desde Austria no cambia, por sí mismo, el país de establecimiento del prestador ni los requisitos legales que le son aplicables. Los prestadores establecidos en Austria deben asegurarse de que su aviso legal cumple los requisitos austriacos de información, en particular el § 5 ECG y, cuando proceda, el § 25 MedienG.",
     ],
     sections: [
       { heading: "Titular del servicio", body: details },

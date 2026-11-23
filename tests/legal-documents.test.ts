@@ -21,6 +21,7 @@ import {
   type LegalConfig,
   type LegalDocument,
 } from "../src/lib/legal.ts";
+import { privacyDocumentEN } from "../src/lib/legal-en.ts";
 import { projectDocument } from "../src/lib/project.ts";
 
 const completo: LegalConfig = {
@@ -34,8 +35,6 @@ const completo: LegalConfig = {
   turnstileWidgetEnabled: false,
   turnstileVerificationEnabled: false,
   webPushEnabled: false,
-  mastodonEnabled: false,
-  mastodonLikesEnabled: false,
   errorWebhookEnabled: false,
   complete: true,
 };
@@ -51,8 +50,6 @@ const incompleto: LegalConfig = {
   turnstileWidgetEnabled: false,
   turnstileVerificationEnabled: false,
   webPushEnabled: false,
-  mastodonEnabled: false,
-  mastodonLikesEnabled: false,
   errorWebhookEnabled: false,
   complete: false,
 };
@@ -91,20 +88,6 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
     legalConfig({ BREVO_API_KEY: "test-key", MAIL_FROM: "mail@example.test" }).emailProvider,
     "brevo",
   );
-  assert.equal(legalConfig({ MASTODON_TOKEN: "test-token" }).mastodonLikesEnabled, false);
-  assert.equal(
-    legalConfig({ MASTODON_TOKEN: "test-token", MASTODON_LIKES: "on" }).mastodonLikesEnabled,
-    true,
-  );
-  assert.equal(
-    legalConfig({
-      MASTODON_TOKEN: "test-token",
-      MASTODON_LIKES: "on",
-      MASTODON_LIKES_PER_DAY: "0",
-    }).mastodonLikesEnabled,
-    false,
-  );
-
   const servicios = legalConfig({
     MAIL_WEBHOOK_URL: "https://mail.example.test/send",
     BREVO_API_KEY: "not-a-real-key",
@@ -112,16 +95,12 @@ test("la configuración legal sale del entorno y exige titular, dirección y con
     TURNSTILE_SECRET: "not-a-real-secret",
     VAPID_PUBLIC_KEY: "public-test-vapid",
     VAPID_PRIVATE_KEY: "not-a-real-private-key",
-    MASTODON_TOKEN: "not-a-real-token",
-    MASTODON_LIKES: "on",
     ERROR_WEBHOOK_URL: "https://errors.example.test/receive",
   });
   assert.equal(servicios.emailProvider, "webhook", "el webhook tiene precedencia sobre Brevo");
   assert.equal(servicios.turnstileWidgetEnabled, true);
   assert.equal(servicios.turnstileVerificationEnabled, true);
   assert.equal(servicios.webPushEnabled, true);
-  assert.equal(servicios.mastodonEnabled, true);
-  assert.equal(servicios.mastodonLikesEnabled, true);
   assert.equal(servicios.errorWebhookEnabled, true);
 
   // Un contacto en blanco no cuenta como contacto.
@@ -271,8 +250,6 @@ test("la política refleja proveedores opcionales activos y los nuevos flujos de
     TURNSTILE_SECRET: "not-a-real-secret",
     VAPID_PUBLIC_KEY: "public-test-vapid",
     VAPID_PRIVATE_KEY: "not-a-real-private-key",
-    MASTODON_TOKEN: "not-a-real-token",
-    MASTODON_LIKES: "on",
     ERROR_WEBHOOK_URL: "https://errors.example.test/receive",
   });
 
@@ -281,8 +258,6 @@ test("la política refleja proveedores opcionales activos y los nuevos flujos de
     assert.match(body, /webhook/i);
     assert.match(body, /Cloudflare Turnstile/);
     assert.match(body, /Web Push/);
-    assert.match(body, /Mastodon/);
-    assert.match(body, /public hashtag|publicaciones públicas por hashtag|öffentliche Hashtag-Beiträge/i);
     assert.match(body, /error webhook|Webhook de errores|Fehler-Webhook/i);
     assert.doesNotMatch(body, /not-a-real-secret|not-a-real-token|not-a-real-private-key/);
   }
@@ -304,11 +279,8 @@ test("los textos legales contemplan Austria sin cambiar la jurisdicción del ope
     en: texto(privacyDocument("en", completo)),
   };
   assert.match(privacidad.de, /§ 165 Abs\. 3 TKG 2021/);
-  assert.match(privacidad.de, /Rechtsgrundlage, Zweck und Speicherdauer/);
   assert.match(privacidad.es, /§ 165\.3 TKG 2021/);
-  assert.match(privacidad.es, /base jurídica, la finalidad y el plazo de conservación/);
-  assert.match(privacidad.en, /TKG 2021 § 165\(3\)/);
-  assert.match(privacidad.en, /legal basis, purposes and retention period/);
+  assert.match(privacidad.en, /§ 165\(3\) TKG 2021/);
   assert.match(privacidad.de, /Datenschutzbehörde \(DSB\)/);
   assert.match(privacidad.es, /Datenschutzbehörde \(DSB\)/);
   assert.match(privacidad.en, /Datenschutzbehörde, DSB/);
@@ -317,6 +289,22 @@ test("los textos legales contemplan Austria sin cambiar la jurisdicción del ope
   assert.match(impressum, /§ 5 ECG/);
   assert.match(impressum, /§ 25 MedienG/);
   assert.match(impressum, /Nutzung aus Österreich ändert den Sitz/);
+});
+
+test("los textos legales nombran el alojamiento real, no un hueco", () => {
+  // El proveedor de infraestructura es un destinatario del art. 13 RGPD y una
+  // pieza del impreso: si vuelve un «el proveedor donde se ejecuta el
+  // servicio», la política deja de decir a quién se envían los datos.
+  for (const documento of [
+    privacyDocument("de", completo),
+    privacyDocument("es", completo),
+    privacyDocumentEN(completo),
+  ]) {
+    assert.match(texto(documento), /netcup GmbH/);
+  }
+  for (const documento of [privacyDocument("de", completo), privacyDocument("es", completo)]) {
+    assert.doesNotMatch(texto(documento), /donde se ejecuta el servicio|bei dem dieser Dienst läuft/);
+  }
 });
 
 /** Todo el texto de un documento largo, para buscar en él sin recorrer la estructura. */

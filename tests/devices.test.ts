@@ -315,7 +315,7 @@ test("reponer claves no devuelve a la vida un dispositivo retirado entre medias"
 
 test("no se pueden acumular dispositivos sin tope", async () => {
   // Cada aparato multiplica el coste de cada mensaje que se cifra para esa
-  // persona (y, en un club, el de todos los miembros).
+  // persona.
   const nora = cuenta("Nora Tope");
   for (let index = 1; index <= repo.MAX_DEVICES_PER_ACCOUNT; index += 1) {
     const real = await device(`dispositivo-de-nora-${index}`);

@@ -25,7 +25,7 @@ export type Db = Database.Database;
  * SQLite no trae una función así y `COLLATE NOCASE` solo pliega ASCII, de modo
  * que buscar sin tildes —lo que hace todo el mundo en un teclado rápido— no
  * encontraba ni a Lucía ni a Martínez. Se registra en la conexión para usarla
- * en los `LIKE` de las búsquedas (libros, clubes, lectores y listas).
+ * en los `LIKE` de las búsquedas (libros, lectores y listas).
  */
 function registerUnaccent(db: Db): void {
   db.function("unaccent", { deterministic: true }, (value: unknown) =>
@@ -161,6 +161,11 @@ const globalForDb = globalThis as unknown as { __wanderbibliothekDb?: Db };
 
 function databaseFile(): string {
   return process.env.WANDERBIBLIOTHEK_DB ?? path.join(process.cwd(), ".data", "wanderbibliothek.db");
+}
+
+/** Ruta del fichero de la base (o `:memory:` en pruebas). */
+export function databasePath(): string {
+  return databaseFile();
 }
 
 export function getDb(): Db {

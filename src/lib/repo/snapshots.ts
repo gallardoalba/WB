@@ -9,7 +9,6 @@ import type {
 } from "../domain";
 import { listAvailabilityAlerts } from "./alerts";
 import { PAGE_SIZE, catalogPage, shelfListings, type CatalogPageParams } from "./catalog";
-import { listClubs } from "./clubs";
 import { listRecentComments } from "./comments";
 import { listPublicReadingLists } from "./lists";
 import { countUnreadNotifications, listNotifications } from "./notifications";
@@ -21,8 +20,8 @@ import { getStats, listActivity } from "./stats";
  * Datos de la vista que se está pintando.
  *
  * Solo se ejecutan las consultas que esa vista usa: la portada no carga
- * clubes, lectores ni listas, y la comunidad no paga el catálogo. Antes se
- * calculaba todo en cada render (unas 20 consultas, varias descartadas).
+ * lectores ni listas, y la comunidad no paga el catálogo. Antes se calculaba
+ * todo en cada render (unas 20 consultas, varias descartadas).
  */
 export function getSnapshot(
   user: SessionUser | null,
@@ -44,15 +43,11 @@ export function getSnapshot(
   const pageSize = shelf?.pageSize ?? catalog?.pageSize ?? PAGE_SIZE;
   const hasMore = shelf?.hasMore ?? catalog?.hasMore ?? false;
 
-  // El muro, los clubes y los lectores pueden limitarse a la ciudad de quien
-  // mira; sin ciudad conocida se muestra la región entera.
+  // El muro y los lectores pueden limitarse a la ciudad de quien mira; sin
+  // ciudad conocida se muestra la región entera.
   const scopeCity = user && params.scope === "city" ? user.city : null;
   const communityQuery = isCommunity ? params.q : undefined;
 
-  const clubsPage =
-    isCommunity && params.tab === "clubs"
-      ? listClubs({ viewerId, city: scopeCity, q: communityQuery, sort: "meeting", pageSize: 3 })
-      : null;
   const readersPage =
     isCommunity && params.tab === "readers"
       ? listReaders({
@@ -121,8 +116,6 @@ export function getSnapshot(
     activeRequests: user ? countActiveRequests(user.id) : 0,
     activity,
     conversations,
-    clubs: clubsPage?.clubs ?? [],
-    clubsTotal: clubsPage?.total ?? 0,
     readers: readersPage?.readers ?? [],
     readersTotal: readersPage?.total ?? 0,
     publicLists: listsPage?.lists ?? [],
@@ -144,6 +137,7 @@ const NO_ONBOARDING: OnboardingProgress = {
   published: false,
   requested: false,
   following: false,
+  dismissed: false,
 };
 
 /**
@@ -173,5 +167,6 @@ function onboardingProgress(
     published: published > 0,
     requested: Boolean(row?.requested),
     following: Boolean(row?.following),
+    dismissed: user.onboardingChecklistDismissed,
   };
 }

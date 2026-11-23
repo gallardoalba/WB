@@ -1,10 +1,7 @@
-import { after } from "next/server";
 import { invalidatePublicData } from "@/lib/revalidate";
 import { json, readJson } from "@/lib/api";
 import { cityName } from "@/lib/city-name";
-import { announceBook } from "@/lib/mastodon";
 import { catalogPage, countBookWants, createListing } from "@/lib/repo";
-import { siteUrl } from "@/lib/site";
 import { assertSameOrigin, clientKey, guard, hasClientIp, hit, publicaSinTope } from "@/lib/throttle";
 import { catalogParamsSchema, listingSchema } from "@/lib/validation";
 import { route } from "@/lib/route";
@@ -61,31 +58,6 @@ export const POST = route(
       input.city ? { ...input, city: await cityName(input.city) } : input,
     );
     invalidatePublicData();
-    const base = siteUrl();
-    // Aviso en Mastodon, también en `after()` y tan silencioso como el anterior:
-    // el post se encola en la base, así que un fallo de la instancia no pierde el
-    // aviso ni retrasa la respuesta. Un post por obra y, por persona, uno al día.
-    //
-    // Solo anuncian las cuentas de administración: el perfil del bot cuenta lo
-    // que cataloga el equipo, no lo que pone a la venta la comunidad (si no, la
-    // cola y el perfil acabarían siendo un espejo de todo el catálogo).
-    // `announceBook` repite la comprobación: la regla no depende de esta ruta.
-    if (user.isAdmin) {
-      after(() =>
-        announceBook({
-          bookId: listing.bookId,
-          title: input.title,
-          author: input.author,
-          base,
-          isAdmin: user.isAdmin,
-          ownerId: user.id,
-          // Si el formulario trae portada, la sube justo después de esto.
-          esperarPortada: input.withCover,
-          // La administración anuncia cada obra nueva, sin el tope de una al día.
-          sinTopeDiario: publicaSinTope(user),
-        }),
-      );
-    }
     // La demanda se calcula después de publicar: si alguien buscaba la obra
     // en la misma ciudad, la persona que publica lo ve de inmediato.
     const demand = countBookWants(listing.bookId, user.city, user.id);

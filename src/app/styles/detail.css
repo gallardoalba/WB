@@ -305,7 +305,7 @@
   background: var(--paper-lift);
 }
 
-/* Desplegable de denuncia de otras pantallas (perfil, clubes, intercambios):
+/* Desplegable de denuncia de otras pantallas (perfil, intercambios):
    ahí sigue siendo un `<details>` en línea, no una ventana. */
 .report-box {
   display: grid;

@@ -1,5 +1,5 @@
 import { getDb } from "../db";
-import type { ActivityView, StatsView } from "../domain";
+import type { ActivityView, CommunityMetrics, StatsView } from "../domain";
 
 export function listActivity(limit = 8, city: string | null = null): ActivityView[] {
   const rows = getDb()
@@ -59,10 +59,6 @@ export function getStats(): StatsView {
        JOIN users u ON u.id = l.owner_id
        WHERE l.status <> 'removed' AND u.is_suspended = 0`,
     ),
-    clubs: one(
-      `SELECT COUNT(*) AS value FROM clubs c JOIN users u ON u.id = c.owner_id
-        WHERE c.status = 'visible' AND u.is_suspended = 0`,
-    ),
     // Cuántos títulos distintos hay en circulación: «5 libros» dice menos que
     // «5 ejemplares de 4 títulos».
     titles: one(
@@ -80,12 +76,56 @@ export function getStats(): StatsView {
                 ON cd.from_name = own.city AND cd.to_name = req.city
         WHERE r.status = 'completed' AND own.is_suspended = 0 AND req.is_suspended = 0`,
     ),
-    clubsUpcoming: one(
-      `SELECT COUNT(*) AS value FROM clubs c JOIN users u ON u.id = c.owner_id
-        WHERE c.status = 'visible' AND u.is_suspended = 0
-          AND c.meets_at <> ''
-          AND c.meets_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
-    ),
   };
 }
 
+
+/**
+ * Cifras del panel de administración.
+ *
+ * Miden la comunidad en general; su sitio es este, junto al resto de cifras.
+ */
+export function getCommunityMetrics(): CommunityMetrics {
+  const db = getDb();
+  const one = (sql: string) => (db.prepare(sql).get() as { value: number }).value;
+  return {
+    conversations: one(
+      `SELECT COUNT(*) AS value FROM book_comments c JOIN users u ON u.id = c.author_id
+        WHERE c.status = 'visible' AND u.is_suspended = 0`,
+    ),
+    retention7d: one(
+      `SELECT COUNT(*) AS value FROM users u
+        WHERE u.is_suspended = 0
+          AND u.created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days')
+          AND (
+            EXISTS (SELECT 1 FROM book_comments c WHERE c.author_id = u.id
+                     AND c.created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', u.created_at, '+7 days'))
+            OR EXISTS (SELECT 1 FROM events e WHERE e.actor_id = u.id
+                        AND e.created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', u.created_at, '+7 days'))
+            OR EXISTS (SELECT 1 FROM messages m JOIN requests r ON r.id = m.request_id
+                        WHERE (r.owner_id = u.id OR r.requester_id = u.id)
+                          AND m.created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', u.created_at, '+7 days'))
+          )`,
+    ),
+    availableListings: one("SELECT COUNT(*) AS value FROM listings WHERE status = 'available'"),
+    requests30d: one(
+      `SELECT COUNT(*) AS value FROM requests
+        WHERE created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days')`,
+    ),
+    completed30d: one(
+      `SELECT COUNT(*) AS value FROM requests WHERE status = 'completed'
+        AND updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days')`,
+    ),
+    activeUsers30d: one(
+      `SELECT COUNT(DISTINCT u.id) AS value FROM users u
+        WHERE u.is_suspended = 0 AND (
+          EXISTS (SELECT 1 FROM requests r WHERE (r.owner_id = u.id OR r.requester_id = u.id)
+                   AND r.updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'))
+          OR EXISTS (SELECT 1 FROM book_comments c WHERE c.author_id = u.id
+                   AND c.created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'))
+          OR EXISTS (SELECT 1 FROM messages m WHERE m.sender_id = u.id
+                   AND m.created_at > strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days'))
+        )`,
+    ),
+  };
+}

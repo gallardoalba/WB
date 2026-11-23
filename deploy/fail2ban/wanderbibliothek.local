@@ -10,9 +10,7 @@
 # (las líneas «limiting requests» del `limit_req`).
 #
 # ⚠ `ignoreip` incluye la IP pública del servidor a propósito: el propio host
-# pide su sitio al generar la tarjeta social de cada libro (`/api/og/werk/<id>`
-# se descarga por HTTP para adjuntarla a Mastodon) y un baneo de sí mismo
-# rompería esos anuncios.
+# puede pedirse recursos a sí mismo y un baneo de sí mismo rompería el servicio.
 
 [wb-nginx-scan]
 enabled = true

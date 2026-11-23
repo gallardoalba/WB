@@ -1,9 +1,10 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, X } from "lucide-react";
 import type { OnboardingProgress } from "@/lib/domain";
+import { api } from "@/lib/client-api";
 import { localePath } from "@/lib/locale";
 import { useI18n } from "./i18n-provider";
 
@@ -12,8 +13,9 @@ import { useI18n } from "./i18n-provider";
  *
  * Las tareas las resuelve el servidor (`snapshot.onboarding`), así que se
  * tachan igual desde cualquier dispositivo. La tarjeta se oculta al completar
- * las cuatro o cuando la persona la descarta; en ese segundo caso la marca vive
- * en `localStorage` porque es una preferencia de esta pantalla, no del perfil.
+ * las cuatro o cuando la persona la descarta. El cierre se guarda en la cuenta
+ * para que no vuelva a aparecer en otro navegador; `localStorage` se mantiene
+ * como respaldo para quien ya la había cerrado antes de la v69.
  */
 const STORAGE_KEY = "wb-checklist-off";
 const CHANGE_EVENT = "wb-checklist-change";
@@ -77,15 +79,37 @@ export function OnboardingChecklist({ progress }: { progress: OnboardingProgress
   const { t, locale } = useI18n();
   // En el servidor y en la hidratación se pinta (el snapshot es `false`); el
   // navegador lo corrige en cuanto lee la marca.
-  const dismissed = useSyncExternalStore(subscribe, readDismissed, () => false);
+  const dismissedLocally = useSyncExternalStore(subscribe, readDismissed, () => false);
+  const [pending, setPending] = useState(false);
+
+  // Quien ya la había cerrado antes de la v69 conserva la marca local. Se
+  // traslada a la cuenta en cuanto la vemos, para que no reaparezca en otro
+  // navegador; la tarjeta ya está oculta en este.
+  useEffect(() => {
+    if (progress.dismissed || !dismissedLocally) return;
+    void api("/api/account/onboarding", { method: "POST" }).catch(() => undefined);
+  }, [progress.dismissed, dismissedLocally]);
 
   const done = TASKS.filter((task) => progress[task.key]).length;
-  // Con las cuatro hechas ya no hay nada que recordar; si se descartó, tampoco.
-  if (dismissed || done === TASKS.length) return null;
+  // Con las cuatro hechas ya no hay nada que recordar; si se descartó en esta
+  // cuenta o en este navegador, tampoco.
+  if (progress.dismissed || dismissedLocally || done === TASKS.length) return null;
 
-  function hide() {
+  async function hide() {
+    if (pending) return;
+    setPending(true);
+    // La marca local oculta la tarjeta al instante; la de la cuenta la hace
+    // desaparecer también en los demás dispositivos.
     window.localStorage.setItem(STORAGE_KEY, "1");
     window.dispatchEvent(new Event(CHANGE_EVENT));
+    try {
+      await api("/api/account/onboarding", { method: "POST" });
+    } catch {
+      // Sin red, la marca local evita que se repita en esta sesión; el próximo
+      // acceso lo reintentará si la tarjeta vuelve a mostrarse.
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -100,7 +124,8 @@ export function OnboardingChecklist({ progress }: { progress: OnboardingProgress
         <button
           type="button"
           className="onboarding-hide"
-          onClick={hide}
+          onClick={() => void hide()}
+          disabled={pending}
           aria-label={t("Ocultar los primeros pasos")}
         >
           <X size={15} aria-hidden="true" />

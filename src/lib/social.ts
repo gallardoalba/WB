@@ -45,7 +45,7 @@ function absolute(urlOrPath: string): string {
  * Existe por un fallo que no se ve en el navegador: definir `openGraph` en una
  * página **sustituye** el objeto entero del layout, no lo completa. Cada ficha
  * que declaraba el suyo se quedaba sin `images`, y con ello sin tarjeta de vista
- * previa al compartir el enlace —Mastodon, WhatsApp y Telegram no muestran nada
+ * previa al compartir el enlace —WhatsApp y Telegram no muestran nada
  * sin `og:image`— mientras Twitter seguía anunciando el título genérico del
  * sitio. Aquí se componen los dos a la vez y con URLs absolutas.
  *

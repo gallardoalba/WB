@@ -171,9 +171,6 @@ export default async function Page({ params }: PageProps) {
           isAuthenticated={Boolean(viewer)}
           inLists={inLists}
         />
-        <Link href={`/clubes?book=${book.id}`} className="work-link">
-          <Users size={15} /> {t("Crear un club con este libro")}
-        </Link>
         {viewer && (
           <BookWantButton
             bookId={book.id}

@@ -2,8 +2,8 @@
 
 Protocol version: `wanderbibliothek:v1` (release 1.0.20 onwards).
 Scope: message bodies of an accepted book exchange (`requestId`) and direct
-messages between two accounts (`dm:<threadId>`). Club posts, comments,
-notifications and listings are not end-to-end encrypted.
+messages between two accounts (`dm:<threadId>`). Comments, notifications and
+listings are not end-to-end encrypted.
 
 The reference implementation is [`src/lib/e2e.ts`](../src/lib/e2e.ts); the
 server side is [`src/lib/repo/direct.ts`](../src/lib/repo/direct.ts),

@@ -73,8 +73,6 @@ const NotificationsDialog = dynamic(() =>
 const ExchangesList = dynamic(() =>
   import("./exchanges-list").then((module) => module.ExchangesList),
 );
-const ClubBoard = dynamic(() => import("./club-board").then((module) => module.ClubCreate));
-const ClubCard = dynamic(() => import("./club-card").then((module) => module.ClubCard));
 /**
  * El diálogo de acceso no viaja en el paquete inicial: `LazyDialog` no lo monta
  * hasta que alguien pulsa «Entrar», y entonces se descarga. Es el trozo más
@@ -156,7 +154,6 @@ const VIEW_TITLES = {
 const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
   conversations: "Conversaciones",
   activity: "Actividad",
-  clubs: "Clubes",
   readers: "Lectores",
   lists: "Listas",
 };
@@ -206,7 +203,7 @@ export default function WanderbibliothekApp({
    */
   turnstileSiteKey?: string | null;
 }) {
-  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, archivedRequests, archivedRequestsTotal, activeRequests, activity, conversations, clubs, clubsTotal, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
+  const { user: sessionUser, view, filters, listings, total, page, pageSize, hasMore, requests, requestsTotal, archivedRequests, archivedRequestsTotal, activeRequests, activity, conversations, readers, readersTotal, publicLists, stats, unreadNotifications, unreadMessages, notifications, onboarding } = snapshot;
   /**
    * Entrada optimista: al iniciar sesión la cabecera pasa a «dentro» con la
    * respuesta del propio `POST /api/auth/login`, sin esperar a que termine el
@@ -904,8 +901,8 @@ export default function WanderbibliothekApp({
               </>
             )}
           </div>
-          {/* Mismo buscador global que el resto de páginas: obras, clubes,
-              lectores y listas desde cualquier vista. En el catálogo y en la
+          {/* Mismo buscador global que el resto de páginas: obras, lectores y
+              listas desde cualquier vista. En el catálogo y en la
               estantería no se pinta: ahí manda el filtro de la barra de
               herramientas, y dos campos con la misma lupa confundían. */}
           {view !== "discover" && view !== "shelf" && (
@@ -1010,12 +1007,6 @@ export default function WanderbibliothekApp({
                     {stats.members === 1 ? t("lector registrado") : t("lectores registrados")}
                   </span>
                 </div>
-                <div className="hero-stat">
-                  <strong>{formatNumber(stats.clubs, locale)}</strong>
-                  <span className="hero-stat-label">
-                    {stats.clubs === 1 ? t("club de lectura") : t("clubes de lectura")}
-                  </span>
-                </div>
               </div>
             </section>
           )}
@@ -1063,8 +1054,6 @@ export default function WanderbibliothekApp({
                       <MessageCircle size={14} />
                     ) : tab === "activity" ? (
                       <Activity size={14} />
-                    ) : tab === "clubs" ? (
-                      <BookOpen size={14} />
                     ) : tab === "readers" ? (
                       <Users size={14} />
                     ) : (
@@ -1084,11 +1073,9 @@ export default function WanderbibliothekApp({
                         : t("Lo que la comunidad está leyendo y comentando")
                       : filters.tab === "activity"
                         ? t("Movimientos de la comunidad")
-                        : filters.tab === "clubs"
-                          ? t("Clubes de lectura para leer en compañía")
-                          : filters.tab === "readers"
-                            ? t("Personas activas con las que compartir lecturas")
-                            : t("Listas de lectura que la comunidad comparte")}
+                        : filters.tab === "readers"
+                          ? t("Personas activas con las que compartir lecturas")
+                          : t("Listas de lectura que la comunidad comparte")}
                 </p>
                 <div className="feed-header-controls">
                   {user && (
@@ -1215,38 +1202,6 @@ export default function WanderbibliothekApp({
                     </div>
                   </article>
                 ))}
-
-                {filters.tab === "clubs" && (
-                  <div className="community-section">
-                    {user && (
-                      <div className="community-clubs-tools">
-                        <ClubBoard defaultCity={user.city} />
-                      </div>
-                    )}
-                    {clubs.length === 0 ? (
-                      <div className="community-empty">
-                        <h3>
-                          {t("Todavía no hay clubes")}
-                          {filters.scope === "city" && user ? ` ${user.city}` : ""}
-                        </h3>
-                        <p>{t("Crea el primero y propón una lectura para empezar.")}</p>
-                      </div>
-                    ) : (
-                      <div className="community-club-grid">
-                        {clubs.map((club) => (
-                          <ClubCard key={club.id} club={club} compact />
-                        ))}
-                      </div>
-                    )}
-                    <Link href={href("/clubes")} className="community-more link-pending">
-                      {clubsTotal > clubs.length
-                        ? t("Ver los {n} clubes", { n: clubsTotal })
-                        : t("Ir al directorio de clubes")}{" "}
-                      <ArrowRight size={15} />
-                      <LinkHint />
-                    </Link>
-                  </div>
-                )}
 
                 {filters.tab === "readers" && (
                   <div className="community-section">
@@ -1778,11 +1733,6 @@ export default function WanderbibliothekApp({
             {user && (
               <>
                 <nav className="footer-links" aria-label={t("Secciones de la comunidad")}>
-                  <Link href={href("/clubes")} className="link-pending">
-                    {t("Clubes")}
-                    <LinkHint />
-                  </Link>
-                  <FooterSeparator />
                   <Link href={href("/lectores")} className="link-pending">
                     {t("Lectores")}
                     <LinkHint />

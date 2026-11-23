@@ -30,18 +30,6 @@ const EXPECTED_TABLES = [
   "books_fts",
   "cities",
   "city_distances",
-  "club_attendance",
-  "club_loans",
-  "club_members",
-  "club_poll_options",
-  "club_poll_votes",
-  "club_polls",
-  "club_post_disclosure_envelopes",
-  "club_post_disclosures",
-  "club_post_envelopes",
-  "club_post_likes",
-  "club_posts",
-  "clubs",
   "device_keys",
   "device_one_time_keys",
   "dm_message_envelopes",
@@ -58,8 +46,8 @@ const EXPECTED_TABLES = [
   "listings_fts",
   "message_envelopes",
   "messages",
+  "metrics_samples",
   "notifications",
-  "product_events",
   "public_key_history",
   "push_subscriptions",
   "reading_list_items",
@@ -71,8 +59,6 @@ const EXPECTED_TABLES = [
   "requests",
   "reviews",
   "sessions",
-  "social_likes",
-  "social_outbox",
   "throttle",
   "transparency_snapshots",
   "user_keys",
@@ -96,7 +82,7 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "from_request_id",
   ],
   requests: ["status", "owner_confirmed_at", "requester_confirmed_at"],
-  users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at", "is_moderator", "suspended_until", "suspension_reason"],
+  users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at", "is_moderator", "suspended_until", "suspension_reason", "onboarding_checklist_dismissed_at"],
   appeals: [
     "user_id",
     "audit_id",
@@ -108,12 +94,11 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "reviewed_by_name",
   ],
   messages: ["ciphertext", "iv", "encrypted", "key_id"],
+  metrics_samples: ["created_at", "payload"],
   user_keys: ["user_id", "platform", "key_id", "public_jwk"],
   message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
   dm_message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
   public_key_history: ["key_id", "platform", "reason", "replaced_at"],
-  clubs: ["meets_at", "meets_on", "status", "meets_place", "meets_link"],
-  club_posts: ["club_id", "author_id", "parent_id", "body", "status"],
   jobs: [
     "kind",
     "target",
@@ -125,7 +110,6 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "created_at",
     "finished_at",
   ],
-  social_outbox: ["network", "subject", "body", "status", "attempts", "media_id", "owner_id", "day"],
   transparency_snapshots: [
     "created_at",
     "item_count",
@@ -266,10 +250,129 @@ test("volver a migrar no cambia nada ni toca los datos", () => {
   db.close();
 });
 
+test("la v66 limpia los huérfanos derivados y respeta el historial", () => {
+  // Producción llegó al despliegue con una etiqueta y una entrada del muro
+  // apuntando a un ejemplar que ya no existía: `foreign_key_check` las marcaba
+  // y con ellas fallaban `db:verify` y `db:restore-drill`.
+  const db = new Database(":memory:");
+  migrate(db);
+  const insertUser = db.prepare(
+    "INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+  );
+  insertUser.run("usr_a", "Ana", "ana@example.test", "scrypt$00$00", "2026-01-01T00:00:00.000Z");
+  insertUser.run("usr_b", "Bea", "bea@example.test", "scrypt$00$00", "2026-01-01T00:00:00.000Z");
+  db.prepare(
+    "INSERT INTO books (id, title, title_key, author, category, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run("bok_1", "Un libro", "un libro", "Autora", "Ensayo", "2026-01-01T00:00:00.000Z");
+  db.prepare(
+    "INSERT INTO listings (id, book_id, owner_id, condition, city, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run("lst_1", "bok_1", "usr_a", "good", "Stuttgart", "2026-01-01T00:00:00.000Z");
+  db.prepare("INSERT INTO listing_tags (listing_id, tag) VALUES (?, ?)").run("lst_1", "Ensayo");
+  db.prepare("INSERT INTO favorites (user_id, listing_id, created_at) VALUES (?, ?, ?)").run(
+    "usr_b",
+    "lst_1",
+    "2026-01-01T00:00:00.000Z",
+  );
+  db.prepare(
+    "INSERT INTO events (id, type, actor_id, listing_id, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run("evt_1", "published", "usr_a", "lst_1", "2026-01-01T00:00:00.000Z");
+  db.prepare(
+    "INSERT INTO requests (id, listing_id, requester_id, owner_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    "req_1",
+    "lst_1",
+    "usr_b",
+    "usr_a",
+    "pending",
+    "2026-01-01T00:00:00.000Z",
+    "2026-01-01T00:00:00.000Z",
+  );
+
+  // El ejemplar se borra por fuera de la aplicación (que nunca lo hace).
+  db.pragma("foreign_keys = OFF");
+  db.prepare("DELETE FROM listings WHERE id = ?").run("lst_1");
+  db.pragma("foreign_keys = ON");
+
+  db.pragma("user_version = 65");
+  migrate(db);
+
+  const cuenta = (sql: string) => (db.prepare(sql).get() as { c: number }).c;
+  assert.equal(cuenta("SELECT count(*) c FROM listing_tags"), 0, "la etiqueta huérfana sigue ahí");
+  assert.equal(cuenta("SELECT count(*) c FROM favorites"), 0, "el favorito huérfano sigue ahí");
+  assert.equal(cuenta("SELECT count(*) c FROM events"), 0, "la entrada del muro sigue ahí");
+  assert.equal(
+    cuenta("SELECT count(*) c FROM requests"),
+    1,
+    "el intercambio es historial y no se borra",
+  );
+  db.close();
+});
+
 test("las invariantes de la conexión siguen activas", () => {
   const db = freshDatabase();
   assert.equal(db.pragma("foreign_keys", { simple: true }), 1);
   assert.equal(db.pragma("secure_delete", { simple: true }), 1);
   assert.equal(db.pragma("busy_timeout", { simple: true }), 5000);
+  db.close();
+});
+
+test("la v65 retira los grupos de lectura y sus datos", () => {
+  // La migración es destructiva a propósito, así que se prueba sobre una base
+  // que *tenía* clubes: se recrea una tabla de la v64, se mete una fila, se
+  // migra y se comprueba que no queda ni la tabla ni la denuncia que la
+  // apuntaba.
+  const db = new Database(":memory:");
+  migrate(db);
+  // La FK de `reports` apunta a `users`: se crea la cuenta de la prueba.
+  db.prepare(
+    "INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+  ).run("usr_prueba", "Prueba", "prueba@example.test", "scrypt$00$00", "2026-01-01T00:00:00.000Z");
+  const usuario = "usr_prueba";
+  db.exec(`
+    CREATE TABLE clubs (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+    INSERT INTO clubs (id, name) VALUES ('clb_viejo', 'Club de antes');
+  `);
+  db.prepare(
+    `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, details, status, created_at)
+     VALUES (?, ?, 'club', 'clb_viejo', 'Spam o publicidad', '', 'open', '2026-01-01T00:00:00.000Z')`,
+  ).run("rep_club", usuario);
+  db.prepare(
+    `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, details, status, created_at)
+     VALUES (?, ?, 'listing', 'lst_1', 'Spam o publicidad', '', 'open', '2026-01-01T00:00:00.000Z')`,
+  ).run("rep_listing", usuario);
+  // Un aviso que enlazaba al club y otro de un intercambio: solo cae el primero.
+  db.prepare(
+    `INSERT INTO notifications (id, user_id, type, title, link, created_at)
+     VALUES ('ntf_club', ?, 'club', 'Nuevo encuentro del club', '/clubes/clb_viejo', '2026-01-01T00:00:00.000Z')`,
+  ).run(usuario);
+  db.prepare(
+    `INSERT INTO notifications (id, user_id, type, title, link, created_at)
+     VALUES ('ntf_listing', ?, 'request', 'Nueva solicitud de intercambio', '/intercambios', '2026-01-01T00:00:00.000Z')`,
+  ).run(usuario);
+  db.pragma("user_version = 64");
+
+  migrate(db);
+
+  const tablas = (
+    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+  ).map((row) => row.name);
+  assert.equal(
+    tablas.some((nombre) => nombre === "clubs" || nombre.startsWith("club_")),
+    false,
+    "no queda ninguna tabla de clubes",
+  );
+  assert.equal(
+    tablas.includes("product_events"),
+    false,
+    "la tabla de contadores de clubes tampoco: no la escribía nadie más",
+  );
+  const denuncias = (
+    db.prepare("SELECT id FROM reports ORDER BY id").all() as { id: string }[]
+  ).map((row) => row.id);
+  assert.deepEqual(denuncias, ["rep_listing"], "la denuncia de un club se va; la del ejemplar, no");
+  const avisos = (
+    db.prepare("SELECT id FROM notifications ORDER BY id").all() as { id: string }[]
+  ).map((row) => row.id);
+  assert.deepEqual(avisos, ["ntf_listing"], "el aviso que enlazaba al club se va; el del intercambio, no");
   db.close();
 });

@@ -4,7 +4,7 @@
  * La ficha bibliográfica cuelga de la **obra**, no de la copia: corregir una
  * errata en un ejemplar cambia el título de todas las copias del mismo libro y
  * tiene que reaparecer en las búsquedas. `searchBooks` alimenta el buscador
- * global y la elección de lectura de un club.
+ * global.
  */
 import assert from "node:assert/strict";
 import { before, test } from "node:test";

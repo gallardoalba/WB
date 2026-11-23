@@ -8,9 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { Db } from "./index";
 import { CITIES, cityDistances } from "../cities";
 import { CATEGORIES, TAGS } from "../domain";
-import { composeStatus, workUrl } from "../mastodon-post";
 import { encryptSecret, isEncrypted, shipContext } from "../secret-box";
-import { siteUrl } from "../site";
 import { normalizeText } from "../text";
 import { workKeyFromTitle } from "../work";
 import { INDEXES, LEGACY_UPGRADE, SCHEMA_V2, SCHEMA_VERSION } from "./schema";
@@ -1321,79 +1319,23 @@ function migrateToV40(db: Db) {
 }
 
 /**
- * v41: cola de avisos en redes sociales.
+ * v41: escalón retirado.
  *
- * El bot de Mastodon no publica desde la petición: encola aquí y lo intenta el
- * `after()` (y el cron, si falla). La clave única por red y obra es lo que evita
- * que el mismo libro se anuncie tres veces porque lo pongan tres personas.
- *
- * `attempts`/`next_attempt_at` repiten el esquema de `mail_outbox`, que ya está
- * probado en producción; `external_id`/`external_url` guardan el estado creado
- * para poder borrarlo a mano si hiciera falta.
+ * Creaba la cola de avisos en redes sociales. La función se eliminó del
+ * proyecto y la v67 borra las tablas que pudieran quedar; este escalón solo
+ * mantiene la numeración para las bases antiguas.
  */
 function migrateToV41(db: Db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS social_outbox (
-      id TEXT PRIMARY KEY,
-      network TEXT NOT NULL,
-      subject TEXT NOT NULL,
-      body TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      attempts INTEGER NOT NULL DEFAULT 0,
-      next_attempt_at TEXT NOT NULL,
-      last_error TEXT,
-      external_id TEXT,
-      external_url TEXT,
-      created_at TEXT NOT NULL,
-      sent_at TEXT
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS social_outbox_subject
-      ON social_outbox(network, subject);
-    CREATE INDEX IF NOT EXISTS social_outbox_pending
-      ON social_outbox(status, next_attempt_at);
-  `);
-
   db.pragma("user_version = 41");
 }
 
-/**
- * v42: la portada del aviso en Mastodon.
- *
- * La imagen se sube **antes** de encolar el post y su id se guarda aquí: un
- * reintento adjunta el mismo medio en vez de subirlo otra vez, y la imagen que
- * se ve en el estado es la que se decidió al publicar el libro.
- */
+/** v42: escalón retirado (columna de imagen de la cola social). */
 function migrateToV42(db: Db) {
-  const columns = (db.pragma("table_info(social_outbox)") as { name: string }[]).map(
-    (column) => column.name,
-  );
-  if (!columns.includes("media_id")) {
-    db.exec("ALTER TABLE social_outbox ADD COLUMN media_id TEXT");
-  }
   db.pragma("user_version = 42");
 }
 
-/**
- * v43: un aviso por persona y día.
- *
- * `owner_id` guarda quién puso el ejemplar y `day` el día del aviso ya calculado
- * en la zona de la casa (Europe/Berlin), no en UTC: quien publica a las 00:30 en
- * Múnich no debe contar como el día anterior. El índice sostiene la consulta que
- * hace el bot antes de encolar.
- */
+/** v43: escalón retirado (columnas de autoría y día de la cola social). */
 function migrateToV43(db: Db) {
-  const columns = (db.pragma("table_info(social_outbox)") as { name: string }[]).map(
-    (column) => column.name,
-  );
-  if (!columns.includes("owner_id")) {
-    db.exec("ALTER TABLE social_outbox ADD COLUMN owner_id TEXT");
-  }
-  if (!columns.includes("day")) {
-    db.exec("ALTER TABLE social_outbox ADD COLUMN day TEXT");
-  }
-  db.exec(
-    "CREATE INDEX IF NOT EXISTS social_outbox_owner_day ON social_outbox(owner_id, day)",
-  );
   db.pragma("user_version = 43");
 }
 
@@ -1426,31 +1368,8 @@ function migrateToV44(db: Db) {
   db.pragma("user_version = 44");
 }
 
-/**
- * v45: el bot recuerda a qué estados ha dado «me gusta».
- *
- * Sin esta tabla el bot repetiría la misma publicación cada pasada (y eso sí
- * que parece spam). `status_id` es único por red, así que un estado solo se
- * pulsa una vez; `account_acct` y `created_at` sostienen la regla de «cómo
- * mucho, una vez por cuenta y por día».
- */
+/** v45: escalón retirado (memoria de «me gusta» en redes sociales). */
 function migrateToV45(db: Db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS social_likes (
-      id TEXT PRIMARY KEY,
-      network TEXT NOT NULL,
-      status_id TEXT NOT NULL,
-      account_acct TEXT NOT NULL,
-      status_url TEXT,
-      tag TEXT,
-      locale TEXT,
-      created_at TEXT NOT NULL,
-      UNIQUE (network, status_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS social_likes_created ON social_likes(network, created_at);
-    CREATE INDEX IF NOT EXISTS social_likes_account ON social_likes(network, account_acct, created_at);
-  `);
   db.pragma("user_version = 45");
 }
 
@@ -1577,64 +1496,8 @@ function migrateToV50(db: Db) {
   db.pragma("user_version = 50");
 }
 
-/**
- * Reescribe el texto de los avisos que aún esperan en la cola.
- *
- * El bot pasó a escribir siempre en alemán y cambió las etiquetas: ahora
- * combinan la casa, el tema del libro (sus etiquetas curadas o su categoría) y
- * la lectura. Lo que ya estaba encolado conservaba el texto anterior, así que se
- * recompone con la misma función que usa el alta: el aviso que salga es el que
- * habría salido hoy. Las filas enviadas o fallidas no se tocan; son historial.
- *
- * Devuelve cuántos avisos se actualizaron.
- */
-export function refreshQueuedPosts(db: Db): number {
-  const pendientes = db
-    .prepare(
-      `SELECT id, subject FROM social_outbox
-        WHERE network = 'mastodon' AND status = 'pending'
-          AND subject IN (SELECT id FROM books)`,
-    )
-    .all() as { id: string; subject: string }[];
-  if (pendientes.length === 0) return 0;
-
-  const bookStmt = db.prepare("SELECT title, author, category FROM books WHERE id = ?");
-  const tagsStmt = db.prepare(
-    `SELECT DISTINCT lt.tag FROM listing_tags lt
-       JOIN listings l ON l.id = lt.listing_id
-      WHERE l.book_id = ?
-      ORDER BY lt.tag`,
-  );
-  const update = db.prepare("UPDATE social_outbox SET body = ? WHERE id = ?");
-  const base = siteUrl();
-  let updated = 0;
-  db.transaction(() => {
-    for (const fila of pendientes) {
-      const book = bookStmt.get(fila.subject) as
-        | { title: string; author: string; category: string }
-        | undefined;
-      if (!book) continue;
-      const tags = (tagsStmt.all(fila.subject) as { tag: string }[]).map((row) => row.tag);
-      update.run(
-        composeStatus({
-          title: book.title,
-          author: book.author,
-          url: workUrl(base, fila.subject),
-          seed: fila.subject,
-          category: book.category,
-          tags,
-        }),
-        fila.id,
-      );
-      updated += 1;
-    }
-  })();
-  return updated;
-}
-
-/** v51: los avisos que esperan en la cola pasan al alemán y a las etiquetas nuevas. */
+/** v51: escalón retirado (reescritura del texto de la cola social). */
 function migrateToV51(db: Db) {
-  refreshQueuedPosts(db);
   db.pragma("user_version = 51");
 }
 
@@ -1729,14 +1592,8 @@ function migrateToV54(db: Db) {
   db.pragma("user_version = 54");
 }
 
-/**
- * v55: los avisos que esperan en la cola pierden las referencias temporales.
- *
- * El bot decía «ab heute» aunque el libro llevara días en el catálogo. Los
- * textos pendientes se recomponen con la voz nueva; los enviados no se tocan.
- */
+/** v55: escalón retirado (segunda reescritura del texto de la cola social). */
 function migrateToV55(db: Db) {
-  refreshQueuedPosts(db);
   db.pragma("user_version = 55");
 }
 
@@ -1824,10 +1681,10 @@ function migrateToV57(db: Db) {
  * v58: las tareas pendientes dejan de ser una tabla por cosa.
  *
  * `mail_outbox` tenía ya el patrón completo —estado, intentos, próximo intento,
- * último error—, pero atado al correo: un aviso de Mastodon o un «me gusta»
- * pendiente viven en su propia tabla con las mismas columnas copiadas. Eso deja
- * tres sitios donde mirar para saber qué no ha salido, y cada uno con su propia
- * forma de reintentar.
+ * último error—, pero atado al correo: otras colas pendientes vivían en su
+ * propia tabla con las mismas columnas copiadas. Eso dejaba tres sitios donde
+ * mirar para saber qué no ha salido, y cada uno con su propia forma de
+ * reintentar.
  *
  * `jobs` guarda cualquier trabajo diferido con ese mismo patrón. `kind` dice de
  * qué es y `target` es lo que se consulta por ahí (la dirección de correo, para
@@ -2109,7 +1966,177 @@ function migrateToV64(db: Db) {
 }
 
 /**
- * v65: registro de dispositivos y sus claves de un solo uso.
+ * v65: se retiran los grupos de lectura.
+ *
+ * La funcionalidad no encajaba en el proyecto: un club era a la vez foro,
+ * encuesta, préstamo rotatorio, control de asistencia y objeto de moderación, y
+ * mantenía cinco subsistemas con sus propias reglas. Se elimina entera, y con
+ * ella sus datos.
+ *
+ * La migración es deliberadamente destructiva: dejar las tablas sin uso sería
+ * peor que borrarlas, porque seguirían guardando texto libre de personas que ya
+ * no pueden verlo ni reclamarlo. Las copias cifradas anteriores a esta versión
+ * son la única vuelta atrás, y por eso el despliegue hace una antes de migrar.
+ *
+ * Se borran primero las hijas para no depender del orden de `ON DELETE CASCADE`
+ * y se elimina lo que apuntaba a un club y se quedaría sin destino: las
+ * denuncias de ese tipo (no se podrían resolver ni mostrar), los avisos con su
+ * enlace y los contadores de visitas. La tabla de esos contadores se va con
+ * ellas, porque no la escribe nadie más.
+ */
+function migrateToV65(db: Db) {
+  db.transaction(() => {
+    db.prepare("DELETE FROM reports WHERE target_type IN ('club', 'club_post')").run();
+    // Los avisos de club enlazan a `/clubes/…`, que ya no existe: se quedaban en
+    // la campana como un enlace roto. Se distinguen por el enlace, no solo por
+    // el tipo, porque algunos se guardaron con otro tipo y el mismo destino.
+    db.prepare(
+      "DELETE FROM notifications WHERE type = 'club' OR link LIKE '/clubes%'",
+    ).run();
+
+    // De la hoja a la raíz. `IF EXISTS` deja la migración re-ejecutable si una
+    // instalación a medio camino se quedó sin alguna tabla.
+    for (const tabla of [
+      "club_post_likes",
+      "club_posts",
+      "club_poll_votes",
+      "club_poll_options",
+      "club_polls",
+      "club_attendance",
+      "club_loans",
+      "club_members",
+      "clubs",
+    ]) {
+      db.exec(`DROP TABLE IF EXISTS ${tabla}`);
+    }
+
+    // `product_events` nació para medir los clubes y no lo escribe nadie más:
+    // sus dos únicos tipos eran `club_view` y `club_post_notice`. Una tabla que
+    // guarda actividad con `user_id` y ya no recibe filas es solo una
+    // obligación de borrado y una promesa en la política de privacidad; se va
+    // entera, con la columna `club_id` dentro.
+    db.exec("DROP TABLE IF EXISTS product_events");
+  })();
+
+  db.pragma("user_version = 65");
+}
+
+/**
+ * Limpia las filas que se quedaron sin padre.
+ *
+ * Una copia de esta base no se podía restaurar en limpio porque dos filas —una
+ * etiqueta y una entrada del muro— apuntaban a un ejemplar que ya no existía:
+ * `foreign_key_check` las marcaba y con ellas fallaban `db:verify` y
+ * `db:restore-drill`, que es justo la red que se comprueba antes de una
+ * migración destructiva. La aplicación no borra ejemplares (retirar una copia
+ * es `status = 'removed'`), así que no hay un borrado que arreglar: se limpia
+ * lo que ya estaba roto y queda red para el día en que una restauración a
+ * medias deje restos.
+ *
+ * Solo se tocan tablas derivadas: etiquetas, favoritos, «me gusta», sobres
+ * cifrados, marcas de leído, elementos de lista, avisos de disponibilidad y el
+ * muro. Se pueden recalcular o no significan nada sin su padre. El historial de
+ * un intercambio (`requests`, `messages`, `reviews`, `reports`, `appeals`,
+ * `admin_audit`) no se toca aunque una referencia esté rota: borrarlo
+ * destruiría la memoria de otras personas para dejar una comprobación limpia.
+ * Tampoco las tablas que apuntan a `users`, que nunca se borra: una cuenta
+ * eliminada se anonimiza en su sitio.
+ */
+function migrateToV66(db: Db) {
+  db.transaction(() => {
+    // Etiquetas, favoritos y «me gusta»: derivados del ejemplar o del comentario.
+    db.prepare("DELETE FROM listing_tags WHERE listing_id NOT IN (SELECT id FROM listings)").run();
+    db.prepare("DELETE FROM favorites WHERE listing_id NOT IN (SELECT id FROM listings)").run();
+    db.prepare(
+      "DELETE FROM book_comment_likes WHERE comment_id NOT IN (SELECT id FROM book_comments)",
+    ).run();
+
+    // Sobres cifrados: sin el mensaje no hay nada que descifrar.
+    db.prepare(
+      "DELETE FROM message_envelopes WHERE message_id NOT IN (SELECT id FROM messages)",
+    ).run();
+    db.prepare(
+      "DELETE FROM dm_message_envelopes WHERE message_id NOT IN (SELECT id FROM dm_messages)",
+    ).run();
+
+    // Marcas de leído y de archivo de un hilo o un intercambio que ya no está.
+    db.prepare("DELETE FROM dm_reads WHERE thread_id NOT IN (SELECT id FROM dm_threads)").run();
+    db.prepare("DELETE FROM request_reads WHERE request_id NOT IN (SELECT id FROM requests)").run();
+    db.prepare(
+      "DELETE FROM request_archives WHERE request_id NOT IN (SELECT id FROM requests)",
+    ).run();
+
+    // Listas, avisos y estados de lectura de un libro que ya no está.
+    db.prepare(
+      "DELETE FROM reading_list_items WHERE book_id NOT IN (SELECT id FROM books) OR list_id NOT IN (SELECT id FROM reading_lists)",
+    ).run();
+    db.prepare("DELETE FROM book_wants WHERE book_id NOT IN (SELECT id FROM books)").run();
+    db.prepare("DELETE FROM reading_states WHERE book_id NOT IN (SELECT id FROM books)").run();
+
+    // El muro: una entrada sin el ejemplar o el intercambio no se puede mostrar,
+    // así que solo quedaba como enlace roto.
+    db.prepare(
+      "DELETE FROM events WHERE (listing_id IS NOT NULL AND listing_id NOT IN (SELECT id FROM listings)) OR (request_id IS NOT NULL AND request_id NOT IN (SELECT id FROM requests))",
+    ).run();
+  })();
+
+  db.pragma("user_version = 66");
+}
+
+/**
+ * v67: retirada de la cola de redes sociales.
+ *
+ * Las dos tablas de la cola social ya no se leen ni se escriben. Se eliminan
+ * para no dejar datos huérfanos ni esquema que nadie mantiene.
+ */
+function migrateToV67(db: Db) {
+  db.exec(`
+    DROP TABLE IF EXISTS social_outbox;
+    DROP TABLE IF EXISTS social_likes;
+  `);
+  db.pragma("user_version = 67");
+}
+
+/**
+ * v68: muestras periódicas para el panel de estadísticas.
+ *
+ * El panel nativo necesita algo de histórico para dibujar tendencias, pero no
+ * justifica Prometheus ni Grafana en una instancia única. El cron de
+ * mantenimiento guarda una foto cada 15 minutos; el payload va en JSON porque
+ * las métricas cambian con el tiempo y no merecen una columna por cada una.
+ */
+function migrateToV68(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metrics_samples (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      payload TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS metrics_samples_created
+      ON metrics_samples(created_at);
+  `);
+  db.pragma("user_version = 68");
+}
+
+/**
+ * v69: cierre persistente de la lista de primeros pasos.
+ *
+ * La tarjeta se descartaba solo en `localStorage`, así que volvía a aparecer al
+ * entrar desde otro navegador. La marca vive ahora en la cuenta; el aviso local
+ * se conserva como respaldo para quien ya la había cerrado antes de la v69.
+ */
+function migrateToV69(db: Db) {
+  const columns = (db.pragma("table_info(users)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("onboarding_checklist_dismissed_at")) {
+    db.exec("ALTER TABLE users ADD COLUMN onboarding_checklist_dismissed_at TEXT");
+  }
+  db.pragma("user_version = 69");
+}
+
+/**
+ * v70: registro de dispositivos y sus claves de un solo uso.
  *
  * El protocolo v2 necesita una identidad **por dispositivo**, no por ranura de
  * plataforma: publicar desde otro navegador ya no sustituye la clave anterior.
@@ -2123,7 +2150,7 @@ function migrateToV64(db: Db) {
  * una en una y se borran en la misma transacción, así que el servidor no puede
  * reutilizarlas.
  */
-function migrateToV65(db: Db) {
+function migrateToV70(db: Db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS device_keys (
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -2153,11 +2180,11 @@ function migrateToV65(db: Db) {
     CREATE INDEX IF NOT EXISTS device_one_time_keys_pending
       ON device_one_time_keys(user_id, device_id, created_at);
   `);
-  db.pragma("user_version = 65");
+  db.pragma("user_version = 70");
 }
 
 /**
- * v66: los sobres del protocolo v2 caben en las tablas que ya hay.
+ * v71: los sobres del protocolo v2 caben en las tablas que ya hay.
  *
  * Un mensaje siempre fue «una fila por mensaje y un sobre por destinatario»; lo
  * que cambia con v2 es que el destinatario es un **dispositivo** y el cuerpo es
@@ -2166,7 +2193,7 @@ function migrateToV65(db: Db) {
  * duplicar tablas: así el hilo, los no leídos, los avisos, la exportación y la
  * purga siguen valiendo para los dos formatos sin tocar nada más.
  */
-function migrateToV66(db: Db) {
+function migrateToV71(db: Db) {
   // Se comprueba antes de añadir: una base restaurada de una copia ya migrada, o
   // una instalación nueva que nace con el esquema completo, traen las columnas.
   const addColumn = (table: string, column: string, definition: string) => {
@@ -2178,83 +2205,17 @@ function migrateToV66(db: Db) {
   addColumn("message_envelopes", "type", "INTEGER");
   addColumn("dm_message_envelopes", "protocol", "INTEGER NOT NULL DEFAULT 1");
   addColumn("dm_message_envelopes", "type", "INTEGER");
-  db.pragma("user_version = 66");
+  db.pragma("user_version = 71");
 }
 
 /**
- * v67: el foro del club, cifrado de extremo a extremo.
- *
- * Un mensaje del tablón se cifra **una vez por dispositivo de cada miembro**
- * (reparto pairwise sobre el ratchet de v2), así que el servidor guarda un sobre
- * por destinatario y no puede leer nada. `club_posts.body` se queda vacío en los
- * mensajes cifrados: el texto vive dentro de los sobres.
- *
- * La moderación no recibe acceso general. Cuando alguien denuncia un mensaje
- * puede **revelarlo**: su cliente vuelve a cifrar el contenido para el
- * dispositivo de cada moderador y queda registrado quién lo reveló, cuándo y por
- * qué. Es una decisión explícita y atribuible, no una puerta trasera.
- */
-function migrateToV67(db: Db) {
-  const columns = db.prepare("PRAGMA table_info(club_posts)").all() as { name: string }[];
-  const addColumn = (column: string, definition: string) => {
-    if (columns.some((existing) => existing.name === column)) return;
-    db.exec(`ALTER TABLE club_posts ADD COLUMN ${column} ${definition}`);
-  };
-  addColumn("encrypted", "INTEGER NOT NULL DEFAULT 0");
-  // Qué dispositivo firmó el mensaje: el receptor lo necesita para saber con qué
-  // sesión del ratchet lo abre. No es un dato privado —ya viaja en el registro—
-  // y sin él habría que probar todas las sesiones.
-  addColumn("sender_device_id", "TEXT");
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS club_post_envelopes (
-      post_id TEXT NOT NULL REFERENCES club_posts(id) ON DELETE CASCADE,
-      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      recipient_device_id TEXT NOT NULL,
-      type INTEGER,
-      body TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      PRIMARY KEY (post_id, recipient_device_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS club_post_envelopes_inbox
-      ON club_post_envelopes(recipient_user_id, recipient_device_id, post_id);
-
-    CREATE TABLE IF NOT EXISTS club_post_disclosures (
-      id TEXT PRIMARY KEY,
-      post_id TEXT NOT NULL REFERENCES club_posts(id) ON DELETE CASCADE,
-      reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      reason TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      read_at TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS club_post_disclosures_post
-      ON club_post_disclosures(post_id, created_at DESC);
-
-    CREATE TABLE IF NOT EXISTS club_post_disclosure_envelopes (
-      disclosure_id TEXT NOT NULL REFERENCES club_post_disclosures(id) ON DELETE CASCADE,
-      recipient_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      recipient_device_id TEXT NOT NULL,
-      type INTEGER,
-      body TEXT NOT NULL,
-      PRIMARY KEY (disclosure_id, recipient_device_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS club_post_disclosure_envelopes_inbox
-      ON club_post_disclosure_envelopes(recipient_user_id, recipient_device_id);
-  `);
-  db.pragma("user_version = 67");
-}
-
-/**
- * v68: qué dispositivo firmó cada mensaje, aparte de la clave de v1.
+ * v72: qué dispositivo firmó cada mensaje, aparte de la clave de v1.
  *
  * `key_id` guarda la **ranura de v1** y el AAD de v1 se calcula con ella: al
  * meter ahí el dispositivo de v2, un envío dual dejaba el sobre v1 ilegible para
  * cualquier cliente antiguo. Son dos datos distintos y van en dos columnas.
  */
-function migrateToV68(db: Db) {
+function migrateToV72(db: Db) {
   const addColumn = (table: string, column: string, definition: string) => {
     const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
     if (columns.some((existing) => existing.name === column)) return;
@@ -2262,7 +2223,7 @@ function migrateToV68(db: Db) {
   };
   addColumn("messages", "sender_device_id", "TEXT");
   addColumn("dm_messages", "sender_device_id", "TEXT");
-  db.pragma("user_version = 68");
+  db.pragma("user_version = 72");
 }
 
 export function migrate(db: Db) {
@@ -2402,6 +2363,10 @@ export function migrate(db: Db) {
   if (userVersion(db) < 66) migrateToV66(db);
   if (userVersion(db) < 67) migrateToV67(db);
   if (userVersion(db) < 68) migrateToV68(db);
+  if (userVersion(db) < 69) migrateToV69(db);
+  if (userVersion(db) < 70) migrateToV70(db);
+  if (userVersion(db) < 71) migrateToV71(db);
+  if (userVersion(db) < 72) migrateToV72(db);
 
   backfillSearchKeys(db);
 }

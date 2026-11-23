@@ -11,9 +11,9 @@ import { requirePageUser } from "@/lib/page-auth";
 import { canModerate, canSanction } from "@/lib/permissions";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { localePath } from "@/lib/locale";
 import {
   countAudit,
-  countHiddenClubs,
   countOpenAppeals,
   countHiddenComments,
   countOpenReports,
@@ -21,7 +21,6 @@ import {
   getCommunityMetrics,
   getTotpState,
   listAudit,
-  listHiddenClubs,
   listHiddenComments,
   listOpenAppeals,
   listReports,
@@ -69,7 +68,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
         />
         {/* Estado bloqueado: se explica el paso que falta, no se disfraza de
             página de cuenta. */}
-        <section className="club-panel admin-gate">
+        <section className="admin-gate">
           <div className="admin-gate-head">
             <span className="admin-gate-icon" aria-hidden="true">
               <ShieldCheck size={20} />
@@ -113,7 +112,6 @@ export default async function AdminPage({ searchParams }: PageProps) {
     1,
     Number.parseInt(firstValue(raw.commentsPage) ?? "1", 10) || 1,
   );
-  const clubsPage = Math.max(1, Number.parseInt(firstValue(raw.clubsPage) ?? "1", 10) || 1);
   const appealsPage = Math.max(1, Number.parseInt(firstValue(raw.appealsPage) ?? "1", 10) || 1);
 
   const total = countOpenReports();
@@ -129,8 +127,6 @@ export default async function AdminPage({ searchParams }: PageProps) {
     : [];
   const commentsTotal = countHiddenComments();
   const hiddenComments = listHiddenComments(PAGE_SIZE, (commentsPage - 1) * PAGE_SIZE);
-  const clubsTotal = countHiddenClubs();
-  const hiddenClubs = listHiddenClubs(PAGE_SIZE, (clubsPage - 1) * PAGE_SIZE);
   const auditTotal = user.isAdmin ? countAudit() : 0;
   const audit = user.isAdmin ? listAudit(PAGE_SIZE, (auditPage - 1) * PAGE_SIZE) : [];
   const appealsTotal = countOpenAppeals();
@@ -146,31 +142,22 @@ export default async function AdminPage({ searchParams }: PageProps) {
         aside={<span className="shelf-count">{t("{n} pendientes", { n: total })}</span>}
       />
 
+      {user.isAdmin ? (
+        <p className="admin-nav">
+          <Link
+            className="text-link"
+            href={localePath(locale, "/admin/estadisticas")}
+          >
+            {t("Ver estadísticas")}
+          </Link>
+        </p>
+      ) : null}
+
       <section className="admin-metrics" aria-label={t("Métricas de comunidad")}>
         <dl className="aside-stats">
           <div>
-            <dt>{t("Clubes")}</dt>
-            <dd>{metrics.clubs}</dd>
-          </div>
-          <div>
-            <dt>{t("Membresías")}</dt>
-            <dd>{metrics.memberships}</dd>
-          </div>
-          <div>
-            <dt>{t("Solicitudes pendientes")}</dt>
-            <dd>{metrics.pendingRequests}</dd>
-          </div>
-          <div>
             <dt>{t("Conversaciones")}</dt>
             <dd>{metrics.conversations}</dd>
-          </div>
-          <div>
-            <dt>{t("Vistas de club (7 d)")}</dt>
-            <dd>{metrics.views7d}</dd>
-          </div>
-          <div>
-            <dt>{t("Altas en clubes (7 d)")}</dt>
-            <dd>{metrics.joins7d}</dd>
           </div>
           <div>
             <dt>{t("Con actividad en su 2.ª semana")}</dt>
@@ -239,13 +226,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
         canSanction={canSanction(user)}
         showAudit={user.isAdmin}
         hiddenComments={hiddenComments}
-        hiddenClubs={hiddenClubs}
         audit={audit}
         pageSize={PAGE_SIZE}
         pagination={{
           suspended: { page: suspendedPage, total: suspendedTotal },
           comments: { page: commentsPage, total: commentsTotal },
-          clubs: { page: clubsPage, total: clubsTotal },
           audit: { page: auditPage, total: auditTotal },
         }}
       />

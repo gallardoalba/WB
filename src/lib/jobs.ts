@@ -4,8 +4,8 @@ import { getDb } from "./db";
 /**
  * Registro de trabajos diferidos.
  *
- * Cualquier cosa que no se puede terminar dentro de la petición —un correo, un
- * aviso a Mastodon— acaba aquí con el mismo patrón: estado, intentos, próximo
+ * Cualquier cosa que no se puede terminar dentro de la petición —un correo—
+ * acaba aquí con el mismo patrón: estado, intentos, próximo
  * intento y último error. Antes cada cola tenía su tabla y sus columnas
  * copiadas, así que para saber «qué no ha salido» había que mirar en tres
  * sitios y cada uno reintentaba a su manera.

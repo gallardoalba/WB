@@ -19,8 +19,6 @@ import * as transparency from "../src/lib/transparency.ts";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
-import "./olm-setup.ts";
-
 const keyPair = () => {
   const { privateKey } = generateKeyPairSync("ed25519");
   const base64 = Buffer.from(privateKey.export({ format: "der", type: "pkcs8" })).toString("base64");
@@ -71,11 +69,19 @@ test("la instantánea firma la raíz del directorio y la prueba de inclusión cu
 test("rotar una clave cambia la raíz y la prueba nueva cuadra", () => {
   const id = cuenta("Carla Transparente");
   repo.setPublicKey(id, jwk("carla"), "initial");
-  const antes = transparency.createKeySnapshot(getDb(), { key: keyPair() });
+  // La misma hora a propósito: con dos instantáneas en el mismo milisegundo
+  // el desempate debe ser la inserción, no un UUID aleatorio.
+  const now = "2099-01-01T00:00:00.000Z";
+  const antes = transparency.createKeySnapshot(getDb(), { key: keyPair(), now });
 
   repo.setPublicKey(id, jwk("carla-nueva"), "rotation");
-  const despues = transparency.createKeySnapshot(getDb(), { key: keyPair() });
+  const despues = transparency.createKeySnapshot(getDb(), { key: keyPair(), now });
 
+  assert.equal(
+    transparency.latestKeySnapshot(getDb())!.id,
+    despues.id,
+    "con la misma hora gana la última insertada",
+  );
   assert.notEqual(despues.merkleRoot, antes.merkleRoot, "la rotación se ve en la raíz");
   assert.equal(despues.previousRoot, antes.merkleRoot, "la cadena enlaza con la anterior");
   const proof = transparency.keyInclusion(id)!;
@@ -141,28 +147,6 @@ test("con un número impar de claves la prueba del último tramo cuadra", () => 
   );
 });
 
-test("dos instantáneas en el mismo milisegundo no desordenan la cadena", () => {
-  // En una máquina rápida —pasó en Integración Continua— las dos caen en el
-  // mismo `created_at`, y con el id aleatorio como desempate «la última» era
-  // cualquiera: la prueba de inclusión devolvía la clave anterior.
-  const id = cuenta("Dora Transparente");
-  const momento = "2026-12-01T10:00:00.000Z";
-  const key = keyPair();
-  repo.setPublicKey(id, jwk("dora"), "initial");
-  const antes = transparency.createKeySnapshot(getDb(), { key, now: momento });
-  repo.setPublicKey(id, jwk("dora-nueva"), "rotation");
-  const despues = transparency.createKeySnapshot(getDb(), { key, now: momento });
-
-  assert.equal(
-    transparency.latestKeySnapshot(getDb())?.id,
-    despues.id,
-    "la última es la que se creó después",
-  );
-  assert.equal(despues.previousRoot, antes.merkleRoot, "y enlaza con la anterior");
-  const proof = transparency.keyInclusion(id)!;
-  assert.ok(proof.line.includes(repo.getPublicKeyRecord(id)!.keyId));
-});
-
 test("las claves de dispositivo entran en el directorio firmado", async () => {
   // Sin esto, la especificación prometía que una sustitución de dispositivo «se
   // detecta por transparencia» cuando las claves de dispositivo no estaban en
@@ -179,11 +163,11 @@ test("las claves de dispositivo entran en el directorio firmado", async () => {
   assert.ok(propia, "el dispositivo debe estar en el directorio");
   assert.ok(propia.includes(signed.identityKey), "con su clave de identidad, para poder compararla");
 
-  // Fecha posterior a la del caso anterior, que fija una marca en el futuro:
-  // «la última» es por fecha y luego por orden de inserción.
+  // La más reciente del fichero: `keyInclusion` busca en la última instantánea,
+  // y los casos anteriores ya fijan marcas en el futuro.
   const snapshot = transparency.createKeySnapshot(getDb(), {
     key: keyPair(),
-    now: "2027-01-01T00:00:00.000Z",
+    now: "2100-01-01T00:00:00.000Z",
   });
   const proof = transparency.keyInclusion(id, `device:${deviceId}`)!;
   assert.equal(proof.snapshotId, snapshot.id);

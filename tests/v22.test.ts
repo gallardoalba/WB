@@ -11,14 +11,6 @@ test("los avisos nuevos se guardan en el idioma de quien los recibe", () => {
   assert.equal(request.title, "Neue Tauschanfrage");
   assert.equal(request.body, "Ana Martínez möchte „El nombre del viento“ lesen.");
 
-  const club = localizeNotification(
-    "de",
-    "Te han invitado a un club",
-    "Diego Ríos te invita a «Club de los martes».",
-  );
-  assert.equal(club.title, "Du wurdest in einen Club eingeladen");
-  assert.equal(club.body, "Diego Ríos lädt dich zu „Club de los martes“ ein.");
-
   const follow = localizeNotification("de", "Lucía Prieto empezó a seguirte", "");
   assert.equal(follow.title, "Lucía Prieto folgt dir jetzt");
 

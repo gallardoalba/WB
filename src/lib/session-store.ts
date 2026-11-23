@@ -94,6 +94,7 @@ type SessionRow = {
   sign_as: string;
   dm_policy: string;
   show_journey: number;
+  onboarding_checklist_dismissed_at: string | null;
   session_id: string;
   expires_at: string;
   absolute_expired: number;
@@ -110,7 +111,8 @@ export function userForToken(token: string | undefined): SessionUser | null {
               u.is_suspended, u.suspended_until,
               u.email_verified_at, u.email_notifications, u.locale,
               u.profile_visibility, u.city_precision, u.sign_as, u.dm_policy,
-              u.show_journey, s.id AS session_id, s.expires_at,
+              u.show_journey, u.onboarding_checklist_dismissed_at,
+              s.id AS session_id, s.expires_at,
               CASE WHEN s.created_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)
                    THEN 1 ELSE 0 END AS absolute_expired,
               CASE WHEN s.expires_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','+7 days')
@@ -163,6 +165,7 @@ export function userForToken(token: string | undefined): SessionUser | null {
     signAs: setting(row.sign_as, ["name", "community"], "name"),
     dmPolicy: setting(row.dm_policy, ["mutual", "exchanged"], "mutual"),
     showJourney: row.show_journey !== 0,
+    onboardingChecklistDismissed: Boolean(row.onboarding_checklist_dismissed_at),
   };
 }
 

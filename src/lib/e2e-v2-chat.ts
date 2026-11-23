@@ -5,18 +5,16 @@
  *
  * La interfaz no tiene que saber de ratchets ni de claves de un solo uso: pide
  * «cifra esto para esta persona» y «descifra lo que llegue», y aquí se decide
- * con qué protocolo. Mientras convivan v1 y v2, un mensaje sale con **los dos**
- * formatos: los sobres de v1 para las ranuras antiguas y los de v2 para los
- * dispositivos. Así nadie se queda sin leer por actualizar tarde, y el día que
- * no queden ranuras v1 se quita la mitad vieja sin tocar la interfaz.
+ * con qué protocolo. Mientras convivan v1 y v2, un mensaje lleva sobres de v2
+ * para los dispositivos de la otra parte y, solo si hace falta, la copia de v1
+ * para quien todavía no tiene ninguno. Así nadie se queda sin leer por
+ * actualizar tarde, y el día que no queden ranuras v1 se quita la mitad vieja
+ * sin tocar la interfaz.
  */
 import { api } from "./client-api";
 import * as v2 from "./e2e-v2";
 import {
-  decryptClubPosts,
-  decryptDisclosures,
   decryptThread,
-  encryptForClub,
   encryptForDevices,
   openDevice,
   type DeviceApi,
@@ -267,192 +265,6 @@ export async function safetyWith(
 /** Descarta la sesión en memoria (al cerrar sesión o cambiar de cuenta). */
 export function forgetV2Session(): void {
   session = null;
-}
-
-/**
- * Resultado de intentar cifrar: «no hay dispositivo» no es un fallo.
- *
- * La diferencia importa: sin dispositivo, publicar en claro es lo correcto (esa
- * persona no puede hacer otra cosa). Si lo que falla es el cifrado —un paquete
- * que no verifica, una clave agotada, la red—, seguir adelante publicaría el
- * texto en claro, que es justo lo que el foro cifrado quiere evitar.
- */
-export type EncryptResult =
-  | { status: "ok"; payload: V2SendPayload }
-  | { status: "no-device" }
-  | { status: "error"; message: string };
-
-/** Cifra un mensaje del tablón para cada dispositivo de cada miembro. */
-export async function encryptClub(input: {
-  userId: string;
-  clubId: string;
-  text: string;
-}): Promise<EncryptResult> {
-  const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current) return { status: "no-device" };
-  try {
-    const payload = await withSession(input.userId, async (fresh) => {
-      const response = await api<{
-        devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
-      }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-      return encryptForClub({
-        session: fresh,
-        api: httpApi,
-        clubId: input.clubId,
-        conversation: `club:${input.clubId}`,
-        text: input.text,
-        devices: response.devices,
-      });
-    });
-    return { status: "ok", payload };
-  } catch (error) {
-    return {
-      status: "error",
-      message: error instanceof Error ? error.message : "No se pudo cifrar el mensaje.",
-    };
-  }
-}
-
-/**
- * Descifra los mensajes del tablón que traigan sobre para este dispositivo.
- *
- * Devuelve, por mensaje, el texto y **quién lo escribió según el registro
- * firmado**. La interfaz compara ese autor con el que dice la fila: si no
- * coinciden, el servidor está reatribuyendo un mensaje auténtico.
- */
-export async function decryptClub(input: {
-  userId: string;
-  clubId: string;
-  posts: {
-    id: string;
-    senderDeviceId?: string | null;
-    envelope?: { type: number | null; body: string } | null;
-  }[];
-}): Promise<Record<string, { text: string; senderUserId: string }>> {
-  const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current || !store) return {};
-  const conSobre = flatPosts(input.posts).filter((post) => post.envelope);
-  if (conSobre.length === 0) return {};
-  try {
-    return await withSession(input.userId, async (fresh) => {
-      const response = await api<{
-        devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
-      }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-      return decryptClubPosts({
-        session: fresh,
-        api: httpApi,
-        conversation: `club:${input.clubId}`,
-        devices: response.devices,
-        posts: conSobre,
-      });
-    });
-  } catch {
-    return {};
-  }
-}
-
-/** Respuestas incluidas: el tablón las devuelve anidadas. */
-function flatPosts(
-  posts: {
-    id: string;
-    senderDeviceId?: string | null;
-    envelope?: { type: number | null; body: string } | null;
-    replies?: unknown[];
-  }[],
-): {
-  id: string;
-  senderDeviceId?: string | null;
-  envelope?: { type: number | null; body: string } | null;
-}[] {
-  const flat: {
-    id: string;
-    senderDeviceId?: string | null;
-    envelope?: { type: number | null; body: string } | null;
-  }[] = [];
-  for (const post of posts) {
-    flat.push(post);
-    const replies = post.replies as typeof posts | undefined;
-    if (Array.isArray(replies)) flat.push(...flatPosts(replies));
-  }
-  return flat;
-}
-
-/**
- * Revela un mensaje a quien modera el club.
- *
- * El cliente re-cifra el texto que **ya descifró** para el dispositivo de cada
- * moderador y lo manda con un motivo. Es la única forma de que quien modera vea
- * el contenido, y queda registrado.
- */
-export async function revealClubPost(input: {
-  userId: string;
-  clubId: string;
-  postId: string;
-  text: string;
-  reason: string;
-}): Promise<boolean> {
-  const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current) return false;
-  const devices = await api<{
-    devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
-  }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-
-  // Solo los aparatos de quien modera: dueño y moderadores del club. El
-  // servidor lo vuelve a comprobar; aquí se evita mandar de más.
-  const moderators = await api<{ moderators: { id: string }[] }>(
-    `/api/clubs/${encodeURIComponent(input.clubId)}/moderators`,
-  ).catch(() => null);
-  const allowed = new Set(moderators?.moderators.map((moderator) => moderator.id) ?? []);
-  const targets = devices.devices.filter((device) => allowed.has(device.userId));
-  if (targets.length === 0) return false;
-
-  const { envelopes } = await encryptForClub({
-    session: current,
-    api: httpApi,
-    clubId: input.clubId,
-    conversation: `club:${input.clubId}`,
-    text: input.text,
-    devices: targets,
-  });
-  await api(`/api/clubs/${encodeURIComponent(input.clubId)}/posts/${encodeURIComponent(input.postId)}/reveal`, {
-    method: "POST",
-    body: { reason: input.reason, envelopes },
-  });
-  await store?.save(current.state);
-  return true;
-}
-
-/**
- * Descifra lo que se ha revelado a quien modera.
- *
- * Devuelve un mapa `id de revelación → texto`. Si este navegador no tiene
- * dispositivo, no hay nada que abrir: el moderador verá el aviso y tendrá que
- * abrirlo desde el aparato con el que lo activó.
- */
-export async function decryptClubDisclosures(input: {
-  userId: string;
-  clubId: string;
-  disclosures: { id: string; reporterId: string; envelopes: { type: number | null; body: string }[] }[];
-}): Promise<Record<string, string>> {
-  if (input.disclosures.length === 0) return {};
-  const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current) return {};
-  try {
-    return await withSession(input.userId, async (fresh) => {
-      const response = await api<{
-        devices: { userId: string; deviceId: string; identityKey: string; signingKey: string }[];
-      }>(`/api/clubs/${encodeURIComponent(input.clubId)}/devices`);
-      return decryptDisclosures({
-        session: fresh,
-        api: httpApi,
-        conversation: `club:${input.clubId}`,
-        devices: response.devices,
-        disclosures: input.disclosures,
-      });
-    });
-  } catch {
-    return {};
-  }
 }
 
 /** Identificador del dispositivo de esta cuenta en este navegador, si existe. */

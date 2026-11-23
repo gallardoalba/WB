@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Había tres maneras de decir «aquí no hay nada»: `.empty-state` (icono, título
  * y pista), `.empty-results` (solo en el catálogo) y `.empty-note` (una línea
  * suelta). Ahora todas salen de aquí, así que el hueco, el icono y el tono son
- * los mismos en estantería, intercambios, moderación, listas y clubes.
+ * los mismos en estantería, intercambios, moderación y listas.
  */
 export function EmptyState({
   icon,

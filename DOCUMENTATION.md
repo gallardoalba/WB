@@ -2,13 +2,13 @@
 
 How Wanderbibliothek is built: architecture, routes, data, security and operations. It is meant for anyone who is going to read the code, deploy it or audit what it stores.
 
-The running instance serves the same content in Spanish and German at `/techdoc`; `src/lib/technical.ts` is the source for both, so when you change one, change the other.
+The running instance serves the same content at `/techdoc`: Spanish and German from `src/lib/technical.ts`, English from `src/lib/technical-en.ts`, so when you change one, change the other two.
 
 ## Overview
 
 A modular monolith on Next.js 16 (App Router with Cache Components), strict TypeScript and SQLite through `better-sqlite3`. One single process: SQLite has one writer and the live notification bus lives in memory.
 
-No third-party services are required: the instance works without them. The **server** queries Open Library and the German National Library for bibliographic data, and Photon and Nominatim for city suggestions. Book covers are uploaded by users and served by this instance. Depending on configuration, the server may also use Brevo or a mail webhook, an error webhook, Cloudflare Turnstile, Mastodon and Web Push. The browser loads Cloudflare only when Turnstile is enabled and contacts its browser-selected push service only after the user activates Push.
+No third-party services are required: the instance works without them. The **server** queries Open Library and the German National Library for bibliographic data, and Photon and Nominatim for city suggestions. Book covers are uploaded by users and served by this instance. Depending on configuration, the server may also use Brevo or a mail webhook, an error webhook, Cloudflare Turnstile and Web Push. The browser loads Cloudflare only when Turnstile is enabled and contacts its browser-selected push service only after the user activates Push.
 
 The code is AGPL-3.0 licensed.
 
@@ -17,25 +17,25 @@ The code is AGPL-3.0 licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               91 route files grouped by domain
+    api/               74 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v68), seed
+    db/                connection, base schema (v2), migrations (v3–v72), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 1062 unit and integration tests (137 files)
-e2e/                   66 browser tests with Playwright (+ WebCrypto smoke in Firefox and WebKit)
+tests/                 924 unit and integration tests (131 files)
+e2e/                   63 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
-**Rendering.** The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, header, footer and mobile navigation arrive already rendered, and only the interactive islands hydrate (`account-menu`, `theme-toggle`, `locale-switcher`, `verify-email-banner`, `repository-link` is a plain link).
+**Rendering.** The shell (`site-shell.tsx`, `site-rail.tsx`) is a Server Component: the sidebar, header, footer and mobile navigation arrive already rendered, and only the interactive islands hydrate: `account-menu`, `theme-toggle`, `locale-switcher` and `verify-email-banner` (`repository-link` is a plain link).
 
-**Interface language.** The three dictionaries do not ship together: `i18n.ts` is only imported on the server and the layout hands the client provider only the active language's texts (Spanish is the source and arrives empty), addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, reading circles, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
+**Interface language.** The three dictionaries do not ship together: `i18n.ts` is only imported on the server and the layout hands the client provider only the active language's texts (the Spanish dictionary is empty because its key is the source text itself), addressed by a 32-bit `messageId` instead of by the source text, so the Spanish key does not travel. The switcher decides; without that cookie the browser language is used, with German as the last resort. Views that are not on screen (exchanges, the copy preview) are loaded with `next/dynamic`, so the home page ships only what it renders.
 
 **Data access.** `getDb()` hooks `prepare` to reuse compiled statements (FIFO cache of 400 per connection) and opens every transaction with `BEGIN IMMEDIATE`: the write lock is requested at the start, so a race with the cron becomes a wait instead of a `SQLITE_BUSY` in the middle of the work. Public aggregates are served through `use cache` with the `public-data` tag, invalidated by the routes that mutate.
 
@@ -47,24 +47,24 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 
 | Route | Content |
 | --- | --- |
-| `/` | Public home page: hero, four figures and a single row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the filter itself lives in `/descubrir`, and the home page falls back to the whole catalogue when there is nothing in that language. |
+| `/` | Public home page: hero, three figures and a single row of books **in the interface language** (`BOOK_LANGUAGE_BY_LOCALE`); the filter itself lives in `/descubrir`, and the home page falls back to the whole catalogue when there is nothing in that language. |
 | `/descubrir` | Catalogue with search, categories, sorting and pagination in the URL. Visible without a session, but each copy shows only the book and the city, never who offers it; requesting a copy requires an account. |
 | `/werk/[id]` | Public work page with JSON-LD `Book`/`Offer`; marked `noindex`. |
 | `/ofrecer` | Publish a copy; the ISBN fills in the bibliographic record. |
-| `/buscar` | Global search: works, reading circles, readers and lists. |
+| `/buscar` | Global search: works, readers and lists. |
 | `/estanteria`, `/intercambios` | Private sections: own copies and requests with their next step. |
-| `/comunidad` | Hub with tabs (conversations, activity, circles, readers, lists) and scope in `?scope=`. |
+| `/comunidad` | Hub with tabs (conversations, activity, readers, lists) and scope in `?scope=`. |
 | `/lectores` | Directory with search, city and sorting by distance or activity. |
-| `/clubes`, `/clubes/[clubId]` | Reading circles by city: requests, current read, vote, attendance and members-only forum. |
 | `/listas`, `/listas/[listId]` | Reading lists: readable without a session (the signature only appears if the owner allows it), editable only by their owner. |
 | `/libro/[id]` | Copy page with metadata, its journey (if it has changed hands) and JSON-LD `Book`/`Offer`. |
 | `/obra/[bookId]` | Canonical work: conversation about the title, copies and recommendations. |
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
 | `/cuenta` | Settings: profile, notifications, password, encryption, second factor, journey visibility, welcome tour, export and deletion. |
 | `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
+| `/admin/estadisticas` | Native operational dashboard for administrators, reachable from **Administration → Statistics**: live metrics with gauges, selectable 6 h/24 h/7 d history from `metrics_samples`, hourly/daily request bars, a sample status history, community figures and a Grafana-style panel grid. Requires an active second factor. |
 | `/datenschutz`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
-| `/techdoc` | Technical documentation page (Spanish and German). |
+| `/techdoc` | Technical documentation page (Spanish, German and English). |
 | `/projekt` | What the project is, why it exists, that it is non-commercial, and what it demonstrates. |
 | `/normas` | Governance, moderation, sanctions and appeals policy (public). |
 | `/apelar` | Appeal form opened from the sanction email; token-based, no session and not indexed. |
@@ -73,15 +73,15 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 91 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 122 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
+The API has 74 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 100 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
 - `/api/requests`, `/api/requests/[id]` and its children (`events` over SSE, `messages`, `read`, `review`): the whole exchange lifecycle.
 - `/api/books/*`: work search, comments, likes, per-work alerts and reading states.
-- `/api/clubs/*`: circle, members, moderators, invitations, attendance, transfer, forum, votes and join requests.
 - `/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messages, following and blocking.
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
+- `/api/account/devices/[deviceId]`, `/api/users/[userId]/devices` (and `…/claim`, `…/proof`): the v2 device registry, where each device publishes its signed bundle, lists the devices of another account, hands out a single-use key and proves that a device is in the signed key directory.
 - `/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic records (DNB and Open Library). Covers are streamed from disk as they are read (`src/lib/cover-response.ts`, chunked, no buffer per visitor), and a conditional request is answered `304` from the `stat` alone, without opening the file; the browser requests the reduced WebP variant through `/_next/image`, so a 220 px card never downloads the 1600 px JPEG. Each URL carries a version (`?v=…`, set on upload), which is what keeps a replaced cover out of every cache.
@@ -100,7 +100,32 @@ The API has 91 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v68). A new installation starts from `SCHEMA_V2` and its indexes and runs the 66 steps up to v68; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Sixteen steps matter for reading today's code: v40 (one key slot per device and one encrypted envelope per key), v44 (when an exchange closes, the receiver gets a copy of their own), v52 (moderation separated from administration, suspensions with reason and time limit, and appeals), v53 (who reviewed an appeal and whether it was an external reviewer), v54 (signed snapshots of the public catalogue), v56 (the copy's journey: copies inherit their provenance and the copy page can tell it), v57 (the work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string), v58 (deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind), v59 (archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it) v60 (the city-distance catalogue adds Austria while preserving existing German city names) v61 (drops the dead shipping and handover columns: old postal addresses and codes that no query reads) v62 (dated acceptance for delivery incidents, plus the responder’s version on a report) v63 (a signed snapshot of the key directory, so a substituted key can be proven against a published root) v64 (drops the `(AT)` marker from Austrian cities that cannot be confused with a German one) v65 (the v2 end-to-end protocol: `device_keys` holds each device's public bundle and `device_one_time_keys` the keys handed out once per session) v66 (the envelopes of that protocol: one row per recipient device, with the conversation, the body and nothing the server can read) v67 (the club forum encrypted the same way, one envelope per member device, plus the disclosures a reporter chooses to make to the moderators) and v68 (which device signed each message, kept apart from the v1 slot because the v1 associated data is derived from it). The detail of every step lives in that file and in its git history.
+Migrations are versioned with `PRAGMA user_version` (currently v72). A new installation starts from `SCHEMA_V2` and its indexes and runs the 70 steps up to v72; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Twenty-two of them matter for reading today's code:
+
+- **v40** — One key slot per device and one encrypted envelope per key.
+- **v44** — When an exchange closes, the receiver gets a copy of their own.
+- **v52** — Moderation separated from administration, suspensions with reason and time limit, and appeals.
+- **v53** — Who reviewed an appeal and whether it was an external reviewer.
+- **v54** — Signed snapshots of the public catalogue.
+- **v56** — The copy's journey: copies inherit their provenance and the copy page can tell it.
+- **v57** — The work becomes an entity: `works` holds a stable id, its key and its own record, and `books.work_id` points at it, so grouping editions no longer means rewriting a derived string.
+- **v58** — Deferred work stops having one table per thing: `jobs` keeps status, attempts, next attempt and last error for any kind of job, and mail is one kind.
+- **v59** — Archiving a closed exchange is personal: `request_archives` keeps one row per person and request, so one side can put it away without the other losing sight of it.
+- **v60** — The city-distance catalogue adds Austria while preserving existing German city names.
+- **v61** — Drops the dead shipping and handover columns: old postal addresses and codes that no query reads.
+- **v62** — Dated acceptance for delivery incidents, plus the responder’s version on a report.
+- **v63** — A signed snapshot of the key directory, so a substituted key can be proven against a published root.
+- **v64** — Drops the `(AT)` marker from Austrian cities that cannot be confused with a German one.
+- **v65** — Retires the reading circles: their nine tables, the reports and notices that pointed at them, and the counter table those tables were measured with are dropped.
+- **v66** — Deletes derived rows left without a parent (tags, favourites, likes, envelopes, read marks, list items and wall entries), so a copy restored from a backup passes `foreign_key_check` again.
+- **v67** — Drops the two leftover tables of the former social publishing queue, so no unused schema or orphan rows remain.
+- **v68** — Keeps the native admin dashboard's history: `metrics_samples` stores one compact JSON snapshot every 15 minutes so the panel can draw 24 h/7 d without Prometheus or Grafana.
+- **v69** — Keeps the first-steps checklist dismissed in the account, so it no longer reappears when signing in from another browser; the local flag remains as a fallback.
+- **v70** — The v2 end-to-end protocol: `device_keys` holds each device's public bundle and `device_one_time_keys` the keys handed out once per session.
+- **v71** — The envelopes of that protocol: the existing envelope tables gain `protocol` (1 = v1 slot, 2 = v2 device) and `type` (pre-key or ratchet message), so one row per recipient device holds the body and nothing the server can read.
+- **v72** — Which device signed each message, kept apart from the v1 slot because the v1 associated data is derived from it.
+
+The detail of every step lives in that file and in its git history.
 
 The v61 migration removed the unused hand-over and shipping columns (`handover_*`, `ship_*`). The hand-over is agreed in the conversation, and each side confirms in the platform once it has the book.
 
@@ -120,11 +145,12 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 
 - Passwords with asynchronous `scrypt` and a unique salt, with the parameters stored in the hash itself (`scrypt$N,r,p$salt$hash`) so they can be raised later without locking anyone out; the previous format is still verified and rehashed at the next sign-in; sign-in always verifies a hash (against a decoy when the account does not exist), so response time does not reveal which addresses are registered.
 - Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (the browser uses the `web` slot); the sender stores one envelope per recipient key, so several devices of the same account can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification. The protocol, its threat model and the accepted limitations are in [`docs/e2e-protocol.md`](docs/e2e-protocol.md).
+- On top of that, protocol **v2** is being rolled out ([`docs/e2e-protocol-v2.md`](docs/e2e-protocol-v2.md)): identity **per device** instead of per platform slot, single-use keys the server hands out only once, and a Double Ratchet from libolm. That buys forward secrecy — a device compromised today does not open yesterday's messages — and authenticates the sender inside the session. Each device signs its bundle and **every** single-use key with its Ed25519 key; the server verifies the signature before storing anything and the client before opening a session, because libolm does not sign those keys. The text travels in an envelope that carries the conversation and is padded to 256-byte blocks, so a message moved to another thread fails to open and its size does not reveal its length. The server publishes, lists, revokes and hands out the keys and stores the envelopes without being able to open them; the client opens the device, writes to every device of the other person and decrypts what arrives. Once v2 is enabled in **Account**, exchanges and direct messages try v2 first and, when the other person has a device, the message goes out **only** in v2: sending the v1 copy as well would hand the server a ciphertext under a static key for every message, which is exactly the hole v2 closes. The v1 copy remains only for people who have no device yet, and `E2E_V1_SUNSET` sets the date when v1 stops being accepted. libolm is served from `/olm/` and loaded at runtime (the bundler cannot resolve its Node branches), and the CSP allows `wasm-unsafe-eval`, which only permits compiling WebAssembly. The thread shows a fingerprint of both sides' devices that changes as soon as anyone adds one: that is what is compared out of band to cover first contact. Before opening a session with someone else's device, the client checks with an inclusion proof that it is in the latest signed directory snapshot, verifies that signature and **pins** the operator key, so a second history stops matching. Single-use keys are topped up on their own when few remain, the device state is serialised across tabs with `navigator.locks`, and libolm is only served when it matches the `checksums.txt` published with its package. libolm is deprecated in favour of vodozemac (Rust): migrating is the next piece, and until then the protocol offers no post-quantum resistance.
 - The browser keeps **one identity per account** (`identity-v2:<userId>` in IndexedDB), never one per browser: two accounts that share a device must not share a key pair. The single identity of older versions is adopted once, and only for the account whose published `web` key is that same key; after that it is marked as taken, so the second account creates its own and has to confirm the password to publish it.
-- What that encryption does **not** cover, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change, not a patch.
+- What it does **not** protect against, plainly: a v1 message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change, not a patch.
 - 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted, and the database only stores its SHA-256.
 - Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation and administration in production; secrets are stored encrypted.
-- Server-side secrets (TOTP, and the historical shipping columns) use AES-256-GCM with a key ring (`APP_ENCRYPTION_KEY`, `APP_ENCRYPTION_OLD_KEYS`) and an AAD that binds each value to its row and column. In production a value stored in plain text is a configuration error, not something to read silently: `decryptSecret()` throws and `npm run rotate:secrets` encrypts the leftovers.
+- The TOTP secret — and, in older databases, the shipping columns that v61 removed — is stored with AES-256-GCM and a key ring (`APP_ENCRYPTION_KEY`, `APP_ENCRYPTION_OLD_KEYS`), with an AAD that binds each value to its row and column. In production a value stored in plain text is a configuration error, not something to read silently: `decryptSecret()` throws and `npm run rotate:secrets` encrypts the leftovers.
 - Sanctions carry a reason and a duration (1–365 days); the email includes a single-use 30-day appeal link. The person who imposed the sanction cannot review the appeal.
 - Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.
 - Every route goes through `route()` (`src/lib/route.ts`), which resolves the session, validates the body, applies the same-origin guard to every mutation, counts the quota and translates errors. File-level tests in `tests/route.test.ts` fail if a new route skips the wrapper, if one leaves errors untranslated or if a mutation does not check the origin. `readJson()` requires `application/json` and truncates bodies over 64 KB.
@@ -133,7 +159,7 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 - Registration with honeypot, minimum elapsed time and optional Cloudflare Turnstile; the answer is generic so addresses are not disclosed.
 - Web Push subscriptions only accept endpoints from the standard browser push providers (`fcm.googleapis.com`, Mozilla, Apple and Windows Notification Service); an arbitrary HTTPS endpoint would turn the server into an SSRF proxy.
 - Account tokens are single-use, hashed and expire (24 hours for verification, 1 hour for password reset, 30 days for appeals); changing the password ends every session.
-- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, club posts and memberships, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, removes its reviews and club forum messages, and clears its likes, votes and attendance. It keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
+- `GET /api/account/export` returns all data as JSON (profile, listings, exchanges, messages sent and received **with their envelopes**, direct messages with theirs, reviews, lists, follows, blocks, reports and notifications). Deleting the account anonymises the profile, withdraws its copies, deletes its device keys and direct conversations, removes its reviews and clears its likes. It keeps the exchange history without tearing other people's threads. `GET /api/notifications` also reports the number of unread items.
 
 ## Transparency
 
@@ -181,13 +207,13 @@ Signing in is not enough: every operation also checks that the resource belongs 
 | Accept, cancel or confirm an exchange | No | No | Its two parties, according to role and transition | No |
 | Read or write in a direct thread | No | No | Its participants, with mutual following and a published key | No |
 | Rate the other person | No | No | Once, after the exchange is completed | No |
-| Comment, write in a club or in a list | No | Yes, with a confirmed email | Yes | Yes |
+| Comment or write in a list | No | Yes, with a confirmed email | Yes | Yes |
 | Moderate: reports, suspensions, removals | No | No | No | Yes, with 2FA in production |
 | Export or delete the account | No | No | Only its owner | No |
 
-Two roles share the team: a **moderator** (`is_moderator`) reviews reports and hides content; an **administrator** (`is_admin`) can also suspend accounts, appoint the team and resolve appeals. Sanctions require a reason and a duration, and an appeal can only be reviewed by someone other than the sanctioner. In production both roles require a second factor.
+Two roles share the team: a **moderator** (`is_moderator`) reviews reports, hides content and can reject an appeal; an **administrator** (`is_admin`) can also suspend accounts, appoint the team and lift a suspension when an appeal is upheld. Sanctions require a reason and a duration, and an appeal can only be reviewed by someone other than the sanctioner. In production both roles require a second factor.
 
-`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the club, privacy, exchange and governance tests cover the remaining roles.
+`tests/authorization.test.ts` walks this table with an owner, a third account and a one-sided follow; the privacy, exchange and governance tests cover the remaining roles.
 
 ## Environment variables
 
@@ -216,7 +242,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 1062 unit and integration tests in 137 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 66 browser tests with Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 924 unit and integration tests in 131 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -235,14 +261,14 @@ npx playwright install chromium && npm run test:e2e
 
 - `npm run db:backup` uses SQLite's `.backup()` API, checks integrity, rotates backups, encrypts when a key is present and runs `WANDERBIBLIOTHEK_BACKUP_HOOK`. Never copy the file while WAL is active.
 - `npm run db:verify` is the restore rehearsal: it decrypts the newest backup (or the one given as an argument), opens it read-only like the app would, runs `integrity_check` and `foreign_key_check`, checks the schema version and counts the main tables. It exits non-zero when the backup cannot be restored. The `wanderbibliothek-verify.timer` runs it every Sunday against the latest backup, so a copy that no longer restores shows up in the journal instead of on the day it is needed.
-- `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events` and `product_events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`, and sends the reading circle reminders.
+- `POST /api/cron/maintenance` with `Authorization: Bearer $MAINTENANCE_TOKEN` expires requests, purges sessions, notifications and quotas, deletes old activity (`events`, 180 days), resolved reports (1 year), resolved appeals (2 years) and the moderation audit according to `AUDIT_RETENTION_DAYS`.
 - `npm run user:verify -- <address>` and `npm run admin:2fa-off -- <address>` are the emergency exits when mail or the second factor locks someone out.
 - `npm run moderator:create -- <address> 'password'` creates a moderation-only account (no suspensions); `npm run admin:create` keeps creating administrators.
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
 - `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--key-fingerprint` pins the Ed25519 public key and `--pin` the Merkle root, so an external witness fails if a snapshot is rewritten or the instance starts signing with another key.
 - Every route leaves a `[req] {…}` line and the `x-response-time` header. nginx logs every application request with the same `x-request-id` (also returned to the client), so a request can be correlated end to end.
-- `GET /api/metrics` returns uptime, memory, p50/p95/p99 latency, error and request counters, open live streams, the state of each job queue and database/WAL size. JSON by default; `?format=prometheus` (or `Accept: text/plain`) returns the same picture in the exposition format, so a scraper needs no translator. It accepts an admin session **or** the `MAINTENANCE_TOKEN` —the watchdog and a local scraper have no cookie— and never carries request data. `deploy/nginx.conf` only lets it in from the host, like the maintenance cron: it is an operations endpoint, not a page.
-- `npm run mail:health [-- --json]` checks what makes a mailbox trust the sender —SPF, DKIM under `<MAIL_DKIM_SELECTOR>._domainkey.<domain>` and the DMARC policy— plus the real state of the queue: pending, lost in the last 24 h and how many minutes the most overdue one has been late. It exits 1 when something has to be fixed, so it can be chained into maintenance. A message the provider accepts and the inbox files as spam leaves no trace anywhere else.
+- `GET /api/metrics` returns uptime, memory, p50/p95/p99 latency, error and request counters, open live streams, the state of each job queue and database/WAL size. JSON by default; `?format=prometheus` (or `Accept: text/plain`) returns the same picture in the exposition format, so a scraper needs no translator. It accepts an admin session **or** the `MAINTENANCE_TOKEN` — the watchdog and a local scraper have no cookie — and never carries request data. `deploy/nginx.conf` only lets it in from the host, like the maintenance cron: it is an operations endpoint, not a page. The same data feeds the native admin dashboard at `/admin/estadisticas`, which keeps 30 days of samples in `metrics_samples` (one every 15 minutes) and draws them server-side, without Prometheus or Grafana.
+- `npm run mail:health [-- --json]` checks what makes a mailbox trust the sender — SPF, DKIM under `<MAIL_DKIM_SELECTOR>._domainkey.<domain>` and the DMARC policy — plus the real state of the queue: pending, lost in the last 24 h and how many minutes the most overdue one has been late. It exits 1 when something has to be fixed, so it can be chained into maintenance. If the provider accepts a message and the inbox files it as spam, nothing else records it.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer, so horizontal scaling needs PostgreSQL. The live channel does **not**: the in-memory bus is only a latency shortcut and the source of truth is a stamp polled from the database, so a second process keeps working (up to 15 s of delay between instances). A shared bus would remove that delay, not enable the deployment.
 - Updating restarts that single process: the deploy scripts take a backup, swap the release, restart and check `/api/health`, rolling back on failure. An update therefore means a few seconds of downtime, and there is no high availability.

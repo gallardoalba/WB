@@ -154,7 +154,6 @@ export function listReaders(options: {
     AND (
       EXISTS (SELECT 1 FROM listings l WHERE l.owner_id = u.id AND l.status <> 'removed')
       OR EXISTS (SELECT 1 FROM book_comments c WHERE c.author_id = u.id AND c.status = 'visible')
-      OR EXISTS (SELECT 1 FROM club_members m WHERE m.user_id = u.id AND m.status = 'member')
     )
     AND (@city IS NULL OR u.city = @city)
     AND (@like = '%%' OR unaccent(u.name) LIKE unaccent(@like))
@@ -194,16 +193,12 @@ export function listReaders(options: {
                  JOIN listings theirs ON theirs.book_id = mine.book_id
                 WHERE mine.owner_id = @viewerId AND mine.status <> 'removed'
                   AND theirs.owner_id = u.id AND theirs.status <> 'removed') AS shared_books,
-              (SELECT COUNT(*) FROM club_members cm
-                WHERE cm.user_id = u.id AND cm.status = 'member') AS clubs,
               (SELECT MAX(x) FROM (
                  SELECT MAX(l2.created_at) AS x FROM listings l2
                   WHERE l2.owner_id = u.id AND l2.status <> 'removed'
                  UNION ALL
                  SELECT MAX(c2.created_at) FROM book_comments c2
                   WHERE c2.author_id = u.id AND c2.status = 'visible'
-                 UNION ALL
-                 SELECT MAX(m2.joined_at) FROM club_members m2 WHERE m2.user_id = u.id
               )) AS last_active
        FROM users u
        ${distanceJoin}
@@ -228,7 +223,6 @@ export function listReaders(options: {
     is_following: number;
     distance_km: number | null;
     shared_books: number;
-    clubs: number;
     last_active: string | null;
     profile_visibility: string;
   }[];
@@ -251,7 +245,6 @@ export function listReaders(options: {
       isMe: false,
       distanceKm: row.distance_km,
       sharedBooks: row.shared_books,
-      clubs: row.clubs,
       lastActiveAt: row.last_active,
     })),
     total,
@@ -332,7 +325,6 @@ export function listFollowEdges(
       isMe: row.id === viewerId,
       distanceKm: null,
       sharedBooks: 0,
-      clubs: 0,
       lastActiveAt: null,
     };
   });

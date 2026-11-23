@@ -247,15 +247,15 @@ export function distanceParts(viewerId: string | null | undefined) {
  * Ciudades que hay de verdad en los datos, para los filtros de la comunidad.
  *
  * Antes salían de una lista fija de municipios alemanes; con la ciudad como
- * texto libre es más útil ofrecer solo las que tienen lectores o clubes.
+ * texto libre es más útil ofrecer solo las que tienen lectores.
  */
-export function citiesInUse(kind: "readers" | "clubs", limit = 200): string[] {
-  const sql =
-    kind === "clubs"
-      ? `SELECT city FROM clubs WHERE city <> '' GROUP BY city ORDER BY city LIMIT ?`
-      : `SELECT city FROM users WHERE is_suspended = 0 AND city <> ''
-           GROUP BY city ORDER BY city LIMIT ?`;
-  const rows = getDb().prepare(sql).all(limit) as { city: string }[];
+export function citiesInUse(limit = 200): string[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT city FROM users WHERE is_suspended = 0 AND city <> ''
+        GROUP BY city ORDER BY city LIMIT ?`,
+    )
+    .all(limit) as { city: string }[];
   return rows.map((row) => row.city);
 }
 
@@ -399,31 +399,6 @@ export function assertNotDowngraded(senderId: string, peerId: string, hasV2: boo
   throw new ApiError(
     409,
     "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
-  );
-}
-
-/**
- * Un mensaje del club no puede ir en claro si su autor tiene dispositivo v2.
- *
- * Es la misma regla que en los mensajes directos, y aquí importa más: el foro se
- * cifró justo para que quien modera no pueda leerlo. Si el servidor aceptara un
- * cuerpo en claro del mismo autor, bastaría con inducir un fallo en el cliente
- * para tener el texto.
- */
-export function assertClubNotDowngraded(authorId: string, hasV2: boolean): void {
-  if (hasV2) return;
-  const row = getDb()
-    .prepare(
-      `SELECT 1 AS hay FROM device_keys d
-        JOIN users u ON u.id = d.user_id
-       WHERE d.user_id = ? AND d.revoked_at IS NULL AND u.is_suspended = 0
-       LIMIT 1`,
-    )
-    .get(authorId);
-  if (!row) return;
-  throw new ApiError(
-    409,
-    "Este club usa el cifrado v2 y tu navegador tiene dispositivo: el mensaje no puede publicarse en claro. Recarga la página e inténtalo otra vez.",
   );
 }
 

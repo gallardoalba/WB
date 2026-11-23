@@ -28,11 +28,10 @@ export const MAX_ONE_TIME_KEYS = 100;
 /**
  * Tope de dispositivos por cuenta.
  *
- * Cada mensaje se cifra una vez por aparato del destinatario y, en un club, una
- * vez por aparato de **cada** miembro: el coste de un mensaje crece con este
- * número. Cinco es de sobra para una persona (móvil, portátil, tableta y dos
- * navegadores) y mantiene el fan-out de un club dentro de lo razonable en un
- * servidor pequeño.
+ * Cada mensaje se cifra una vez por aparato del destinatario, así que el coste
+ * de un mensaje crece con este número. Cinco es de sobra para una persona
+ * (móvil, portátil, tableta y dos navegadores) y mantiene el fan-out dentro de
+ * lo razonable en un servidor pequeño.
  */
 export const MAX_DEVICES_PER_ACCOUNT = 5;
 
@@ -265,9 +264,9 @@ function hasPublishedKey(userId: string, db: Db): boolean {
  * Un dispositivo más no puede pasar del tope.
  *
  * No es una limitación arbitraria: cada aparato que se añade multiplica el
- * trabajo y el almacenamiento de todos los mensajes que recibe, y en un club lo
- * multiplica por cada miembro. Se cuentan los activos; los retirados no ocupan
- * sitio hasta que se reactivan, y eso ya pide contraseña.
+ * trabajo y el almacenamiento de todos los mensajes que recibe. Se cuentan los
+ * activos; los retirados no ocupan sitio hasta que se reactivan, y eso ya pide
+ * contraseña.
  */
 function assertDeviceRoom(userId: string, db: Db): void {
   const row = db

@@ -130,25 +130,18 @@ test("la moderación cancela el intercambio aceptado y no se puede completar", (
   );
 });
 
-test("borrar la cuenta elimina clubs, avisos y bloqueos", () => {
+test("borrar la cuenta elimina avisos y bloqueos", () => {
   const user = repo.createUser({
     name: "Lectora Temporal",
     email: "temporal@wanderbibliothek.test",
     passwordHash: "x",
     city: "Ulm",
   });
-  const club = repo.createClub(user.id, {
-    name: "Club temporal",
-    city: "Ulm",
-    description: "",
-    meetsOn: "",
-  });
   repo.notify({ userId: user.id, type: "message", title: "Aviso temporal" });
   repo.blockUser(user.id, "usr_ana");
 
   repo.deleteAccount(user.id);
 
-  assert.equal(repo.getClub(club.id, "usr_ana"), null);
   assert.equal(repo.getUserById(user.id)?.isSuspended, true);
 });
 
