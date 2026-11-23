@@ -25,8 +25,13 @@ const ROUNDS = 5200;
 const DIGEST_BYTES = 30;
 
 function sideLines(devices: DeviceFingerprint[]): string {
+  // Por unidades de código, no con `localeCompare`: el orden por defecto depende
+  // del idioma del navegador (mayúsculas, guiones, guiones bajos), y dos personas
+  // en idiomas distintos podrían calcular números diferentes para los mismos
+  // aparatos y no cuadrar nunca. Aquí el orden tiene que ser el mismo en
+  // cualquier sitio.
   return [...devices]
-    .sort((a, b) => a.deviceId.localeCompare(b.deviceId))
+    .sort((a, b) => (a.deviceId < b.deviceId ? -1 : a.deviceId > b.deviceId ? 1 : 0))
     .map((device) => `${device.deviceId}|${device.identityKey}|${device.signingKey}`)
     .join("\n");
 }
