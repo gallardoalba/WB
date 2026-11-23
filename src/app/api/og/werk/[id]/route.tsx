@@ -35,11 +35,10 @@ type CardCover = { src: string; width: number; height: number };
  *
  * Existe porque subir la portada tal cual a una red social deja una foto suelta
  * sobre blanco: pesa lo que pese el original y no dice de dónde viene. Aquí va
- * enmarcada, con la marca al lado, en 1200×630 —la proporción que Mastodon
- * muestra sin recortar y la misma de la tarjeta del sitio—.
+ * enmarcada, con la marca al lado, en 1200×630 —la proporción estándar de una
+ * tarjeta social y la misma de la tarjeta del sitio—.
  *
- * Se sirve en PNG y el bot la recompone a JPG antes de subirla: un PNG de
- * 1200×630 con una foto dentro pesa varias veces más que el JPG equivalente.
+ * Se sirve en PNG; quien necesite JPG puede recomprimirlo sin pérdida visible.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const limited = ogRateLimit(request);

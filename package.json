@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad y mensajería cifrada de extremo a extremo.",
   "license": "AGPL-3.0-only",
@@ -42,7 +42,6 @@
     "meta:refresh": "node --import tsx scripts/refresh-metadata.ts",
     "mail:test": "node --import tsx scripts/mail-test.ts",
     "mail:health": "node --import tsx scripts/mail-health.ts",
-    "mastodon:test": "node --import tsx scripts/mastodon.ts",
     "smoke": "node --import tsx scripts/smoke.ts",
     "informe:accesos": "bash deploy/informe-accesos.sh",
     "informe:moderacion": "node --import tsx scripts/informe-moderacion.ts",

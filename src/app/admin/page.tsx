@@ -11,6 +11,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { canModerate, canSanction } from "@/lib/permissions";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { localePath } from "@/lib/locale";
 import {
   countAudit,
   countOpenAppeals,
@@ -140,6 +141,17 @@ export default async function AdminPage({ searchParams }: PageProps) {
         description={t("Revisa las denuncias, modera el contenido y atiende las apelaciones.")}
         aside={<span className="shelf-count">{t("{n} pendientes", { n: total })}</span>}
       />
+
+      {user.isAdmin ? (
+        <p className="admin-nav">
+          <Link
+            className="text-link"
+            href={localePath(locale, "/admin/estadisticas")}
+          >
+            {t("Ver estadísticas")}
+          </Link>
+        </p>
+      ) : null}
 
       <section className="admin-metrics" aria-label={t("Métricas de comunidad")}>
         <dl className="aside-stats">

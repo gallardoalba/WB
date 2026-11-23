@@ -1,12 +1,22 @@
 import Link from "next/link";
-import { ArrowDownUp, BookOpen, Compass, Heart, Lock, Plus, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowDownUp,
+  BarChart3,
+  BookOpen,
+  Compass,
+  Heart,
+  Lock,
+  Plus,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import type { SessionUser } from "@/lib/domain";
 import { BRAND_FIRST, BRAND_SECOND } from "@/lib/brand";
 import { translate } from "@/lib/i18n";
 import { localePath, type Locale } from "@/lib/locale";
 import { AccountMenu } from "./account-menu";
 
-export type RailSection = "listas" | "lectores" | "obra" | "perfil" | "admin";
+export type RailSection = "listas" | "lectores" | "obra" | "perfil" | "admin" | "admin-stats";
 
 /**
  * Barra lateral de las páginas que no viven dentro del catálogo. Mantiene la
@@ -99,6 +109,15 @@ export function SiteRail({
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>
+          {user.isAdmin ? (
+            <Link
+              className={itemClass(section === "admin-stats")}
+              href={href("/admin/estadisticas")}
+            >
+              <BarChart3 size={18} />
+              <span>{t("Estadísticas")}</span>
+            </Link>
+          ) : null}
         </nav>
       ) : null}
 

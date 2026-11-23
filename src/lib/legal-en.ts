@@ -45,16 +45,6 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
       "Web Push: only after activation and browser permission, the server stores the endpoint, subscription keys and user agent. The browser's push service (for example Google/FCM, Mozilla, Apple or Microsoft) receives encrypted delivery content and delivery metadata, and may also process browser connection data including the IP address.",
     );
   }
-  if (config.mastodonEnabled) {
-    optionalRecipients.push(
-      "Mastodon: the configured instance receives posts about works announced by the team, including title, author, public URL and cover; visibility depends on the configuration.",
-    );
-  }
-  if (config.mastodonLikesEnabled) {
-    optionalRecipients.push(
-      "Mastodon Likes: the application reads public hashtag posts and account profiles, and may like eligible public posts using the configured account.",
-    );
-  }
   if (config.errorWebhookEnabled) {
     optionalRecipients.push(
       "Error webhook: the configured endpoint receives redacted server-error data (time, message, stack and context); email addresses, tokens and request bodies are redacted before sending.",
@@ -89,7 +79,6 @@ export function privacyDocumentEN(config: LegalConfig): LegalDocument {
           "Sessions: 14 days, with a maximum of 30 days from sign-in.",
           "Confirmation and reset links: 24 hours and 1 hour respectively; they are valid only once. The appeal link: 30 days.",
           "Email queue: completed or failed jobs are kept for up to 7 days and pending or running jobs for up to 30 days from creation. The email provider's own retention is governed by its terms.",
-          "If the optional Mastodon Likes feature has been used: status and account identifiers, URL, hashtag, language and timestamp are deleted after 180 days.",
           ...(config.webPushEnabled
             ? ["Push subscriptions: until the user unsubscribes, deletes the account, or the push service reports that the endpoint no longer exists; up to six devices per account."]
             : []),

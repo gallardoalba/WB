@@ -193,50 +193,6 @@ S444=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk '$9 == 444' | wc -l)
 S429=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk '$9 == 429' | wc -l)
 S403=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk '$9 == 403' | wc -l)
 
-# Visitas que trajo el bot de Mastodon. El enlace de cada aviso lleva
-# `?ref=mastodon` (ver `ANNOUNCE_REF` en `src/lib/mastodon.ts`): así se cuentan
-# aunque la app de turno no mande `Referer`. Solo las páginas que abrieron bien
-# (2xx) y una vez por IP, que aquí medimos visitas, no aperturas de pestañas.
-REF_MAST=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null \
-  | awk '$9 ~ /^2/ && $7 ~ /[?&]ref=mastodon/ {print $1}' | wc -l)
-REF_MAST_IPS=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null \
-  | awk '$9 ~ /^2/ && $7 ~ /[?&]ref=mastodon/ {print $1}' | sort -u | wc -l)
-
-# Visitas que llegan **del fediverso** por el `Referer`, que es el otro camino:
-# la marca `?ref=` solo existe desde el 11-nov, así que los avisos anteriores
-# se reconocen por la instancia o la app de la que salen. Se aceptan las apps
-# (esquema `android-app://`), el nombre del software (mastodon, pleroma,
-# misskey…) y cualquier host que termine en `.social`, que en la práctica es
-# una instancia. Se descartan las peticiones que no son páginas y las IPs de la
-# lista de exclusión (las que entran por SSH, o sea, quien lanza el informe).
-FEDI_TODO=$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null | awk -v excl="$TMP/excluir.txt" '
-  BEGIN { while ((getline l < excl) > 0) if (l != "") fuera[l] = 1 }
-  function fedi(r,   s) {
-    s = tolower(r)
-    if (s ~ /android-app:\/\/org\.joinmastodon/) return 1
-    if (s ~ /^"?https?:\/\/[^\/]*\.social/) return 1
-    return s ~ /mastodon|mstdn|pleroma|misskey|akkoma|sharkey|firefish|calckey|iceshrimp|friendica|lemmy|pixelfed|bookwyrm|phanpy|elk\.zone|pinafore|todon|fosstodon|hachyderm/
-  }
-  $11 == "" || $11 == "\"-\"" { next }
-  !fedi($11) { next }
-  $9 !~ /^[23]/ { next }
-  {
-    p = $7; sub(/\?.*/, "", p)
-    if (p ~ /^\/(_next\/static|fonts\/|icons\/|hero\/|sw\.js|favicon\.ico|manifest\.webmanifest)/) next
-    if (fuera[$1]) next
-    host = $11; gsub(/^"|"$/, "", host)
-    sub(/^android-app:\/\//, "app:", host)
-    sub(/^https?:\/\//, "", host)
-    sub(/[\/?#].*$/, "", host)
-    print $1 "\t" (host == "" ? "app" : host)
-  }')
-FEDI_PAGS=$(printf '%s\n' "$FEDI_TODO" | n .)
-FEDI_IPS=$(printf '%s\n' "$FEDI_TODO" | cut -f1 | sort -u | n .)
-FEDI_ORIGEN=$(printf '%s\n' "$FEDI_TODO" | cut -f2 | sed '/^$/d' | sort | uniq -c | sort -rn | head -3 \
-  | awk '{printf "%s%s %s", s, $2, $1; s=" · "}')
-FEDI_ORIGEN_JSON=$(printf '%s\n' "$FEDI_TODO" | cut -f2 | sed '/^$/d' | sort | uniq -c | sort -rn | head -6 \
-  | awk '{printf "%s{\"host\":\"%s\",\"paginas\":%s}", s, $2, $1; s=","}')
-
 read -r P_WP P_PHP P_SEC P_MCP P_ADM P_OTRO <<< "$(cat "$TMP/web.log" "$TMP/ip.log" 2>/dev/null \
   | awk '$9 ~ /^[4-5][0-9][0-9]$/ {
       p = $7
@@ -284,55 +240,6 @@ else
   EDAD_COPIA="sin copias"
 fi
 
-# --- Cuenta de Mastodon ----------------------------------------------------
-# Lo único que no sale de los logs: cuánta gente sigue el bot y cuánto responde
-# a lo que publica. El token del servicio solo tiene `read:accounts`, así que la
-# cuenta se consulta con él y los estados sin token (son públicos). Se leen con
-# Python porque el JSON trae objetos anidados (`reblog`) y contar con `grep`
-# sumaba los números del estado original además de los del impulso. Si no hay
-# token, red o intérprete, el dato queda en «-»: el informe no depende de esto.
-MASTO_SEGUIDORES="-"
-MASTO_ME_GUSTA="-"
-MASTO_IMPULSOS="-"
-TOKEN_MASTO=$(sed -n 's/^MASTODON_TOKEN=//p' /etc/wanderbibliothek/env 2>/dev/null \
-  | head -1 | tr -d '"' | tr -d "'" | tr -d '[:space:]')
-if [ -n "$TOKEN_MASTO" ] && command -v python3 >/dev/null 2>&1; then
-  read -r MASTO_SEGUIDORES MASTO_ME_GUSTA MASTO_IMPULSOS <<< "$(MASTODON_TOKEN="$TOKEN_MASTO" python3 - <<'PY'
-import json, os, urllib.request
-
-BASE = "https://mastodon.social"
-token = os.environ.get("MASTODON_TOKEN", "")
-
-
-def pide(ruta, auth=True):
-    cabeceras = {"User-Agent": "wanderbibliothek-informe/1.0"}
-    if auth and token:
-        cabeceras["Authorization"] = "Bearer " + token
-    with urllib.request.urlopen(urllib.request.Request(BASE + ruta, headers=cabeceras), timeout=8) as r:
-        return json.load(r)
-
-
-try:
-    cuenta = pide("/api/v1/accounts/lookup?acct=wanderbibliothek")
-    estados = pide(f"/api/v1/accounts/{cuenta['id']}/statuses?limit=20&exclude_replies=true", auth=False)
-    propios = [e for e in estados if not e.get("reblog")]
-    print(
-        cuenta["followers_count"],
-        sum(e["favourites_count"] for e in propios),
-        sum(e["reblogs_count"] for e in propios),
-    )
-except Exception:
-    print("- - -")
-PY
-)"
-fi
-[ -z "${MASTO_SEGUIDORES:-}" ] && MASTO_SEGUIDORES="-"
-[ -z "${MASTO_ME_GUSTA:-}" ] && MASTO_ME_GUSTA="-"
-[ -z "${MASTO_IMPULSOS:-}" ] && MASTO_IMPULSOS="-"
-
-# En JSON los «-» tienen que ser `null`, no una cadena vacía.
-numero_o_null() { case "${1:-}" in ''|'-') printf 'null' ;; *) printf '%s' "$1" ;; esac; }
-
 # --- Veredicto -------------------------------------------------------------
 PROBLEMAS=""
 [ "$C5" -gt 0 ] && PROBLEMAS="${PROBLEMAS}${C5} respuestas 5xx; "
@@ -362,13 +269,7 @@ if [ "$FORMATO" = "json" ]; then
   printf '"s444":%s,"s403":%s,"s429":%s,"cloudflare_444":%s,' "$S444" "$S403" "$S429" "$CF_444"
   printf '"sondas":{"wordpress":%s,"php":%s,"secretos":%s,"mcp":%s,"admin":%s,"otros":%s},' \
     "$P_WP" "$P_PHP" "$P_SEC" "$P_MCP" "$P_ADM" "$P_OTRO"
-  printf '"ref_mastodon":{"paginas":%s,"ips":%s},' "$REF_MAST" "$REF_MAST_IPS"
   printf '"login_fallidos":%s,"registros":%s},' "$LOGIN_FALLIDOS" "$REGISTROS"
-  printf '"mastodon":{"ref":{"paginas":%s,"ips":%s},"referer":{"paginas":%s,"ips":%s,"origenes":[%s]},' \
-    "$REF_MAST" "$REF_MAST_IPS" "$FEDI_PAGS" "$FEDI_IPS" "$FEDI_ORIGEN_JSON"
-  printf '"cuenta":{"seguidores":%s,"me_gusta_ultimos_20":%s,"impulsos_ultimos_20":%s}},' \
-    "$(numero_o_null "$MASTO_SEGUIDORES")" "$(numero_o_null "$MASTO_ME_GUSTA")" \
-    "$(numero_o_null "$MASTO_IMPULSOS")"
   printf '"app":{"health":"%s","errores":%s,"reinicios":%s,"cuentas_nuevas":%s,"copias":"%s"},' \
     "$SALUD" "$APP_ERR" "$REINICIOS" "$CUENTAS" "$EDAD_COPIA"
   printf '"veredicto":"%s"}\n' "$VEREDICTO"
@@ -393,7 +294,6 @@ Baneados ahora           : sshd ${AHORA_SSHD} · scan ${AHORA_SCAN} · limit ${A
 
 ── WEB ──────────────────────────────────────────────────────────────────
 Peticiones               : ${WEB_N} (vhost ${VHOST_N} · IP desnuda ${IPN_N})
-Del bot de Mastodon      : ${REF_MAST} página(s) abiertas con ?ref=mastodon desde ${REF_MAST_IPS} IP(s)
 Códigos                  : ${CODIGOS}
 Conexiones cerradas 444  : ${S444} de las cuales ${CF_444} por rangos de Cloudflare
 Sondas bloqueadas        : WordPress ${P_WP} · .php ${P_PHP} · secretos (.env/.git/.bak) ${P_SEC} · /mcp ${P_MCP} · admin/exploits ${P_ADM} · otras ${P_OTRO}
@@ -409,11 +309,6 @@ Reinicios del servicio   : ${REINICIOS}
 Cuentas nuevas           : ${CUENTAS}
 Cuotas (ahora)           : ${CUBOS:-ninguna}
 Última copia             : ${EDAD_COPIA}
-
-── MASTODON ────────────────────────────────────────────────────────────
-Visitas del fediverso    : ${FEDI_PAGS} página(s) desde ${FEDI_IPS} IP(s) por el referer
-Origen                   : ${FEDI_ORIGEN:-ninguno}
-Cuenta @wanderbibliothek : ${MASTO_SEGUIDORES} seguidores · últimos 20 avisos: ${MASTO_ME_GUSTA} «me gusta» y ${MASTO_IMPULSOS} impulsos
 
 VEREDICTO: ${VEREDICTO}
 TEXTO

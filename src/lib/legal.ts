@@ -36,13 +36,9 @@ export type LegalConfig = {
   turnstileWidgetEnabled: boolean;
   turnstileVerificationEnabled: boolean;
   webPushEnabled: boolean;
-  mastodonEnabled: boolean;
-  mastodonLikesEnabled: boolean;
   errorWebhookEnabled: boolean;
   complete: boolean;
 };
-
-const ENABLED_VALUES = new Set(["1", "on", "true", "yes", "sí", "si"]);
 
 export function legalConfig(env: Record<string, string | undefined> = process.env): LegalConfig {
   const controller = env.LEGAL_CONTROLLER?.trim() ?? "";
@@ -56,8 +52,6 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
     : env.BREVO_API_KEY?.trim() && env.MAIL_FROM?.trim()
       ? "brevo"
       : null;
-  const mastodonEnabled = Boolean(env.MASTODON_TOKEN?.trim());
-  const likesPerDay = Number.parseInt(env.MASTODON_LIKES_PER_DAY ?? "", 10);
   return {
     controller,
     address,
@@ -69,11 +63,6 @@ export function legalConfig(env: Record<string, string | undefined> = process.en
     turnstileWidgetEnabled: Boolean(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()),
     turnstileVerificationEnabled: Boolean(env.TURNSTILE_SECRET?.trim()),
     webPushEnabled: Boolean(env.VAPID_PUBLIC_KEY?.trim() && env.VAPID_PRIVATE_KEY?.trim()),
-    mastodonEnabled,
-    mastodonLikesEnabled:
-      mastodonEnabled &&
-      ENABLED_VALUES.has((env.MASTODON_LIKES ?? "").trim().toLowerCase()) &&
-      (!Number.isFinite(likesPerDay) || likesPerDay > 0),
     errorWebhookEnabled: Boolean(env.ERROR_WEBHOOK_URL?.trim()),
     complete: Boolean(controller && address && contact),
   };
@@ -149,20 +138,6 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         : "Web Push: solo tras activarlo y conceder permiso, el servidor guarda el endpoint, las claves de suscripción y el agente de usuario. El servicio push del navegador (por ejemplo, Google/FCM, Mozilla, Apple o Microsoft) recibe el contenido cifrado y los metadatos de entrega, y también puede tratar datos de conexión del navegador, incluida la dirección IP.",
     );
   }
-  if (config.mastodonEnabled) {
-    optionalRecipients.push(
-      german
-        ? "Mastodon: Die konfigurierte Instanz erhält Beiträge zu Werken, die das Team veröffentlicht, mit Titel, Autor, öffentlicher URL und Cover; die Sichtbarkeit hängt von der Konfiguration ab."
-        : "Mastodon: la instancia configurada recibe publicaciones de obras anunciadas por el equipo, con título, autoría, URL pública y portada; la visibilidad depende de la configuración.",
-    );
-  }
-  if (config.mastodonLikesEnabled) {
-    optionalRecipients.push(
-      german
-        ? "Mastodon-Likes: Die Anwendung liest öffentliche Hashtag-Beiträge und Kontoprofile und kann passende öffentliche Beiträge über das konfigurierte Konto mit „Gefällt mir“ markieren."
-        : "Mastodon Likes: la aplicación consulta publicaciones públicas por hashtag y perfiles de cuentas, y puede marcar publicaciones públicas adecuadas con «me gusta» desde la cuenta configurada.",
-    );
-  }
   if (config.errorWebhookEnabled) {
     optionalRecipients.push(
       german
@@ -200,7 +175,6 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
             "Sitzungen: 14 Tage, höchstens 30 Tage ab Anmeldung.",
             "Bestätigungs- und Reset-Links: 24 Stunden bzw. 1 Stunde; sie sind einmalig gültig. Der Einspruchslink: 30 Tage.",
             "E-Mail-Warteschlange: erledigte oder fehlgeschlagene Aufträge bis zu 7 Tage, offene oder laufende bis zu 30 Tage ab Erstellung. Die Aufbewahrung beim E-Mail-Anbieter richtet sich nach dessen Bedingungen.",
-            "Falls die optionale Mastodon-Like-Funktion verwendet wurde: Status- und Kontokennung, URL, Hashtag, Sprache und Zeitpunkt werden nach 180 Tagen gelöscht.",
             ...(config.webPushEnabled
               ? ["Push-Abonnements: bis zur Abmeldung, Kontolöschung oder bis der Push-Dienst meldet, dass ein Endpunkt nicht mehr existiert; höchstens sechs Geräte je Konto."]
               : []),
@@ -315,7 +289,6 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           "Sesiones: 14 días, con un máximo de 30 desde el acceso.",
           "Enlaces de confirmación y restablecimiento: 24 horas y 1 hora; son de un solo uso. El enlace de apelación: 30 días.",
           "Cola de correo: los trabajos terminados o fallidos se conservan hasta 7 días y los pendientes o en curso hasta 30 días desde su creación. La conservación del mensaje por el proveedor de correo depende de sus propias condiciones.",
-          "Si se ha usado la función opcional de likes de Mastodon: los identificadores de la publicación y la cuenta, la URL, el hashtag, el idioma y la fecha se eliminan a los 180 días.",
           ...(config.webPushEnabled
             ? ["Suscripciones Push: hasta que la persona se dé de baja, borre su cuenta o el servicio Push indique que el endpoint ya no existe; máximo seis dispositivos por cuenta."]
             : []),
