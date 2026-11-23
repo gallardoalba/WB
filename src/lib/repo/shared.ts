@@ -337,6 +337,13 @@ export type V2MessageInput = { senderDeviceId: string; envelopes: DeviceEnvelope
  * aceptara un `recipientDeviceId` cualquiera, se podría escribir un mensaje
  * destinado a un dispositivo de una tercera cuenta y dejar al destinatario real
  * sin poder abrirlo.
+ *
+ * Se llama **también dentro de la transacción que escribe el mensaje**: con una
+ * sola llamada previa, el conjunto de dispositivos podía cambiar entre la
+ * comprobación y el `INSERT` (otro proceso sobre la misma base), y el mensaje se
+ * guardaba sin el sobre que se acaba de añadir. Con el proceso único de hoy no
+ * hay ventana —las dos llamadas son síncronas y nadie se interpone—, pero la
+ * garantía no depende de cómo se despliegue.
  */
 export function assertV2Envelopes(
   senderUserId: string,
@@ -418,12 +425,20 @@ export function assertNoV1WhenV2(
   envelopes: { hasV1: boolean; hasV2: boolean },
 ): void {
   if (!envelopes.hasV1) return;
+  // Mezclar no vale nunca. Hoy no es alcanzable —un sobre de v2 válido ya
+  // demuestra que las dos partes tienen dispositivo— pero la regla no debe
+  // depender de ese razonamiento: si algún día el sobre v2 se acepta con menos
+  // comprobaciones, esta línea sigue cerrando la puerta.
+  if (envelopes.hasV2) {
+    throw new ApiError(
+      409,
+      "Un mensaje no puede llevar a la vez sobres de v1 y de v2 en una conversación que ya usa el cifrado v2.",
+    );
+  }
   if (!bothHaveV2Devices(senderId, peerId)) return;
   throw new ApiError(
     409,
-    envelopes.hasV2
-      ? "Un mensaje no puede llevar a la vez sobres de v1 y de v2 en una conversación que ya usa el cifrado v2."
-      : "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
+    "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
   );
 }
 

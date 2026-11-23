@@ -97,8 +97,13 @@ change other than replenishment raises a security notification, and a change of
 identity also notifies the people who talk to that account.
 
 Removing a device marks it revoked and drops its one-time keys; peers see it
-in the key-transparency history (§7). A suspended account publishes no devices
-and its one-time keys cannot be claimed.
+in the key-transparency history (§7) and stop sending to it. A suspended account
+publishes no devices and its one-time keys cannot be claimed.
+
+Revocation is **not a remote wipe**: it stops new sessions and new messages for
+that device, but it cannot erase what the device already decrypted, the ratchet
+sessions it holds or its private keys. A device that was compromised before
+being revoked stays compromised for the history it had; only its future is cut.
 
 ## 3. Session establishment
 
@@ -157,7 +162,11 @@ Server-side rules, all tested:
 - the sender device is the caller's own and is not revoked;
 - a suspended account neither sends nor receives;
 - **the envelope covers every active device** of the other party: one for each,
-  no duplicates, no extras. A message that leaves one device out is refused
+  no duplicates, no extras. The rule is checked twice, the second time *inside*
+  the transaction that writes the message, so a device added by another process
+  between the check and the `INSERT` cannot slip through (today's deployment is
+  a single process and both calls are synchronous, so there is no window; the
+  guarantee does not rely on that). A message that leaves one device out is refused
   (`409`, `FALTAN_SOBRES`) instead of being stored half-delivered. This is the
   same rule v1 already had. The cost is a race — a device added between the
   client reading the list and sending the message gets the request rejected —

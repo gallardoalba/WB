@@ -914,6 +914,10 @@ function storeMessage(input: {
   if (!user) throw new ApiError(401, "Necesitas iniciar sesión.");
 
   db.transaction(() => {
+    // La comprobación que vale es esta, dentro de la transacción: la de fuera
+    // responde antes y con el mismo error, pero entre las dos puede entrar un
+    // alta desde otro proceso y el mensaje se guardaría sin el sobre nuevo.
+    if (input.v2) assertV2Envelopes(input.userId, input.otherId, input.v2);
     db.prepare(
       `INSERT INTO messages
          (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at, sender_device_id)

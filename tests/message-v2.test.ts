@@ -16,6 +16,7 @@ process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 import "./olm-setup.ts";
 
 import * as v2 from "../src/lib/e2e-v2.ts";
+import { assertNoV1WhenV2 } from "../src/lib/repo/shared.ts";
 import { hashPasswordSync } from "../src/lib/password.ts";
 
 type RepoModule = typeof import("../src/lib/repo.ts");
@@ -151,6 +152,21 @@ test("v1 no se cuela cuando la conversación ya puede usar v2", async () => {
     );
     assert.equal(repo.listMessages(hilo, ana).messages.length, 0, `${caso.nombre}: no se guarda nada`);
   }
+});
+
+test("la mezcla se rechaza sin depender de que las dos partes tengan v2", async () => {
+  const ana = cuenta("Ana Mezcla Seca");
+  const bruno = cuenta("Bruno Mezcla Seca");
+  // Por el camino normal un sobre de v2 no pasa de la validación si falta un
+  // dispositivo, así que la regla se comprueba donde vive: la mezcla se rechaza
+  // por sí sola y no porque `bothHaveV2Devices` dé la casualidad de ser cierto.
+  assert.throws(
+    () => assertNoV1WhenV2(ana, bruno, { hasV1: true, hasV2: true }),
+    (error: { status?: number; message?: string }) =>
+      error.status === 409 && /a la vez sobres de v1 y de v2/.test(error.message ?? ""),
+  );
+  // Sin v2 en el mensaje, la decisión vuelve a depender de los dispositivos.
+  assert.doesNotThrow(() => assertNoV1WhenV2(ana, bruno, { hasV1: true, hasV2: false }));
 });
 
 test("donde la otra persona no tiene v2, v1 sigue valiendo", async () => {

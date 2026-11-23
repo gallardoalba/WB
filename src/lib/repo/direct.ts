@@ -297,6 +297,10 @@ export function sendDirectMessage(
   const [user_a, user_b] = pair(viewerId, peerId);
   const now = nowIso();
   const thread = db.transaction(() => {
+    // Igual que en los intercambios: la comprobación que vale es la de dentro,
+    // porque el conjunto de dispositivos puede cambiar entre la de fuera y este
+    // `INSERT`.
+    if (input.v2) assertV2Envelopes(viewerId, peerId, input.v2);
     let row = threadRow(viewerId, peerId);
     if (!row) {
       const id = `dmt_${randomUUID()}`;

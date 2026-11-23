@@ -638,10 +638,11 @@ export function latestKeySnapshot(db: Db = getDb()): KeySnapshot | null {
 }
 
 export function listKeySnapshots(limit = 20, db: Db = getDb()): KeySnapshot[] {
+  // El mismo criterio que `latestKeySnapshot`: la lista tiene que empezar por la
+  // instantánea con la que se responden las pruebas de inclusión, no por la que
+  // tenga la fecha más alta.
   const rows = db
-    .prepare(
-      `SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, rowid DESC LIMIT ?`,
-    )
+    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY rowid DESC LIMIT ?`)
     .all(Math.max(1, Math.min(200, limit))) as KeySnapshotRow[];
   return rows.map(toKeySnapshot);
 }

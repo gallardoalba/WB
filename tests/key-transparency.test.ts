@@ -82,6 +82,13 @@ test("rotar una clave cambia la raíz y la prueba nueva cuadra", () => {
     despues.id,
     "con la misma hora gana la última insertada",
   );
+  // La lista que sirve `/api/transparency/keys` empieza por la misma: si no, el
+  // histórico mostraría como última una instantánea distinta de la que sostiene
+  // las pruebas de inclusión.
+  assert.deepEqual(
+    transparency.listKeySnapshots(2, getDb()).map((snapshot) => snapshot.id),
+    [despues.id, antes.id],
+  );
   assert.notEqual(despues.merkleRoot, antes.merkleRoot, "la rotación se ve en la raíz");
   assert.equal(despues.previousRoot, antes.merkleRoot, "la cadena enlaza con la anterior");
   const proof = transparency.keyInclusion(id)!;
