@@ -43,6 +43,7 @@ type UserRow = {
   sign_as: string;
   dm_policy: string;
   show_journey: number;
+  onboarding_checklist_dismissed_at: string | null;
 };
 
 function toSessionUser(row: UserRow): SessionUser {
@@ -67,6 +68,7 @@ function toSessionUser(row: UserRow): SessionUser {
     // Apagado solo cuando la cuenta lo pide: las bases anteriores a la v56
     // reciben 1 en la migración y no cambian de comportamiento.
     showJourney: row.show_journey !== 0,
+    onboardingChecklistDismissed: Boolean(row.onboarding_checklist_dismissed_at),
   };
 }
 
@@ -78,7 +80,7 @@ function oneOf<T extends string>(value: string, allowed: readonly T[], fallback:
 export function getUserById(id: string): SessionUser | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, show_journey FROM users WHERE id = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, show_journey, onboarding_checklist_dismissed_at FROM users WHERE id = ?",
     )
     .get(id) as UserRow | undefined;
   return row ? toSessionUser(row) : null;
@@ -89,7 +91,7 @@ export function getUserWithPassword(
 ): (SessionUser & { passwordHash: string }) | null {
   const row = getDb()
     .prepare(
-      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, show_journey, password_hash AS passwordHash FROM users WHERE email = ?",
+      "SELECT id, name, email, city, bio, is_admin, is_moderator, is_suspended, suspended_until, email_verified_at, email_notifications, locale, profile_visibility, city_precision, sign_as, dm_policy, show_journey, onboarding_checklist_dismissed_at, password_hash AS passwordHash FROM users WHERE email = ?",
     )
     .get(email) as (UserRow & { passwordHash: string }) | undefined;
   if (!row) return null;
@@ -122,6 +124,7 @@ export function publicSessionUser(account: SessionUser & { passwordHash: string 
     signAs: account.signAs,
     dmPolicy: account.dmPolicy,
     showJourney: account.showJourney,
+    onboardingChecklistDismissed: account.onboardingChecklistDismissed,
   };
 }
 
@@ -569,6 +572,17 @@ export function setUserPrivacy(
       input.showJourney === undefined ? null : input.showJourney ? 1 : 0,
       userId,
     );
+}
+
+/** Cierra la lista de primeros pasos en la cuenta; idempotente. */
+export function dismissOnboardingChecklist(userId: string): void {
+  getDb()
+    .prepare(
+      `UPDATE users
+          SET onboarding_checklist_dismissed_at = COALESCE(onboarding_checklist_dismissed_at, ?)
+        WHERE id = ?`,
+    )
+    .run(nowIso(), userId);
 }
 
 /* -------------------------------- sesiones -------------------------------- */

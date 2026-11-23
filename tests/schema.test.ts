@@ -80,7 +80,7 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "from_request_id",
   ],
   requests: ["status", "owner_confirmed_at", "requester_confirmed_at"],
-  users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at", "is_moderator", "suspended_until", "suspension_reason"],
+  users: ["email", "city", "public_key", "public_key_id", "locale", "email_verified_at", "is_moderator", "suspended_until", "suspension_reason", "onboarding_checklist_dismissed_at"],
   appeals: [
     "user_id",
     "audit_id",

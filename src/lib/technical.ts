@@ -72,12 +72,12 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               69 rutas agrupadas por dominio",
+            "    api/               70 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v68), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v69), seed",
             "    repo/              consultas SQL por dominio; repo.ts solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
@@ -137,7 +137,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 69 ficheros de ruta en `src/app/api`, con 92 métodos exportados, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
+          text: "La API tiene 70 ficheros de ruta en `src/app/api`, con 93 métodos exportados, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
         },
         {
           kind: "list",
@@ -504,12 +504,12 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               69 Routen, nach Domäne gruppiert",
+            "    api/               70 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v68), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v69), Seed",
             "    repo/              SQL-Abfragen je Domäne; repo.ts reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
@@ -569,7 +569,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 69 Route-Dateien unter `src/app/api` mit 92 exportierten Methoden, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
+          text: "Die API besteht aus 70 Route-Dateien unter `src/app/api` mit 93 exportierten Methoden, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
         },
         {
           kind: "list",

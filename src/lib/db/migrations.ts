@@ -2118,6 +2118,23 @@ function migrateToV68(db: Db) {
   db.pragma("user_version = 68");
 }
 
+/**
+ * v69: cierre persistente de la lista de primeros pasos.
+ *
+ * La tarjeta se descartaba solo en `localStorage`, así que volvía a aparecer al
+ * entrar desde otro navegador. La marca vive ahora en la cuenta; el aviso local
+ * se conserva como respaldo para quien ya la había cerrado antes de la v69.
+ */
+function migrateToV69(db: Db) {
+  const columns = (db.pragma("table_info(users)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!columns.includes("onboarding_checklist_dismissed_at")) {
+    db.exec("ALTER TABLE users ADD COLUMN onboarding_checklist_dismissed_at TEXT");
+  }
+  db.pragma("user_version = 69");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2255,6 +2272,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 66) migrateToV66(db);
   if (userVersion(db) < 67) migrateToV67(db);
   if (userVersion(db) < 68) migrateToV68(db);
+  if (userVersion(db) < 69) migrateToV69(db);
 
   backfillSearchKeys(db);
 }

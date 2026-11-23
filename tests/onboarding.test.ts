@@ -50,6 +50,7 @@ test("una cuenta recién creada no tiene ningún paso hecho", () => {
     published: false,
     requested: false,
     following: false,
+    dismissed: false,
   });
 });
 
@@ -60,6 +61,7 @@ test("fuera de la portada no se calcula el progreso", () => {
     published: false,
     requested: false,
     following: false,
+    dismissed: false,
   });
 });
 
@@ -69,6 +71,7 @@ test("sin sesión tampoco hay progreso", () => {
     published: false,
     requested: false,
     following: false,
+    dismissed: false,
   });
 });
 
@@ -100,4 +103,12 @@ test("cada tarea se marca al completarla", () => {
 
   // La publicación propia no altera el resto de marcas.
   assert.equal(repo.getListing(listing.id, newcomerId)?.isMine, true);
+});
+
+test("el cierre de la lista se guarda en la cuenta y es idempotente", () => {
+  assert.equal(progress().dismissed, false);
+  repo.dismissOnboardingChecklist(newcomerId);
+  assert.equal(progress().dismissed, true);
+  repo.dismissOnboardingChecklist(newcomerId);
+  assert.equal(repo.getUserById(newcomerId)!.onboardingChecklistDismissed, true);
 });

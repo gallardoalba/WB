@@ -203,7 +203,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
           heading: "5. Cookies und lokale Speicherung",
           body: [
             "Zwei technisch notwendige Cookies, keine weiteren: die Sitzung (HttpOnly, Secure, SameSite=Lax, 14 Tage) zur Anmeldung und, nur nach manuellem Sprachwechsel, die Spracheinstellung (1 Jahr). Keines dient Werbung oder Analyse, beide sind für den Dienst unbedingt erforderlich (Deutschland: § 25 Abs. 2 TDDDG; Österreich: § 165 Abs. 3 TKG 2021).",
-            "Im Browser bleiben das gewählte Design, die ausgeblendete Einführung und Checkliste sowie die Fingerabdrücke der Gesprächsschlüssel gespeichert, bis die Websitedaten gelöscht werden. Diese Werte werden nicht an den Server übertragen.",
+            "Im Browser bleiben das gewählte Design, die ausgeblendete Einführung und die Fingerabdrücke der Gesprächsschlüssel gespeichert, bis die Websitedaten gelöscht werden; diese Werte werden nicht an den Server übertragen. Die ausgeblendete Checkliste wird im Konto gespeichert.",
             "Für die Ende-zu-Ende-Verschlüsselung speichert der Browser einen nicht exportierbaren privaten Schlüssel in IndexedDB. Der Server erhält ihn nicht; die Anwendung kann ihn für Verschlüsselungsoperationen verwenden. Nach Kontolöschung bleibt der lokale Schlüssel bestehen, bis die Websitedaten im Browser gelöscht werden.",
             "Der Service Worker wird in Produktion automatisch registriert, speichert keine Seitenantworten im Cache und dient der Push-Funktion. Push wird erst nach Aktivierung und Browser-Berechtigung abonniert; die Browser-Berechtigung allein ersetzt keine Information über die Datenverarbeitung.",
             ...(config.webPushEnabled
@@ -317,7 +317,7 @@ export function privacyDocument(locale: Locale, config: LegalConfig): LegalDocum
         heading: "5. Cookies y almacenamiento local",
         body: [
           "Dos cookies técnicas y ninguna más: la de sesión (HttpOnly, Secure, SameSite=Lax, 14 días) para iniciar sesión y, solo tras cambiar el idioma manualmente, la preferencia de idioma (1 año). Ninguna sirve para publicidad ni analítica, y ambas son estrictamente necesarias para el servicio (Alemania: § 25.2 TDDDG; Austria: § 165.3 TKG 2021).",
-          "En el navegador permanecen el tema elegido, la guía y la lista de inicio descartadas, y las huellas de las claves de mensajería hasta que se borren los datos del sitio. Estos valores no se envían al servidor.",
+          "En el navegador permanecen el tema elegido, la guía descartada y las huellas de las claves de mensajería hasta que se borren los datos del sitio; estos valores no se envían al servidor. La lista de inicio descartada se guarda en la cuenta.",
           "Para el cifrado de extremo a extremo, el navegador guarda una clave privada no exportable en IndexedDB. El servidor no la recibe; la aplicación puede usarla para operaciones criptográficas. Tras borrar la cuenta, la clave local permanece hasta que se borren los datos del sitio en el navegador.",
           "En producción se registra automáticamente un service worker; no guarda respuestas de páginas en caché y se usa para la función Push. La suscripción Push solo se crea tras activarla y conceder permiso en el navegador; ese permiso no sustituye la información sobre el tratamiento de datos.",
           ...(config.webPushEnabled

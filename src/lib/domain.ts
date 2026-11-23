@@ -209,6 +209,8 @@ export type SessionUser = {
    * activa por defecto; se apaga desde la cuenta.
    */
   showJourney: boolean;
+  /** Si la lista de primeros pasos se cerró desde la cuenta. */
+  onboardingChecklistDismissed: boolean;
 };
 
 /** Visibilidad del perfil (v48). */
@@ -292,6 +294,8 @@ export type OnboardingProgress = {
   published: boolean;
   requested: boolean;
   following: boolean;
+  /** La persona cerró la lista; se guarda en la cuenta, no en el navegador. */
+  dismissed: boolean;
 };
 
 export type RequestView = {

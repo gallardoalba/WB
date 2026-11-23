@@ -48,12 +48,12 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               69 route files grouped by domain",
+            "    api/               70 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v68), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v69), seed",
             "    repo/              SQL queries per domain; repo.ts only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -113,7 +113,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 69 route files under `src/app/api` with 92 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
+          text: "The API has 70 route files under `src/app/api` with 93 exported methods, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
         },
         {
           kind: "list",
