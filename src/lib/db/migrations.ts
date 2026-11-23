@@ -2086,8 +2086,8 @@ function migrateToV66(db: Db) {
 /**
  * v67: retirada de la cola de redes sociales.
  *
- * Las dos tablas del bot ya no se leen ni se escriben. Se eliminan para no
- * dejar datos huérfanos ni esquema que nadie mantiene.
+ * Las dos tablas de la cola social ya no se leen ni se escriben. Se eliminan
+ * para no dejar datos huérfanos ni esquema que nadie mantiene.
  */
 function migrateToV67(db: Db) {
   db.exec(`
