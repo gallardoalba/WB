@@ -31,6 +31,13 @@ type StoredKeys = {
  * diálogo: son formularios largos, con contraseñas y verificación en dos
  * pasos, y así se pueden enlazar, recargar y leer con calma.
  */
+type OwnDevice = { deviceId: string; createdAt: string; updatedAt: string; oneTimeKeys: number };
+
+/** Identificador legible de un dispositivo: no hace falta enseñar los 24 caracteres. */
+function shortDeviceId(deviceId: string): string {
+  return `${deviceId.slice(0, 6)}…${deviceId.slice(-4)}`;
+}
+
 export function AccountSettings({
   user,
   requests,
@@ -84,6 +91,9 @@ export function AccountSettings({
   const [v2NeedsPassword, setV2NeedsPassword] = useState(false);
   const [v2Msg, setV2Msg] = useState("");
   const [v2Error, setV2Error] = useState("");
+  const [v2Devices, setV2Devices] = useState<OwnDevice[] | null>(null);
+  const [myDeviceId, setMyDeviceId] = useState<string | null>(null);
+  const [v2Revoking, setV2Revoking] = useState<string | null>(null);
   const [keyMsg, setKeyMsg] = useState("");
   const [keyError, setKeyError] = useState("");
 
@@ -98,7 +108,20 @@ export function AccountSettings({
     void (async () => {
       const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
       const active = bridge ? await bridge.hasV2Device(user.id).catch(() => false) : false;
-      if (!cancelled) setV2Active(active);
+      const mine = bridge ? await bridge.deviceIdFor(user.id).catch(() => null) : null;
+      if (!cancelled) {
+        setV2Active(active);
+        setMyDeviceId(mine);
+      }
+      // La lista se pide dentro del efecto: así no depende de una función que
+      // cambia en cada render.
+      await api<{ devices: OwnDevice[] }>("/api/account/devices")
+        .then((data) => {
+          if (!cancelled) setV2Devices(data.devices);
+        })
+        .catch(() => {
+          if (!cancelled) setV2Devices([]);
+        });
     })();
     return () => {
       cancelled = true;
@@ -243,6 +266,47 @@ export function AccountSettings({
     }
   }
 
+  /** La lista de dispositivos de esta cuenta, con lo justo para gestionarlos. */
+  async function loadV2Devices() {
+    try {
+      const data = await api<{ devices: OwnDevice[] }>("/api/account/devices");
+      setV2Devices(data.devices);
+    } catch {
+      setV2Devices([]);
+      setV2Error(t("No se pudieron cargar los dispositivos."));
+    }
+  }
+
+  /**
+   * Retira un dispositivo: deja de recibir claves nuevas.
+   *
+   * Si es este navegador, además se olvida su estado local: la clave privada no
+   * sirve para nada una vez el servidor ya no la publica, y dejarla sería
+   * conservar material que nadie va a usar.
+   */
+  async function revokeV2Device(deviceId: string) {
+    setV2Revoking(deviceId);
+    setV2Error("");
+    setV2Msg("");
+    try {
+      await api(`/api/account/devices/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
+      if (deviceId === myDeviceId) {
+        const bridge = await import("@/lib/e2e-v2-chat");
+        await bridge.forgetV2Device(user.id);
+        setV2Active(false);
+        setMyDeviceId(null);
+      }
+      setV2Msg(t("Dispositivo retirado: ya no recibe claves nuevas."));
+      await loadV2Devices();
+    } catch (caught) {
+      setV2Error(
+        caught instanceof Error ? caught.message : t("No se pudo retirar el dispositivo."),
+      );
+    } finally {
+      setV2Revoking(null);
+    }
+  }
+
   /**
    * Publica el dispositivo v2 de este navegador.
    *
@@ -254,12 +318,15 @@ export function AccountSettings({
     setV2Error("");
     setV2Msg("");
     try {
-      const bridge = await import("@/lib/e2e-v2-chat");
-      await bridge.activateV2(user.id, v2Password || undefined);
+      const activated = await import("@/lib/e2e-v2-chat");
+      await activated.activateV2(user.id, v2Password || undefined);
       setV2Active(true);
       setV2NeedsPassword(false);
       setV2Password("");
       setV2Msg(t("Cifrado v2 activado en este navegador."));
+      const fresh = await import("@/lib/e2e-v2-chat");
+      setMyDeviceId(await fresh.deviceIdFor(user.id).catch(() => null));
+      await loadV2Devices();
     } catch (caught) {
       const status = (caught as { status?: number }).status;
       if (status === 428) {
@@ -745,6 +812,33 @@ export function AccountSettings({
                 {v2Msg}
               </p>
             )}
+            {v2Devices && v2Devices.length > 0 && (
+              <div className="v2-devices">
+                <h5>{t("Dispositivos de cifrado")}</h5>
+                <ul>
+                  {v2Devices.map((device) => (
+                    <li key={device.deviceId}>
+                      <code>{shortDeviceId(device.deviceId)}</code>
+                      {device.deviceId === myDeviceId && (
+                        <span className="form-hint"> · {t("Este navegador")}</span>
+                      )}
+                      {device.deviceId !== myDeviceId && (
+                        <button
+                          type="button"
+                          className="secondary-button small"
+                          aria-label={`${t("Retirar el dispositivo")} ${shortDeviceId(device.deviceId)}`}
+                          disabled={v2Revoking !== null}
+                          onClick={() => void revokeV2Device(device.deviceId)}
+                        >
+                          {v2Revoking === device.deviceId ? t("Retirando…") : t("Retirar dispositivo")}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {v2Active ? (
               <p className="action-feedback" role="status">
                 {t("Este navegador ya tiene su dispositivo v2.")}

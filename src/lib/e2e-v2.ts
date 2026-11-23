@@ -300,8 +300,12 @@ export async function acceptSession(
  */
 function seal(content: MessageContent): string {
   const json = JSON.stringify({ v: 2, c: content.conversation, t: content.text });
-  const size = Math.ceil((json.length + 1) / PADDING_BLOCK) * PADDING_BLOCK;
-  return json + " ".repeat(size - json.length);
+  // En **bytes**, no en unidades UTF-16: un mensaje en castellano o alemán ocupa
+  // más bytes que caracteres, y libolm cifra bytes. Contando caracteres, el
+  // bloque no era de 256 bytes y el tamaño delataba algo más de la cuenta.
+  const bytes = new TextEncoder().encode(json).length;
+  const size = Math.ceil((bytes + 1) / PADDING_BLOCK) * PADDING_BLOCK;
+  return json + " ".repeat(size - bytes);
 }
 
 function unseal(plaintext: string, conversation: string): string {

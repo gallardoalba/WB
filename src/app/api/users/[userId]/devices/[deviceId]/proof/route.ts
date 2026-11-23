@@ -24,6 +24,14 @@ export const GET = route<undefined, "user", { userId: string; deviceId: string }
       throw new ApiError(404, "Ese dispositivo no existe.");
     }
     const snapshot = latestKeySnapshot();
+    if (snapshot && !snapshot.signature) {
+      // Sin firma la prueba no vale para el cliente y el fallo real es de
+      // configuración: decirlo aquí ahorra buscar en el navegador.
+      throw new ApiError(
+        503,
+        "El directorio de claves no está firmado: configura TRANSPARENCY_SIGNING_KEY para poder verificar dispositivos.",
+      );
+    }
     const proof = keyInclusion(params.userId, `device:${deviceId}`);
     if (!snapshot || !proof) {
       throw new ApiError(404, "Todavía no hay una instantánea del directorio con ese dispositivo.");

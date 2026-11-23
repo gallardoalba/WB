@@ -16,13 +16,16 @@ import * as v2 from "./e2e-v2";
 import {
   decryptThread,
   encryptForDevices,
+  NoDeviceError,
   openDevice,
+  rememberPlaintext,
+  replenishIfLow,
   type DeviceApi,
   type OutgoingEnvelope,
   type Session,
   type ThreadMessage,
 } from "./e2e-v2-device";
-import { indexedDbStore, isSupported } from "./e2e-v2-idb";
+import { forgetDevice, indexedDbStore, isSupported } from "./e2e-v2-idb";
 import { formatSafetyNumber, v2SafetyNumber } from "./e2e-v2-safety";
 
 /** La API real, tal y como la ven las rutas. */
@@ -53,9 +56,9 @@ const httpApi: DeviceApi = {
       `/api/users/${encodeURIComponent(userId)}/devices/${encodeURIComponent(deviceId)}/proof`,
     );
   },
-  async ownDevices(userId) {
+  async ownDevices() {
     const response = await api<{ devices: { deviceId: string; oneTimeKeys: number }[] }>(
-      `/api/users/${encodeURIComponent(userId)}/devices`,
+      "/api/account/devices",
     );
     return response.devices.map((device) => ({
       deviceId: device.deviceId,
@@ -174,59 +177,95 @@ export async function peerDeviceCount(userId: string): Promise<number> {
 export type V2SendPayload = { senderDeviceId: string; envelopes: OutgoingEnvelope[] };
 
 /**
- * Cifra un mensaje para los dispositivos de la otra persona.
+ * Resultado de intentar cifrar con v2.
  *
- * Devuelve `null` cuando no hay nada que hacer: este navegador no tiene
- * dispositivo v2 o la otra parte no tiene ninguno. Entonces el mensaje sale
- * solo con v1, que es lo que la interfaz ya sabía hacer.
+ * «No hay dispositivo» no es un fallo: sin dispositivo en la otra punta, v1 es
+ * lo correcto. Un fallo de cifrado o de verificación **sí** lo es, y no puede
+ * convertirse en un envío en claro: el servidor lo rechazaría (regla
+ * anti-degradación) o, peor, saldría un mensaje que la otra parte no puede leer.
  */
+export type V2EncryptResult =
+  | { status: "ok"; payload: V2SendPayload }
+  | { status: "no-device" }
+  | { status: "error"; message: string };
+
+/** Cifra un mensaje para los dispositivos de la otra persona. */
 export async function encryptV2(input: {
   userId: string;
   peerUserId: string;
   conversation: string;
   text: string;
-}): Promise<V2SendPayload | null> {
+}): Promise<V2EncryptResult> {
+  const current = await loadV2Session(input.userId).catch(() => null);
+  if (!current) return { status: "no-device" };
   try {
     // El cerrojo relee y guarda: las sesiones y las claves fijadas sobreviven a
     // la recarga y a la otra pestaña.
-    return await withSession(input.userId, (current) =>
+    const payload = await withSession(input.userId, (fresh) =>
       encryptForDevices({
-        session: current,
+        session: fresh,
         api: httpApi,
         conversation: input.conversation,
         text: input.text,
         peerUserId: input.peerUserId,
       }),
     );
-  } catch {
-    // Un fallo aquí no debe impedir mandar el mensaje: se manda con v1 y la
-    // conversación sigue. Sin sabotear el envío por un protocolo nuevo.
-    return null;
+    return { status: "ok", payload };
+  } catch (error) {
+    if (error instanceof NoDeviceError) return { status: "no-device" };
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "No se pudo cifrar el mensaje.",
+    };
   }
 }
 
 /**
- * Descifra los mensajes del hilo que traigan sobre para este dispositivo.
+ * Guarda el texto de un mensaje que acaba de enviarse desde este dispositivo.
  *
- * Devuelve un mapa `id → texto`. Los mensajes de v1 y los dirigidos a otro
- * aparato de la misma cuenta no aparecen: esos los resuelve el camino de
- * siempre.
+ * El sobre que se manda va a los aparatos de la otra persona, no a este: sin
+ * guardarlo aquí, la propia persona dejaría de ver lo que escribió en cuanto
+ * recargara la página.
+ */
+export async function rememberSentV2(
+  userId: string,
+  messageId: string,
+  text: string,
+): Promise<void> {
+  try {
+    await withSession(userId, async (fresh) => {
+      rememberPlaintext(fresh.state, messageId, text);
+    });
+  } catch {
+    // Sin dispositivo o sin almacén no hay nada que recordar.
+  }
+}
+
+/**
+ * Lo que se pudo descifrar, y cuántos sobres no se pudieron abrir.
+ *
+ * `failed` no es decorativo: un sobre roto o de otra sesión se anota para poder
+ * avisar, en vez de devolver un mapa vacío que parece «no había nada» —lo que
+ * hacía invisible un ataque o un fallo de sincronización.
+ */
+export type V2DecodeResult = { texts: Record<string, string>; failed: number };
+
+/**
+ * Descifra los mensajes del hilo: los que traigan sobre para este dispositivo y
+ * los que ya se descifraron antes (libolm consume la clave al abrirlos, así que
+ * el texto se guarda en el estado del dispositivo).
+ *
+ * Los mensajes de v1 y los de otro aparato de la misma cuenta no aparecen: esos
+ * los resuelve el camino de siempre.
  */
 export async function decryptV2(input: {
   userId: string;
   peerUserId: string;
   conversation: string;
   messages: ThreadMessage[];
-}): Promise<Record<string, string>> {
+}): Promise<V2DecodeResult> {
   const current = await loadV2Session(input.userId).catch(() => null);
-  if (!current) return {};
-  const mine = current.state.deviceId;
-  const withV2 = input.messages.filter((message) =>
-    message.envelopes.some(
-      (envelope) => envelope.protocol === 2 && envelope.keyId === mine,
-    ),
-  );
-  if (withV2.length === 0) return {};
+  if (!current || input.messages.length === 0) return { texts: {}, failed: 0 };
   try {
     return await withSession(input.userId, async (fresh) => {
       const decrypted = await decryptThread({
@@ -234,12 +273,20 @@ export async function decryptV2(input: {
         api: httpApi,
         conversation: input.conversation,
         peerUserId: input.peerUserId,
-        messages: withV2,
+        messages: input.messages,
       });
-      return Object.fromEntries(decrypted.map((item) => [item.messageId, item.text]));
+      // Reponer al vuelo: una pestaña abierta toda la semana también consume
+      // claves de un solo uso con cada sesión nueva.
+      await replenishIfLow(fresh, httpApi);
+      return {
+        texts: Object.fromEntries(
+          decrypted.messages.map((item) => [item.messageId, item.text]),
+        ),
+        failed: decrypted.failures.length,
+      };
     });
   } catch {
-    return {};
+    return { texts: {}, failed: 1 };
   }
 }
 
@@ -269,6 +316,19 @@ export async function safetyWith(
 /** Descarta la sesión en memoria (al cerrar sesión o cambiar de cuenta). */
 export function forgetV2Session(): void {
   session = null;
+  opening = null;
+}
+
+/**
+ * Olvida el dispositivo de este navegador.
+ *
+ * Se usa al retirarlo desde «Mi cuenta»: la clave privada ya no sirve para nada
+ * porque el servidor dejó de publicarla, y conservarla solo mantiene material
+ * sensible en el perfil.
+ */
+export async function forgetV2Device(userId: string): Promise<void> {
+  forgetV2Session();
+  await forgetDevice(userId).catch(() => undefined);
 }
 
 /** Identificador del dispositivo de esta cuenta en este navegador, si existe. */

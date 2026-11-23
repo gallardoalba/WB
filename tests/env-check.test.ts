@@ -7,6 +7,8 @@ const KEY_HEX = "a".repeat(64);
 const KEY_B64 = Buffer.alloc(32, 7).toString("base64");
 
 const TOKEN = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
+/** Clave Ed25519 de pruebas (PKCS#8 en base64), la misma que usa Playwright. */
+const SIGNING_KEY = "MC4CAQAwBQYDK2VwBCIEIA1eA1+Bqg5jiJ0m3PNQ3cRgrZSXDMDe6vm4KNK0sVYo";
 
 const complete = (patch: EnvLike = {}): EnvLike => ({
   NODE_ENV: "production",
@@ -24,6 +26,7 @@ const complete = (patch: EnvLike = {}): EnvLike => ({
   LEGAL_CONTROLLER: "Equipo Wanderbibliothek",
   LEGAL_ADDRESS: "Calle 1, 00000 Stuttgart",
   LEGAL_CONTACT_EMAIL: "privacidad@example.com",
+  TRANSPARENCY_SIGNING_KEY: SIGNING_KEY,
   ...patch,
 });
 
@@ -292,7 +295,9 @@ test("exigir transparencia firmada sin clave no deja arrancar", () => {
   // Una instancia que anuncia transparencia y publica raíces sin firmar ofrece
   // menos de lo que dice; la bandera convierte esa diferencia en un fallo de
   // arranque en vez de en una sorpresa al verificar.
-  const issues = checkEnv(complete({ REQUIRE_TRANSPARENCY_SIGNING: "1" }));
+  const issues = checkEnv(
+    complete({ REQUIRE_TRANSPARENCY_SIGNING: "1", TRANSPARENCY_SIGNING_KEY: undefined }),
+  );
   assert.deepEqual(keys(issues, "error"), ["TRANSPARENCY_SIGNING_KEY"]);
   assert.match(
     issues.find((issue) => issue.key === "TRANSPARENCY_SIGNING_KEY")!.message,
@@ -319,6 +324,16 @@ test("una clave de firma que no es Ed25519 se rechaza al arrancar", () => {
   );
 });
 
-test("sin la bandera, la clave de firma sigue siendo opcional", () => {
-  assert.deepEqual(keys(checkEnv(complete())), []);
+test("sin la bandera, la clave de firma sigue siendo opcional pero se avisa", () => {
+  // Opcional: la instancia arranca. Pero sin ella el cifrado v2 no puede
+  // verificar dispositivos, así que no puede quedarse en silencio.
+  const issues = checkEnv(complete({ TRANSPARENCY_SIGNING_KEY: undefined }));
+  assert.deepEqual(keys(issues, "error"), []);
+  assert.deepEqual(keys(issues, "warn"), ["TRANSPARENCY_SIGNING_KEY"]);
+});
+
+test("una fecha de fin de v1 ilegible no se acepta en silencio", () => {
+  const issues = checkEnv(complete({ E2E_V1_SUNSET: "31/01/2027" }));
+  assert.deepEqual(keys(issues, "error"), ["E2E_V1_SUNSET"]);
+  assert.deepEqual(checkEnv(complete({ E2E_V1_SUNSET: "2027-01-31T00:00:00Z" })), []);
 });

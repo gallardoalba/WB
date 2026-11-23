@@ -17,7 +17,7 @@ The code is AGPL-3.0 licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               74 route files grouped by domain
+    api/               75 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
@@ -28,8 +28,8 @@ src/
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 926 unit and integration tests (131 files)
-e2e/                   63 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
+tests/                 930 unit and integration tests (131 files)
+e2e/                   64 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 74 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 100 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
+The API has 75 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 101 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -81,7 +81,7 @@ The API has 74 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `/api/books/*`: work search, comments, likes, per-work alerts and reading states.
 - `/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messages, following and blocking.
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
-- `/api/account/devices/[deviceId]`, `/api/users/[userId]/devices` (and `…/claim`, `…/proof`): the v2 device registry, where each device publishes its signed bundle, lists the devices of another account, hands out a single-use key and proves that a device is in the signed key directory.
+- `/api/account/devices` (list and revoke), `/api/account/devices/[deviceId]`, `/api/users/[userId]/devices` (and `…/claim`, `…/proof`): the v2 device registry: each device publishes its signed bundle, the account lists and revokes its own, a peer gets the public bundle list, a single-use key is handed out only to an account it could talk to, and a proof shows that a device is in the signed key directory.
 - `/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic records (DNB and Open Library). Covers are streamed from disk as they are read (`src/lib/cover-response.ts`, chunked, no buffer per visitor), and a conditional request is answered `304` from the `stat` alone, without opening the file; the browser requests the reduced WebP variant through `/_next/image`, so a 220 px card never downloads the 1600 px JPEG. Each URL carries a version (`?v=…`, set on upload), which is what keeps a replaced cover out of every cache.
@@ -242,7 +242,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 926 unit and integration tests in 131 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 930 unit and integration tests in 131 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 64 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

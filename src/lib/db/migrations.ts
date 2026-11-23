@@ -2180,6 +2180,16 @@ function migrateToV70(db: Db) {
     CREATE INDEX IF NOT EXISTS device_one_time_keys_pending
       ON device_one_time_keys(user_id, device_id, created_at);
   `);
+
+  // Una base que ya tenía la tabla de una versión de desarrollo anterior de
+  // esta misma migración no gana la columna con `IF NOT EXISTS`: se añade aquí,
+  // como en las demás, para que la escalera sea idempotente de verdad.
+  const columnas = (db.pragma("table_info(device_keys)") as { name: string }[]).map(
+    (columna) => columna.name,
+  );
+  if (columnas.length > 0 && !columnas.includes("bundle_signature")) {
+    db.exec("ALTER TABLE device_keys ADD COLUMN bundle_signature TEXT NOT NULL DEFAULT ''");
+  }
   db.pragma("user_version = 70");
 }
 

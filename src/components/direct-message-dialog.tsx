@@ -50,6 +50,10 @@ type Prepared = {
   keyChanged: boolean;
   /** Huella que las dos partes pueden comparar por otro canal. */
   safety: string | null;
+  /** Huella de los dispositivos v2, si este navegador tiene uno. */
+  v2Safety: string | null;
+  /** Mensajes v2 que no se han podido descifrar en este dispositivo. */
+  v2Failed: number;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -92,6 +96,8 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       texts: {},
       keyChanged: false,
       safety: null,
+      v2Safety: null,
+      v2Failed: 0,
     };
   }
   const serverKeys = payload.me.keys ?? [];
@@ -117,6 +123,8 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
         texts: {},
         keyChanged: true,
         safety: null,
+        v2Safety: null,
+        v2Failed: 0,
       };
     }
     return fetchThread(peerId, false);
@@ -132,6 +140,8 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       texts: {},
       keyChanged: true,
       safety: null,
+      v2Safety: null,
+      v2Failed: 0,
     };
   }
   const conversationId = directConversationId(payload.me.id, payload.peer.id);
@@ -166,13 +176,16 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
         conversation: conversationId,
         messages: payload.messages.map((message) => ({
           id: message.id,
-          senderDeviceId: message.keyId ?? "",
+          senderDeviceId: message.senderDeviceId ?? "",
           envelopes: message.envelopes,
         })),
       }),
     )
     .catch(() => undefined);
-  Object.assign(texts, v2Texts ?? {});
+  Object.assign(texts, v2Texts?.texts ?? {});
+  const v2Safety = await getV2()
+    .then((bridge) => bridge?.safetyWith(payload.me.id, payload.peer.id))
+    .catch(() => null);
 
   return {
     payload,
@@ -182,6 +195,8 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
     texts,
     keyChanged: false,
     safety,
+    v2Safety: v2Safety ?? null,
+    v2Failed: v2Texts?.failed ?? 0,
   };
 }
 
@@ -215,6 +230,8 @@ export function DirectMessageDialog({
   const [hasKey, setHasKey] = useState(false);
   const [keyChanged, setKeyChanged] = useState(false);
   const [safety, setSafety] = useState<string | null>(null);
+  const [v2Safety, setV2Safety] = useState<string | null>(null);
+  const [v2Failed, setV2Failed] = useState(0);
   const privateKeyRef = useRef<CryptoKey | null>(null);
   const myKeyIdRef = useRef<string | null>(null);
   const peerKeysRef = useRef<RecipientKey[]>([]);
@@ -231,6 +248,8 @@ export function DirectMessageDialog({
           setHasKey(Boolean(prepared.privateKey && prepared.peerKeys.length > 0));
           setKeyChanged(prepared.keyChanged);
           setSafety(prepared.safety);
+          setV2Safety(prepared.v2Safety);
+          setV2Failed(prepared.v2Failed);
           setTexts(prepared.texts);
           if (prepared.payload.messages.length > 0) {
             await api(`/api/direct/${peerId}/read`, { method: "POST" }).catch(() => undefined);
@@ -290,8 +309,13 @@ export function DirectMessageDialog({
           .catch(() => null);
 
         let payload: Record<string, unknown>;
-        if (v2) {
-          payload = { v2 };
+        if (v2?.status === "ok") {
+          payload = { v2: v2.payload };
+        } else if (v2?.status === "error") {
+          // No se cae a v1: el servidor lo rechazaría si la otra parte tiene
+          // dispositivo, y el usuario merece saber por qué no sale el mensaje.
+          setError(v2.message);
+          return;
         } else {
           if (!privateKey || !keyId) {
             throw new Error(
@@ -308,7 +332,15 @@ export function DirectMessageDialog({
           payload = { keyId, envelopes };
         }
 
-        await api(`/api/direct/${peerId}`, { method: "POST", body: payload });
+        const created = await api<{ id: string }>(`/api/direct/${peerId}`, {
+          method: "POST",
+          body: payload,
+        });
+        // El sobre no va a este aparato: sin guardar el texto, dejaría de verse
+        // al recargar.
+        void getV2()
+          .then((bridge) => bridge?.rememberSentV2(meId, created.id, body))
+          .catch(() => undefined);
         setDraft("");
         await load();
       } catch (caught) {
@@ -335,6 +367,12 @@ export function DirectMessageDialog({
         {error && (
           <p className="form-error" role="alert">
             {error}
+          </p>
+        )}
+
+        {v2Failed > 0 && (
+          <p className="form-note" role="status">
+            {t("Algunos mensajes no se han podido descifrar en este navegador.")}
           </p>
         )}
 
@@ -449,6 +487,18 @@ export function DirectMessageDialog({
                   )}
                 </p>
                 <code>{safety}</code>
+              </details>
+            )}
+
+            {v2Safety && (
+              <details className="safety-number">
+                <summary>{t("Huella de los dispositivos (v2)")}</summary>
+                <p>
+                  {t(
+                    "Huella de los dispositivos (v2). Cambia cuando cualquiera de las dos personas añade un aparato: vuelve a compararla.",
+                  )}
+                </p>
+                <code>{v2Safety}</code>
               </details>
             )}
           </>

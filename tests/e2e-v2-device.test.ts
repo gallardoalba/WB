@@ -177,6 +177,15 @@ async function recibir(
   threadId: string,
   peerUserId: string,
 ) {
+  return (await leer(de, threadId, peerUserId)).messages;
+}
+
+/** Como `recibir`, pero con los fallos: es lo que mira la interfaz. */
+async function leer(
+  de: Awaited<ReturnType<typeof abrir>>,
+  threadId: string,
+  peerUserId: string,
+) {
   currentUser = de.session.state.userId;
   const page = repo.listMessages(threadId, de.session.state.userId);
   const messages = page.messages.map((message) => ({
@@ -244,7 +253,7 @@ test("cada dispositivo recibe su propio sobre y ninguno abre el del otro", async
   assert.equal(delSegundo, false, "son dispositivos distintos");
 });
 
-test("un mensaje repetido no se descifra dos veces", async () => {
+test("volver a leer un hilo ya descifrado no depende del ratchet", async () => {
   const ana = cuenta("Ana Repite");
   const bruno = cuenta("Bruno Repite");
   const hilo = intercambio(ana, bruno);
@@ -255,9 +264,90 @@ test("un mensaje repetido no se descifra dos veces", async () => {
   const primero = await recibir(deBruno, hilo, ana);
   assert.deepEqual(primero.map((message) => message.text), ["una vez"]);
 
-  // Se vuelve a leer el mismo hilo sin haber avanzado el ratchet: el mensaje
-  // sigue ahí y la clave ya se gastó.
-  await assert.rejects(() => recibir(deBruno, hilo, ana), "el ratchet rechaza la clave usada");
+  // Esto es una recarga de la página: libolm ya gastó la clave del mensaje, así
+  // que el texto tiene que salir de la caché del dispositivo.
+  const segunda = await leer(deBruno, hilo, ana);
+  assert.deepEqual(segunda.messages.map((message) => message.text), ["una vez"]);
+  assert.deepEqual(segunda.failures, []);
+});
+
+test("un cifrado reenviado en otro mensaje se anota y no oculta los demás", async () => {
+  const ana = cuenta("Ana Reenvía");
+  const bruno = cuenta("Bruno Reenvía");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-07");
+  const deBruno = await abrir(bruno, "dispositivo-de-bruno-7");
+
+  await enviar(deAna, hilo, bruno, "original");
+  await recibir(deBruno, hilo, ana);
+
+  // El mismo cifrado en una fila nueva: el ratchet lo rechaza (clave gastada) y
+  // queda como fallo, sin llevarse por delante el mensaje bueno.
+  const mensaje = repo.listMessages(hilo, ana).messages[0]!;
+  const fila = db.getDb()
+    .prepare(
+      "SELECT key_id, ciphertext, iv, protocol, type FROM message_envelopes WHERE message_id = ?",
+    )
+    .get(mensaje.id) as {
+    key_id: string;
+    ciphertext: string;
+    iv: string;
+    protocol: number;
+    type: number;
+  };
+  repo.addEncryptedMessage(hilo, ana, {
+    v2: {
+      senderDeviceId: "dispositivo-de-ana-07",
+      envelopes: [{ recipientDeviceId: fila.key_id, type: fila.type, body: fila.ciphertext }],
+    },
+  });
+
+  const leido = await leer(deBruno, hilo, ana);
+  assert.deepEqual(
+    leido.messages.map((message) => message.text),
+    ["original"],
+    "el mensaje bueno sigue leyéndose",
+  );
+  assert.equal(leido.failures.length, 1, "el reenvío se cuenta como fallo");
+});
+
+test("un mensaje pendiente del remitente retirado se abre con su sesión", async () => {
+  // El caso real: llega un mensaje mientras el dispositivo está cerrado y, antes
+  // de abrirlo, la otra persona retira ese aparato. Sin el registro no se puede
+  // abrir una sesión nueva, pero la que ya existe sigue valiendo.
+  const ana = cuenta("Ana Retira");
+  const bruno = cuenta("Bruno Retira");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-08");
+  const deBruno = await abrir(bruno, "dispositivo-de-bruno-8");
+
+  await enviar(deAna, hilo, bruno, "primero");
+  await enviar(deAna, hilo, bruno, "segundo");
+
+  // Bruno lee solo el primero, como si el segundo hubiera llegado después.
+  const page = repo.listMessages(hilo, bruno).messages.map((message) => ({
+    id: message.id,
+    senderDeviceId: message.senderDeviceId ?? "",
+    envelopes: message.envelopes,
+  }));
+  const primera = await decryptThread({
+    session: deBruno.session,
+    api: api(),
+    conversation: `request:${hilo}`,
+    peerUserId: ana,
+    messages: [page[0]!],
+  });
+  assert.deepEqual(primera.messages.map((message) => message.text), ["primero"]);
+
+  repo.revokeDevice(ana, "dispositivo-de-ana-08");
+
+  const leido = await leer(deBruno, hilo, ana);
+  assert.deepEqual(
+    leido.messages.map((message) => message.text),
+    ["primero", "segundo"],
+    "lo pendiente se abre con la sesión que ya existía",
+  );
+  assert.deepEqual(leido.failures, []);
 });
 
 test("un dispositivo que cambia de clave se rechaza en vez de aceptarse", async () => {

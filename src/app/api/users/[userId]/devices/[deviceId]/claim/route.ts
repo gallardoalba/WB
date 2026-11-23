@@ -1,5 +1,5 @@
 import { json } from "@/lib/api";
-import { claimOneTimeKey } from "@/lib/repo";
+import { canExchangeKeys, claimOneTimeKey } from "@/lib/repo";
 import { ApiError } from "@/lib/errors";
 import { hit } from "@/lib/throttle";
 import { deviceIdSchema } from "@/lib/validation";
@@ -19,7 +19,13 @@ import { route } from "@/lib/route";
  */
 export const POST = route<undefined, "user", { userId: string; deviceId: string }>(
   { limit: { bucket: "device:claim", limit: 120, windowMs: 60 * 60 * 1000 } },
-  ({ params }) => {
+  ({ user, params }) => {
+    // Solo entre cuentas que podrían hablarse: si no, cualquiera con sesión
+    // podría gastar las claves de un dispositivo ajeno y dejarlo sin poder
+    // abrir sesiones nuevas.
+    if (!canExchangeKeys(user.id, params.userId)) {
+      throw new ApiError(403, "No puedes reclamar claves de esa cuenta.");
+    }
     const deviceId = deviceIdSchema.parse(params.deviceId);
     hit({
       bucket: "device:claim:target",

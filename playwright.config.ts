@@ -81,6 +81,11 @@ export default defineConfig({
         env: {
           SEED_DEMO: "1",
           NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
+          // Clave Ed25519 de pruebas para firmar las instantáneas del directorio.
+          // Sin ella el cliente v2 no puede verificar dispositivos y las pruebas
+          // de mensajería v2 no llegarían a establecer sesión. No es un secreto.
+          TRANSPARENCY_SIGNING_KEY:
+            "MC4CAQAwBQYDK2VwBCIEIA1eA1+Bqg5jiJ0m3PNQ3cRgrZSXDMDe6vm4KNK0sVYo",
           // `next start` valida el entorno de producción al arrancar (correo,
           // claves de cifrado y de copia): aquí no hay ninguno de los tres y las
           // pruebas no los necesitan.

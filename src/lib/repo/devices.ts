@@ -183,10 +183,11 @@ export async function publishDevice(
     await assertPassword(userId, options.password, change, db);
   }
 
-  if (change === "another") assertDeviceRoom(userId, db);
-
   const now = new Date().toISOString();
   db.transaction(() => {
+    // Dentro de la transacción: dos altas simultáneas leerían el mismo recuento
+    // y el tope se quedaría corto.
+    if (change === "another") assertDeviceRoom(userId, db);
     db.prepare(
       `INSERT INTO device_keys
          (user_id, device_id, identity_key, signing_key, bundle_signature,

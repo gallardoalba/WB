@@ -79,6 +79,19 @@ export function canDirectMessage(viewer: string, peer: string): boolean {
     : mutualFollow(viewer, peer);
 }
 
+/**
+ * ¿Estas dos cuentas pueden intercambiar claves de un solo uso?
+ *
+ * Reclamar una clave consume una del dispositivo ajeno, así que no puede hacerlo
+ * cualquiera con sesión abierta: solo quien podría escribirle —mensaje directo
+ * permitido o un intercambio entre las dos—. Sin bloqueo de por medio.
+ */
+export function canExchangeKeys(a: string, b: string): boolean {
+  if (isBlocked(a, b) || isBlocked(b, a)) return false;
+  if (canDirectMessage(a, b)) return true;
+  return hasExchangeBetween(a, b);
+}
+
 function threadRow(userId: string, peerId: string): ThreadRow | null {
   const [user_a, user_b] = pair(userId, peerId);
   const row = getDb()
@@ -329,7 +342,7 @@ export function sendDirectMessage(
 
   const saved = db
     .prepare(
-      "SELECT id, sender_id, ciphertext, iv, key_id, encrypted, created_at FROM dm_messages WHERE id = ?",
+      "SELECT id, sender_id, ciphertext, iv, key_id, encrypted, created_at, sender_device_id FROM dm_messages WHERE id = ?",
     )
     .get(thread.messageId) as MessageRow;
   return toMessageView(saved, viewerId, envelopes);

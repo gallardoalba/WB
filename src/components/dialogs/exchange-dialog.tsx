@@ -69,6 +69,8 @@ type Conversation = {
   safety: string | null;
   /** Huella de los dispositivos v2, si este navegador tiene uno. */
   v2Safety: string | null;
+  /** Mensajes v2 que no se han podido descifrar en este dispositivo. */
+  v2Failed: number;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -251,6 +253,7 @@ export function ExchangeDialog({
         keyChanged: false,
         safety: null,
         v2Safety: null,
+        v2Failed: 0,
       };
     }
     // La ranura web es la de este navegador. Si está vacía se publica gratis;
@@ -288,7 +291,8 @@ export function ExchangeDialog({
       .then((bridge) => bridge?.safetyWith(me.id, peer.id))
       .catch(() => null);
     // Lo que llegue cifrado con v2 se descifra con el dispositivo de este
-    // navegador. Si falla —o no hay dispositivo— se queda lo de v1, sin ruido.
+    // navegador. `senderDeviceId` es el campo del protocolo v2; `keyId` es la
+    // ranura de v1 y en v2 va vacío.
     const v2Decoded = await getV2Module()
       .then((bridge) =>
         bridge?.decryptV2({
@@ -297,13 +301,13 @@ export function ExchangeDialog({
           conversation: `request:${conversationId}`,
           messages: payload.messages.map((message) => ({
             id: message.id,
-            senderDeviceId: message.keyId ?? "",
+            senderDeviceId: message.senderDeviceId ?? "",
             envelopes: message.envelopes,
           })),
         }),
       )
       .catch(() => undefined);
-    Object.assign(decoded, v2Decoded ?? {});
+    Object.assign(decoded, v2Decoded?.texts ?? {});
     return {
       peerKeys,
       privateKey: identity.privateKey,
@@ -316,6 +320,7 @@ export function ExchangeDialog({
       keyChanged,
       safety,
       v2Safety: v2Safety ?? null,
+      v2Failed: v2Decoded?.failed ?? 0,
     };
   }
 
@@ -345,6 +350,7 @@ export function ExchangeDialog({
           keyChanged: false,
           safety: null,
           v2Safety: null,
+          v2Failed: 0,
         };
         try {
           prepared = await prepareConversation(data, requestId);
@@ -410,6 +416,7 @@ export function ExchangeDialog({
             keyChanged: thread.keyChanged,
             safety: thread.safety,
             v2Safety: thread.v2Safety,
+            v2Failed: thread.v2Failed,
           }
         : {
             peerKeys: [],
@@ -423,6 +430,7 @@ export function ExchangeDialog({
             keyChanged: false,
             safety: null,
             v2Safety: null,
+            v2Failed: 0,
           };
       const decoded = { ...prepared.decoded };
       if (prepared.privateKey && prepared.myKeyId) {
@@ -543,8 +551,13 @@ export function ExchangeDialog({
         .catch(() => null);
 
       let payload: Record<string, unknown>;
-      if (v2) {
-        payload = { v2 };
+      if (v2?.status === "ok") {
+        payload = { v2: v2.payload };
+      } else if (v2?.status === "error") {
+        // Un fallo de cifrado no puede convertirse en un envío en v1: si la
+        // otra parte tiene dispositivo, el servidor lo rechazaría igual.
+        setError(v2.message);
+        return;
       } else {
         if (!thread.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
           setError(
@@ -577,6 +590,13 @@ export function ExchangeDialog({
         messages: [...messages, data.message],
         decoded: { ...thread.decoded, [data.message.id]: body },
       });
+      // El sobre va a los aparatos de la otra persona, no a este: sin guardar
+      // el texto, se perdería al recargar.
+      void getV2Module()
+        .then((bridge) =>
+          bridge?.rememberSentV2(thread.me.id, data.message.id, body),
+        )
+        .catch(() => undefined);
       form.reset();
       onChanged();
     } catch (caught) {
@@ -1120,6 +1140,12 @@ export function ExchangeDialog({
       {error && requestStatus !== "pending" && (
         <p className="form-error" role="alert">
           {error}
+        </p>
+      )}
+
+      {thread && thread.v2Failed > 0 && (
+        <p className="form-note" role="status">
+          {t("Algunos mensajes no se han podido descifrar en este navegador.")}
         </p>
       )}
 

@@ -162,13 +162,14 @@ Server-side rules, all tested:
 What is encrypted is not the bare text but a sealed record:
 
 ```
-{"v":2,"c":"request:<id>","t":"<text>"}   ++ padding to a multiple of 256 chars
+{"v":2,"c":"request:<id>","t":"<text>"}   ++ padding to a multiple of 256 bytes
 ```
 
 Two consequences, both tested:
 
-- **Length**: the ciphertext only reveals which 256-character block the message
-  falls into, not its exact size. v1.0.26 introduced this padding for v1 and v2
+- **Length**: the ciphertext only reveals which 256-byte block the message
+  falls into, not its exact size (the padding is computed over the UTF-8 bytes,
+  which is what libolm encrypts). v1.0.26 introduced this padding for v1 and v2
   keeps it.
 - **Conversation**: libolm has no associated data, and a ratchet session is per
   device pair, not per thread. Without the conversation inside the sealed
@@ -184,16 +185,25 @@ ciphertext.
 ## 5. Replay, order and deletion
 
 - libolm rejects a message key that was already used (replay).
-- An envelope is deleted when the client acknowledges it, and never before; the
-  maintenance cron purges unclaimed envelopes after 30 days.
+- The envelope is part of the message, not a mailbox: it is deleted with the
+  message (the foreign key cascades) and with the account, and there is no
+  separate retention. **Acknowledging is not required to delete anything.**
 - Out-of-order messages are kept as skipped keys, capped per session; beyond
   the cap the oldest are dropped and those messages are unrecoverable by
   design.
-- After decryption the message key is deleted by libolm. The client stores only
-  cleartext locally, in memory for the open thread; it does not keep the cipher
-  state decades longer than needed.
+- After decryption the message key is deleted by libolm, so the same envelope
+  cannot be opened twice. The client therefore keeps the decrypted text of what
+  it has already read in its device state —encrypted at rest like the rest of
+  that state— and rebuilds the thread from it. That is a deliberate trade-off:
+  forward secrecy protects against the server and the network, not against a
+  compromised device that holds the local history.
 - A session is forgotten (`session.free()`) when the conversation closes and the
   user leaves it; reopening starts a new session.
+- A browser that has no device for the account **cannot read v2-only messages**:
+  the sender sees a published device on the account and does not add the v1
+  copy. The way out is to activate v2 in that browser from «My account». The
+  interface says so in that section, and it is the same model as linking a new
+  device in any ratchet-based messenger.
 
 ## 6. What the server can still do (and what stops it)
 
@@ -234,7 +244,10 @@ Still missing, and not claimed anywhere else:
   so a second history fails and a swapped signer key is noticed. What is still
   missing is the **consistency proof between roots**.
 
-The witness now exists, but it is the operator's own: because the signature is
+The snapshot is created once a day, and publishing a device **refreshes it** at
+that moment: without that, a new device had no inclusion proof until the next
+day, the client fell back to v1 and, with both sides on v2, the server refused
+the message (§10). The witness now exists, but it is the operator's own: because the signature is
 theirs, one operator can sign two coherent histories and both would verify. What
 catches that is someone keeping the roots they saw. `npm run
 transparency:witness` fetches `/api/transparency` and `/api/transparency/keys`,
@@ -271,13 +284,20 @@ user can verify the build they run, v2 protects against a passive or database-
 level adversary, not against an operator who ships malicious JavaScript. This is
 documented in `/techdoc` and must not be sold otherwise.
 
+**XSS is the same limit, and it is worth saying plainly.** The device key stored
+in IndexedDB is non-extractable, so a script cannot export it; it can still ask
+the browser to *use* it, decrypt the open thread and exfiltrate the plaintext.
+The local cache of decrypted messages (§5) is encrypted with the same key and has
+the same property. The CSP, the absence of third-party scripts and the encrypted
+state raise the cost; they do not turn XSS into a non-event.
+
 ## 9. Metadata
 
 v2 does not hide who talks to whom. Concrete reductions, in order:
 
 1. Retention: closed exchanges keep envelopes for a bounded period; the cron
    purges the rest.
-2. Message size: padded to 256-character blocks inside the sealed record (§4),
+2. Message size: padded to 256-byte blocks inside the sealed record (§4),
    so the length only narrows the message to a bucket.
 3. Opaque conversation ids: `request:` and `dm:` ids are already random.
 4. Sealed sender, batching and delay: evaluated later; each costs latency and
@@ -324,7 +344,7 @@ Required before calling v2 done:
 - tampered body fails; body moved to another conversation fails;
 - a bundle with a swapped identity key or a swapped one-time key is rejected
   before any session is opened;
-- two messages of different lengths inside one 256-character block produce
+- two messages of different lengths inside one 256-byte block produce
   ciphertexts of the same size;
 - a fresh device cannot read a session it was not part of;
 - after `forget`, messages cannot be decrypted with the old state;
@@ -348,6 +368,10 @@ deliberate choice over writing one here, and it is also the weakest link:
   or network access. Those mitigate the risk; they do not remove it.
 - No post-quantum protection. Signal has PQXDH and a post-quantum ratchet; this
   does not, so recorded traffic is exposed to a future quantum adversary.
+- The `checksums.txt` that `scripts/olm-assets.ts` verifies **ships inside the
+  same package**: it catches a corrupted or partially altered file, not a fully
+  compromised `node_modules`. What pins the package itself is `npm ci` with the
+  lockfile and the registry's integrity hashes.
 
 The migration target is `@matrix-org/matrix-sdk-crypto-wasm` (vodozemac compiled
 to WASM, maintained, audited). It exposes the higher-level `OlmMachine` rather
@@ -363,13 +387,13 @@ Shipped in this release:
 | Piece | Where | Tested in |
 |---|---|---|
 | libolm wrapper: account, pre-key session, encrypt/decrypt, `pickle`, bundle and one-time-key signatures | `src/lib/e2e-v2.ts`, `src/lib/e2e-v2-format.ts` | `tests/e2e-v2.test.ts` |
-| Sealed record: padding to 256 and conversation inside the ciphertext | `src/lib/e2e-v2.ts` | `tests/e2e-v2.test.ts` |
+| Sealed record: padding to 256 bytes and conversation inside the ciphertext | `src/lib/e2e-v2.ts` | `tests/e2e-v2.test.ts` |
 | Server-side Ed25519 verification of bundle and keys | `src/lib/ed25519.ts` | `tests/devices.test.ts` |
 | Device registry, gated publishing, one-time keys handed out once, pruning, revocation | `src/lib/repo/devices.ts`, migration v70 | `tests/devices.test.ts` |
 | `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | the static scan in `tests/route.test.ts` (wrapper, quota and origin for every route file) plus the repository behind them in `tests/devices.test.ts` |
 | Device keys in the signed key directory | `src/lib/transparency.ts` | `tests/key-transparency.test.ts` |
 | Envelopes carried inside each message (v1 slot or v2 device), refused from outsiders | `src/lib/repo/shared.ts`, `requests.ts`, `direct.ts`, migration v71 | `tests/message-v2.test.ts` |
-| Client: open the device, send to every device, decrypt and acknowledge, pin peers (the **full pair**, identity and signing key, on both the send and the receive path) | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
+| Client: open the device, send to every device, decrypt and remember what was read, pin peers (the **full pair**, identity and signing key, on both the send and the receive path) | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
 | Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
 | Client check that a device is in the signed directory (mandatory: without proof no session is opened; inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
@@ -382,6 +406,7 @@ Shipped in this release:
 | v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |
 | libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |
 | Sunset switch for v1: a date after which v1 envelopes are refused with `410`, and a count of what is left | `src/lib/repo/shared.ts`, `src/lib/repo/maintenance.ts` | `tests/message-v2.test.ts` |
+| Account device list: the owner sees their devices and can revoke one; a browser without a device is told in «My account» that it cannot read v2-only messages | `src/components/account-settings.tsx`, `GET /api/account/devices`, `DELETE /api/account/devices/:id` | the static scan in `tests/route.test.ts` |
 | Witness: pins catalogue and key roots, verifies signatures and chains, `--check` fails on a rewritten root or a missing snapshot | `src/lib/witness.ts`, `scripts/witness-roots.ts`, `.github/workflows/testigo.yml` | `tests/witness.test.ts` |
 
 How far the interface goes: activating v2 in «Mi cuenta» publishes the device.

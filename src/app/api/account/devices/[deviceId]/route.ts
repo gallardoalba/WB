@@ -1,6 +1,7 @@
 import { json } from "@/lib/api";
 import { listConversationPeers, notify, publishDevice, revokeDevice } from "@/lib/repo";
 import type { PublishChange } from "@/lib/repo";
+import { ensureKeySnapshotForDevice } from "@/lib/transparency";
 import { deviceIdSchema, publishDeviceSchema } from "@/lib/validation";
 import { route } from "@/lib/route";
 
@@ -71,6 +72,18 @@ export const PUT = route<typeof publishDeviceSchema, "user", { deviceId: string 
     const { password, ...bundle } = body;
     const { device, change } = await publishDevice(user.id, { deviceId, ...bundle }, { password });
     warn(user.id, change);
+    // Reponer claves de un solo uso no cambia el directorio; un alta, un cambio
+    // de identidad o una reactivación sí, y sin instantánea nueva el dispositivo
+    // se queda sin prueba hasta la del día siguiente.
+    if (change !== "keys") {
+      try {
+        ensureKeySnapshotForDevice(user.id, deviceId);
+      } catch (error) {
+        // El dispositivo ya está publicado: no se rompe el alta por la firma.
+        // El cron diario lo recogerá, pero queda en el registro del servidor.
+        console.error("No se pudo firmar la instantánea del directorio:", error);
+      }
+    }
     return json({ device, change }, 200);
   },
 );

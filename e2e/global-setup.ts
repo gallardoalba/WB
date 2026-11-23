@@ -31,6 +31,11 @@ export default function globalSetup(): void {
       // v40: las ranuras activas están en `user_keys`; borrar solo las columnas
       // antiguas dejaba una clave publicada de la pasada anterior.
       "DELETE FROM user_keys",
+      // v2: los dispositivos viven en su propia tabla. Si no se limpian, cada
+      // pasada deja uno publicado que este navegador no puede abrir y el tope de
+      // cinco acaba rechazando la activación.
+      "DELETE FROM device_one_time_keys",
+      "DELETE FROM device_keys",
       "UPDATE users SET public_key = NULL, public_key_id = NULL",
     ]) {
       db.prepare(sql).run();

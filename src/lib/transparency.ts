@@ -707,6 +707,24 @@ export function ensureDailyKeySnapshot(
   return createKeySnapshot(db, { ...options, now });
 }
 
+/**
+ * Deja el dispositivo recién publicado dentro de una instantánea firmada.
+ *
+ * La prueba de inclusión se calcula contra la **última** instantánea y esas se
+ * crean una vez al día. Sin esto, activar v2 dejaba al dispositivo sin prueba
+ * hasta el día siguiente: el cliente no podía comprobar el directorio, caía a
+ * v1, y donde las dos partes tenían dispositivo el servidor rechazaba el envío
+ * (regla anti-degradación). Se firma con la clave del operador, si la hay.
+ */
+export function ensureKeySnapshotForDevice(
+  userId: string,
+  deviceId: string,
+  db: Db = getDb(),
+): string | null {
+  if (keyInclusion(userId, `device:${deviceId}`, db)) return null;
+  return createKeySnapshot(db).id;
+}
+
 export type KeyInclusionProof = {
   snapshotId: string;
   root: string;

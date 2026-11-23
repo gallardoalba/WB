@@ -681,38 +681,3 @@ export const publishDeviceSchema = z.object({
   password: z.string().max(200, "La contraseña es demasiado larga.").optional(),
 });
 
-/**
- * Sobre del protocolo v2 tal y como viaja al servidor.
- *
- * El cuerpo es base64 de libolm (pre-clave o mensaje del ratchet) y no se mira:
- * el servidor no puede abrirlo. Se acota el tamaño para que un envío no sea un
- * vertedero: 64 KB por sobre es más de cien veces un mensaje de chat.
- */
-export const sendEnvelopesSchema = z.object({
-  conversation: z
-    .string()
-    .regex(/^(request|dm):[A-Za-z0-9_-]{3,64}$/, "La conversación no es válida."),
-  senderDeviceId: deviceIdSchema,
-  envelopes: z
-    .array(
-      z.object({
-        recipientDeviceId: deviceIdSchema,
-        type: z.union([z.literal(0), z.literal(1)]),
-        body: z
-          .string()
-          .min(1)
-          .max(64 * 1024, "El sobre es demasiado grande.")
-          .regex(/^[A-Za-z0-9+/=]+$/, "El sobre no es válido."),
-      }),
-    )
-    .min(1, "No hay nada que enviar.")
-    .max(200, "Demasiados sobres en un solo envío."),
-});
-
-export const ackEnvelopesSchema = z.object({
-  deviceId: deviceIdSchema,
-  ids: z
-    .array(z.string().regex(/^env_[0-9a-f-]{36}$/, "El sobre no es válido."))
-    .min(1, "No hay nada que confirmar.")
-    .max(500, "Demasiados sobres en una confirmación."),
-});

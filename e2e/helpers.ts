@@ -78,6 +78,11 @@ export function prepareDirectMessaging([a, b]: [string, string]): void {
     db.prepare(
       "UPDATE users SET public_key = NULL, public_key_id = NULL WHERE id IN (?, ?)",
     ).run(a, b);
+    // Los dispositivos v2 también: si una prueba anterior los dejó publicados,
+    // el mensaje sale solo en v2 y el navegador nuevo de esta prueba no tiene
+    // estado con el que abrirlo.
+    db.prepare("DELETE FROM device_one_time_keys WHERE user_id IN (?, ?)").run(a, b);
+    db.prepare("DELETE FROM device_keys WHERE user_id IN (?, ?)").run(a, b);
   } finally {
     db.close();
   }

@@ -38,7 +38,45 @@ export type DeviceState = {
   verified?: string[];
   /** `false` mientras el alta no se haya confirmado en el servidor. */
   published?: boolean;
+  /**
+   * Texto ya descifrado, por mensaje. libolm consume la clave del mensaje al
+   * abrirlo y no se puede volver a descifrar el mismo sobre: sin esto, la
+   * segunda lectura del hilo —una recarga de la página— fallaba con
+   * `BAD_MESSAGE_KEY_ID` y el mensaje desaparecía. También guarda lo que se
+   * envía desde este aparato, que no lleva sobre para él.
+   */
+  decrypted?: Record<string, string>;
 };
+
+/**
+ * Cuántos textos se guardan en el dispositivo. El historial reciente y no toda
+ * la vida de la cuenta: el estado se reescribe entero en cada guardado.
+ */
+const DECRYPTED_CACHE_LIMIT = 500;
+
+/**
+ * Recuerda el texto de un mensaje en el estado del dispositivo.
+ *
+ * Es lo que permite volver a leer un hilo ya descifrado. El estado se guarda
+ * cifrado con una clave no exportable (`e2e-v2-idb.ts`), así que el texto no
+ * queda en claro en el perfil del navegador.
+ */
+export function rememberPlaintext(state: DeviceState, messageId: string, text: string): void {
+  const cache = (state.decrypted ??= {});
+  cache[messageId] = text;
+  const ids = Object.keys(cache);
+  for (const id of ids.slice(0, Math.max(0, ids.length - DECRYPTED_CACHE_LIMIT))) delete cache[id];
+}
+
+/**
+ * Fallo de verificación, no un mensaje que no se puede abrir.
+ *
+ * Se distingue para no confundir «este sobre está roto o no es de esta sesión»
+ * —que se anota y no impide leer los demás— con «este dispositivo no es el que
+ * se fijó» o «no está en el directorio», que es una señal de ataque y detiene
+ * la lectura.
+ */
+class VerificationError extends Error {}
 
 export type DeviceStore = {
   load(userId: string): Promise<DeviceState | null>;
@@ -47,6 +85,14 @@ export type DeviceStore = {
 
 /** Un sobre v2 listo para viajar dentro de un mensaje. */
 export type OutgoingEnvelope = { recipientDeviceId: string; type: number; body: string };
+
+/**
+ * La otra persona no tiene ningún dispositivo activo.
+ *
+ * No es un fallo: es la señal de que toca v1. Se distingue del resto de errores
+ * para no convertir un fallo de cifrado en un envío sin cifrar.
+ */
+export class NoDeviceError extends Error {}
 
 /** Un mensaje del hilo, con los sobres que trae y quién lo firmó. */
 export type ThreadMessage = {
@@ -266,17 +312,17 @@ async function assertInDirectory(
   const answer: { proof: DeviceProof; snapshot: KeySnapshotHeader } | null | undefined =
     await api.deviceProof?.(peerUserId, device.deviceId);
   if (!answer?.proof || !answer.snapshot) {
-    throw new Error(
+    throw new VerificationError(
       "El servidor no ha dado prueba de que ese dispositivo esté en el directorio firmado.",
     );
   }
   const { proof, snapshot } = answer;
   const result = await verifyDeviceProof(proof, snapshot, device.identityKey);
   if (!result.ok) {
-    throw new Error(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
+    throw new VerificationError(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
   }
   if (session.state.directoryKey && snapshot.publicKey !== session.state.directoryKey) {
-    throw new Error("La clave con la que se firma el directorio ha cambiado sin avisar.");
+    throw new VerificationError("La clave con la que se firma el directorio ha cambiado sin avisar.");
   }
   session.state.directoryKey ??= snapshot.publicKey;
   session.state.verified = [...(session.state.verified ?? []), device.deviceId];
@@ -299,7 +345,7 @@ export async function encryptForDevices(input: {
 }): Promise<{ senderDeviceId: string; envelopes: OutgoingEnvelope[] }> {
   const { session, api, conversation, text, peerUserId } = input;
   const devices = await api.listDevices(peerUserId);
-  if (devices.length === 0) throw new Error("La otra persona no tiene ningún dispositivo activo.");
+  if (devices.length === 0) throw new NoDeviceError("La otra persona no tiene ningún dispositivo activo.");
 
   const envelopes: OutgoingEnvelope[] = [];
   for (const device of devices) {
@@ -313,7 +359,7 @@ export async function encryptForDevices(input: {
       // El paquete reclamado y el que publica el registro tienen que ser el
       // mismo: si no, el servidor está enseñando dos verdades distintas.
       if (bundle.identityKey !== device.identityKey || bundle.signingKey !== device.signingKey) {
-        throw new Error("El paquete reclamado no coincide con el del registro.");
+        throw new VerificationError("El paquete reclamado no coincide con el del registro.");
       }
       sessionFor = await v2.startVerifiedSession(
         session.account,
@@ -342,8 +388,17 @@ export async function encryptForDevices(input: {
   return { senderDeviceId: session.state.deviceId, envelopes };
 }
 
+export type DecryptFailure = { messageId: string; reason: string };
+
+export type DecryptResult = {
+  messages: { messageId: string; text: string }[];
+  /** Sobres que no se han podido abrir. Uno roto no oculta los demás. */
+  failures: DecryptFailure[];
+};
+
 /**
- * Descifra los mensajes del hilo que traigan sobre para este dispositivo.
+ * Descifra los mensajes del hilo: los que traigan sobre para este dispositivo y
+ * los que ya se descifraron antes.
  *
  * El remitente de un mensaje de pre-clave se toma **del registro firmado**, no
  * de la fila del mensaje: si se creyera al servidor, podría atribuir un mensaje
@@ -360,46 +415,72 @@ export async function decryptThread(input: {
   conversation: string;
   peerUserId: string;
   messages: ThreadMessage[];
-}): Promise<{ messageId: string; text: string }[]> {
+}): Promise<DecryptResult> {
   const { session, api, conversation, peerUserId, messages } = input;
   const mine = session.state.deviceId;
+  const cache = session.state.decrypted ?? {};
 
-  const pending = messages.filter((message) =>
-    message.envelopes.some(
-      (envelope) => envelope.protocol === 2 && envelope.keyId === mine,
-    ),
-  );
-  if (pending.length === 0) return [];
-
-  const registry = new Map(
-    (await api.listDevices(peerUserId)).map((device) => [device.deviceId, device]),
-  );
-  const texts: { messageId: string; text: string }[] = [];
-
-  for (const message of pending) {
+  const envelopes = new Map<string, { type?: number; ciphertext: string }>();
+  for (const message of messages) {
     const envelope = message.envelopes.find(
       (item) => item.protocol === 2 && item.keyId === mine,
-    )!;
-    const device = registry.get(message.senderDeviceId);
-    if (!device) {
-      // No se descarta en silencio: si el registro no lo tiene, es un problema
-      // que hay que poder mirar.
-      throw new Error("Un mensaje viene de un dispositivo que no está en el registro.");
-    }
-    const text = await openEnvelope(
-      session,
-      api,
-      peerUserId,
-      device,
-      { type: envelope.type ?? 0, body: envelope.ciphertext },
-      conversation,
     );
-    texts.push({ messageId: message.id, text });
+    if (envelope) envelopes.set(message.id, envelope);
+  }
+
+  // El registro solo hace falta para abrir sesiones nuevas; los mensajes ya
+  // descifrados salen de la caché y los de una sesión viva no lo necesitan, así
+  // que retirar el dispositivo remitente no borra su historial.
+  const needsRegistry = messages.some((message) => {
+    const envelope = envelopes.get(message.id);
+    if (!envelope || cache[message.id] !== undefined) return false;
+    // Un mensaje normal con sesión viva se abre sin registro; un pre-clave
+    // puede tener que abrir una sesión nueva y entonces sí hace falta.
+    return (envelope.type ?? 0) === 0 || !session.state.sessions[message.senderDeviceId];
+  });
+  const registry = needsRegistry
+    ? new Map((await api.listDevices(peerUserId)).map((device) => [device.deviceId, device]))
+    : new Map<string, { deviceId: string; identityKey: string; signingKey: string }>();
+
+  const texts: { messageId: string; text: string }[] = [];
+  const failures: DecryptFailure[] = [];
+
+  for (const message of messages) {
+    const known = cache[message.id];
+    if (known !== undefined) {
+      texts.push({ messageId: message.id, text: known });
+      continue;
+    }
+    const envelope = envelopes.get(message.id);
+    if (!envelope) continue;
+
+    const device = registry.get(message.senderDeviceId) ?? null;
+    try {
+      const text = await openEnvelope(
+        session,
+        api,
+        peerUserId,
+        message.senderDeviceId,
+        device,
+        { type: envelope.type ?? 0, body: envelope.ciphertext },
+        conversation,
+      );
+      rememberPlaintext(session.state, message.id, text);
+      texts.push({ messageId: message.id, text });
+    } catch (error) {
+      // Un fallo de verificación es un ataque o un registro incoherente y para
+      // la lectura; un sobre que no abre se anota y se sigue con los demás.
+      if (error instanceof VerificationError) throw error;
+      failures.push({
+        messageId: message.id,
+        reason: error instanceof Error ? error.message : "No se pudo descifrar el mensaje.",
+      });
+    }
   }
 
   session.state.account = v2.pickleAccount(session.account, session.state.pickleKey);
   if (input.store) await input.store.save(session.state);
-  return texts;
+  return { messages: texts, failures };
 }
 
 /**
@@ -414,19 +495,17 @@ async function openEnvelope(
   session: Session,
   api: DeviceApi,
   peerUserId: string,
-  device: { deviceId: string; identityKey: string; signingKey: string },
+  deviceId: string,
+  device: { deviceId: string; identityKey: string; signingKey: string } | null,
   envelope: { type: number; body: string },
   conversation: string,
 ): Promise<string> {
-  const saved = session.state.sessions[device.deviceId];
+  const saved = session.state.sessions[deviceId];
   if (saved) {
     const previous = await v2.unpickleSession(saved, session.state.pickleKey);
     try {
       const text = v2.decrypt(previous, envelope, conversation);
-      session.state.sessions[device.deviceId] = v2.pickleSession(
-        previous,
-        session.state.pickleKey,
-      );
+      session.state.sessions[deviceId] = v2.pickleSession(previous, session.state.pickleKey);
       return text;
     } catch (error) {
       // Solo un mensaje de pre-clave puede abrir una sesión nueva; con un
@@ -437,10 +516,16 @@ async function openEnvelope(
     }
   }
 
+  if (!device) {
+    // El registro ya no lo publica —puede haberse retirado— y no hay sesión con
+    // la que abrirlo: sin clave de identidad no se puede aceptar un pre-clave.
+    throw new VerificationError("Un mensaje viene de un dispositivo que no está en el registro.");
+  }
+
   const fresh = await acceptFromRegistry(session, api, peerUserId, device, envelope);
   try {
     const text = v2.decrypt(fresh, envelope, conversation);
-    session.state.sessions[device.deviceId] = v2.pickleSession(fresh, session.state.pickleKey);
+    session.state.sessions[deviceId] = v2.pickleSession(fresh, session.state.pickleKey);
     return text;
   } finally {
     v2.forgetSession(fresh);
@@ -466,7 +551,7 @@ async function acceptFromRegistry(
     pinned &&
     (pinned.identityKey !== device.identityKey || pinned.signingKey !== device.signingKey)
   ) {
-    throw new Error("El dispositivo de la otra persona ha cambiado de clave sin avisar.");
+    throw new VerificationError("El dispositivo de la otra persona ha cambiado de clave sin avisar.");
   }
   session.state.pins[device.deviceId] = {
     identityKey: device.identityKey,

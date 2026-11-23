@@ -177,3 +177,27 @@ test("las claves de dispositivo entran en el directorio firmado", async () => {
     "y con prueba de inclusión contra la raíz firmada",
   );
 });
+
+test("publicar un dispositivo deja prueba de inclusión ese mismo día", async () => {
+  // Las instantáneas se crean una vez al día: sin refrescarla al dar de alta un
+  // dispositivo, este se quedaba sin prueba hasta el día siguiente y, con las
+  // dos partes en v2, el servidor rechazaba los mensajes en v1.
+  getDb().prepare("DELETE FROM key_snapshots").run();
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Fátima Alta");
+  const account = await v2.createAccount(2);
+  const deviceId = "fatima-dispositivo-01";
+  const signed = v2.deviceKeys(account, deviceId);
+  await repo.publishDevice(id, { ...signed, oneTimeKeys: v2.oneTimeKeys(account, deviceId) });
+
+  assert.equal(
+    transparency.keyInclusion(id, `device:${deviceId}`),
+    null,
+    "recién publicado, todavía no hay instantánea que lo incluya",
+  );
+  transparency.ensureKeySnapshotForDevice(id, deviceId);
+  assert.ok(
+    transparency.keyInclusion(id, `device:${deviceId}`),
+    "y tras asegurarla, la prueba existe",
+  );
+});
