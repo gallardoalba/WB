@@ -141,6 +141,12 @@ export default async function AdminPage({ searchParams }: PageProps) {
         aside={<span className="shelf-count">{t("{n} pendientes", { n: total })}</span>}
       />
 
+      <p className="admin-nav">
+        <Link className="text-link" href="/admin/estadisticas">
+          {t("Ver estadísticas")}
+        </Link>
+      </p>
+
       <section className="admin-metrics" aria-label={t("Métricas de comunidad")}>
         <dl className="aside-stats">
           <div>

@@ -22,13 +22,13 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v67), seed
+    db/                connection, base schema (v2), migrations (v3–v68), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 853 unit and integration tests (120 files)
+tests/                 859 unit and integration tests (121 files)
 e2e/                   63 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
@@ -61,6 +61,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/u/[id]` | Public profile: bio, figures, reviews, shelf and following. |
 | `/cuenta` | Settings: profile, notifications, password, encryption, second factor, journey visibility, welcome tour, export and deletion. |
 | `/admin` | Moderation and appeals. Moderators review reports and hide content; administrators also suspend accounts. Requires an active second factor. |
+| `/admin/estadisticas` | Native operational dashboard for administrators: live metrics, 24 h/7 d history from `metrics_samples` and community figures. Requires an active second factor. |
 | `/datenschutz`, `/aviso-legal` | Privacy policy (art. 13 GDPR) and imprint (§ 5 DDG). |
 | `/verificar`, `/restablecer` | Email confirmation and new password from the link. |
 | `/techdoc` | Technical documentation page (Spanish, German and English). |
@@ -98,7 +99,7 @@ The API has 69 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v67). A new installation starts from `SCHEMA_V2` and its indexes and runs the 65 steps up to v67; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Seventeen of them matter for reading today's code:
+Migrations are versioned with `PRAGMA user_version` (currently v68). A new installation starts from `SCHEMA_V2` and its indexes and runs the 66 steps up to v68; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Eighteen of them matter for reading today's code:
 
 - **v40** — One key slot per device and one encrypted envelope per key.
 - **v44** — When an exchange closes, the receiver gets a copy of their own.
@@ -117,6 +118,7 @@ Migrations are versioned with `PRAGMA user_version` (currently v67). A new insta
 - **v65** — Retires the reading circles: their nine tables, the reports and notices that pointed at them, and the counter table those tables were measured with are dropped.
 - **v66** — Deletes derived rows left without a parent (tags, favourites, likes, envelopes, read marks, list items and wall entries), so a copy restored from a backup passes `foreign_key_check` again.
 - **v67** — Drops the two leftover tables of the former social publishing queue, so no unused schema or orphan rows remain.
+- **v68** — Keeps the native admin dashboard's history: `metrics_samples` stores one compact JSON snapshot every 15 minutes so the panel can draw 24 h/7 d without Prometheus or Grafana.
 
 The detail of every step lives in that file and in its git history.
 
@@ -234,7 +236,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 853 unit and integration tests in 120 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 859 unit and integration tests in 121 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 
@@ -259,7 +261,7 @@ npx playwright install chromium && npm run test:e2e
 - `npm run informe:moderacion -- [--days 30] [--json]` prints aggregate moderation figures — reports, measures, suspensions and appeals — without names or individual cases.
 - `npm run transparency:snapshot` creates a signed catalogue snapshot immediately (the cron already does one a day); `npm run transparency:verify -- --url https://…` checks it from outside, recomputing the hash, the Merkle root and the Ed25519 signature and checking the chain of roots. `--key-fingerprint` pins the Ed25519 public key and `--pin` the Merkle root, so an external witness fails if a snapshot is rewritten or the instance starts signing with another key.
 - Every route leaves a `[req] {…}` line and the `x-response-time` header. nginx logs every application request with the same `x-request-id` (also returned to the client), so a request can be correlated end to end.
-- `GET /api/metrics` returns uptime, memory, p50/p95/p99 latency, error and request counters, open live streams, the state of each job queue and database/WAL size. JSON by default; `?format=prometheus` (or `Accept: text/plain`) returns the same picture in the exposition format, so a scraper needs no translator. It accepts an admin session **or** the `MAINTENANCE_TOKEN` — the watchdog and a local scraper have no cookie — and never carries request data. `deploy/nginx.conf` only lets it in from the host, like the maintenance cron: it is an operations endpoint, not a page.
+- `GET /api/metrics` returns uptime, memory, p50/p95/p99 latency, error and request counters, open live streams, the state of each job queue and database/WAL size. JSON by default; `?format=prometheus` (or `Accept: text/plain`) returns the same picture in the exposition format, so a scraper needs no translator. It accepts an admin session **or** the `MAINTENANCE_TOKEN` — the watchdog and a local scraper have no cookie — and never carries request data. `deploy/nginx.conf` only lets it in from the host, like the maintenance cron: it is an operations endpoint, not a page. The same data feeds the native admin dashboard at `/admin/estadisticas`, which keeps 30 days of samples in `metrics_samples` (one every 15 minutes) and draws them server-side, without Prometheus or Grafana.
 - `npm run mail:health [-- --json]` checks what makes a mailbox trust the sender — SPF, DKIM under `<MAIL_DKIM_SELECTOR>._domainkey.<domain>` and the DMARC policy — plus the real state of the queue: pending, lost in the last 24 h and how many minutes the most overdue one has been late. It exits 1 when something has to be fixed, so it can be chained into maintenance. If the provider accepts a message and the inbox files it as spam, nothing else records it.
 - A query over 50 ms leaves a `[db] consulta lenta` notice with its duration and the truncated SQL: `better-sqlite3` is synchronous, so while a query runs the whole process is stopped. The cron also returns under `db` the size of the file, the WAL and the free pages **after** the checkpoint.
 - A single instance: SQLite has one writer, so horizontal scaling needs PostgreSQL. The live channel does **not**: the in-memory bus is only a latency shortcut and the source of truth is a stamp polled from the database, so a second process keeps working (up to 15 s of delay between instances). A shared bus would remove that delay, not enable the deployment.

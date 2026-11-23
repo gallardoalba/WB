@@ -70,11 +70,66 @@ export function prometheusText(metrics: Metric[]): string {
 }
 
 /** La foto que se publica, en JSON o en texto. */
-export function metricsSnapshot(extra: { commit: string | null }): Metric[] {
+export type MetricsValues = {
+  commit: string | null;
+  schemaVersion: number;
+  uptimeSeconds: number;
+  rssBytes: number;
+  heapUsedBytes: number;
+  requests: number;
+  errors: number;
+  streams: number;
+  dbBytes: number;
+  walBytes: number;
+  freePages: number;
+  jobsPending: number;
+  jobsRunning: number;
+  jobsFailed: number;
+  jobsFailed24h: number;
+  jobsOverdueMinutes: number;
+  latency: {
+    samples: number;
+    p50: number | null;
+    p95: number | null;
+    p99: number | null;
+    max: number | null;
+  };
+};
+
+/**
+ * Los valores en bruto, compartidos por Prometheus y el panel de estadísticas.
+ *
+ * Así el dashboard nativo y `/api/metrics` no pueden discrepar: los dos leen de
+ * la misma foto y solo cambia la presentación.
+ */
+export function metricsValues(extra: { commit: string | null }): MetricsValues {
   const { rss, heapUsed } = process.memoryUsage();
   const db = dbMetrics();
-  const latency = latencySnapshot();
   const mail = outboxStats();
+  return {
+    commit: extra.commit,
+    schemaVersion: SCHEMA_VERSION,
+    uptimeSeconds: Math.round(process.uptime()),
+    rssBytes: rss,
+    heapUsedBytes: heapUsed,
+    requests: loggedRequestCount(),
+    errors: reportedErrorCount(),
+    streams: openStreamCount(),
+    dbBytes: db.bytes,
+    walBytes: db.walBytes,
+    freePages: db.freePages,
+    jobsPending: mail.pending,
+    jobsRunning: mail.running,
+    jobsFailed: mail.failed,
+    jobsFailed24h: mail.failed24h,
+    jobsOverdueMinutes: mail.overdueMinutes,
+    latency: latencySnapshot(),
+  };
+}
+
+/** La foto que se publica, en JSON o en texto. */
+export function metricsSnapshot(extra: { commit: string | null }): Metric[] {
+  const values = metricsValues(extra);
 
   const metrics: Metric[] = [
     {
@@ -89,7 +144,7 @@ export function metricsSnapshot(extra: { commit: string | null }): Metric[] {
       type: "gauge",
       samples: [
         {
-          labels: { commit: extra.commit ?? "unknown", schema: String(SCHEMA_VERSION) },
+          labels: { commit: values.commit ?? "unknown", schema: String(values.schemaVersion) },
           value: 1,
         },
       ],
@@ -98,85 +153,85 @@ export function metricsSnapshot(extra: { commit: string | null }): Metric[] {
       name: "wanderbibliothek_uptime_seconds",
       help: "Segundos desde que arrancó el proceso.",
       type: "gauge",
-      samples: [{ value: Math.round(process.uptime()) }],
+      samples: [{ value: values.uptimeSeconds }],
     },
     {
       name: "wanderbibliothek_memory_resident_bytes",
       help: "Memoria residente del proceso.",
       type: "gauge",
-      samples: [{ value: rss }],
+      samples: [{ value: values.rssBytes }],
     },
     {
       name: "wanderbibliothek_memory_heap_used_bytes",
       help: "Heap de JavaScript en uso.",
       type: "gauge",
-      samples: [{ value: heapUsed }],
+      samples: [{ value: values.heapUsedBytes }],
     },
     {
       name: "wanderbibliothek_http_requests_total",
       help: "Peticiones atendidas por manejadores envueltos con route().",
       type: "counter",
-      samples: [{ value: loggedRequestCount() }],
+      samples: [{ value: values.requests }],
     },
     {
       name: "wanderbibliothek_http_errors_total",
       help: "Errores de servidor registrados por reportError().",
       type: "counter",
-      samples: [{ value: reportedErrorCount() }],
+      samples: [{ value: values.errors }],
     },
     {
       name: "wanderbibliothek_live_streams",
       help: "Conexiones SSE abiertas ahora mismo.",
       type: "gauge",
-      samples: [{ value: openStreamCount() }],
+      samples: [{ value: values.streams }],
     },
     {
       name: "wanderbibliothek_database_size_bytes",
       help: "Tamaño del fichero de la base de datos.",
       type: "gauge",
-      samples: [{ value: db.bytes }],
+      samples: [{ value: values.dbBytes }],
     },
     {
       name: "wanderbibliothek_database_wal_bytes",
       help: "Tamaño del WAL. Un WAL que no baja indica que el checkpoint no completa.",
       type: "gauge",
-      samples: [{ value: db.walBytes }],
+      samples: [{ value: values.walBytes }],
     },
     {
       name: "wanderbibliothek_database_free_pages",
       help: "Páginas libres que un VACUUM podría devolver al disco.",
       type: "gauge",
-      samples: [{ value: db.freePages }],
+      samples: [{ value: values.freePages }],
     },
     {
       name: "wanderbibliothek_jobs",
       help: "Trabajos diferidos por estado.",
       type: "gauge",
       samples: [
-        { labels: { kind: "mail", status: "pending" }, value: mail.pending },
-        { labels: { kind: "mail", status: "running" }, value: mail.running },
-        { labels: { kind: "mail", status: "failed" }, value: mail.failed },
+        { labels: { kind: "mail", status: "pending" }, value: values.jobsPending },
+        { labels: { kind: "mail", status: "running" }, value: values.jobsRunning },
+        { labels: { kind: "mail", status: "failed" }, value: values.jobsFailed },
       ],
     },
     {
       name: "wanderbibliothek_jobs_failed_24h",
       help: "Trabajos dados por perdidos en las últimas 24 horas.",
       type: "gauge",
-      samples: [{ labels: { kind: "mail" }, value: mail.failed24h }],
+      samples: [{ labels: { kind: "mail" }, value: values.jobsFailed24h }],
     },
     {
       name: "wanderbibliothek_jobs_overdue_minutes",
       help: "Minutos de retraso del trabajo más atrasado (0 si todos están programados para el futuro).",
       type: "gauge",
-      samples: [{ labels: { kind: "mail" }, value: mail.overdueMinutes }],
+      samples: [{ labels: { kind: "mail" }, value: values.jobsOverdueMinutes }],
     },
   ];
 
-  if (latency.samples > 0) {
+  if (values.latency.samples > 0) {
     const quantiles = [
-      { quantile: "0.5", value: latency.p50 },
-      { quantile: "0.95", value: latency.p95 },
-      { quantile: "0.99", value: latency.p99 },
+      { quantile: "0.5", value: values.latency.p50 },
+      { quantile: "0.95", value: values.latency.p95 },
+      { quantile: "0.99", value: values.latency.p99 },
     ].filter((entry): entry is { quantile: string; value: number } => entry.value !== null);
     metrics.push({
       name: "wanderbibliothek_http_request_duration_milliseconds",
@@ -187,11 +242,11 @@ export function metricsSnapshot(extra: { commit: string | null }): Metric[] {
           labels: { quantile: entry.quantile },
           value: entry.value,
         })),
-        { labels: { quantile: "1" }, value: latency.max ?? 0 },
+        { labels: { quantile: "1" }, value: values.latency.max ?? 0 },
         // Las dos líneas obligatorias de un `summary`, en la misma familia.
         {
           name: "wanderbibliothek_http_request_duration_milliseconds_count",
-          value: latency.samples,
+          value: values.latency.samples,
         },
       ],
     });

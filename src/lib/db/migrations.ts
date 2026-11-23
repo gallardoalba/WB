@@ -2097,6 +2097,27 @@ function migrateToV67(db: Db) {
   db.pragma("user_version = 67");
 }
 
+/**
+ * v68: muestras periódicas para el panel de estadísticas.
+ *
+ * El panel nativo necesita algo de histórico para dibujar tendencias, pero no
+ * justifica Prometheus ni Grafana en una instancia única. El cron de
+ * mantenimiento guarda una foto cada 15 minutos; el payload va en JSON porque
+ * las métricas cambian con el tiempo y no merecen una columna por cada una.
+ */
+function migrateToV68(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS metrics_samples (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      payload TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS metrics_samples_created
+      ON metrics_samples(created_at);
+  `);
+  db.pragma("user_version = 68");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2233,6 +2254,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 65) migrateToV65(db);
   if (userVersion(db) < 66) migrateToV66(db);
   if (userVersion(db) < 67) migrateToV67(db);
+  if (userVersion(db) < 68) migrateToV68(db);
 
   backfillSearchKeys(db);
 }

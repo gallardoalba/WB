@@ -163,6 +163,11 @@ function databaseFile(): string {
   return process.env.WANDERBIBLIOTHEK_DB ?? path.join(process.cwd(), ".data", "wanderbibliothek.db");
 }
 
+/** Ruta del fichero de la base (o `:memory:` en pruebas). */
+export function databasePath(): string {
+  return databaseFile();
+}
+
 export function getDb(): Db {
   if (!globalForDb.__wanderbibliothekDb) {
     const file = databaseFile();

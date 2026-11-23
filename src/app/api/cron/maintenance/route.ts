@@ -1,5 +1,6 @@
 import { json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { purgeMetricsSamples, recordMetricsSample } from "@/lib/metrics-history";
 import { bearerToken, safeEqual } from "@/lib/ops-auth";
 import { processOutbox, purgeOutbox } from "@/lib/outbox";
 import { runMaintenance } from "@/lib/repo";
@@ -45,6 +46,9 @@ export const POST = route<undefined, "none">(
 
     const mail = await run("mail", () => processOutbox(50));
     const purgedMail = await run("purgedMail", () => purgeOutbox());
+    // Una foto cada 15 minutos para el panel de estadísticas de /admin.
+    const metrics = await run("metrics", () => recordMetricsSample().at);
+    const purgedMetrics = await run("purgedMetrics", () => purgeMetricsSamples());
     const maintenance = await run("maintenance", () => runMaintenance());
     // Una instantánea firmada del catálogo público al día. Si ya hay una de
     // hoy no se repite: el cron pasa cada quince minutos.
@@ -64,6 +68,8 @@ export const POST = route<undefined, "none">(
       failed,
       mail,
       purgedMail,
+      metrics,
+      purgedMetrics,
       transparency,
       keys,
       ...maintenance,

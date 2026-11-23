@@ -1,0 +1,91 @@
+/* Panel nativo de estadísticas (/admin/estadisticas). */
+
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.admin-stat-grid > div {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-lift);
+}
+
+.admin-stat-grid dt {
+  font-size: 13px;
+}
+
+.admin-stat-grid dd {
+  font-size: 18px;
+}
+
+.admin-stat-grid small {
+  display: block;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12px;
+}
+
+.admin-nav {
+  margin: 0 0 18px;
+  font-size: 14px;
+}
+
+.admin-sparkline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.admin-sparkline-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-lift);
+}
+
+.admin-sparkline-card > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-sparkline {
+  width: 100%;
+  height: 44px;
+  color: var(--green);
+}
+
+.admin-table-scroll {
+  overflow-x: auto;
+}
+
+.admin-sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-sample-table th,
+.admin-sample-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-sample-table th:first-child,
+.admin-sample-table td:first-child {
+  text-align: left;
+}
+
+.admin-sample-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
