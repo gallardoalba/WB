@@ -67,11 +67,19 @@ test("la instantánea firma la raíz del directorio y la prueba de inclusión cu
 test("rotar una clave cambia la raíz y la prueba nueva cuadra", () => {
   const id = cuenta("Carla Transparente");
   repo.setPublicKey(id, jwk("carla"), "initial");
-  const antes = transparency.createKeySnapshot(getDb(), { key: keyPair() });
+  // La misma hora a propósito: con dos instantáneas en el mismo milisegundo
+  // el desempate debe ser la inserción, no un UUID aleatorio.
+  const now = "2099-01-01T00:00:00.000Z";
+  const antes = transparency.createKeySnapshot(getDb(), { key: keyPair(), now });
 
   repo.setPublicKey(id, jwk("carla-nueva"), "rotation");
-  const despues = transparency.createKeySnapshot(getDb(), { key: keyPair() });
+  const despues = transparency.createKeySnapshot(getDb(), { key: keyPair(), now });
 
+  assert.equal(
+    transparency.latestKeySnapshot(getDb())!.id,
+    despues.id,
+    "con la misma hora gana la última insertada",
+  );
   assert.notEqual(despues.merkleRoot, antes.merkleRoot, "la rotación se ve en la raíz");
   assert.equal(despues.previousRoot, antes.merkleRoot, "la cadena enlaza con la anterior");
   const proof = transparency.keyInclusion(id)!;

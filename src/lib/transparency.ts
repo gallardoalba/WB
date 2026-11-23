@@ -258,7 +258,7 @@ export function latestSnapshot(db: Db = getDb()): TransparencySnapshot | null {
   const row = db
     .prepare(
       `SELECT ${SELECT_COLUMNS} FROM transparency_snapshots
-        ORDER BY created_at DESC, id DESC LIMIT 1`,
+        ORDER BY created_at DESC, rowid DESC LIMIT 1`,
     )
     .get() as SnapshotRow | undefined;
   return row ? toSnapshot(row) : null;
@@ -268,7 +268,7 @@ export function listSnapshots(limit = 20, db: Db = getDb()): TransparencySnapsho
   const rows = db
     .prepare(
       `SELECT ${SELECT_COLUMNS} FROM transparency_snapshots
-        ORDER BY created_at DESC, id DESC LIMIT ?`,
+        ORDER BY created_at DESC, rowid DESC LIMIT ?`,
     )
     .all(Math.max(1, Math.min(200, limit))) as SnapshotRow[];
   return rows.map(toSnapshot);
@@ -604,7 +604,7 @@ export function verifyMerkleBranch(
 
 export function latestKeySnapshot(db: Db = getDb()): KeySnapshot | null {
   const row = db
-    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, id DESC LIMIT 1`)
+    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1`)
     .get() as KeySnapshotRow | undefined;
   return row ? toKeySnapshot(row) : null;
 }
@@ -612,7 +612,7 @@ export function latestKeySnapshot(db: Db = getDb()): KeySnapshot | null {
 export function listKeySnapshots(limit = 20, db: Db = getDb()): KeySnapshot[] {
   const rows = db
     .prepare(
-      `SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, rowid DESC LIMIT ?`,
     )
     .all(Math.max(1, Math.min(200, limit))) as KeySnapshotRow[];
   return rows.map(toKeySnapshot);
