@@ -65,6 +65,11 @@ const httpApi: DeviceApi = {
       oneTimeKeys: device.oneTimeKeys,
     }));
   },
+  async consistencyProof(fromId, toId) {
+    return api(
+      `/api/transparency/keys/consistency?from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(toId)}`,
+    );
+  },
   async claim(userId, deviceId) {
     const response = await api<{ bundle: Awaited<ReturnType<DeviceApi["claim"]>> }>(
       `/api/users/${encodeURIComponent(userId)}/devices/${encodeURIComponent(deviceId)}/claim`,

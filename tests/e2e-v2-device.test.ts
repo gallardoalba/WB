@@ -19,6 +19,7 @@ process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 import "./olm-setup.ts";
 
 import type { DeviceApi, DeviceState, DeviceStore } from "../src/lib/e2e-v2-device.ts";
+import * as v2 from "../src/lib/e2e-v2.ts";
 import { decryptThread, encryptForDevices, openDevice } from "../src/lib/e2e-v2-device.ts";
 import { hashPasswordSync } from "../src/lib/password.ts";
 import * as transparency from "../src/lib/transparency.ts";
@@ -107,6 +108,11 @@ function api(): DeviceApi {
     },
     async deviceProof(userId, deviceId) {
       return deviceProof(userId, deviceId);
+    },
+    async consistencyProof(fromId, toId) {
+      const proof = transparency.consistencyProofBetween(fromId, toId);
+      if (!proof) throw new Error("sin prueba de consistencia");
+      return proof;
     },
   };
 }
@@ -376,9 +382,15 @@ test("un dispositivo que cambia de clave se rechaza en vez de aceptarse", async 
   await enviar(deAna, hilo, bruno, "primero");
   await recibir(deBruno, hilo, ana);
 
-  db.getDb()
-    .prepare("UPDATE device_keys SET identity_key = ? WHERE device_id = ?")
-    .run("Z".repeat(43), "dispositivo-de-ana-04");
+  // El servidor republica el aparato con otra identidad, que es lo que deja
+  // rastro en el directorio: editar solo la tabla no cambia la lista firmada.
+  const otra = await v2.createAccount(2);
+  const cambiado = v2.deviceKeys(otra, "dispositivo-de-ana-04");
+  await repo.publishDevice(
+    ana,
+    { ...cambiado, oneTimeKeys: v2.oneTimeKeys(otra, "dispositivo-de-ana-04") },
+    { password: PASSWORD },
+  );
 
   // Ana escribe con una sesión nueva, así que su mensaje vuelve a ser de pre-clave.
   deAna.session.state.sessions = {};
@@ -539,6 +551,66 @@ test("no se acepta un directorio más antiguo que el que ya se comprobó", async
   // Con una instantánea al día, el mismo envío pasa.
   const alDia = await enviarCon(api());
   assert.equal(alDia.envelopes.length, 2);
+});
+
+test("una instantánea que no continúa la anterior se rechaza", async () => {
+  // El servidor puede firmar dos historias coherentes: la firma dice quién
+  // habló, no que solo haya una. Lo que lo delata es que la instantánea nueva no
+  // contenga a la que el cliente ya comprobó.
+  const ana = cuenta("Ana Historia");
+  const bruno = cuenta("Bruno Historia");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-his1");
+  await abrir(bruno, "dispositivo-de-bruno-his1");
+  await enviar(deAna, hilo, bruno, "primero");
+  const ancla = deAna.session.state.lastSnapshot!;
+  assert.ok(ancla, "el cliente apunta lo que comprobó");
+
+  // Un aparato nuevo obliga a pedir prueba (y consistencia) otra vez.
+  await abrir(bruno, "dispositivo-de-bruno-his2", PASSWORD);
+
+  const conPruebaFalsa: DeviceApi = {
+    ...api(),
+    async consistencyProof() {
+      // Una prueba de otro par: los extremos no son los que toca.
+      const otra = transparency.createKeySnapshot(db.getDb(), {
+        key: SIGNING_KEY,
+        now: "2019-01-01T00:00:00.000Z",
+      });
+      return {
+        from: { id: "kys_otra", itemCount: 1, merkleRoot: "a".repeat(64), createdAt: "2019-01-01T00:00:00.000Z" },
+        to: {
+          id: otra.id,
+          itemCount: otra.itemCount,
+          merkleRoot: otra.merkleRoot,
+          createdAt: otra.createdAt,
+        },
+        proof: [],
+      };
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      encryptForDevices({
+        session: deAna.session,
+        api: conPruebaFalsa,
+        conversation: `request:${hilo}`,
+        text: "con historia partida",
+        peerUserId: bruno,
+      }),
+    /no une la instantánea|no continúa/,
+  );
+
+  // Con el servidor honesto, el mismo envío pasa.
+  const bien = await encryptForDevices({
+    session: deAna.session,
+    api: api(),
+    conversation: `request:${hilo}`,
+    text: "con historia entera",
+    peerUserId: bruno,
+  });
+  assert.equal(bien.envelopes.length, 2);
 });
 
 test("el cliente rechaza un dispositivo cuya prueba no cuadra con la raíz", async () => {

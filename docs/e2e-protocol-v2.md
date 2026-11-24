@@ -257,7 +257,17 @@ separate signed snapshot of the key directory (`/api/transparency/keys`), a
 Merkle root, a hash chain, and per-account inclusion proofs
 (`/api/account/keys/proof`).
 
-Committed today (`keyDirectoryLines`):
+The list is an **append-only log** (`key_directory_log`, v73) and the snapshot is
+built from it in insertion order. That is not an implementation detail: a
+consistency proof can only show that a new tree extends an old one if the leaves
+that were already published stay where they were. While the list was rebuilt from
+the current state, rotating a key changed a leaf in the middle and no such proof
+existed. A change that matters —a new device, a different identity, a revocation,
+a v1 key rotation— appends a line; replenishing one-time keys does not, because
+it changes nothing the directory is about. The log keeps history: an old line is
+never rewritten, and the client reads the last one for a slot.
+
+Lines (`keyDirectoryLines`):
 
 - each v1 platform slot: `account|slot|fingerprint|updated_at`;
 - each v2 device:
@@ -282,14 +292,25 @@ What the client checks before trusting a device (`verifyDeviceProof`):
   operator key pinned on first use;
 - the device is **active** in that line (`revoked:-`), not merely present: the
   directory keeps history, so a revoked device is still in the tree;
-- the snapshot is **not older** than the last one this device already used. A
-  replay of a directory from before a revocation is signed and included, so this
-  is the cheap check that stops it; a *new* snapshot that lies about a
-  revocation is indistinguishable locally and is the witness's job.
+- the snapshot is **not older** than the last one this device already used;
+- and, when the root changed, that the new snapshot **contains** the old one: the
+  client asks `GET /api/transparency/keys/consistency?from=<id>&to=<id>` and
+  verifies the RFC 6962 consistency proof against the two signed roots it holds.
+  This is what stops a second history: the operator can sign two coherent
+  directories, but cannot make one contain the other without a hash collision.
+  The same proof is what the witness checks on `--check`, so it no longer depends
+  on comparing files whose integrity the operator controls.
 
-Still missing, and not claimed anywhere else: **consistency proofs** between
-consecutive roots, so a server cannot present two coherent histories to two
-observers, and a witness that is not the operator (§13).
+Still missing, and not claimed anywhere else: a witness that is not the operator
+(§13), and the equivalent proof for the *catalogue* log — the key directory is
+what a client needs; the catalogue has no client-side verifier yet.
+
+That failure is closed on purpose, and an operator should know what it looks
+like: if the instance is restored from a backup older than a snapshot the client
+already used, the client will refuse to continue with that peer and say so
+(`el directorio … no continúa el que ya se comprobó`). The way out is to activate
+the device again in that browser, which starts the anchor from scratch — the same
+trust-on-first-use it had the first time.
 
 The snapshot is created once a day, and publishing a device **refreshes it** at
 that moment: without that, a new device had no inclusion proof until the next
@@ -408,7 +429,11 @@ Required before calling v2 done:
 - after `forget`, messages cannot be decrypted with the old state;
 - the server never stores plaintext or private keys (schema assertion);
 - the client refuses a directory snapshot older than the one it already used,
-  and a valid proof from another account with the same device id;
+  one that does not contain it, and a valid proof from another account with the
+  same device id;
+- a consistency proof generated on the server verifies with the client's own
+  implementation for every pair of sizes up to nine leaves, including powers of
+  two, odd sizes and the single-leaf tree;
 - client verification of a peer's device key against the committed root.
 
 ## 12. The ratchet library
@@ -475,11 +500,11 @@ peer has none (§10). They decrypt whatever arrives, so the rollout does not cut
 anyone off, and the thread shows the device safety number (§7) next to the v1
 one.
 
-Not implemented yet, and therefore **not** claimed by the documentation:
-consistency proofs between consecutive roots and a witness that is not the
-operator (§7 — the script exists, the independent copy is a human step), v1
-actually being switched off (the switch exists, the date is an operator
-decision), and protection against rolling back the *local* device state (§8).
+Not implemented yet, and therefore **not** claimed by the documentation: a
+witness that is not the operator (§7 — the script exists, the independent copy is
+a human step), the consistency proof for the catalogue log (§7), v1 actually
+being switched off (the switch exists, the date is an operator decision), and
+protection against rolling back the *local* device state (§8).
 
 ## 14. Change control
 

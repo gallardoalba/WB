@@ -118,6 +118,81 @@ export async function verifySnapshotSignature(snapshot: KeySnapshotHeader): Prom
   return verifySignature(raw, snapshotMessage(snapshot), unpadded(snapshot.signature));
 }
 
+async function nodeHash(left: string, right: string): Promise<string> {
+  return sha256(`node:${left}${right}`);
+}
+
+/**
+ * Comprueba que el árbol nuevo **contiene** al viejo (RFC 6962).
+ *
+ * Con esto, un cliente que ya vio una raíz no puede recibir una historia
+ * alternativa: la prueba fallaría y fabricarla exigiría una colisión de SHA-256.
+ * Se verifica aquí, en el cliente, con la misma regla de nodos que usa el
+ * servidor para construir; que las dos implementaciones coincidan lo comprueban
+ * las pruebas, no la fe.
+ */
+export async function verifyConsistencyProof(
+  oldSize: number,
+  oldRoot: string,
+  newSize: number,
+  newRoot: string,
+  proof: string[],
+): Promise<boolean> {
+  if (!Number.isSafeInteger(oldSize) || !Number.isSafeInteger(newSize)) return false;
+  if (oldSize < 0 || newSize < oldSize) return false;
+  if (!HASH.test(oldRoot) || !HASH.test(newRoot)) return false;
+  // El árbol vacío es prefijo de cualquiera y no hay nada que demostrar.
+  if (oldSize === 0) return proof.length === 0;
+  if (oldSize === newSize) return proof.length === 0 && oldRoot === newRoot;
+  if (proof.length === 0 || !proof.every((hash) => HASH.test(hash))) return false;
+
+  // Si el árbol viejo es perfecto (tamaño potencia de dos) su raíz es un nodo
+  // del nuevo, y la prueba es la lista de subárboles hermanos que quedan a la
+  // derecha, de abajo arriba: se combinan en orden.
+  if ((oldSize & (oldSize - 1)) === 0) {
+    let node = oldRoot;
+    for (const hash of proof) node = await nodeHash(node, hash);
+    return node === newRoot;
+  }
+
+  // Si no, se reconstruyen las dos raíces a la vez desde el primer nodo que
+  // comparten (el algoritmo de RFC 6962): `first` es la raíz vieja y `second`
+  // la nueva; si divergen, alguna de las dos no cuadra.
+  let first = oldSize - 1;
+  let second = newSize - 1;
+  while (first % 2 === 1) {
+    first = Math.floor(first / 2);
+    second = Math.floor(second / 2);
+  }
+
+  let firstRoot = proof[0]!;
+  let secondRoot = proof[0]!;
+  for (let index = 1; index < proof.length; index += 1) {
+    const hash = proof[index]!;
+    if (second === 0) return false;
+    if (first % 2 === 1 || first === second) {
+      firstRoot = await nodeHash(hash, firstRoot);
+      secondRoot = await nodeHash(hash, secondRoot);
+      while (first !== 0 && first % 2 === 0) {
+        first = Math.floor(first / 2);
+        second = Math.floor(second / 2);
+      }
+    } else {
+      secondRoot = await nodeHash(secondRoot, hash);
+    }
+    first = Math.floor(first / 2);
+    second = Math.floor(second / 2);
+  }
+  return firstRoot === oldRoot && secondRoot === newRoot && second === 0;
+}
+
+/** Lo que sirve la ruta de consistencia. */
+export type ConsistencyProof = {
+  from: { id: string; itemCount: number; merkleRoot: string; createdAt: string };
+  to: { id: string; itemCount: number; merkleRoot: string; createdAt: string };
+  proof: string[];
+};
+
 /** A quién tiene que pertenecer la línea de la prueba. */
 export type ExpectedDevice = { userId: string; deviceId: string; identityKey: string };
 

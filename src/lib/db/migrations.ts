@@ -9,6 +9,7 @@ import type { Db } from "./index";
 import { CITIES, cityDistances } from "../cities";
 import { CATEGORIES, TAGS } from "../domain";
 import { encryptSecret, isEncrypted, shipContext } from "../secret-box";
+import { deviceDirectoryLine, slotDirectoryLine } from "../key-directory-format";
 import { normalizeText } from "../text";
 import { workKeyFromTitle } from "../work";
 import { INDEXES, LEGACY_UPGRADE, SCHEMA_V2, SCHEMA_VERSION } from "./schema";
@@ -2236,6 +2237,88 @@ function migrateToV72(db: Db) {
   db.pragma("user_version = 72");
 }
 
+/**
+ * v73: registro **append-only** del directorio de claves.
+ *
+ * Antes, la lista firmada se reconstruía desde el estado actual: una rotación
+ * cambiaba una hoja en su sitio y el árbol nuevo dejaba de ser una extensión del
+ * anterior, así que no podía existir prueba de consistencia entre dos raíces.
+ * Con un registro que solo crece, la raíz nueva contiene a la vieja y se puede
+ * demostrar sin enseñar el árbol entero.
+ *
+ * Se rellena con lo que hay hoy (una entrada por ranura y por dispositivo) para
+ * que la primera instantánea después de migrar no salga vacía.
+ */
+function migrateToV73(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS key_directory_log (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      line TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS key_directory_log_slot
+      ON key_directory_log(user_id, slot, seq);
+  `);
+
+  const empty = db.prepare("SELECT 1 AS hay FROM key_directory_log LIMIT 1").get() as
+    | { hay: number }
+    | undefined;
+  if (empty) {
+    db.pragma("user_version = 73");
+    return;
+  }
+
+  const insert = db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  );
+  db.transaction(() => {
+    const slots = db
+      .prepare("SELECT user_id, platform, key_id, updated_at FROM user_keys ORDER BY user_id, platform")
+      .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
+    for (const row of slots) {
+      insert.run(
+        row.user_id,
+        row.platform,
+        slotDirectoryLine({
+          userId: row.user_id,
+          platform: row.platform,
+          keyId: row.key_id,
+          updatedAt: row.updated_at,
+        }),
+        row.updated_at,
+      );
+    }
+    const devices = db
+      .prepare(
+        "SELECT user_id, device_id, identity_key, updated_at, revoked_at FROM device_keys ORDER BY user_id, device_id",
+      )
+      .all() as {
+      user_id: string;
+      device_id: string;
+      identity_key: string;
+      updated_at: string;
+      revoked_at: string | null;
+    }[];
+    for (const row of devices) {
+      insert.run(
+        row.user_id,
+        `device:${row.device_id}`,
+        deviceDirectoryLine({
+          userId: row.user_id,
+          deviceId: row.device_id,
+          identityKey: row.identity_key,
+          updatedAt: row.updated_at,
+          revokedAt: row.revoked_at,
+        }),
+        row.updated_at,
+      );
+    }
+  })();
+  db.pragma("user_version = 73");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2377,6 +2460,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 70) migrateToV70(db);
   if (userVersion(db) < 71) migrateToV71(db);
   if (userVersion(db) < 72) migrateToV72(db);
+  if (userVersion(db) < 73) migrateToV73(db);
 
   backfillSearchKeys(db);
 }

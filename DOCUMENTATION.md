@@ -17,12 +17,12 @@ The code is AGPL-3.0 licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               75 route files grouped by domain
+    api/               76 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v72), seed
+    db/                connection, base schema (v2), migrations (v3–v73), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 75 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 101 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
+The API has 76 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, and every handler goes through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -100,7 +100,7 @@ The API has 75 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v72). A new installation starts from `SCHEMA_V2` and its indexes and runs the 70 steps up to v72; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Twenty-two of them matter for reading today's code:
+Migrations are versioned with `PRAGMA user_version` (currently v73). A new installation starts from `SCHEMA_V2` and its indexes and runs the 71 steps up to v73; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Twenty-three of them matter for reading today's code:
 
 - **v40** — One key slot per device and one encrypted envelope per key.
 - **v44** — When an exchange closes, the receiver gets a copy of their own.
@@ -124,6 +124,7 @@ Migrations are versioned with `PRAGMA user_version` (currently v72). A new insta
 - **v70** — The v2 end-to-end protocol: `device_keys` holds each device's public bundle and `device_one_time_keys` the keys handed out once per session.
 - **v71** — The envelopes of that protocol: the existing envelope tables gain `protocol` (1 = v1 slot, 2 = v2 device) and `type` (pre-key or ratchet message), so one row per recipient device holds the body and nothing the server can read.
 - **v72** — Which device signed each message, kept apart from the v1 slot because the v1 associated data is derived from it.
+- **v73** — The key directory becomes an append-only log (`key_directory_log`): snapshots are built from it, so a new root is an extension of the previous one and a consistency proof exists.
 
 The detail of every step lives in that file and in its git history.
 

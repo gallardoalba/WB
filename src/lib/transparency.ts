@@ -30,6 +30,9 @@ import { gunzipSync, gzipSync } from "node:zlib";
 
 import { getDb, type Db } from "./db";
 import { KEY_MESSAGE_VERSION as KEY_FORMAT_VERSION } from "./e2e-v2-format";
+import { deviceDirectoryLine, slotDirectoryLine } from "./key-directory-format";
+
+export { deviceDirectoryLine, slotDirectoryLine } from "./key-directory-format";
 import { listPublicWorks } from "./repo";
 
 /** Cabecera del mensaje firmado: si cambia el formato, sube la versión. */
@@ -117,6 +120,99 @@ export function merkleRoot(lines: string[]): string {
     level = next;
   }
   return level[0]!;
+}
+
+/**
+ * Mayor potencia de dos **estrictamente menor** que n (la regla de RFC 6962).
+ */
+function powerBelow(n: number): number {
+  let k = 1;
+  while (k * 2 < n) k *= 2;
+  return k;
+}
+
+function consistencySubproof(m: number, lines: string[], complete: boolean): string[] {
+  const n = lines.length;
+  if (m === n) return complete ? [] : [merkleRoot(lines)];
+  const k = powerBelow(n);
+  if (m <= k) {
+    return [...consistencySubproof(m, lines.slice(0, k), complete), merkleRoot(lines.slice(k))];
+  }
+  return [...consistencySubproof(m - k, lines.slice(k), false), merkleRoot(lines.slice(0, k))];
+}
+
+/**
+ * Prueba de que el árbol nuevo **contiene** al viejo (RFC 6962, `SUBPROOF`).
+ *
+ * Es lo que convierte «esta raíz la firma el operador» en «esta raíz es la
+ * continuación de la que vi»: sin ella, el operador puede firmar dos historias
+ * coherentes y las dos verifican. Devuelve `null` si el árbol nuevo no empieza
+ * por las mismas hojas (no hay nada que demostrar) y `[]` si no hay árbol viejo.
+ *
+ * Exige que las líneas viejas sean un **prefijo** de las nuevas: por eso el
+ * directorio es un registro append-only (`key_directory_log`).
+ */
+export function merkleConsistencyProof(
+  oldLines: string[],
+  newLines: string[],
+): string[] | null {
+  if (oldLines.length > newLines.length) return null;
+  for (let index = 0; index < oldLines.length; index += 1) {
+    if (newLines[index] !== oldLines[index]) return null;
+  }
+  if (oldLines.length === 0) return [];
+  return consistencySubproof(oldLines.length, newLines, true);
+}
+
+/** Lo que necesita quien verifica: las dos cabeceras y los hashes del camino. */
+export type KeyConsistencyProof = {
+  from: { id: string; itemCount: number; merkleRoot: string; createdAt: string };
+  to: { id: string; itemCount: number; merkleRoot: string; createdAt: string };
+  proof: string[];
+};
+
+/**
+ * Prueba de consistencia entre dos instantáneas guardadas del directorio.
+ *
+ * Solo necesita los dos `payload` que ya están en la base (se conservan siempre:
+ * de ellos sale la prueba exacta de lo que se firmó).
+ */
+export function consistencyProofBetween(
+  fromId: string,
+  toId: string,
+  db: Db = getDb(),
+): KeyConsistencyProof | null {
+  const read = (id: string) => {
+    const row = db
+      .prepare(
+        `SELECT id, item_count, merkle_root, created_at, payload FROM key_snapshots WHERE id = ?`,
+      )
+      .get(id) as
+      | {
+          id: string;
+          item_count: number;
+          merkle_root: string;
+          created_at: string;
+          payload: Buffer | null;
+        }
+      | undefined;
+    if (!row?.payload) return null;
+    return {
+      header: {
+        id: row.id,
+        itemCount: row.item_count,
+        merkleRoot: row.merkle_root,
+        createdAt: row.created_at,
+      },
+      lines: gunzipSync(row.payload).toString("utf8").split("\n").filter(Boolean),
+    };
+  };
+  const from = read(fromId);
+  const to = read(toId);
+  if (!from || !to) return null;
+  const proof = merkleConsistencyProof(from.lines, to.lines);
+  if (!proof) return null;
+  return { from: from.header, to: to.header, proof };
 }
 
 /**
@@ -544,77 +640,83 @@ function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
  * dispositivo es `device:<id>` y su huella, la clave de identidad.
  */
 export function keyDirectoryLines(db: Db = getDb()): string[] {
-  const slots = db
-    .prepare(
-      `SELECT user_id, platform, key_id, updated_at FROM user_keys
-        ORDER BY user_id, platform`,
-    )
-    .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
-  const devices = db
-    .prepare(
-      `SELECT user_id, device_id, identity_key, updated_at, revoked_at FROM device_keys
-        ORDER BY user_id, device_id`,
-    )
-    .all() as {
-    user_id: string;
-    device_id: string;
-    identity_key: string;
-    updated_at: string;
-    revoked_at: string | null;
-  }[];
+  const rows = db
+    .prepare("SELECT line FROM key_directory_log ORDER BY seq")
+    .all() as { line: string }[];
+  return rows.map((row) => row.line);
+}
 
-  return [
-    ...slots.map((row) => slotDirectoryLine({
-      userId: row.user_id,
-      platform: row.platform,
-      keyId: row.key_id,
-      updatedAt: row.updated_at,
-    })),
-    ...devices.map((row) =>
-      deviceDirectoryLine({
-        userId: row.user_id,
-        deviceId: row.device_id,
-        identityKey: row.identity_key,
-        updatedAt: row.updated_at,
-        revokedAt: row.revoked_at,
-      }),
-    ),
-  ];
+/** Última línea apuntada para una ranura, o `null` si nunca se apuntó. */
+export function lastDirectoryLine(
+  userId: string,
+  slot: string,
+  db: Db = getDb(),
+): string | null {
+  const row = db
+    .prepare(
+      `SELECT line FROM key_directory_log WHERE user_id = ? AND slot = ?
+        ORDER BY seq DESC LIMIT 1`,
+    )
+    .get(userId, slot) as { line: string } | undefined;
+  return row?.line ?? null;
 }
 
 /**
- * Línea canónica de un dispositivo en el directorio.
+ * Apunta un cambio de un dispositivo en el registro del directorio.
  *
- * Lleva el estado de retirada: sin él, la prueba de inclusión demuestra que el
- * aparato *estuvo* en el directorio, nunca que siga activo, y un servidor podía
- * presentar la línea de uno retirado como si valiera. `revoked:-` es activo; con
- * fecha, retirado. Se construye en un solo sitio para que el alta, la retirada y
- * la instantánea no puedan escribir formatos distintos.
+ * El registro es **append-only** y de ahí sale la lista que se firma: si las
+ * hojas se reescribieran en su sitio, el árbol nuevo no sería una extensión del
+ * anterior y no existiría prueba de consistencia posible (las pruebas de
+ * consistencia de Merkle exigen que lo publicado solo crezca por el final).
+ *
+ * Solo se apunta cuando cambia algo que importa —la identidad o la retirada—:
+ * reponer claves de un solo uso toca `updated_at` pero no el directorio, y
+ * apuntarlo haría crecer el árbol sin decir nada nuevo.
  */
-export function deviceDirectoryLine(input: {
-  userId: string;
-  deviceId: string;
-  identityKey: string;
-  updatedAt: string;
-  revokedAt: string | null;
-}): string {
-  return [
+export function recordDeviceInDirectory(
+  db: Db,
+  input: {
+    userId: string;
+    deviceId: string;
+    identityKey: string;
+    revokedAt: string | null;
+    at: string;
+  },
+): boolean {
+  const slot = `device:${input.deviceId}`;
+  const last = lastDirectoryLine(input.userId, slot, db);
+  if (last) {
+    const [, , identityKey, , revoked] = last.split("|");
+    if (identityKey === input.identityKey && revoked === `revoked:${input.revokedAt ?? "-"}`) {
+      return false;
+    }
+  }
+  db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  ).run(
     input.userId,
-    `device:${input.deviceId}`,
-    input.identityKey,
-    input.updatedAt,
-    `revoked:${input.revokedAt ?? "-"}`,
-  ].join("|");
+    slot,
+    deviceDirectoryLine({ ...input, updatedAt: input.at }),
+    input.at,
+  );
+  return true;
 }
 
-/** Línea canónica de una ranura de v1. */
-export function slotDirectoryLine(input: {
-  userId: string;
-  platform: string;
-  keyId: string;
-  updatedAt: string;
-}): string {
-  return [input.userId, input.platform, input.keyId, input.updatedAt].join("|");
+/** Apunta una ranura de v1 (alta o rotación). */
+export function recordSlotInDirectory(
+  db: Db,
+  input: { userId: string; platform: string; keyId: string; at: string },
+): void {
+  const line = slotDirectoryLine({
+    userId: input.userId,
+    platform: input.platform,
+    keyId: input.keyId,
+    updatedAt: input.at,
+  });
+  if (lastDirectoryLine(input.userId, input.platform, db) === line) return;
+  db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  ).run(input.userId, input.platform, line, input.at);
 }
 
 export function keySnapshotMessage(
@@ -808,7 +910,16 @@ export function keyInclusion(
   if (!row?.payload) return null;
   const lines = gunzipSync(row.payload).toString("utf8").split("\n").filter(Boolean);
   const prefix = `${userId}|${platform}|`;
-  const index = lines.findIndex((line) => line.startsWith(prefix));
+  // La **última**: el registro es un histórico y la ranura puede aparecer varias
+  // veces (una por rotación, cambio de identidad o retirada); la que vale es la
+  // más reciente.
+  let index = -1;
+  for (let cursor = lines.length - 1; cursor >= 0; cursor -= 1) {
+    if (lines[cursor]!.startsWith(prefix)) {
+      index = cursor;
+      break;
+    }
+  }
   if (index < 0) return null;
   return {
     snapshotId: snapshot.id,

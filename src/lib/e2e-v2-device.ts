@@ -18,7 +18,13 @@
  *   descifrarlo: si se confirmara antes, un corte de red perdería el mensaje.
  */
 import * as v2 from "./e2e-v2";
-import { verifyDeviceProof, type DeviceProof, type KeySnapshotHeader } from "./e2e-v2-directory";
+import {
+  verifyConsistencyProof,
+  verifyDeviceProof,
+  type ConsistencyProof,
+  type DeviceProof,
+  type KeySnapshotHeader,
+} from "./e2e-v2-directory";
 
 /** Lo que se comprobó de un dispositivo la última vez que se miró el directorio. */
 export type VerifiedDevice = {
@@ -71,7 +77,7 @@ export type DeviceState = {
    * aceptar una más antigua: sin esto, el servidor podía repetir una snapshot
    * de antes de una retirada y el cliente la daba por buena.
    */
-  lastSnapshot?: { id: string; createdAt: string; root: string };
+  lastSnapshot?: { id: string; createdAt: string; root: string; itemCount: number };
   /** `false` mientras el alta no se haya confirmado en el servidor. */
   published?: boolean;
   /**
@@ -169,6 +175,14 @@ export type DeviceApi = {
     userId: string,
     deviceId: string,
   ): Promise<{ proof: DeviceProof; snapshot: KeySnapshotHeader }>;
+  /**
+   * Prueba de que la instantánea `to` contiene a `from`.
+   *
+   * Obligatoria por el mismo motivo que `deviceProof`: sin ella no se puede
+   * distinguir «el directorio siguió creciendo» de «el servidor me enseña otra
+   * historia» y la comprobación quedaría en nada.
+   */
+  consistencyProof(fromId: string, toId: string): Promise<ConsistencyProof>;
 };
 
 export type Session = { state: DeviceState; account: v2.OlmAccount };
@@ -368,21 +382,46 @@ async function assertInDirectory(
   if (session.state.directoryKey && snapshot.publicKey !== session.state.directoryKey) {
     throw new VerificationError("La clave con la que se firma el directorio ha cambiado sin avisar.");
   }
-  // Y no se acepta volver a una instantánea anterior a una que ya se vio: es la
-  // forma barata de repetir un directorio en el que un aparato retirado seguía
-  // estando. Una instantánea más nueva que mienta sobre la retirada solo la
-  // detecta el testigo (§7 del documento); esta comprobación cierra la repetición.
+  // Y la instantánea nueva tiene que **continuar** la que ya se comprobó: sin
+  // esto, el servidor podía repetir un directorio de antes de una retirada —la
+  // firma y la inclusión siguen siendo válidas— o servir otra historia a cada
+  // cliente. La prueba de consistencia lo impide sin enseñar el árbol entero.
   const last = session.state.lastSnapshot;
-  if (last && snapshot.createdAt < last.createdAt) {
-    throw new VerificationError(
-      "El directorio que enseña el servidor es más antiguo que el que ya se comprobó.",
+  if (last && last.root !== snapshot.merkleRoot) {
+    if (snapshot.createdAt < last.createdAt) {
+      throw new VerificationError(
+        "El directorio que enseña el servidor es más antiguo que el que ya se comprobó.",
+      );
+    }
+    const chain = await api.consistencyProof(last.id, snapshot.id);
+    if (
+      chain.from.id !== last.id ||
+      chain.from.merkleRoot !== last.root ||
+      chain.from.itemCount !== last.itemCount ||
+      chain.to.merkleRoot !== snapshot.merkleRoot ||
+      chain.to.itemCount !== snapshot.itemCount
+    ) {
+      throw new VerificationError(
+        "La prueba de consistencia no une la instantánea que ya se comprobó con esta.",
+      );
+    }
+    const continua = await verifyConsistencyProof(
+      last.itemCount,
+      last.root,
+      snapshot.itemCount,
+      snapshot.merkleRoot,
+      chain.proof,
     );
+    if (!continua) {
+      throw new VerificationError("El directorio nuevo no continúa el que ya se comprobó.");
+    }
   }
   session.state.directoryKey ??= snapshot.publicKey;
   session.state.lastSnapshot = {
     id: snapshot.id,
     createdAt: snapshot.createdAt,
     root: snapshot.merkleRoot,
+    itemCount: snapshot.itemCount,
   };
   (session.state.verified ??= {})[key] = {
     identityKey: device.identityKey,

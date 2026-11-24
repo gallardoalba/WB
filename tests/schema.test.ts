@@ -40,6 +40,7 @@ const EXPECTED_TABLES = [
   "favorites",
   "follows",
   "jobs",
+  "key_directory_log",
   "key_snapshots",
   "listing_tags",
   "listings",
@@ -99,6 +100,7 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
   message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
   dm_message_envelopes: ["message_id", "key_id", "ciphertext", "iv"],
   public_key_history: ["key_id", "platform", "reason", "replaced_at"],
+  key_directory_log: ["user_id", "slot", "line", "created_at"],
   jobs: [
     "kind",
     "target",

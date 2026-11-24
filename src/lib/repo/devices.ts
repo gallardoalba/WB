@@ -21,6 +21,7 @@ import { getDb, type Db } from "../db";
 import { bundleMessage, oneTimeKeyMessage } from "../e2e-v2-format";
 import { verifyEd25519 } from "../ed25519";
 import { verifyPassword } from "../password";
+import { recordDeviceInDirectory } from "../transparency";
 
 /** Tope de claves de un solo uso por dispositivo: el máximo de libolm. */
 export const MAX_ONE_TIME_KEYS = 100;
@@ -212,6 +213,14 @@ export async function publishDevice(
       now,
       change === "reactivation" ? 1 : 0,
     );
+    // El directorio es un registro: cada cambio que importa deja su línea.
+    recordDeviceInDirectory(db, {
+      userId,
+      deviceId: input.deviceId,
+      identityKey: input.identityKey,
+      revokedAt: change === "reactivation" ? null : existing?.revokedAt ?? null,
+      at: now,
+    });
 
     if (identityChanged) {
       db.prepare("DELETE FROM device_one_time_keys WHERE user_id = ? AND device_id = ?").run(
@@ -355,6 +364,16 @@ export function revokeDevice(userId: string, deviceId: string, db: Db = getDb())
         userId,
         deviceId,
       );
+      const device = getDevice(userId, deviceId, db);
+      if (device) {
+        recordDeviceInDirectory(db, {
+          userId,
+          deviceId,
+          identityKey: device.identityKey,
+          revokedAt: device.revokedAt,
+          at: now,
+        });
+      }
     }
     return changes === 1;
   })();

@@ -17,6 +17,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { KeySnapshot, TransparencySnapshot } from "../src/lib/transparency";
+import { verifyConsistencyProof } from "../src/lib/e2e-v2-directory";
 import {
   auditPublished,
   compareWithWitness,
@@ -66,6 +67,50 @@ async function getJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** La última instantánea del directorio que el testigo apuntó, con su raíz. */
+function lastPinned(seen: WitnessEntry[]): WitnessEntry | null {
+  return seen.filter((entry) => entry.log === "keys").at(-1) ?? null;
+}
+
+/**
+ * Pide la prueba de consistencia entre lo apuntado y lo último publicado.
+ *
+ * Devuelve el problema, o `null` si cuadra o si no hay nada que comprobar (la
+ * primera vez, o cuando la raíz no ha cambiado).
+ */
+async function checkConsistency(
+  url: string,
+  seen: WitnessEntry[],
+  published: WitnessEntry[],
+): Promise<string | null> {
+  const from = lastPinned(seen);
+  const current = published.filter((entry) => entry.log === "keys").at(-1);
+  if (!from || !current) return null;
+  if (from.id === current.id || from.merkleRoot === current.merkleRoot) return null;
+
+  const answer = await getJson<{
+    from: { id: string; itemCount: number; merkleRoot: string };
+    to: { id: string; itemCount: number; merkleRoot: string };
+    proof: string[];
+  }>(
+    `${url}/api/transparency/keys/consistency?from=${encodeURIComponent(from.id)}&to=${encodeURIComponent(current.id)}`,
+  );
+  if (answer.from.itemCount !== from.itemCount || answer.from.merkleRoot !== from.merkleRoot) {
+    return "la prueba de consistencia no parte de la instantánea que el testigo apuntó";
+  }
+  if (answer.to.itemCount !== current.itemCount || answer.to.merkleRoot !== current.merkleRoot) {
+    return "la prueba de consistencia no termina en la instantánea publicada";
+  }
+  const ok = await verifyConsistencyProof(
+    from.itemCount,
+    from.merkleRoot,
+    current.itemCount,
+    current.merkleRoot,
+    answer.proof,
+  );
+  return ok ? null : `${current.id} no continúa la instantánea apuntada ${from.id}`;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
@@ -87,6 +132,18 @@ async function main(): Promise<void> {
     console.error(
       "La instancia no coincide con lo que el testigo ya había apuntado: o reescribió su historia, o perdió instantáneas.",
     );
+    process.exitCode = 1;
+    return;
+  }
+
+  // Y que la raíz nueva **contenga** la que el testigo ya apuntó: comparar el
+  // fichero pilla una raíz reescrita, pero no una historia paralela. Con la
+  // prueba de consistencia, cualquier cosa que no sea una continuación de lo
+  // apuntado se nota sin guardar el árbol entero.
+  const problema = await checkConsistency(args.url, seen, audit.entries);
+  if (problema) {
+    console.error(`✗ ${problema}`);
+    console.error("La instancia no puede demostrar que su directorio continúe el que el testigo ya vio.");
     process.exitCode = 1;
     return;
   }

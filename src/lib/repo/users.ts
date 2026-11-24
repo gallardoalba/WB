@@ -6,6 +6,7 @@ import { KEY_PLATFORMS } from "../domain";
 import { keyIdFromJwk } from "../key-id";
 import { DEFAULT_LOCALE, normalizeLocale, type Locale } from "../locale";
 import { verifyPassword } from "../password";
+import { recordSlotInDirectory } from "../transparency";
 import { assertPublicName, isConstraintError, nowIso } from "./shared";
 
 const AUTH_WINDOW_MS = 15 * 60 * 1000;
@@ -410,6 +411,9 @@ export function setPublicKey(
          public_jwk = excluded.public_jwk,
          updated_at = excluded.updated_at`,
     ).run(userId, platform, record.keyId, JSON.stringify(record.jwk), now, now);
+    // Rotar o publicar una clave de v1 también entra en el registro del
+    // directorio, que es de donde sale la lista firmada.
+    recordSlotInDirectory(db, { userId, platform, keyId: record.keyId, at: now });
     // Cada rotación deja rastro: se cierra la fila abierta y se apunta la nueva.
     db.prepare(
       "UPDATE public_key_history SET replaced_at = ? WHERE user_id = ? AND platform = ? AND replaced_at IS NULL",
