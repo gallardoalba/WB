@@ -20,6 +20,7 @@ import type { KeySnapshot, TransparencySnapshot } from "../src/lib/transparency"
 import { verifyConsistencyProof } from "../src/lib/e2e-v2-directory";
 import {
   auditPublished,
+  newestEntry,
   compareWithWitness,
   formatWitness,
   freshEntries,
@@ -69,7 +70,7 @@ async function getJson<T>(url: string): Promise<T> {
 
 /** La última instantánea del directorio que el testigo apuntó, con su raíz. */
 function lastPinned(seen: WitnessEntry[]): WitnessEntry | null {
-  return seen.filter((entry) => entry.log === "keys").at(-1) ?? null;
+  return newestEntry(seen, "keys");
 }
 
 /**
@@ -84,7 +85,7 @@ async function checkConsistency(
   published: WitnessEntry[],
 ): Promise<string | null> {
   const pinned = lastPinned(seen);
-  const current = published.filter((entry) => entry.log === "keys").at(-1);
+  const current = newestEntry(published, "keys");
   if (!pinned || !current) return null;
   if (pinned.merkleRoot === current.merkleRoot) return null;
 

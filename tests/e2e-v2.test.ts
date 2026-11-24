@@ -252,3 +252,21 @@ test("la capacidad de claves de un solo uso se puede consultar", async () => {
   const capacity = await v2.oneTimeKeyCapacity();
   assert.ok(capacity >= 20, `capacidad inesperada: ${capacity}`);
 });
+
+test("el tamaño calculado del sobre es un tope y no una estimación corta", async () => {
+  const alice = await newDevice("alice-tamano");
+  const bob = await newDevice("bob-tamano");
+  const { sender } = await handshake(alice, bob);
+
+  // Un texto a medio camino entre «cabe» y «no cabe»: el cuerpo real nunca puede
+  // superar lo calculado, o el cliente dejaría pasar envíos que el servidor
+  // rechaza con 422.
+  const texto = "ñ".repeat(20_000);
+  const calculado = v2.envelopeBodyLength(HILO, texto);
+  const cuerpo = v2.encrypt(sender, { conversation: HILO, text: texto }).body.length;
+  assert.ok(cuerpo <= calculado, `el cuerpo (${cuerpo}) no debe pasar de lo calculado (${calculado})`);
+
+  // Y el límite se aplica donde se decide: antes de tocar el ratchet.
+  assert.equal(v2.fitsInEnvelope(HILO, "mensaje normal"), true);
+  assert.equal(v2.fitsInEnvelope(HILO, "x".repeat(60_000)), false);
+});

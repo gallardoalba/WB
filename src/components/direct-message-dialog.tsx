@@ -54,6 +54,8 @@ type Prepared = {
   v2Safety: string | null;
   /** Mensajes v2 que no se han podido descifrar en este dispositivo. */
   v2Failed: number;
+  /** La verificación del dispositivo de la otra parte falló, si pasó. */
+  v2Blocked: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -98,6 +100,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       safety: null,
       v2Safety: null,
       v2Failed: 0,
+      v2Blocked: null,
     };
   }
   const serverKeys = payload.me.keys ?? [];
@@ -125,6 +128,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
         safety: null,
         v2Safety: null,
         v2Failed: 0,
+        v2Blocked: null,
       };
     }
     return fetchThread(peerId, false);
@@ -142,6 +146,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       safety: null,
       v2Safety: null,
       v2Failed: 0,
+      v2Blocked: null,
     };
   }
   const conversationId = directConversationId(payload.me.id, payload.peer.id);
@@ -197,6 +202,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
     safety,
     v2Safety: v2Safety ?? null,
     v2Failed: v2Texts?.failed ?? 0,
+    v2Blocked: v2Texts?.blocked ?? null,
   };
 }
 
@@ -232,6 +238,7 @@ export function DirectMessageDialog({
   const [safety, setSafety] = useState<string | null>(null);
   const [v2Safety, setV2Safety] = useState<string | null>(null);
   const [v2Failed, setV2Failed] = useState(0);
+  const [v2Blocked, setV2Blocked] = useState<string | null>(null);
   const privateKeyRef = useRef<CryptoKey | null>(null);
   const myKeyIdRef = useRef<string | null>(null);
   const peerKeysRef = useRef<RecipientKey[]>([]);
@@ -250,6 +257,7 @@ export function DirectMessageDialog({
           setSafety(prepared.safety);
           setV2Safety(prepared.v2Safety);
           setV2Failed(prepared.v2Failed);
+          setV2Blocked(prepared.v2Blocked);
           setTexts(prepared.texts);
           if (prepared.payload.messages.length > 0) {
             await api(`/api/direct/${peerId}/read`, { method: "POST" }).catch(() => undefined);
@@ -367,6 +375,14 @@ export function DirectMessageDialog({
         {error && (
           <p className="form-error" role="alert">
             {error}
+          </p>
+        )}
+
+        {v2Blocked && (
+          <p className="form-error" role="alert">
+            {t(
+              "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
+            )}
           </p>
         )}
 

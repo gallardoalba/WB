@@ -98,33 +98,58 @@ export function auditPublished(input: {
   };
 }
 
+/** La entrada más reciente de un registro, por fecha (y sin fiarse del orden). */
+export function newestEntry(entries: WitnessEntry[], log: WitnessLog): WitnessEntry | null {
+  let newest: WitnessEntry | null = null;
+  for (const entry of entries) {
+    if (entry.log !== log) continue;
+    if (!newest || entry.createdAt > newest.createdAt) newest = entry;
+  }
+  return newest;
+}
+
 /**
  * Compara lo apuntado con lo publicado ahora.
  *
- * Tres formas de fallar: una raíz apuntada cambió (reescribió la historia), una
- * instantánea apuntada desapareció (borró lo que no le interesaba), o la cadena
- * enlaza mal. Una entrada nueva no es un problema: es el paso del tiempo.
+ * Se compara **lo que la API sigue publicando** contra lo que el testigo apuntó:
+ * la API sirve las últimas veinte instantáneas, así que exigir que estén todas
+ * las apuntadas convertía el testigo en un fallo permanente en cuanto pasaba un
+ * mes (y el fallo era del testigo, no del servidor). Borrar una instantánea
+ * dentro de la ventana se nota igual, porque la cadena de `previousRoot` deja de
+ * enlazar (`auditPublished`).
+ *
+ * Lo que sí se exige es que lo publicado no se quede atrás: si la instantánea
+ * más reciente que sirve el servidor es anterior a la última que el testigo vio,
+ * ha vuelto a una historia vieja.
  */
 export function compareWithWitness(seen: WitnessEntry[], published: WitnessEntry[]): string[] {
   const problems: string[] = [];
-  const porClave = new Map(published.map((entry) => [clave(entry), entry]));
+  const porClave = new Map(seen.map((entry) => [clave(entry), entry]));
 
-  for (const antes of seen) {
-    const ahora = porClave.get(clave(antes));
-    if (!ahora) {
-      problems.push(`la instantánea ${clave(antes)} ya no se publica`);
-      continue;
-    }
+  for (const ahora of published) {
+    const antes = porClave.get(clave(ahora));
+    if (!antes) continue;
     if (ahora.merkleRoot !== antes.merkleRoot) {
       problems.push(
-        `${clave(antes)} cambió de raíz: el testigo apuntó ${antes.merkleRoot} y ahora publica ${ahora.merkleRoot}`,
+        `${clave(ahora)} cambió de raíz: el testigo apuntó ${antes.merkleRoot} y ahora publica ${ahora.merkleRoot}`,
       );
     }
     if (ahora.signature !== antes.signature) {
-      problems.push(`${clave(antes)} cambió de firma`);
+      problems.push(`${clave(ahora)} cambió de firma`);
     }
     if (ahora.publicKey !== antes.publicKey) {
-      problems.push(`${clave(antes)} cambió de clave pública`);
+      problems.push(`${clave(ahora)} cambió de clave pública`);
+    }
+  }
+
+  for (const log of ["catalogue", "keys"] as const) {
+    const apuntado = newestEntry(seen, log);
+    const publicado = newestEntry(published, log);
+    if (!apuntado || !publicado || publicado.id === apuntado.id) continue;
+    if (publicado.createdAt < apuntado.createdAt) {
+      problems.push(
+        `${log}: lo publicado (${publicado.id}) es anterior a lo último que el testigo vio (${apuntado.id})`,
+      );
     }
   }
   return problems;

@@ -20,6 +20,7 @@ import {
   openDevice,
   rememberPlaintext,
   replenishIfLow,
+  VerificationError,
   type DeviceApi,
   type OutgoingEnvelope,
   type Session,
@@ -229,6 +230,15 @@ export async function encryptV2(input: {
     };
   }
   if (!current) return { status: "no-device" };
+  // Antes de tocar el ratchet: un mensaje que no cabe en un sobre se rechaza
+  // ahora, con un motivo, en vez de después de cifrar para cada aparato y
+  // comerse un 422 del servidor.
+  if (!v2.fitsInEnvelope(input.conversation, input.text)) {
+    return {
+      status: "error",
+      message: "El mensaje es demasiado largo para el cifrado v2: acórtalo.",
+    };
+  }
   try {
     // El cerrojo relee y guarda: las sesiones y las claves fijadas sobreviven a
     // la recarga y a la otra pestaña.
@@ -279,7 +289,16 @@ export async function rememberSentV2(
  * avisar, en vez de devolver un mapa vacío que parece «no había nada» —lo que
  * hacía invisible un ataque o un fallo de sincronización.
  */
-export type V2DecodeResult = { texts: Record<string, string>; failed: number };
+export type V2DecodeResult = {
+  texts: Record<string, string>;
+  failed: number;
+  /**
+   * La verificación del dispositivo remitente falló (clave cambiada, prueba del
+   * directorio que no cuadra). No es lo mismo que un sobre roto: aquí no se
+   * muestra nada y se avisa, porque puede ser un ataque.
+   */
+  blocked?: string;
+};
 
 /**
  * Descifra los mensajes del hilo: los que traigan sobre para este dispositivo y
@@ -316,7 +335,13 @@ export async function decryptV2(input: {
         failed: decrypted.failures.length,
       };
     });
-  } catch {
+  } catch (error) {
+    // Un fallo de verificación no es «un mensaje que no abre»: es la señal de
+    // que el dispositivo de la otra persona no es el que se fijó. Se dice tal
+    // cual, en vez de contarlo como un sobre corrupto.
+    if (error instanceof VerificationError) {
+      return { texts: {}, failed: 0, blocked: error.message };
+    }
     return { texts: {}, failed: 1 };
   }
 }

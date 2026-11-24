@@ -118,7 +118,7 @@ export function rememberPlaintext(state: DeviceState, messageId: string, text: s
  * se fijó» o «no está en el directorio», que es una señal de ataque y detiene
  * la lectura.
  */
-class VerificationError extends Error {}
+export class VerificationError extends Error {}
 
 export type DeviceStore = {
   load(userId: string): Promise<DeviceState | null>;
@@ -467,18 +467,24 @@ export async function encryptForDevices(input: {
       sessionFor = await v2.startVerifiedSession(session.account, bundle, session.state.pins[key]);
     }
 
-    const envelope = v2.encrypt(sessionFor, { conversation, text });
-    envelopes.push({
-      recipientDeviceId: device.deviceId,
-      type: envelope.type,
-      body: envelope.body,
-    });
-    session.state.sessions[key] = v2.pickleSession(sessionFor, session.state.pickleKey);
-    session.state.pins[key] ??= {
-      identityKey: device.identityKey,
-      signingKey: device.signingKey,
-    };
-    if (existing) v2.forgetSession(sessionFor);
+    try {
+      const envelope = v2.encrypt(sessionFor, { conversation, text });
+      envelopes.push({
+        recipientDeviceId: device.deviceId,
+        type: envelope.type,
+        body: envelope.body,
+      });
+      session.state.sessions[key] = v2.pickleSession(sessionFor, session.state.pickleKey);
+      session.state.pins[key] ??= {
+        identityKey: device.identityKey,
+        signingKey: device.signingKey,
+      };
+    } finally {
+      // El objeto vive en el WASM: si no se suelta, cada envío deja una sesión
+      // ocupando memoria hasta recargar la página. Y esto vale para las dos
+      // ramas, también para la sesión recién establecida.
+      v2.forgetSession(sessionFor);
+    }
   }
 
   return { senderDeviceId: session.state.deviceId, envelopes };

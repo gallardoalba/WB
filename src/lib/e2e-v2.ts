@@ -325,6 +325,36 @@ function unseal(plaintext: string, conversation: string): string {
   return envelope.t;
 }
 
+/**
+ * Tope del cuerpo de un sobre, en caracteres base64. Es el mismo que acepta el
+ * servidor (`deviceEnvelopeFields`): si el mensaje no cabe, se dice antes de
+ * gastar una clave del ratchet y no después de un 422.
+ */
+export const MAX_ENVELOPE_BODY = 64 * 1024;
+
+/**
+ * Longitud del cuerpo que saldrá al cifrar este texto.
+ *
+ * Se calcula igual que `seal` (bytes UTF-8, relleno a 256) más la codificación
+ * base64 que hace libolm. Estimar de menos dejaría pasar un envío que el
+ * servidor rechaza; de más, cortaría mensajes válidos.
+ */
+export function envelopeBodyLength(conversation: string, text: string): number {
+  const json = JSON.stringify({ v: 2, c: conversation, t: text });
+  const bytes = new TextEncoder().encode(json).length;
+  const sealed = Math.ceil((bytes + 1) / PADDING_BLOCK) * PADDING_BLOCK;
+  // libolm añade su cabecera y su MAC antes de codificar (medido: ~226
+  // caracteres de más, también en el mensaje de pre-clave). Se redondea hacia
+  // arriba con margen: estimar de menos dejaría pasar un envío que el servidor
+  // rechaza después de haber gastado una clave.
+  return Math.ceil(sealed / 3) * 4 + 512;
+}
+
+/** ¿Cabe este texto en un sobre? */
+export function fitsInEnvelope(conversation: string, text: string): boolean {
+  return envelopeBodyLength(conversation, text) <= MAX_ENVELOPE_BODY;
+}
+
 /** Cifra con una sesión establecida (el primero sale como pre-clave). */
 export function encrypt(session: OlmSession, content: MessageContent): Envelope {
   const message = session.encrypt(seal(content));

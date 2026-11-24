@@ -45,11 +45,15 @@ test("un testigo acepta raíces nuevas pero no una ya vista que cambia", () => {
   assert.equal(problemas.length, 1);
   assert.match(problemas[0]!, /cambió de raíz/);
 
-  // Y borrar una instantánea apuntada también se nota.
-  assert.match(
-    witness.compareWithWitness([antes], [])[0]!,
-    /ya no se publica/,
-  );
+  // Que la ventana de la API haya dejado atrás una instantánea vieja no es un
+  // problema: es el paso del tiempo. Antes se denunciaba, y el testigo entraba
+  // en fallo permanente en cuanto había más de veinte.
+  assert.deepEqual(witness.compareWithWitness([antes], [nueva]), []);
+
+  // Lo que sí es un problema es que lo publicado se quede atrás.
+  const atras = witness.compareWithWitness([nueva], [antes]);
+  assert.equal(atras.length, 1);
+  assert.match(atras[0]!, /anterior a lo último que el testigo vio/);
 });
 
 test("el fichero del testigo va y vuelve sin perder nada", () => {
@@ -115,4 +119,29 @@ test("una firma que no valida deja la atestación en nada", () => {
   });
   assert.equal(rota.ok, false);
   assert.match(rota.problems.join(" "), /firma inválida/);
+});
+
+test("una ventana de veinte no es un fallo aunque haya mucho apuntado", () => {
+  // La API sirve las últimas veinte instantáneas. Exigir que estuvieran todas
+  // las apuntadas convertía el testigo en un fallo permanente en cuanto pasaba
+  // un mes, y el fallo habría sido del testigo, no del servidor.
+  const apuntadas = Array.from({ length: 40 }, (_, index) => ({
+    log: "keys" as const,
+    id: `kys_${String(index).padStart(4, "0")}`,
+    createdAt: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+    merkleRoot: `raiz-${index}`,
+    previousRoot: index === 0 ? null : `raiz-${index - 1}`,
+    itemCount: index + 1,
+    signature: `firma-${index}`,
+    publicKey: "clave",
+    seenAt: `2026-02-01T00:00:0${index % 10}.000Z`,
+  }));
+  const ventana = apuntadas.slice(-20).reverse();
+
+  assert.deepEqual(witness.compareWithWitness(apuntadas, ventana), []);
+
+  // Pero si lo publicado se queda atrás, se dice.
+  const atras = witness.compareWithWitness(apuntadas, ventana.slice(5));
+  assert.equal(atras.length, 1);
+  assert.match(atras[0]!, /anterior a lo último que el testigo vio/);
 });

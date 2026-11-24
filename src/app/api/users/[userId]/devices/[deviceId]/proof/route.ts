@@ -17,7 +17,9 @@ import { route } from "@/lib/route";
  * directorio.
  */
 export const GET = route<undefined, "user", { userId: string; deviceId: string }>(
-  {},
+  // Descomprimir la instantánea y calcular la rama cuesta O(n) por petición y no
+  // hace falta sesión: con cuota, igual que el resto de rutas del directorio.
+  { limit: { bucket: "device:proof", limit: 120, windowMs: 60 * 60 * 1000 } },
   ({ params }) => {
     const deviceId = deviceIdSchema.parse(params.deviceId);
     if (!getDevice(params.userId, deviceId)) {

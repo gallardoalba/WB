@@ -71,6 +71,8 @@ type Conversation = {
   v2Safety: string | null;
   /** Mensajes v2 que no se han podido descifrar en este dispositivo. */
   v2Failed: number;
+  /** La verificación del dispositivo de la otra parte falló, si pasó. */
+  v2Blocked: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -254,6 +256,7 @@ export function ExchangeDialog({
         safety: null,
         v2Safety: null,
         v2Failed: 0,
+        v2Blocked: null,
       };
     }
     // La ranura web es la de este navegador. Si está vacía se publica gratis;
@@ -321,6 +324,7 @@ export function ExchangeDialog({
       safety,
       v2Safety: v2Safety ?? null,
       v2Failed: v2Decoded?.failed ?? 0,
+      v2Blocked: v2Decoded?.blocked ?? null,
     };
   }
 
@@ -351,6 +355,7 @@ export function ExchangeDialog({
           safety: null,
           v2Safety: null,
           v2Failed: 0,
+          v2Blocked: null,
         };
         try {
           prepared = await prepareConversation(data, requestId);
@@ -417,6 +422,7 @@ export function ExchangeDialog({
             safety: thread.safety,
             v2Safety: thread.v2Safety,
             v2Failed: thread.v2Failed,
+            v2Blocked: thread.v2Blocked,
           }
         : {
             peerKeys: [],
@@ -431,6 +437,7 @@ export function ExchangeDialog({
             safety: null,
             v2Safety: null,
             v2Failed: 0,
+            v2Blocked: null,
           };
       const decoded = { ...prepared.decoded };
       if (prepared.privateKey && prepared.myKeyId) {
@@ -1140,6 +1147,14 @@ export function ExchangeDialog({
       {error && requestStatus !== "pending" && (
         <p className="form-error" role="alert">
           {error}
+        </p>
+      )}
+
+      {thread?.v2Blocked && (
+        <p className="form-error" role="alert">
+          {t(
+            "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
+          )}
         </p>
       )}
 
