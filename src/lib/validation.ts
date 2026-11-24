@@ -200,6 +200,19 @@ export const commentLikeSchema = z.object({
 });
 
 /** Identificador del dispositivo v2: 16–64 caracteres seguros para una URL. */
+/**
+ * Identificador de una instantánea del directorio de claves.
+ *
+ * Forma fija (`kys_` + UUID): lo que llega por la calle se comprueba antes de
+ * tocar la base, y en el testigo antes de entrar en una URL.
+ */
+export const keySnapshotIdSchema = z
+  .string()
+  .regex(
+    /^kys_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    "El identificador de la instantánea no es válido.",
+  );
+
 export const deviceIdSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");

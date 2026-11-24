@@ -2,6 +2,7 @@ import { json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 import { consistencyProofBetween } from "@/lib/transparency";
 import { clientKey, hasClientIp, hit } from "@/lib/throttle";
+import { keySnapshotIdSchema } from "@/lib/validation";
 import { route } from "@/lib/route";
 
 /**
@@ -32,11 +33,14 @@ export const GET = route<undefined, "none">(
     }
 
     const url = new URL(request.url);
-    const from = url.searchParams.get("from")?.trim();
-    const to = url.searchParams.get("to")?.trim();
-    if (!from || !to) {
+    const raw = { from: url.searchParams.get("from"), to: url.searchParams.get("to") };
+    if (!raw.from || !raw.to) {
       throw new ApiError(400, "Faltan las dos instantáneas: `from` y `to`.");
     }
+    // Forma de id antes de tocar la base: no hay razón para consultar por algo
+    // que no puede ser una instantánea.
+    const from = keySnapshotIdSchema.parse(raw.from);
+    const to = keySnapshotIdSchema.parse(raw.to);
     if (from === to) {
       throw new ApiError(400, "Las dos instantáneas tienen que ser distintas.");
     }

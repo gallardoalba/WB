@@ -83,10 +83,19 @@ async function checkConsistency(
   seen: WitnessEntry[],
   published: WitnessEntry[],
 ): Promise<string | null> {
-  const from = lastPinned(seen);
+  const pinned = lastPinned(seen);
   const current = published.filter((entry) => entry.log === "keys").at(-1);
-  if (!from || !current) return null;
-  if (from.id === current.id || from.merkleRoot === current.merkleRoot) return null;
+  if (!pinned || !current) return null;
+  if (pinned.merkleRoot === current.merkleRoot) return null;
+
+  // Los identificadores que van en la URL salen de lo que **publica** el
+  // servidor, no del fichero del testigo: lo apuntado solo sirve para comprobar
+  // que lo publicado sigue diciendo lo mismo, nunca para construir una petición.
+  const from = published.find((entry) => entry.log === "keys" && entry.id === pinned.id);
+  if (!from) return `la instantánea apuntada ${pinned.id} ya no se publica`;
+  if (from.merkleRoot !== pinned.merkleRoot || from.itemCount !== pinned.itemCount) {
+    return `la instantánea ${from.id} ya no dice lo que el testigo apuntó`;
+  }
 
   const answer = await getJson<{
     from: { id: string; itemCount: number; merkleRoot: string };
