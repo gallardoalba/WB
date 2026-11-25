@@ -394,6 +394,8 @@ export type DirectMessageView = {
   keyId: string | null;
   /** Un sobre por cada clave activa del destinatario; vacío en mensajes antiguos. */
   envelopes: MessageEnvelopeView[];
+  /** Dispositivo que firmó el mensaje (solo en v2). */
+  senderDeviceId?: string | null;
   encrypted: boolean;
   createdAt: string;
 };
@@ -556,6 +558,8 @@ export type MessageView = {
   keyId: string | null;
   /** Un sobre por cada clave activa del destinatario; vacío en mensajes antiguos. */
   envelopes: MessageEnvelopeView[];
+  /** Dispositivo que firmó el mensaje (solo en v2). */
+  senderDeviceId?: string | null;
   encrypted: boolean;
   createdAt: string;
   sender: { id: string; name: string };
@@ -576,11 +580,22 @@ export type PublicKeyView = {
   keys: { platform: KeyPlatform; keyId: string; publicJwk: JsonWebKey }[];
 };
 
-/** Sobre cifrado para una clave concreta del destinatario. */
+/**
+ * Un sobre de un mensaje, para **un** destinatario.
+ *
+ * `protocol` 1 es el de v1: `keyId` es la ranura del destinatario y el cuerpo
+ * va cifrado con AES-GCM (`ciphertext` + `iv`). `protocol` 2 es el de v2:
+ * `keyId` es el **dispositivo** y `ciphertext` lleva el mensaje de libolm con su
+ * `type` (0 pre-clave, 1 mensaje del ratchet). El servidor no puede abrir
+ * ninguno de los dos.
+ */
 export type MessageEnvelopeView = {
   keyId: string;
   ciphertext: string;
   iv: string;
+  /** 1 (por omisión) es una ranura de v1; 2, un dispositivo de v2. */
+  protocol?: 1 | 2;
+  type?: number;
 };
 
 export const REQUEST_STATUS_LABELS = {

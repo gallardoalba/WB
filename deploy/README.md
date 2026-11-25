@@ -998,10 +998,35 @@ instance rewrites that snapshot or starts signing with another key, the check
 fails. Without a signature, the verifier exits with an error: an unsigned
 snapshot is useful for comparing content, not as cryptographic proof.
 
+
+Protocol v2 needs this key: device activation fails with `503` if it is missing,
+because a device without a signed directory proof cannot open sessions. The
+client and the witness pin the operator public key. **Rotating it is a deliberate
+operation**, not a hot swap: publish the new key only after updating the witness
+file/anchor and asking users to re-activate v2 in their devices. A new key with
+new snapshot ids and no overlap is rejected by the witness (`compareWithWitness`)
+and by clients that already pinned the old one.
 What it guarantees: that a change to what is published leaves a trace and that a
 past snapshot cannot be replaced by another without breaking the signature or
 the chain. What it does not guarantee: that the process responding is exactly
 that image. Only hardware attestation (next section) provides that.
+
+And one thing it does **not** guarantee on its own: that the instance shows the
+same history to everyone. The signature is yours, so two coherent histories can
+both be signed. What catches that is somebody keeping what they saw:
+
+```bash
+npm run transparency:witness -- --url https://your-domain --file /srv/witness/roots.jsonl
+npm run transparency:witness -- --url https://your-domain --file /srv/witness/roots.jsonl --check
+```
+
+The first form verifies every signature and both hash chains (catalogue and key
+directory) and appends one line per snapshot; `--check` only verifies and fails
+if a pinned root, a signature or a public key changed, if a snapshot stopped
+being published, or if a chain broke. The `testigo` workflow does this daily and
+keeps the file as an artifact — but an artifact held only by the instance that
+is being watched proves nothing, so copy it somewhere else (another repository,
+another machine, someone else's hands). That copy is the witness.
 
 ### 4. Cryptographic proof of the process (not implemented)
 

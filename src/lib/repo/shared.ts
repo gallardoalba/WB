@@ -296,7 +296,7 @@ export function messageEnvelopesFor(
   const placeholders = messageIds.map(() => "?").join(", ");
   const rows = getDb()
     .prepare(
-      `SELECT message_id, key_id, ciphertext, iv FROM ${table}
+      `SELECT message_id, key_id, ciphertext, iv, protocol, type FROM ${table}
         WHERE message_id IN (${placeholders})
         ORDER BY key_id`,
     )
@@ -305,12 +305,174 @@ export function messageEnvelopesFor(
     key_id: string;
     ciphertext: string;
     iv: string;
+    protocol: number;
+    type: number | null;
   }[];
   for (const row of rows) {
     const list = grouped.get(row.message_id) ?? [];
-    list.push({ keyId: row.key_id, ciphertext: row.ciphertext, iv: row.iv });
+    list.push({
+      keyId: row.key_id,
+      ciphertext: row.ciphertext,
+      iv: row.iv,
+      protocol: row.protocol === 2 ? 2 : 1,
+      ...(row.type === null ? {} : { type: row.type }),
+    });
     grouped.set(row.message_id, list);
   }
   return grouped;
 }
 
+
+/** Un sobre v2 tal y como lo manda el cliente: un dispositivo y un cuerpo. */
+export type DeviceEnvelopeInput = { recipientDeviceId: string; type: number; body: string };
+
+/** Carga v2 de un mensaje: quién lo firma y para qué dispositivos. */
+export type V2MessageInput = { senderDeviceId: string; envelopes: DeviceEnvelopeInput[] };
+
+/**
+ * Comprueba que quien escribe puede usar ese dispositivo y que los
+ * destinatarios son dispositivos activos de la otra parte.
+ *
+ * Se hace aquí, en el servidor, porque el sobre de v2 no dice a quién va: si se
+ * aceptara un `recipientDeviceId` cualquiera, se podría escribir un mensaje
+ * destinado a un dispositivo de una tercera cuenta y dejar al destinatario real
+ * sin poder abrirlo.
+ *
+ * Se llama **también dentro de la transacción que escribe el mensaje**: con una
+ * sola llamada previa, el conjunto de dispositivos podía cambiar entre la
+ * comprobación y el `INSERT` (otro proceso sobre la misma base), y el mensaje se
+ * guardaba sin el sobre que se acaba de añadir. Con el proceso único de hoy no
+ * hay ventana —las dos llamadas son síncronas y nadie se interpone—, pero la
+ * garantía no depende de cómo se despliegue.
+ */
+export function assertV2Envelopes(
+  senderUserId: string,
+  peerUserId: string,
+  v2: V2MessageInput,
+): void {
+  if (v2.envelopes.length === 0) {
+    throw new ApiError(400, "Falta el sobre cifrado.");
+  }
+  const db = getDb();
+  const active = db.prepare(
+    `SELECT 1 AS hay FROM device_keys
+      WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL
+        AND EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.is_suspended = 0)`,
+  );
+  if (!active.get(senderUserId, v2.senderDeviceId, senderUserId)) {
+    throw new ApiError(409, "Publica este dispositivo antes de enviar mensajes.");
+  }
+  const seen = new Set<string>();
+  for (const envelope of v2.envelopes) {
+    if (seen.has(envelope.recipientDeviceId)) {
+      throw new ApiError(400, "Hay dos sobres para el mismo dispositivo.");
+    }
+    seen.add(envelope.recipientDeviceId);
+    if (!active.get(peerUserId, envelope.recipientDeviceId, peerUserId)) {
+      throw new ApiError(409, "La otra persona tiene un dispositivo que ya no existe.");
+    }
+  }
+
+  // Todos los aparatos activos de la otra parte, no solo algunos: con un sobre
+  // de menos, ese dispositivo se queda sin leer el mensaje y nadie se entera
+  // hasta que lo intenta. v1 ya exigía cobertura completa; v2 también.
+  const devices = db
+    .prepare(
+      `SELECT d.device_id FROM device_keys d
+         JOIN users u ON u.id = d.user_id
+        WHERE d.user_id = ? AND d.revoked_at IS NULL AND u.is_suspended = 0`,
+    )
+    .all(peerUserId) as { device_id: string }[];
+  if (devices.some((device) => !seen.has(device.device_id))) {
+    throw new ApiError(409, FALTAN_SOBRES);
+  }
+}
+
+/**
+ * ¿Los dos lados pueden hablar v2?
+ *
+ * Se usa para la regla anti-degradación: si el remitente tiene un dispositivo
+ * activo y el destinatario también, el mensaje **tiene** que llevar sobres v2.
+ * Sin esto, el servidor podría aceptar un mensaje solo v1 en un hilo donde los
+ * dos podían hacer las cosas bien, y ese mensaje no tendría forward secrecy ni
+ * remitente autenticado.
+ */
+export function bothHaveV2Devices(a: string, b: string): boolean {
+  const db = getDb();
+  const one = db.prepare(
+    `SELECT 1 AS hay FROM device_keys d
+      JOIN users u ON u.id = d.user_id
+     WHERE d.user_id = ? AND d.revoked_at IS NULL AND u.is_suspended = 0
+     LIMIT 1`,
+  );
+  return Boolean(one.get(a)) && Boolean(one.get(b));
+}
+
+/**
+ * Rechaza los sobres de v1 cuando los dos lados podían usar v2.
+ *
+ * El cliente que ya manda los dos formatos no se entera; el que se quedó atrás
+ * recibe un error explicable en vez de degradar la conversación en silencio.
+ *
+ * También se rechaza la mezcla: un mensaje con sobres de v1 **y** de v2 deja en
+ * la base una copia cifrada con la clave estática por conversación, que es justo
+ * lo que v2 evita. La interfaz no la manda; el servidor no debe aceptarla de un
+ * cliente manipulado.
+ */
+export function assertNoV1WhenV2(
+  senderId: string,
+  peerId: string,
+  envelopes: { hasV1: boolean; hasV2: boolean },
+): void {
+  if (!envelopes.hasV1) return;
+  // Mezclar no vale nunca. Hoy no es alcanzable —un sobre de v2 válido ya
+  // demuestra que las dos partes tienen dispositivo— pero la regla no debe
+  // depender de ese razonamiento: si algún día el sobre v2 se acepta con menos
+  // comprobaciones, esta línea sigue cerrando la puerta.
+  if (envelopes.hasV2) {
+    throw new ApiError(
+      409,
+      "Un mensaje no puede llevar a la vez sobres de v1 y de v2 en una conversación que ya usa el cifrado v2.",
+    );
+  }
+  if (!bothHaveV2Devices(senderId, peerId)) return;
+  throw new ApiError(
+    409,
+    "Esta conversación ya usa el cifrado v2: actualiza el navegador o activa el dispositivo en «Mi cuenta».",
+  );
+}
+
+/**
+ * Fecha a partir de la cual deja de aceptarse el cifrado v1.
+ *
+ * v1 deriva una clave estática por conversación: sin forward secrecy y con un
+ * remitente que el servidor puede reescribir. Mientras conviven los protocolos
+ * hay que decidir cuándo se apaga, y esa decisión no puede ser un día cualquiera
+ * que alguien recuerde: se pone aquí con `E2E_V1_SUNSET` (ISO 8601) y, a partir
+ * de esa fecha, un mensaje con sobres v1 se rechaza con un motivo claro.
+ *
+ * Sin la variable no se apaga nada: un despliegue que no lo configure sigue
+ * funcionando igual, y el mantenimiento avisa de cuántos mensajes v1 siguen
+ * apareciendo para saber cuándo es seguro dar el paso.
+ */
+export function v1Sunset(): Date | null {
+  const raw = process.env.E2E_V1_SUNSET?.trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** ¿Se ha pasado ya la fecha de apagado de v1? */
+export function v1Retired(now = new Date()): boolean {
+  const sunset = v1Sunset();
+  return sunset !== null && now >= sunset;
+}
+
+/** Rechaza los sobres de v1 cuando el protocolo ya se apagó. */
+export function assertV1StillAllowed(): void {
+  if (!v1Retired()) return;
+  throw new ApiError(
+    410,
+    "El cifrado antiguo ya no se acepta. Actualiza la página y activa el cifrado v2 en «Mi cuenta» para seguir escribiendo.",
+  );
+}

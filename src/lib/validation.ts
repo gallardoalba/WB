@@ -199,6 +199,42 @@ export const commentLikeSchema = z.object({
   liked: z.boolean(),
 });
 
+/** Identificador del dispositivo v2: 16–64 caracteres seguros para una URL. */
+/**
+ * Identificador de una instantánea del directorio de claves.
+ *
+ * Forma fija (`kys_` + UUID): lo que llega por la calle se comprueba antes de
+ * tocar la base, y en el testigo antes de entrar en una URL.
+ */
+export const keySnapshotIdSchema = z
+  .string()
+  .regex(
+    /^kys_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    "El identificador de la instantánea no es válido.",
+  );
+
+export const deviceIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{16,64}$/, "El identificador del dispositivo no es válido.");
+
+/**
+ * Sobres del protocolo v2 dentro de un mensaje.
+ *
+ * El cuerpo es el mensaje de libolm y no se mira: se acota el tamaño y la forma
+ * para que un envío no sea un vertedero. El servidor comprueba aparte que el
+ * dispositivo del remitente es suyo y que los destinatarios son de la otra
+ * parte, porque aquí no se sabe de quién es cada id.
+ */
+const deviceEnvelopeFields = z.object({
+  recipientDeviceId: deviceIdSchema,
+  type: z.union([z.literal(0), z.literal(1)]),
+  body: z
+    .string()
+    .min(1)
+    .max(64 * 1024, "El sobre es demasiado grande.")
+    .regex(/^[A-Za-z0-9+/=]+$/, "El sobre no es válido."),
+});
+
 export const followSchema = z.object({
   follow: z.boolean(),
 });
@@ -252,13 +288,25 @@ const envelopeFields = {
  */
 export const encryptedMessageSchema = z
   .object({
-    keyId: envelopeFields.keyId,
+    keyId: envelopeFields.keyId.optional(),
     envelopes: z.array(z.object(envelopeFields)).min(1).max(4).optional(),
     ciphertext: envelopeFields.ciphertext.optional(),
     iv: envelopeFields.iv.optional(),
+    v2: z
+      .object({
+        senderDeviceId: deviceIdSchema,
+        envelopes: z
+          .array(deviceEnvelopeFields)
+          .min(1, "Falta el sobre cifrado.")
+          .max(20, "Demasiados dispositivos en un solo mensaje."),
+      })
+      .optional(),
   })
   .refine(
-    (value) => Boolean(value.envelopes?.length) || Boolean(value.ciphertext && value.iv),
+    (value) =>
+      Boolean(value.envelopes?.length) ||
+      Boolean(value.ciphertext && value.iv) ||
+      Boolean(value.v2),
     { message: "Falta el sobre cifrado.", path: ["envelopes"] },
   );
 
@@ -602,3 +650,47 @@ export const appealResolutionSchema = z.object({
   // libre de conflicto y acude a otra instancia o a una persona de confianza.
   externalReviewer: z.string().trim().max(120, "El nombre es demasiado largo.").optional(),
 });
+
+/**
+ * Claves públicas de un dispositivo (protocolo v2).
+ *
+ * libolm entrega base64 sin relleno: 43 caracteres para una clave de 32 bytes y
+ * 86 para una firma Ed25519 de 64 bytes. El identificador de una clave de un
+ * solo uso es corto y lleva su propio contador (`AAAAAw`), así que **no** se
+ * valida con el patrón de las claves. Se comprueba la forma y el tamaño: el
+ * servidor no puede saber si una clave es buena, pero sí rechazar basura antes
+ * de guardarla, y la firma Ed25519 sí se verifica (ver `lib/ed25519.ts`).
+ */
+const olmKey = z.string().regex(/^[A-Za-z0-9+/]{43}$/, "La clave del dispositivo no es válida.");
+
+const olmSignature = z
+  .string()
+  .regex(/^[A-Za-z0-9+/]{86}$/, "La firma del dispositivo no es válida.");
+
+const oneTimeKeyId = z
+  .string()
+  .regex(/^[A-Za-z0-9+/]{1,16}$/, "El identificador de la clave no es válido.");
+
+
+export const publishDeviceSchema = z.object({
+  identityKey: olmKey,
+  signingKey: olmKey,
+  signature: olmSignature,
+  oneTimeKeys: z
+    .array(
+      z.object({
+        keyId: oneTimeKeyId,
+        key: olmKey,
+        signature: olmSignature,
+      }),
+    )
+    .max(50, "Demasiadas claves de un solo uso de golpe.")
+    .default([]),
+  /**
+   * Contraseña para dar de alta un dispositivo más, sustituir la identidad de
+   * uno existente o reactivar uno retirado. No hace falta para reponer claves
+   * de un solo uso, que es la operación corriente.
+   */
+  password: z.string().max(200, "La contraseña es demasiado larga.").optional(),
+});
+

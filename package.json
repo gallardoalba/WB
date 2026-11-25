@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.0.32",
+  "version": "1.1.0",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad y mensajería cifrada de extremo a extremo.",
   "license": "AGPL-3.0-only",
@@ -48,18 +48,23 @@
     "transparency:snapshot": "node --import tsx scripts/transparency-snapshot.ts",
     "transparency:key": "node --import tsx scripts/transparency-key.ts",
     "transparency:verify": "node --import tsx scripts/verify-transparency.ts",
+    "transparency:witness": "node --import tsx scripts/witness-roots.ts",
     "bench:sqlite": "node --import tsx scripts/bench-sqlite.ts",
     "bench:migrate": "node --import tsx scripts/bench-migrations.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:smoke": "playwright test --project=firefox-smoke --project=webkit-smoke",
     "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-lines=92 --test-coverage-functions=88 --test-coverage-branches=80 \"tests/*.test.ts\"",
     "audit:dev": "node --import tsx scripts/audit-dev.ts",
-    "db:works": "node --import tsx scripts/works-report.ts"
+    "db:works": "node --import tsx scripts/works-report.ts",
+    "predev": "node --import tsx scripts/olm-assets.ts",
+    "prebuild": "node --import tsx scripts/olm-assets.ts",
+    "olm:assets": "node --import tsx scripts/olm-assets.ts"
   },
   "engines": {
     "node": ">=24"
   },
   "dependencies": {
+    "@matrix-org/olm": "^3.2.15",
     "better-sqlite3": "^13.0.3",
     "jpeg-js": "^0.4.4",
     "lucide-react": "^1.66.0",

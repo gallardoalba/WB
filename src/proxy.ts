@@ -90,7 +90,11 @@ export function proxy(request: NextRequest) {
 
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}${turnstileScript}`,
+    // `wasm-unsafe-eval` solo permite **compilar WebAssembly**, no evaluar
+    // JavaScript: es lo que necesita libolm para arrancar el ratchet de v2 en
+    // el navegador. Sin él, el protocolo no se puede usar (lo comprueba el
+    // humo de `scripts/olm-assets.ts` contra el servidor de producción).
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}${turnstileScript}`,
     // Next inyecta estilos inline; no se pueden marcar todos con nonce.
     "style-src 'self' 'unsafe-inline'",
     // Las portadas se sirven desde `/api/cover/...`: el navegador no habla con

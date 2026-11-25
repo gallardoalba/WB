@@ -72,12 +72,12 @@ const ES: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 páginas y manejadores de ruta (App Router)",
-            "    api/               70 rutas agrupadas por dominio",
+            "    api/               76 rutas agrupadas por dominio",
             "    styles/            tokens, tipografía, estructura, tarjetas, diálogos, fichas",
             "    proxy.ts           CSP con nonce y cabeceras de seguridad",
             "  components/          estructura de servidor e islas de cliente",
             "  lib/",
-            "    db/                conexión, esquema base (v2), migraciones (v3–v69), seed",
+            "    db/                conexión, esquema base (v2), migraciones (v3–v75), seed",
             "    repo/              consultas SQL por dominio; repo.ts solo reexporta",
             "    validation.ts      esquemas Zod con mensajes traducidos",
             "    secret-box.ts      cifrado reversible con anillo de claves (TOTP)",
@@ -137,7 +137,7 @@ const ES: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "La API tiene 70 ficheros de ruta en `src/app/api`, con 93 métodos exportados, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
+          text: "La API tiene 76 ficheros de ruta en `src/app/api`, y todos pasan por `route()` (`src/lib/route.ts`). El envoltorio aplica en un solo sitio la sesión, el esquema Zod del cuerpo, la cuota, la guardia de origen de las mutaciones, la traducción de errores a JSON (`handleApiError()`) y las cabeceras de traza. `tests/route.test.ts` comprueba sobre los ficheros que ninguna ruta se quede fuera del envoltorio, sin errores en JSON o sin comprobar el origen al escribir.",
         },
         {
           kind: "list",
@@ -211,6 +211,7 @@ const ES: TechnicalDocument = {
             "Contraseñas con `scrypt` asíncrono y sal única, con los parámetros dentro del propio hash (`scrypt$N,r,p$sal$hash`), para poder subirlos sin dejar fuera a nadie; el formato anterior se sigue verificando y se renueva al entrar.",
             "El acceso verifica siempre un hash (contra un señuelo si la cuenta no existe), así que el tiempo de respuesta no revela qué correos están registrados.",
             "Los mensajes de intercambio y directos van cifrados de extremo a extremo (ECDH P-256 + HKDF-SHA256 + AES-GCM). Cada cuenta publica **una clave por ranura de plataforma** —hoy solo `web`—; el remitente guarda un sobre por cada clave del destinatario, así que cualquier cliente con clave publicada lee el mismo mensaje.",
+            "Sobre ese cifrado hay un protocolo v2 en curso (`docs/e2e-protocol-v2.md`): identidad **por dispositivo** en vez de por ranura, claves de un solo uso que el servidor entrega una sola vez y Double Ratchet de libolm, con lo que se gana forward secrecy —un dispositivo comprometido hoy no abre lo de ayer— y se autentica al remitente dentro de la sesión. El paquete de cada dispositivo y **cada** clave de un solo uso van firmados con su clave Ed25519: el servidor lo verifica antes de guardar nada y el cliente antes de abrir una sesión, porque libolm no firma esas claves. El texto va dentro de un sobre con el hilo y relleno a bloques de 256 **bytes**, así que un mensaje movido a otra conversación se rechaza y el tamaño no revela la longitud exacta. El servidor ya publica, lista, revoca y reparte esas claves —y refresca la instantánea del directorio en cada alta, cambio de identidad, reactivación o retirada, para que la prueba de inclusión sea la vigente el mismo día— y guarda los sobres de cada dispositivo sin poder abrirlos (`/api/account/devices`, `/api/users/:id/devices`; los sobres viajan dentro de cada mensaje), y el cliente v2 sabe abrir el dispositivo, escribir a todos los aparatos de la otra persona y descifrar lo que llega. El texto ya descifrado se guarda **cifrado** en el dispositivo, porque libolm consume la clave del mensaje: sin eso, el hilo no se podía releer al recargar. Sin prueba de directorio no se abre sesión, y la lista de dispositivos de la cuenta se gestiona desde «Mi cuenta». Al activarlo en «Mi cuenta», los intercambios y los mensajes directos prueban v2 primero y, si la otra persona tiene dispositivo, el mensaje sale **solo** en v2: mandar además la copia de v1 daría al servidor un texto cifrado con clave estática de cada mensaje, que es justo el agujero que v2 cierra; el servidor rechaza esa mezcla y también el mensaje al que le falta el sobre de algún aparato de la otra persona. La copia de v1 queda solo para quien no tiene ningún dispositivo, y `E2E_V1_SUNSET` pone la fecha en que deja de aceptarse. libolm se sirve desde `/olm/` y se carga en tiempo de ejecución: el empaquetador no puede resolver sus ramas de Node, y la CSP autoriza `wasm-unsafe-eval`, que solo permite compilar WebAssembly. El hilo muestra además una huella de los dispositivos de las dos partes que cambia en cuanto alguien añade un aparato: es lo que se compara por otro canal para cubrir el primer contacto. Antes de abrir sesión con un dispositivo ajeno, el cliente comprueba con una prueba de inclusión que está en la última instantánea firmada del directorio, verifica esa firma y **fija** la clave del operador: una segunda historia del directorio deja de cuadrar. Las claves de un solo uso se reponen solas cuando al dispositivo le quedan pocas. El coste está acotado a cinco dispositivos por cuenta, y quien llega al límite recibe un error que remite a la lista de dispositivos de «Mi cuenta», donde se retiran. El estado del dispositivo se serializa entre pestañas con `navigator.locks`, y libolm se copia solo si coincide con el `checksums.txt` de su paquete y se carga con SRI. libolm está descontinuado en favor de vodozemac (Rust): migrar es la pieza siguiente, y hasta entonces el protocolo no ofrece resistencia poscuántica.",
             "Solo la primera clave de una cuenta se publica sin confirmación: en cuanto hay una ranura ocupada, tanto sustituirla como **añadir otra** exigen la contraseña, y cada cambio genera un aviso de seguridad. En el navegador la identidad es **una por cuenta**: dos cuentas en el mismo equipo nunca comparten par de claves.",
             "Sesión de 256 bits en cookie `httpOnly` con `SameSite=Lax`; en producción solo se acepta el prefijo `__Host-` y en la base solo vive su SHA-256.",
             "Verificación en dos pasos (TOTP RFC 6238, ventana de ±1 paso y anti-replay) obligatoria para moderar y administrar en producción; los secretos se guardan cifrados. Las sanciones llevan motivo y plazo (1–365 días), y la apelación la revisa otra persona del equipo.",
@@ -326,7 +327,7 @@ const ES: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` ejecuta la suite unitaria y de integración con el runner de Node sobre SQLite en memoria; `npm run test:e2e` añade 63 pruebas de navegador en Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
+          text: "`npm test` ejecuta la suite unitaria y de integración con el runner de Node sobre SQLite en memoria; `npm run test:e2e` añade 64 pruebas de navegador en Chromium, que arranca su propio servidor en el puerto 3100; `npm run test:e2e:smoke` ejecuta el humo de WebCrypto e IndexedDB en Firefox y WebKit.",
         },
         {
           kind: "p",
@@ -504,12 +505,12 @@ const DE: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 Seiten und Route-Handler (App Router)",
-            "    api/               70 Routen, nach Domäne gruppiert",
+            "    api/               75 Routen, nach Domäne gruppiert",
             "    styles/            Tokens, Typografie, Struktur, Karten, Dialoge, Detailseiten",
             "    proxy.ts           CSP mit Nonce und Sicherheits-Header",
             "  components/          Server-Struktur und interaktive Inseln",
             "  lib/",
-            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v69), Seed",
+            "    db/                Verbindung, Basisschema (v2), Migrationen (v3–v75), Seed",
             "    repo/              SQL-Abfragen je Domäne; repo.ts reexportiert nur",
             "    validation.ts      Zod-Schemata mit übersetzten Meldungen",
             "    secret-box.ts      umkehrbare Verschlüsselung mit Schlüsselring (TOTP)",
@@ -569,7 +570,7 @@ const DE: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "Die API besteht aus 70 Route-Dateien unter `src/app/api` mit 93 exportierten Methoden, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
+          text: "Die API besteht aus 76 Route-Dateien unter `src/app/api`, und alle laufen über `route()` (`src/lib/route.ts`). Der Wrapper wendet an einer Stelle Sitzung, Zod-Schema des Bodys, Kontingent, Herkunftsprüfung der schreibenden Zugriffe, die Übersetzung von Fehlern in JSON (`handleApiError()`) und die Trace-Kopfzeilen an. `tests/route.test.ts` prüft anhand der Dateien, dass keine Route am Wrapper vorbeiläuft, Fehler unübersetzt durchlässt oder beim Schreiben die Herkunft nicht prüft.",
         },
         {
           kind: "list",
@@ -643,6 +644,7 @@ const DE: TechnicalDocument = {
             "Passwörter mit asynchronem `scrypt` und eigenem Salt, mit den Parametern im Hash selbst (`scrypt$N,r,p$Salt$Hash`), damit sie später erhöht werden können, ohne jemanden auszusperren; das alte Format wird weiterhin geprüft und bei der nächsten Anmeldung erneuert.",
             "Die Anmeldung prüft immer einen Hash (gegen einen Köder, wenn es das Konto nicht gibt), sodass die Antwortzeit nicht verrät, welche Adressen registriert sind.",
             "Tausch- und Direktnachrichten sind Ende-zu-Ende verschlüsselt (ECDH P-256 + HKDF-SHA256 + AES-GCM). Jedes Konto veröffentlicht **einen Schlüssel pro Plattform-Slot** — derzeit nur `web`; der Absender speichert pro Empfängerschlüssel einen Umschlag, sodass jeder Client mit veröffentlichtem Schlüssel dieselbe Nachricht liest.",
+            "Darüber liegt ein Protokoll v2 im Aufbau (`docs/e2e-protocol-v2.md`): Identität **pro Gerät** statt pro Slot, Einmal-Schlüssel, die der Server nur einmal ausgibt, und Double Ratchet aus libolm. Das bringt Forward Secrecy — ein heute kompromittiertes Gerät öffnet nicht die Nachrichten von gestern — und authentifiziert den Absender innerhalb der Sitzung. Das Schlüsselpaket jedes Geräts und **jeder** Einmal-Schlüssel sind mit dessen Ed25519-Schlüssel signiert: der Server prüft das vor dem Speichern und der Client vor dem Öffnen einer Sitzung, weil libolm diese Schlüssel nicht signiert. Der Text liegt in einem Umschlag mit Thread und Auffüllung auf 256-**Byte**-Blöcke, sodass eine in einen anderen Thread verschobene Nachricht abgelehnt wird und die Größe die Länge nicht exakt verrät. Der Server veröffentlicht, listet, widerruft und verteilt diese Schlüssel —und erneuert die Momentaufnahme des Verzeichnisses bei jeder Anlage, Identitätsänderung, Reaktivierung und Widerrufung, damit der Inklusionsbeweis noch am selben Tag aktuell ist— und speichert die Umschläge je Gerät, ohne sie öffnen zu können (`/api/account/devices`, `/api/users/:id/devices`; die Umschläge reisen in der jeweiligen Nachricht); der v2-Client kann das Gerät öffnen, an alle Geräte der Gegenseite schreiben und das Ankommende entschlüsseln. Der bereits entschlüsselte Text wird **verschlüsselt** auf dem Gerät gespeichert, weil libolm den Nachrichtenschlüssel verbraucht: ohne das ließ sich der Thread nach einem Neuladen nicht mehr lesen. Ohne Verzeichnisbeweis wird keine Sitzung geöffnet, und die Geräteliste des Kontos wird unter «Mein Konto» verwaltet. Nach der Aktivierung in «Mein Konto» versuchen Tauschgespräche und Direktnachrichten zuerst v2, und hat die Gegenseite ein Gerät, geht die Nachricht **nur** in v2 hinaus: zusätzlich die v1-Kopie zu senden gäbe dem Server von jeder Nachricht einen mit einem statischen Schlüssel verschlüsselten Text — genau die Lücke, die v2 schließt. Die v1-Kopie bleibt nur für die, die noch kein Gerät haben, und `E2E_V1_SUNSET` legt das Datum fest, ab dem sie nicht mehr angenommen wird. libolm wird unter `/olm/` ausgeliefert und zur Laufzeit geladen: der Bundler kann seine Node-Zweige nicht auflösen, und die CSP erlaubt `wasm-unsafe-eval`, was nur das Kompilieren von WebAssembly gestattet. Der Thread zeigt außerdem einen Fingerabdruck der Geräte beider Seiten, der sich ändert, sobald jemand ein Gerät hinzufügt: das ist der Vergleich über einen anderen Kanal, der den Erstkontakt absichert. Bevor eine Sitzung mit einem fremden Gerät geöffnet wird, prüft der Client mit einem Inklusionsbeweis, dass es in der letzten signierten Verzeichnis-Momentaufnahme steht, verifiziert deren Signatur und **pinnt** den Schlüssel des Betreibers: eine zweite Geschichte des Verzeichnisses passt dann nicht mehr. Einmal-Schlüssel werden selbstständig aufgefüllt, wenn dem Gerät nur noch wenige bleiben. Die Kosten sind auf fünf Geräte je Konto begrenzt, und wer das Limit erreicht, bekommt einen Fehler, der auf die Geräteliste unter «Mein Konto» verweist, wo sie entfernt werden. Der Gerätezustand wird zwischen Tabs mit `navigator.locks` serialisiert, und libolm wird nur kopiert, wenn es der `checksums.txt` seines Pakets entspricht, und mit SRI geladen. libolm ist zugunsten von vodozemac (Rust) eingestellt: die Migration ist der nächste Schritt, und bis dahin bietet das Protokoll keine Post-Quanten-Sicherheit.",
             "Nur der erste Schlüssel eines Kontos wird ohne Bestätigung veröffentlicht: Sobald ein Slot belegt ist, verlangen sowohl das Ersetzen als auch das **Hinzufügen eines weiteren** das Kontopasswort, und jede Änderung erzeugt einen Sicherheitshinweis. Im Browser gibt es **eine Identität pro Konto**: zwei Konten auf demselben Gerät teilen nie ein Schlüsselpaar.",
             "Sitzung mit 256 Bit im `httpOnly`-Cookie und `SameSite=Lax`; in Produktion wird nur das Präfix `__Host-` akzeptiert, und in der Datenbank liegt nur ihr SHA-256.",
             "Zweiter Faktor (TOTP nach RFC 6238, Fenster ±1 Schritt, Anti-Replay) ist für Moderation und Verwaltung in Produktion Pflicht; die Geheimnisse liegen verschlüsselt. Sanktionen haben Grund und Frist (1–365 Tage), und über den Einspruch entscheidet eine andere Person im Team.",
@@ -758,7 +760,7 @@ const DE: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` führt die Unit- und Integrationstests mit dem Node-Testrunner auf SQLite im Speicher aus, und `npm run test:e2e` ergänzt 63 Browser-Tests in Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
+          text: "`npm test` führt die Unit- und Integrationstests mit dem Node-Testrunner auf SQLite im Speicher aus, und `npm run test:e2e` ergänzt 64 Browser-Tests in Chromium, die einen eigenen Server auf Port 3100 starten; `npm run test:e2e:smoke` führt den WebCrypto-/IndexedDB-Smoke in Firefox und WebKit aus.",
         },
         {
           kind: "p",

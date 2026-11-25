@@ -29,6 +29,14 @@ import {
 import { gunzipSync, gzipSync } from "node:zlib";
 
 import { getDb, type Db } from "./db";
+import { KEY_MESSAGE_VERSION as KEY_FORMAT_VERSION } from "./e2e-v2-format";
+import { deviceDirectoryLine, slotDirectoryLine } from "./key-directory-format";
+
+export {
+  deviceDirectoryLine,
+  revokedSlotDirectoryLine,
+  slotDirectoryLine,
+} from "./key-directory-format";
 import { listPublicWorks } from "./repo";
 
 /** Cabecera del mensaje firmado: si cambia el formato, sube la versión. */
@@ -116,6 +124,142 @@ export function merkleRoot(lines: string[]): string {
     level = next;
   }
   return level[0]!;
+}
+
+/**
+ * Mayor potencia de dos **estrictamente menor** que n (la regla de RFC 6962).
+ */
+function powerBelow(n: number): number {
+  let k = 1;
+  while (k * 2 < n) k *= 2;
+  return k;
+}
+
+function consistencySubproof(m: number, lines: string[], complete: boolean): string[] {
+  const n = lines.length;
+  if (m === n) return complete ? [] : [merkleRoot(lines)];
+  const k = powerBelow(n);
+  if (m <= k) {
+    return [...consistencySubproof(m, lines.slice(0, k), complete), merkleRoot(lines.slice(k))];
+  }
+  return [...consistencySubproof(m - k, lines.slice(k), false), merkleRoot(lines.slice(0, k))];
+}
+
+/**
+ * Prueba de que el árbol nuevo **contiene** al viejo (RFC 6962, `SUBPROOF`).
+ *
+ * Es lo que convierte «esta raíz la firma el operador» en «esta raíz es la
+ * continuación de la que vi»: sin ella, el operador puede firmar dos historias
+ * coherentes y las dos verifican. Devuelve `null` si el árbol nuevo no empieza
+ * por las mismas hojas (no hay nada que demostrar) y `[]` si no hay árbol viejo.
+ *
+ * Exige que las líneas viejas sean un **prefijo** de las nuevas: por eso el
+ * directorio es un registro append-only (`key_directory_log`).
+ */
+export function merkleConsistencyProof(
+  oldLines: string[],
+  newLines: string[],
+): string[] | null {
+  if (oldLines.length > newLines.length) return null;
+  for (let index = 0; index < oldLines.length; index += 1) {
+    if (newLines[index] !== oldLines[index]) return null;
+  }
+  if (oldLines.length === 0) return [];
+  return consistencySubproof(oldLines.length, newLines, true);
+}
+
+/** Lo que necesita quien verifica: las dos cabeceras y los hashes del camino. */
+export type KeyConsistencyProof = {
+  from: { id: string; itemCount: number; merkleRoot: string; createdAt: string };
+  to: { id: string; itemCount: number; merkleRoot: string; createdAt: string };
+  proof: string[];
+};
+
+/**
+ * Caché de las líneas de las últimas instantáneas.
+ *
+ * Las instantáneas son inmutables y `keyInclusion` las descomprime en cada
+ * petición. Sin caché, pedir la prueba de un dispositivo cuesta O(n) en cada
+ * mensaje nuevo y el directorio solo crece. Se guardan las últimas veinte, la
+ * misma ventana que publica la API.
+ */
+const snapshotLineCache = new Map<string, string[]>();
+
+function linesForSnapshot(
+  id: string,
+  itemCount: number,
+  payload: Buffer | null,
+  db: Db,
+): string[] | null {
+  const cached = snapshotLineCache.get(id);
+  if (cached) return cached;
+  let lines: string[];
+  if (payload) {
+    try {
+      lines = gunzipSync(payload).toString("utf8").split("\n").filter(Boolean);
+    } catch {
+      return null;
+    }
+  } else {
+    // El registro append-only conserva todas las hojas. Una instantánea es su
+    // prefijo de `itemCount`; no hace falta guardar una copia comprimida del
+    // directorio entero por cada cambio.
+    const all = keyDirectoryLines(db);
+    if (all.length < itemCount) return null;
+    lines = all.slice(0, itemCount);
+  }
+  if (snapshotLineCache.size >= 20) {
+    const oldest = snapshotLineCache.keys().next().value;
+    if (oldest) snapshotLineCache.delete(oldest);
+  }
+  snapshotLineCache.set(id, lines);
+  return lines;
+}
+
+/**
+ * Prueba de consistencia entre dos instantáneas guardadas del directorio.
+ *
+ * Solo necesita los dos `payload` que ya están en la base (se conservan siempre:
+ * de ellos sale la prueba exacta de lo que se firmó).
+ */
+export function consistencyProofBetween(
+  fromId: string,
+  toId: string,
+  db: Db = getDb(),
+): KeyConsistencyProof | null {
+  const read = (id: string) => {
+    const row = db
+      .prepare(
+        `SELECT id, item_count, merkle_root, created_at, payload FROM key_snapshots WHERE id = ?`,
+      )
+      .get(id) as
+      | {
+          id: string;
+          item_count: number;
+          merkle_root: string;
+          created_at: string;
+          payload: Buffer | null;
+        }
+      | undefined;
+    if (!row) return null;
+    const lines = linesForSnapshot(row.id, row.item_count, row.payload, db);
+    if (!lines || merkleRoot(lines) !== row.merkle_root) return null;
+    return {
+      header: {
+        id: row.id,
+        itemCount: row.item_count,
+        merkleRoot: row.merkle_root,
+        createdAt: row.created_at,
+      },
+      lines,
+    };
+  };
+  const from = read(fromId);
+  const to = read(toId);
+  if (!from || !to) return null;
+  const proof = merkleConsistencyProof(from.lines, to.lines);
+  if (!proof) return null;
+  return { from: from.header, to: to.header, proof };
 }
 
 /**
@@ -387,11 +531,19 @@ export function prunePayloads(
   retentionDays = PAYLOAD_RETENTION_DAYS,
 ): number {
   const cutoff = new Date(Date.parse(now) - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-  return db
+  const catalogue = db
     .prepare(
       "UPDATE transparency_snapshots SET payload = NULL WHERE payload IS NOT NULL AND created_at < ?",
     )
     .run(cutoff).changes;
+  // Las instantáneas del directorio de claves ya se reconstruyen desde el log;
+  // el payload solo existía en versiones anteriores o en utilidades de prueba.
+  const keys = db
+    .prepare(
+      "UPDATE key_snapshots SET payload = NULL WHERE payload IS NOT NULL AND created_at < ?",
+    )
+    .run(cutoff).changes;
+  return catalogue + keys;
 }
 
 /**
@@ -409,6 +561,9 @@ export function verifyChain(snapshots: TransparencySnapshot[]): SnapshotVerifica
       problems.push(
         `${newer.id} dice venir de ${newer.previousRoot ?? "nada"} y la anterior es ${older.merkleRoot}`,
       );
+    }
+    if (newer.itemCount < older.itemCount) {
+      problems.push(`${newer.id} tiene menos hojas que la anterior (${older.id})`);
     }
   }
   return { ok: problems.length === 0, problems };
@@ -511,7 +666,10 @@ const KEY_COLUMNS = `id, created_at, item_count, merkle_root, previous_root,
   signature, public_key, signer`;
 
 /** Cabecera del mensaje firmado del directorio; si cambia, sube la versión. */
-const KEY_MESSAGE_VERSION = "wanderbibliothek-keys-v1";
+// La versión del mensaje firmado vive en `e2e-v2-format.ts` para que el cliente
+// pueda reconstruirlo al verificar la firma sin cargar este módulo (que usa
+// `node:crypto`).
+const KEY_MESSAGE_VERSION = KEY_FORMAT_VERSION;
 
 function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
   return {
@@ -532,15 +690,100 @@ function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
  * Llevan la cuenta, la ranura, la huella y la fecha de alta; **no** la clave
  * pública, que ya viaja en `user_keys` y haría el fichero enorme. El orden es
  * por cuenta y ranura, que es estable.
+ *
+ * Desde el protocolo v2 entran también los **dispositivos**: sin ellos, un
+ * servidor hostil podría añadir un dispositivo a una cuenta y quedar en medio
+ * de todas las conversaciones sin que nada lo delatara, porque la clave de un
+ * dispositivo no estaba comprometida en ningún sitio. La ranura de un
+ * dispositivo es `device:<id>` y su hoja lleva la clave de identidad y la de
+ * firma: las dos quedan atadas al mismo compromiso.
  */
 export function keyDirectoryLines(db: Db = getDb()): string[] {
   const rows = db
+    .prepare("SELECT line FROM key_directory_log ORDER BY seq")
+    .all() as { line: string }[];
+  return rows.map((row) => row.line);
+}
+
+/** Última línea apuntada para una ranura, o `null` si nunca se apuntó. */
+export function lastDirectoryLine(
+  userId: string,
+  slot: string,
+  db: Db = getDb(),
+): string | null {
+  const row = db
     .prepare(
-      `SELECT user_id, platform, key_id, updated_at FROM user_keys
-        ORDER BY user_id, platform`,
+      `SELECT line FROM key_directory_log WHERE user_id = ? AND slot = ?
+        ORDER BY seq DESC LIMIT 1`,
     )
-    .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
-  return rows.map((row) => `${row.user_id}|${row.platform}|${row.key_id}|${row.updated_at}`);
+    .get(userId, slot) as { line: string } | undefined;
+  return row?.line ?? null;
+}
+
+/**
+ * Apunta un cambio de un dispositivo en el registro del directorio.
+ *
+ * El registro es **append-only** y de ahí sale la lista que se firma: si las
+ * hojas se reescribieran en su sitio, el árbol nuevo no sería una extensión del
+ * anterior y no existiría prueba de consistencia posible (las pruebas de
+ * consistencia de Merkle exigen que lo publicado solo crezca por el final).
+ *
+ * Solo se apunta cuando cambia algo que importa —la identidad o la retirada—:
+ * reponer claves de un solo uso toca `updated_at` pero no el directorio, y
+ * apuntarlo haría crecer el árbol sin decir nada nuevo.
+ */
+export function recordDeviceInDirectory(
+  db: Db,
+  input: {
+    userId: string;
+    deviceId: string;
+    identityKey: string;
+    signingKey: string;
+    revokedAt: string | null;
+    at: string;
+  },
+): boolean {
+  const slot = `device:${input.deviceId}`;
+  const last = lastDirectoryLine(input.userId, slot, db);
+  if (last) {
+    const fields = last.split("|");
+    const identityKey = fields[2];
+    const signingKey = fields[3];
+    const revoked = fields[5];
+    if (
+      identityKey === input.identityKey &&
+      signingKey === input.signingKey &&
+      revoked === `revoked:${input.revokedAt ?? "-"}`
+    ) {
+      return false;
+    }
+  }
+  db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  ).run(
+    input.userId,
+    slot,
+    deviceDirectoryLine({ ...input, updatedAt: input.at }),
+    input.at,
+  );
+  return true;
+}
+
+/** Apunta una ranura de v1 (alta o rotación). */
+export function recordSlotInDirectory(
+  db: Db,
+  input: { userId: string; platform: string; keyId: string; at: string },
+): void {
+  const line = slotDirectoryLine({
+    userId: input.userId,
+    platform: input.platform,
+    keyId: input.keyId,
+    updatedAt: input.at,
+  });
+  if (lastDirectoryLine(input.userId, input.platform, db) === line) return;
+  db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  ).run(input.userId, input.platform, line, input.at);
 }
 
 export function keySnapshotMessage(
@@ -603,17 +846,24 @@ export function verifyMerkleBranch(
 }
 
 export function latestKeySnapshot(db: Db = getDb()): KeySnapshot | null {
+  // Manda el orden de inserción (`rowid`), no el id ni la fecha: los ids son
+  // aleatorios —así que con dos instantáneas en el mismo milisegundo «la
+  // última» era cualquiera de las dos— y la fecha puede venir del llamador, de
+  // modo que una instantánea con hora futura se quedaba como la última para
+  // siempre y las siguientes no se veían. La cadena de `previousRoot` se
+  // escribe en orden de inserción: es la misma vara con la que se lee.
   const row = db
-    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1`)
+    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY rowid DESC LIMIT 1`)
     .get() as KeySnapshotRow | undefined;
   return row ? toKeySnapshot(row) : null;
 }
 
 export function listKeySnapshots(limit = 20, db: Db = getDb()): KeySnapshot[] {
+  // El mismo criterio que `latestKeySnapshot`: la lista tiene que empezar por la
+  // instantánea con la que se responden las pruebas de inclusión, no por la que
+  // tenga la fecha más alta.
   const rows = db
-    .prepare(
-      `SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY created_at DESC, rowid DESC LIMIT ?`,
-    )
+    .prepare(`SELECT ${KEY_COLUMNS} FROM key_snapshots ORDER BY rowid DESC LIMIT ?`)
     .all(Math.max(1, Math.min(200, limit))) as KeySnapshotRow[];
   return rows.map(toKeySnapshot);
 }
@@ -628,46 +878,56 @@ export function createKeySnapshot(
   db: Db = getDb(),
   options: CreateKeySnapshotOptions = {},
 ): KeySnapshot {
-  const createdAt = options.now ?? new Date().toISOString();
-  const lines = options.lines ?? keyDirectoryLines(db);
-  const previous = latestKeySnapshot(db);
-  const key = options.key === undefined ? signingKey() : options.key;
+  // Leer `previous` y escribir la nueva instantánea tienen que ser una sola
+  // unidad. Sin transacción, dos procesos podían encadenar la misma anterior y
+  // dejar dos raíces que no se contienen: la prueba de consistencia deja de
+  // existir para una de las dos.
+  const create = (): KeySnapshot => {
+    const createdAt = options.now ?? new Date().toISOString();
+    const lines = options.lines ?? keyDirectoryLines(db);
+    const previous = latestKeySnapshot(db);
+    const key = options.key === undefined ? signingKey() : options.key;
 
-  const snapshot: KeySnapshot = {
-    id: `kys_${randomUUID()}`,
-    createdAt,
-    itemCount: lines.length,
-    merkleRoot: merkleRoot(lines),
-    previousRoot: previous?.merkleRoot ?? null,
-    signature: null,
-    publicKey: key?.publicKey ?? null,
-    signer: key ? "ed25519" : null,
+    const snapshot: KeySnapshot = {
+      id: `kys_${randomUUID()}`,
+      createdAt,
+      itemCount: lines.length,
+      merkleRoot: merkleRoot(lines),
+      previousRoot: previous?.merkleRoot ?? null,
+      signature: null,
+      publicKey: key?.publicKey ?? null,
+      signer: key ? "ed25519" : null,
+    };
+    if (key) {
+      snapshot.signature = sign(
+        null,
+        Buffer.from(keySnapshotMessage(snapshot)),
+        key.privateKey,
+      ).toString("base64");
+    }
+
+    db.prepare(
+      `INSERT INTO key_snapshots
+         (id, created_at, item_count, merkle_root, previous_root, payload,
+          signature, public_key, signer)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      snapshot.id,
+      snapshot.createdAt,
+      snapshot.itemCount,
+      snapshot.merkleRoot,
+      snapshot.previousRoot,
+      // Las instantáneas reales se reconstruyen desde el registro append-only.
+      // Solo se guarda una copia si el llamador pasó líneas explícitas (pruebas
+      // y utilidades de auditoría); así no crece O(N²) con cada dispositivo.
+      options.lines ? gzipSync(Buffer.from(lines.join("\n"), "utf8")) : null,
+      snapshot.signature,
+      snapshot.publicKey,
+      snapshot.signer,
+    );
+    return snapshot;
   };
-  if (key) {
-    snapshot.signature = sign(
-      null,
-      Buffer.from(keySnapshotMessage(snapshot)),
-      key.privateKey,
-    ).toString("base64");
-  }
-
-  db.prepare(
-    `INSERT INTO key_snapshots
-       (id, created_at, item_count, merkle_root, previous_root, payload,
-        signature, public_key, signer)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    snapshot.id,
-    snapshot.createdAt,
-    snapshot.itemCount,
-    snapshot.merkleRoot,
-    snapshot.previousRoot,
-    gzipSync(Buffer.from(lines.join("\n"), "utf8")),
-    snapshot.signature,
-    snapshot.publicKey,
-    snapshot.signer,
-  );
-  return snapshot;
+  return db.inTransaction ? create() : db.transaction(create)();
 }
 
 /** Una al día como mucho, igual que el catálogo. */
@@ -676,9 +936,45 @@ export function ensureDailyKeySnapshot(
   options: CreateKeySnapshotOptions = {},
 ): KeySnapshot | null {
   const now = options.now ?? new Date().toISOString();
+  const key = options.key === undefined ? signingKey() : options.key;
+  // Sin clave no se firma nada: una instantánea sin firma no sirve a los
+  // clientes ni al testigo, y crear una cada día solo llenaría la tabla.
+  if (!key) return null;
   const latest = latestKeySnapshot(db);
-  if (latest && latest.createdAt.slice(0, 10) === now.slice(0, 10)) return null;
-  return createKeySnapshot(db, { ...options, now });
+  if (
+    latest &&
+    latest.createdAt.slice(0, 10) === now.slice(0, 10) &&
+    latest.signature &&
+    latest.publicKey
+  ) {
+    return null;
+  }
+  return createKeySnapshot(db, { ...options, now, key });
+}
+
+/**
+ * Deja el dispositivo recién publicado dentro de una instantánea firmada.
+ *
+ * La prueba de inclusión se calcula contra la **última** instantánea y esas se
+ * crean una vez al día. Sin esto, activar v2 dejaba al dispositivo sin prueba
+ * hasta el día siguiente: el cliente no podía comprobar el directorio, caía a
+ * v1, y donde las dos partes tenían dispositivo el servidor rechazaba el envío
+ * (regla anti-degradación). Se firma con la clave del operador, si la hay.
+ */
+export function ensureKeySnapshotForDevice(
+  userId: string,
+  deviceId: string,
+  db: Db = getDb(),
+): string | null {
+  // La comprobación no puede ser «existe alguna prueba de esta ranura»: tras
+  // cambiar la identidad, reactivar o retirar, la instantánea anterior sigue
+  // teniendo una línea (la vieja). Lo que importa es que la última línea del
+  // registro —el estado actual— esté dentro de la instantánea más reciente.
+  const current = lastDirectoryLine(userId, `device:${deviceId}`, db);
+  if (!current) return null;
+  const proof = keyInclusion(userId, `device:${deviceId}`, db);
+  if (proof?.line === current) return null;
+  return createKeySnapshot(db).id;
 }
 
 export type KeyInclusionProof = {
@@ -706,10 +1002,19 @@ export function keyInclusion(
   const row = db
     .prepare("SELECT payload FROM key_snapshots WHERE id = ?")
     .get(snapshot.id) as { payload: Buffer | null } | undefined;
-  if (!row?.payload) return null;
-  const lines = gunzipSync(row.payload).toString("utf8").split("\n").filter(Boolean);
+  const lines = linesForSnapshot(snapshot.id, snapshot.itemCount, row?.payload ?? null, db);
+  if (!lines || merkleRoot(lines) !== snapshot.merkleRoot) return null;
   const prefix = `${userId}|${platform}|`;
-  const index = lines.findIndex((line) => line.startsWith(prefix));
+  // La **última**: el registro es un histórico y la ranura puede aparecer varias
+  // veces (una por rotación, cambio de identidad o retirada); la que vale es la
+  // más reciente.
+  let index = -1;
+  for (let cursor = lines.length - 1; cursor >= 0; cursor -= 1) {
+    if (lines[cursor]!.startsWith(prefix)) {
+      index = cursor;
+      break;
+    }
+  }
   if (index < 0) return null;
   return {
     snapshotId: snapshot.id,
@@ -755,6 +1060,9 @@ export function verifyKeyChain(snapshots: KeySnapshot[]): { ok: boolean; problem
       problems.push(
         `${newer.id} dice venir de ${newer.previousRoot ?? "nada"} y la anterior es ${older.merkleRoot}`,
       );
+    }
+    if (newer.itemCount < older.itemCount) {
+      problems.push(`${newer.id} tiene menos hojas que la anterior (${older.id})`);
     }
   }
   return { ok: problems.length === 0, problems };

@@ -7,6 +7,8 @@
  * cualquier cambio —una clave nueva, una línea retocada, una raíz reescrita—
  * se nota.
  */
+import "./olm-setup.ts";
+
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test } from "node:test";
@@ -14,6 +16,7 @@ import { test } from "node:test";
 import { getDb } from "../src/lib/db/index.ts";
 import * as repo from "../src/lib/repo.ts";
 import * as transparency from "../src/lib/transparency.ts";
+import { verifyConsistencyProof } from "../src/lib/e2e-v2-directory.ts";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
 
@@ -80,6 +83,13 @@ test("rotar una clave cambia la raíz y la prueba nueva cuadra", () => {
     despues.id,
     "con la misma hora gana la última insertada",
   );
+  // La lista que sirve `/api/transparency/keys` empieza por la misma: si no, el
+  // histórico mostraría como última una instantánea distinta de la que sostiene
+  // las pruebas de inclusión.
+  assert.deepEqual(
+    transparency.listKeySnapshots(2, getDb()).map((snapshot) => snapshot.id),
+    [despues.id, antes.id],
+  );
   assert.notEqual(despues.merkleRoot, antes.merkleRoot, "la rotación se ve en la raíz");
   assert.equal(despues.previousRoot, antes.merkleRoot, "la cadena enlaza con la anterior");
   const proof = transparency.keyInclusion(id)!;
@@ -143,4 +153,255 @@ test("con un número impar de claves la prueba del último tramo cuadra", () => 
     false,
     "una hoja distinta no valida",
   );
+});
+
+test("las claves de dispositivo entran en el directorio firmado", async () => {
+  // Sin esto, la especificación prometía que una sustitución de dispositivo «se
+  // detecta por transparencia» cuando las claves de dispositivo no estaban en
+  // ninguna instantánea.
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Eva Dispositivos");
+  const account = await v2.createAccount(2);
+  const deviceId = "eva-dispositivo-01";
+  const signed = v2.deviceKeys(account, deviceId);
+  await repo.publishDevice(id, { ...signed, oneTimeKeys: v2.oneTimeKeys(account, deviceId) });
+
+  const lineas = transparency.keyDirectoryLines(getDb());
+  const propia = lineas.find((line) => line.startsWith(`${id}|device:${deviceId}|`));
+  assert.ok(propia, "el dispositivo debe estar en el directorio");
+  assert.ok(propia.includes(signed.identityKey), "con su clave de identidad, para poder compararla");
+
+  // La más reciente del fichero: `keyInclusion` busca en la última instantánea,
+  // y los casos anteriores ya fijan marcas en el futuro.
+  const snapshot = transparency.createKeySnapshot(getDb(), {
+    key: keyPair(),
+    now: "2100-01-01T00:00:00.000Z",
+  });
+  const proof = transparency.keyInclusion(id, `device:${deviceId}`)!;
+  assert.equal(proof.snapshotId, snapshot.id);
+  assert.equal(
+    transparency.verifyMerkleBranch(proof.line, proof.index, proof.branch, proof.root),
+    true,
+    "y con prueba de inclusión contra la raíz firmada",
+  );
+});
+
+test("publicar un dispositivo deja prueba de inclusión ese mismo día", async () => {
+  // Las instantáneas se crean una vez al día: sin refrescarla al dar de alta un
+  // dispositivo, este se quedaba sin prueba hasta el día siguiente y, con las
+  // dos partes en v2, el servidor rechazaba los mensajes en v1.
+  getDb().prepare("DELETE FROM key_snapshots").run();
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Fátima Alta");
+  const account = await v2.createAccount(2);
+  const deviceId = "fatima-dispositivo-01";
+  const signed = v2.deviceKeys(account, deviceId);
+  await repo.publishDevice(id, { ...signed, oneTimeKeys: v2.oneTimeKeys(account, deviceId) });
+
+  assert.equal(
+    transparency.keyInclusion(id, `device:${deviceId}`),
+    null,
+    "recién publicado, todavía no hay instantánea que lo incluya",
+  );
+  transparency.ensureKeySnapshotForDevice(id, deviceId);
+  assert.ok(
+    transparency.keyInclusion(id, `device:${deviceId}`),
+    "y tras asegurarla, la prueba existe",
+  );
+});
+
+test("la prueba de consistencia une dos instantáneas del registro", async () => {
+  // Se genera en el servidor y se verifica con el verificador del **cliente**:
+  // son dos implementaciones distintas y tienen que coincidir. Y se prueban todas
+  // las parejas, que es donde estos algoritmos se rompen (potencias de dos,
+  // tamaños impares y el árbol de una sola hoja).
+  const lineas: string[] = [];
+  for (let index = 0; index < 9; index += 1) {
+    lineas.push(`cuenta-${index}|web|clave-${index}|2026-01-0${index + 1}`);
+  }
+
+  for (let grande = 1; grande <= lineas.length; grande += 1) {
+    for (let pequena = 1; pequena <= grande; pequena += 1) {
+      const prueba = transparency.merkleConsistencyProof(
+        lineas.slice(0, pequena),
+        lineas.slice(0, grande),
+      );
+      assert.ok(prueba, `${pequena}→${grande}: debería existir`);
+      assert.equal(
+        await verifyConsistencyProof(
+          pequena,
+          transparency.merkleRoot(lineas.slice(0, pequena)),
+          grande,
+          transparency.merkleRoot(lineas.slice(0, grande)),
+          prueba,
+        ),
+        true,
+        `${pequena}→${grande}: la prueba no cuadra`,
+      );
+    }
+  }
+});
+
+test("si el árbol nuevo no empieza por el viejo, no hay prueba que dar", async () => {
+  const lineas = ["a", "b", "c", "d"];
+  const otro = ["a", "b", "X", "d"];
+  assert.equal(transparency.merkleConsistencyProof(lineas.slice(0, 3), otro), null);
+
+  // Y una prueba de la historia buena no vale para la otra raíz.
+  const prueba = transparency.merkleConsistencyProof(lineas.slice(0, 2), lineas)!;
+  assert.equal(
+    await verifyConsistencyProof(
+      2,
+      transparency.merkleRoot(lineas.slice(0, 2)),
+      4,
+      transparency.merkleRoot(otro),
+      prueba,
+    ),
+    false,
+  );
+});
+
+test("el registro solo crece: cada instantánea continúa la anterior", async () => {
+  // Es lo que hace posible la prueba de consistencia. Antes la lista se
+  // reconstruía desde el estado actual y una rotación cambiaba una hoja en su
+  // sitio: el árbol nuevo no era una extensión del viejo.
+  const id = cuenta("Irene Registro");
+  repo.setPublicKey(id, jwk("irene"), "initial");
+  const antes = transparency.createKeySnapshot(getDb(), {
+    key: keyPair(),
+    now: "2101-01-01T00:00:00.000Z",
+  });
+
+  repo.setPublicKey(id, jwk("irene-rotada"), "rotation");
+  const despues = transparency.createKeySnapshot(getDb(), {
+    key: keyPair(),
+    now: "2101-01-02T00:00:00.000Z",
+  });
+
+  assert.ok(
+    despues.itemCount > antes.itemCount,
+    "rotar añade una línea, no reescribe la de antes",
+  );
+  const lineas = transparency.keyDirectoryLines(getDb());
+  assert.equal(
+    lineas.filter((line) => line.startsWith(`${id}|web|`)).length,
+    2,
+    "quedan las dos: el histórico no se borra",
+  );
+  assert.ok(
+    transparency.keyInclusion(id)!.line.includes(repo.getPublicKeyRecord(id)!.keyId),
+    "y la prueba devuelve la última, que es la que vale",
+  );
+
+  const prueba = transparency.consistencyProofBetween(antes.id, despues.id)!;
+  assert.ok(prueba, "hay prueba entre las dos instantáneas");
+  assert.equal(
+    await verifyConsistencyProof(
+      antes.itemCount,
+      antes.merkleRoot,
+      despues.itemCount,
+      despues.merkleRoot,
+      prueba.proof,
+    ),
+    true,
+  );
+});
+
+test("reponer claves de un solo uso no engorda el directorio", async () => {
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Julia Repone");
+  const account = await v2.createAccount(2);
+  const deviceId = "julia-dispositivo-01";
+  await repo.publishDevice(id, {
+    ...v2.deviceKeys(account, deviceId),
+    oneTimeKeys: v2.oneTimeKeys(account, deviceId),
+  });
+  const trasAlta = transparency.keyDirectoryLines(getDb()).length;
+
+  // Segundo anuncio del mismo aparato (misma identidad): solo repone claves.
+  await repo.publishDevice(id, {
+    ...v2.deviceKeys(account, deviceId),
+    oneTimeKeys: v2.oneTimeKeys(account, deviceId),
+  });
+  assert.equal(
+    transparency.keyDirectoryLines(getDb()).length,
+    trasAlta,
+    "no hay nada nuevo que contar en el directorio",
+  );
+
+  repo.revokeDevice(id, deviceId);
+  assert.equal(
+    transparency.keyDirectoryLines(getDb()).length,
+    trasAlta + 1,
+    "retirarlo sí: deja una línea nueva con el estado",
+  );
+});
+
+test("borrar la cuenta retira sus dispositivos y deja la prueba en el directorio", async () => {
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Lucía Baja");
+  const account = await v2.createAccount(2);
+  const deviceId = "lucia-dispositivo-baja";
+  await repo.publishDevice(id, {
+    ...v2.deviceKeys(account, deviceId),
+    oneTimeKeys: v2.oneTimeKeys(account, deviceId),
+  });
+
+  repo.deleteAccount(id);
+  const conexion = getDb();
+  const devices = conexion
+    .prepare("SELECT COUNT(*) AS n FROM device_keys WHERE user_id = ?")
+    .get(id) as { n: number };
+  const keys = conexion
+    .prepare("SELECT COUNT(*) AS n FROM device_one_time_keys WHERE user_id = ?")
+    .get(id) as { n: number };
+  assert.equal(devices.n, 0, "no quedan dispositivos v2");
+  assert.equal(keys.n, 0, "no quedan claves de un solo uso");
+
+  const snapshot = transparency.createKeySnapshot(conexion, { key: keyPair() });
+  const proof = transparency.keyInclusion(id, `device:${deviceId}`);
+  assert.ok(proof, "la línea histórica sigue en el árbol");
+  assert.equal(proof.snapshotId, snapshot.id);
+  assert.match(proof.line, /\|revoked:\d{4}-/);
+});
+
+test("cambiar la identidad o retirar refresca la prueba el mismo día", async () => {
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Marta Refresco");
+  const account = await v2.createAccount(2);
+  const deviceId = "marta-dispositivo-refresco";
+  await repo.publishDevice(id, {
+    ...v2.deviceKeys(account, deviceId),
+    oneTimeKeys: v2.oneTimeKeys(account, deviceId),
+  });
+  const antes = transparency.createKeySnapshot(getDb(), { key: keyPair() });
+  assert.ok(transparency.keyInclusion(id, `device:${deviceId}`));
+
+  // Un cambio de identidad deja una línea nueva; la instantánea todavía tiene
+  // la vieja, así que `ensure` tiene que firmar otra.
+  const cambiado = repo.getDevice(id, deviceId)!;
+  getDb()
+    .prepare("UPDATE device_keys SET identity_key = ?, signing_key = ?, updated_at = ? WHERE user_id = ? AND device_id = ?")
+    .run("N".repeat(43), "M".repeat(43), new Date().toISOString(), id, deviceId);
+  transparency.recordDeviceInDirectory(getDb(), {
+    userId: id,
+    deviceId,
+    identityKey: "N".repeat(43),
+    signingKey: "M".repeat(43),
+    revokedAt: cambiado.revokedAt,
+    at: new Date().toISOString(),
+  });
+  const trasCambio = transparency.ensureKeySnapshotForDevice(id, deviceId);
+  assert.ok(trasCambio, "se crea una instantánea nueva");
+  assert.notEqual(trasCambio, antes.id);
+  assert.match(
+    transparency.keyInclusion(id, `device:${deviceId}`)!.line,
+    new RegExp(`${id}\\|device:${deviceId}\\|${"N".repeat(43)}\\|${"M".repeat(43)}\\|`),
+  );
+
+  // Y lo mismo al retirar: la última línea es `revoked:` y hay que publicarla.
+  repo.revokeDevice(id, deviceId);
+  const trasRetirar = transparency.ensureKeySnapshotForDevice(id, deviceId);
+  assert.ok(trasRetirar, "la retirada también se firma en el acto");
+  assert.match(transparency.keyInclusion(id, `device:${deviceId}`)!.line, /\|revoked:\d{4}-/);
 });

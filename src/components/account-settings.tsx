@@ -31,6 +31,20 @@ type StoredKeys = {
  * diálogo: son formularios largos, con contraseñas y verificación en dos
  * pasos, y así se pueden enlazar, recargar y leer con calma.
  */
+type OwnDevice = {
+  deviceId: string;
+  identityKey?: string;
+  signingKey?: string;
+  createdAt: string;
+  updatedAt: string;
+  oneTimeKeys: number;
+};
+
+/** Identificador legible de un dispositivo: no hace falta enseñar los 24 caracteres. */
+function shortDeviceId(deviceId: string): string {
+  return `${deviceId.slice(0, 6)}…${deviceId.slice(-4)}`;
+}
+
 export function AccountSettings({
   user,
   requests,
@@ -78,11 +92,72 @@ export function AccountSettings({
   const [localKeyId, setLocalKeyId] = useState<string | null>(null);
   const [keyPassword, setKeyPassword] = useState("");
   const [keyBusy, setKeyBusy] = useState(false);
+  const [v2Active, setV2Active] = useState(false);
+  const [v2Orphan, setV2Orphan] = useState(false);
+  const [v2Busy, setV2Busy] = useState(false);
+  const [v2Password, setV2Password] = useState("");
+  const [v2NeedsPassword, setV2NeedsPassword] = useState(false);
+  const [v2Msg, setV2Msg] = useState("");
+  const [v2Error, setV2Error] = useState("");
+  const [v2Devices, setV2Devices] = useState<OwnDevice[] | null>(null);
+  const [myDeviceId, setMyDeviceId] = useState<string | null>(null);
+  const [v2Revoking, setV2Revoking] = useState<string | null>(null);
   const [keyMsg, setKeyMsg] = useState("");
   const [keyError, setKeyError] = useState("");
 
   const [alertOn, setAlertOn] = useState(alertsOn);
   const [alertBusy, setAlertBusy] = useState(false);
+
+  // El dispositivo v2 no se crea solo: publicar la identidad de este navegador
+  // es una decisión (y puede pedir contraseña), así que aquí solo se mira si ya
+  // existe para poder decirlo.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
+      const active = bridge ? await bridge.hasV2Device(user.id).catch(() => false) : false;
+      const mine = bridge ? await bridge.deviceIdFor(user.id).catch(() => null) : null;
+      const localKeys = bridge ? await bridge.deviceKeysFor(user.id).catch(() => null) : null;
+      if (!cancelled) {
+        setV2Active(active);
+        setMyDeviceId(mine);
+      }
+      // La lista se pide dentro del efecto: así no depende de una función que
+      // cambia en cada render.
+      await api<{ devices: OwnDevice[] }>("/api/account/devices")
+        .then((data) => {
+          if (cancelled) return;
+          setV2Devices(data.devices);
+          // El dispositivo local puede haber sido retirado desde otro
+          // navegador. Si el servidor ya no lo lista, no se puede seguir
+          // diciendo que este navegador está activo.
+          const listed = data.devices.find((device) => device.deviceId === mine);
+          if (mine && !listed) {
+            setV2Active(false);
+            setV2Orphan(true);
+          } else if (
+            listed &&
+            localKeys &&
+            (listed.identityKey !== localKeys.identityKey ||
+              listed.signingKey !== localKeys.signingKey)
+          ) {
+            // El servidor cambió las claves bajo el mismo id: este navegador ya
+            // no puede recibir lo que se cifre con la identidad publicada.
+            setV2Active(false);
+            setV2Orphan(true);
+            setV2Error(
+              t("El servidor publica otras claves para este dispositivo. Vuelve a activar el cifrado v2."),
+            );
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setV2Devices([]);
+        });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,6 +294,87 @@ export function AccountSettings({
       );
     } finally {
       setKeyBusy(false);
+    }
+  }
+
+  /** La lista de dispositivos de esta cuenta, con lo justo para gestionarlos. */
+  async function loadV2Devices() {
+    try {
+      const data = await api<{ devices: OwnDevice[] }>("/api/account/devices");
+      setV2Devices(data.devices);
+    } catch {
+      setV2Devices([]);
+      setV2Error(t("No se pudieron cargar los dispositivos."));
+    }
+  }
+
+  /**
+   * Retira un dispositivo: deja de recibir claves nuevas.
+   *
+   * Si es este navegador, además se olvida su estado local: la clave privada no
+   * sirve para nada una vez el servidor ya no la publica, y dejarla sería
+   * conservar material que nadie va a usar.
+   */
+  async function revokeV2Device(deviceId: string) {
+    setV2Revoking(deviceId);
+    setV2Error("");
+    setV2Msg("");
+    try {
+      await api(`/api/account/devices/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
+      if (deviceId === myDeviceId) {
+        const bridge = await import("@/lib/e2e-v2-chat");
+        await bridge.forgetV2Device(user.id);
+        setV2Active(false);
+        setMyDeviceId(null);
+      }
+      setV2Msg(t("Dispositivo retirado: ya no recibe claves nuevas."));
+      await loadV2Devices();
+    } catch (caught) {
+      setV2Error(
+        caught instanceof Error ? caught.message : t("No se pudo retirar el dispositivo."),
+      );
+    } finally {
+      setV2Revoking(null);
+    }
+  }
+
+  /**
+   * Publica el dispositivo v2 de este navegador.
+   *
+   * Si el servidor pide contraseña —la cuenta ya tenía identidad— se muestra el
+   * campo y se reintenta; no se guarda nada a medias.
+   */
+  async function activateV2Device() {
+    setV2Busy(true);
+    setV2Error("");
+    setV2Msg("");
+    try {
+      const activated = await import("@/lib/e2e-v2-chat");
+      // Si el servidor ya no lista el dispositivo local, hay que empezar de
+      // cero: publicar el mismo id no lo resucita y la clave privada antigua
+      // ya no sirve para las sesiones nuevas.
+      if (v2Orphan) await activated.forgetV2Device(user.id);
+      await activated.activateV2(user.id, v2Password || undefined);
+      setV2Orphan(false);
+      setV2Active(true);
+      setV2NeedsPassword(false);
+      setV2Password("");
+      setV2Msg(t("Cifrado v2 activado en este navegador."));
+      const fresh = await import("@/lib/e2e-v2-chat");
+      setMyDeviceId(await fresh.deviceIdFor(user.id).catch(() => null));
+      await loadV2Devices();
+    } catch (caught) {
+      const status = (caught as { status?: number }).status;
+      if (status === 428) {
+        setV2NeedsPassword(true);
+        setV2Error(t("Confirma tu contraseña para publicar este dispositivo."));
+      } else {
+        setV2Error(
+          caught instanceof Error ? caught.message : t("No se pudo activar el cifrado v2."),
+        );
+      }
+    } finally {
+      setV2Busy(false);
     }
   }
 
@@ -675,6 +831,95 @@ export function AccountSettings({
               </button>
             </form>
           )}
+          <div className="v2-device">
+            <h4>{t("Cifrado de nueva generación (v2)")}</h4>
+            <p className="form-hint">
+              {t(
+                "Cada dispositivo tiene su propia clave y cada mensaje una clave distinta: si te quitan el aparato hoy, no podrán leer lo de ayer. Hace falta activarlo en cada navegador.",
+              )}
+            </p>
+            {v2Error && (
+              <p className="form-error" role="alert">
+                {v2Error}
+              </p>
+            )}
+            {v2Msg && (
+              <p className="action-feedback" role="status">
+                {v2Msg}
+              </p>
+            )}
+            {v2Devices && v2Devices.length > 0 && (
+              <div className="v2-devices">
+                <h5>{t("Dispositivos de cifrado")}</h5>
+                <ul>
+                  {v2Devices.map((device) => (
+                    <li key={device.deviceId}>
+                      <code>{shortDeviceId(device.deviceId)}</code>
+                      {device.deviceId === myDeviceId && (
+                        <span className="form-hint"> · {t("Este navegador")}</span>
+                      )}
+                      {device.deviceId !== myDeviceId && (
+                        <button
+                          type="button"
+                          className="secondary-button small"
+                          aria-label={`${t("Retirar el dispositivo")} ${shortDeviceId(device.deviceId)}`}
+                          disabled={v2Revoking !== null}
+                          onClick={() => void revokeV2Device(device.deviceId)}
+                        >
+                          {v2Revoking === device.deviceId ? t("Retirando…") : t("Retirar dispositivo")}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {v2Active ? (
+              <p className="action-feedback" role="status">
+                {t("Este navegador ya tiene su dispositivo v2.")}
+              </p>
+            ) : (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void activateV2Device();
+                }}
+              >
+                {v2Orphan && (
+                  <p className="form-note" role="status">
+                    {t(
+                      "Este dispositivo ya no está activo en el servidor. Al volver a activar el cifrado se creará uno nuevo en este navegador y se perderá el historial local de v2; los mensajes anteriores no se podrán leer aquí.",
+                    )}
+                  </p>
+                )}
+                {v2NeedsPassword && (
+                  <label htmlFor="v2-password">
+                    {t("Contraseña actual")}
+                    <input
+                      id="v2-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={v2Password}
+                      onChange={(event) => setV2Password(event.target.value)}
+                      required
+                    />
+                  </label>
+                )}
+                <button
+                  className="secondary-button small"
+                  type="submit"
+                  disabled={v2Busy || (v2NeedsPassword && !v2Password)}
+                >
+                  {v2Busy
+                    ? t("Activando…")
+                    : v2Orphan
+                      ? t("Volver a activar el cifrado v2 en este navegador")
+                      : t("Activar el cifrado v2 en este navegador")}
+                </button>
+              </form>
+            )}
+          </div>
         </details>
 
         <details>

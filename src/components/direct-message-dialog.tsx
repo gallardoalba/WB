@@ -50,6 +50,12 @@ type Prepared = {
   keyChanged: boolean;
   /** Huella que las dos partes pueden comparar por otro canal. */
   safety: string | null;
+  /** Huella de los dispositivos v2, si este navegador tiene uno. */
+  v2Safety: string | null;
+  /** Mensajes v2 que no se han podido descifrar en este dispositivo. */
+  v2Failed: number;
+  /** La verificación del dispositivo de la otra parte falló, si pasó. */
+  v2Blocked: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -61,6 +67,25 @@ function peerEntries(peer: DirectThreadView["peer"]): RecipientKey[] {
     return [{ keyId: peer.keyId, publicJwk: peer.keyJwk }];
   }
   return [];
+}
+
+/**
+ * El protocolo v2 se carga aparte: arrastra libolm (WASM) y solo hace falta
+ * cuando este navegador tiene ya su dispositivo. Sin él, el hilo funciona con
+ * v1 exactamente igual que antes.
+ */
+let v2Module: Promise<typeof import("@/lib/e2e-v2-chat") | null> | null = null;
+async function getV2(): Promise<typeof import("@/lib/e2e-v2-chat") | null> {
+  if (!v2Module) {
+    v2Module = import("@/lib/e2e-v2-chat").catch(() => null);
+  }
+  const bridge = await v2Module;
+  if (!bridge) {
+    // Un fallo de carga no se cachea: el siguiente intento puede funcionar.
+    v2Module = null;
+    return null;
+  }
+  return bridge.v2Supported() ? bridge : null;
 }
 
 /**
@@ -80,6 +105,9 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       texts: {},
       keyChanged: false,
       safety: null,
+      v2Safety: null,
+      v2Failed: 0,
+      v2Blocked: null,
     };
   }
   const serverKeys = payload.me.keys ?? [];
@@ -105,6 +133,9 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
         texts: {},
         keyChanged: true,
         safety: null,
+        v2Safety: null,
+        v2Failed: 0,
+        v2Blocked: null,
       };
     }
     return fetchThread(peerId, false);
@@ -120,6 +151,9 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       texts: {},
       keyChanged: true,
       safety: null,
+      v2Safety: null,
+      v2Failed: 0,
+      v2Blocked: null,
     };
   }
   const conversationId = directConversationId(payload.me.id, payload.peer.id);
@@ -144,6 +178,28 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
       if (text !== null) texts[message.id] = text;
     }),
   );
+
+  // Mientras conviven los protocolos, un mensaje puede traer solo sobre v2.
+  const v2Texts = await getV2()
+    .then((bridge) =>
+      bridge?.decryptV2({
+        userId: payload.me.id,
+        peerUserId: payload.peer.id,
+        conversation: conversationId,
+        messages: payload.messages.map((message) => ({
+          id: message.id,
+          senderDeviceId: message.senderDeviceId ?? "",
+          envelopes: message.envelopes,
+        })),
+      }),
+    )
+    .catch(() => undefined);
+  Object.assign(texts, v2Texts?.texts ?? {});
+  const v2Safety = await getV2()
+    .then((bridge) => bridge?.safetyWith(payload.me.id, payload.peer.id))
+    .catch(() => null);
+  const v2SafetyChanged = rememberV2Safety(payload.peer.id, v2Safety ?? null);
+
   return {
     payload,
     privateKey: identity.privateKey,
@@ -152,7 +208,38 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
     texts,
     keyChanged: false,
     safety,
+    v2Safety: v2Safety ?? null,
+    v2Failed: v2Texts?.failed ?? 0,
+    v2Blocked:
+      v2Texts?.blocked ??
+      (v2SafetyChanged
+        ? "La huella de los dispositivos de la otra persona ha cambiado. Compárala por otro canal antes de seguir."
+        : null),
   };
+}
+
+function v2SafetyKey(userId: string): string {
+  return `v2-safety:${userId}`;
+}
+
+function rememberV2Safety(userId: string, safety: string | null): boolean {
+  if (!safety) return false;
+  try {
+    const previous = localStorage.getItem(v2SafetyKey(userId));
+    if (previous && previous !== safety) return true;
+    if (!previous) localStorage.setItem(v2SafetyKey(userId), safety);
+  } catch {
+    // Sin almacenamiento local no se puede recordar.
+  }
+  return false;
+}
+
+function trustV2Safety(userId: string): void {
+  try {
+    localStorage.removeItem(v2SafetyKey(userId));
+  } catch {
+    // Nada que borrar.
+  }
 }
 
 export function DirectMessageDialog({
@@ -185,6 +272,9 @@ export function DirectMessageDialog({
   const [hasKey, setHasKey] = useState(false);
   const [keyChanged, setKeyChanged] = useState(false);
   const [safety, setSafety] = useState<string | null>(null);
+  const [v2Safety, setV2Safety] = useState<string | null>(null);
+  const [v2Failed, setV2Failed] = useState(0);
+  const [v2Blocked, setV2Blocked] = useState<string | null>(null);
   const privateKeyRef = useRef<CryptoKey | null>(null);
   const myKeyIdRef = useRef<string | null>(null);
   const peerKeysRef = useRef<RecipientKey[]>([]);
@@ -201,6 +291,9 @@ export function DirectMessageDialog({
           setHasKey(Boolean(prepared.privateKey && prepared.peerKeys.length > 0));
           setKeyChanged(prepared.keyChanged);
           setSafety(prepared.safety);
+          setV2Safety(prepared.v2Safety);
+          setV2Failed(prepared.v2Failed);
+          setV2Blocked(prepared.v2Blocked);
           setTexts(prepared.texts);
           if (prepared.payload.messages.length > 0) {
             await api(`/api/direct/${peerId}/read`, { method: "POST" }).catch(() => undefined);
@@ -230,10 +323,18 @@ export function DirectMessageDialog({
     return () => setError("");
   }, []);
 
+  async function trustNewV2Fingerprint() {
+    if (!thread) return;
+    trustV2Safety(thread.peer.id);
+    const bridge = await getV2().catch(() => null);
+    await bridge?.forgetPeerV2(thread.me.id, thread.peer.id);
+    await load();
+  }
+
   function send(event: FormEvent) {
     event.preventDefault();
     const body = draft.trim();
-    if (!body || !thread || !privateKeyRef.current || !myKeyIdRef.current) return;
+    if (!body || !thread) return;
     const peerId = thread.peer.id;
     const meId = thread.me.id;
     const keyId = myKeyIdRef.current;
@@ -245,17 +346,59 @@ export function DirectMessageDialog({
       agregarEnvio({ id: `envio-${Date.now()}`, texto: body, hora: new Date().toISOString() });
       try {
         const conversationId = directConversationId(meId, peerId);
-        const envelopes = await encryptForRecipients(
-          privateKey,
-          peerKeysRef.current,
-          conversationId,
-          body,
-          directAad(conversationId, meId, keyId),
-        );
-        await api(`/api/direct/${peerId}`, {
+        // Igual que en los intercambios: si la otra persona tiene dispositivo,
+        // el mensaje va solo en v2 y no se manda la copia de v1, que usa una
+        // clave estática y no tiene forward secrecy.
+        const v2 = await getV2()
+          .then((bridge) =>
+            bridge?.encryptV2({
+              userId: meId,
+              peerUserId: peerId,
+              conversation: conversationId,
+              text: body,
+            }),
+          )
+          .catch(() => null);
+
+        let payload: Record<string, unknown>;
+        if (v2?.status === "ok") {
+          payload = { v2: v2.payload };
+        } else if (v2?.status === "error") {
+          // No se cae a v1: el servidor lo rechazaría si la otra parte tiene
+          // dispositivo, y el usuario merece saber por qué no sale el mensaje.
+          setError(v2.message);
+          return;
+        } else {
+          if (v2Safety) {
+            setError(
+              t("No se pudo cargar el cifrado v2. Recarga la página antes de enviar; el mensaje no se ha enviado."),
+            );
+            return;
+          }
+          if (!privateKey || !keyId) {
+            throw new Error(
+              t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."),
+            );
+          }
+          const envelopes = await encryptForRecipients(
+            privateKey,
+            peerKeysRef.current,
+            conversationId,
+            body,
+            directAad(conversationId, meId, keyId),
+          );
+          payload = { keyId, envelopes };
+        }
+
+        const created = await api<{ id: string }>(`/api/direct/${peerId}`, {
           method: "POST",
-          body: { keyId, envelopes },
+          body: payload,
         });
+        // El sobre no va a este aparato: sin guardar el texto, dejaría de verse
+        // al recargar.
+        void getV2()
+          .then((bridge) => bridge?.rememberSentV2(meId, conversationId, created.id, body))
+          .catch(() => undefined);
         setDraft("");
         await load();
       } catch (caught) {
@@ -282,6 +425,29 @@ export function DirectMessageDialog({
         {error && (
           <p className="form-error" role="alert">
             {error}
+          </p>
+        )}
+
+        {v2Blocked && (
+          <div className="form-error" role="alert">
+            <p>
+              {t(
+                "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
+              )}
+            </p>
+            <button
+              type="button"
+              className="secondary-button small"
+              onClick={() => void trustNewV2Fingerprint()}
+            >
+              {t("He comparado la nueva huella y quiero continuar")}
+            </button>
+          </div>
+        )}
+
+        {v2Failed > 0 && (
+          <p className="form-note" role="status">
+            {t("Algunos mensajes no se han podido descifrar en este navegador.")}
           </p>
         )}
 
@@ -396,6 +562,18 @@ export function DirectMessageDialog({
                   )}
                 </p>
                 <code>{safety}</code>
+              </details>
+            )}
+
+            {v2Safety && (
+              <details className="safety-number">
+                <summary>{t("Huella de los dispositivos (v2)")}</summary>
+                <p>
+                  {t(
+                    "Huella de los dispositivos (v2). Cambia cuando cualquiera de las dos personas añade un aparato: vuelve a compararla.",
+                  )}
+                </p>
+                <code>{v2Safety}</code>
               </details>
             )}
           </>

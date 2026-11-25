@@ -57,6 +57,9 @@ test("dos seguidoras mutuas se escriben con mensajes cifrados de extremo a extre
   await composer.getByLabel("Escribe un mensaje").fill(texto);
   await composer.getByRole("button", { name: "Enviar" }).click();
   await expect(composer.getByText(texto).last()).toBeVisible();
+  // El texto es optimista; el sobre puede seguir en vuelo. La otra ventana
+  // abría el hilo antes de que el mensaje existiera y no lo veía.
+  await expect(composer.locator(".dm-pending")).toHaveCount(0, { timeout: 30_000 });
 
   // La otra parte abre la conversación desde el aviso del perfil y responde.
   await ana.goto("/u/usr_clara?dm=1");
@@ -67,6 +70,7 @@ test("dos seguidoras mutuas se escriben con mensajes cifrados de extremo a extre
   await thread.getByLabel("Escribe un mensaje").fill(respuesta);
   await thread.getByRole("button", { name: "Enviar" }).click();
   await expect(thread.getByText(respuesta).last()).toBeVisible();
+  await expect(thread.locator(".dm-pending")).toHaveCount(0, { timeout: 30_000 });
 
   // Y el mensaje de vuelta aparece descifrado en la primera ventana.
   await clara.goto("/u/usr_ana?dm=1");

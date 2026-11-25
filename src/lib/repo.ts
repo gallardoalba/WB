@@ -17,6 +17,7 @@ export * from "./repo/appeals";
 export * from "./repo/catalog";
 export * from "./repo/comments";
 export * from "./repo/direct";
+export * from "./repo/devices";
 export * from "./repo/lists";
 export * from "./repo/profile";
 export * from "./repo/public-works";

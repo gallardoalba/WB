@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db";
 import { ApiError } from "../errors";
+import { deviceDirectoryLine, revokedSlotDirectoryLine } from "../key-directory-format";
 import { getReaderJourney } from "./journey";
 import { cancelExchangesForAccount } from "./requests";
 import { nowIso } from "./shared";
@@ -78,9 +79,44 @@ export function deleteAccount(userId: string): void {
     db.prepare("DELETE FROM reading_lists WHERE owner_id = ?").run(userId);
     db.prepare("DELETE FROM follows WHERE follower_id = ? OR followed_id = ?").run(userId, userId);
     // Claves de dispositivo e historial: la fila de `users` se anonimiza, así
-    // que el `ON DELETE CASCADE` de `user_keys` **no** se dispara y las claves
-    // sobreviven a la baja. Son públicas, pero enlazan los dispositivos de la
-    // cuenta y su recorrido criptográfico: se van con ella.
+    // que los `ON DELETE CASCADE` **no** se disparan. Antes de borrar las
+    // filas se deja constancia en el registro append-only: una cuenta que deja
+    // de existir no puede seguir apareciendo como titular de una clave activa.
+    const at = nowIso();
+    const lastLine = db.prepare(
+      "SELECT line FROM key_directory_log WHERE user_id = ? AND slot = ? ORDER BY seq DESC LIMIT 1",
+    );
+    const insertLine = db.prepare(
+      "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+    );
+    const devices = db
+      .prepare("SELECT device_id, identity_key, signing_key FROM device_keys WHERE user_id = ?")
+      .all(userId) as { device_id: string; identity_key: string; signing_key: string }[];
+    for (const device of devices) {
+      const slot = `device:${device.device_id}`;
+      const line = deviceDirectoryLine({
+        userId,
+        deviceId: device.device_id,
+        identityKey: device.identity_key,
+        signingKey: device.signing_key,
+        updatedAt: at,
+        revokedAt: at,
+      });
+      if ((lastLine.get(userId, slot) as { line: string } | undefined)?.line !== line) {
+        insertLine.run(userId, slot, line, at);
+      }
+    }
+    const slots = db
+      .prepare("SELECT platform FROM user_keys WHERE user_id = ?")
+      .all(userId) as { platform: string }[];
+    for (const slot of slots) {
+      const line = revokedSlotDirectoryLine({ userId, platform: slot.platform, at });
+      if ((lastLine.get(userId, slot.platform) as { line: string } | undefined)?.line !== line) {
+        insertLine.run(userId, slot.platform, line, at);
+      }
+    }
+    db.prepare("DELETE FROM device_one_time_keys WHERE user_id = ?").run(userId);
+    db.prepare("DELETE FROM device_keys WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM user_keys WHERE user_id = ?").run(userId);
     db.prepare("DELETE FROM public_key_history WHERE user_id = ?").run(userId);
   })();

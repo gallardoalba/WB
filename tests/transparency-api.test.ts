@@ -114,3 +114,53 @@ test("el contenido podado responde 410 y no rompe la cadena", async () => {
   };
   assert.ok(indexBody.snapshots.some((snapshot) => snapshot.id === old.id));
 });
+
+test("la ruta de consistencia une dos instantáneas y rechaza lo que no es un id", async () => {
+  const consistency = (await import("../src/app/api/transparency/keys/consistency/route.ts")).GET;
+  const { privateKey } = generateKeyPairSync("ed25519");
+  const key = lib.signingKey(privateKey.export({ format: "pem", type: "pkcs8" }).toString())!;
+
+  const antes = lib.createKeySnapshot(db, {
+    key,
+    now: "2026-11-16T09:00:00.000Z",
+    lines: ["cuenta|web|clave-1|2026-11-16"],
+  });
+  const despues = lib.createKeySnapshot(db, {
+    key,
+    now: "2026-11-17T09:00:00.000Z",
+    lines: ["cuenta|web|clave-1|2026-11-16", "cuenta|web|clave-2|2026-11-17"],
+  });
+
+  const ok = await consistency(
+    get(`/api/transparency/keys/consistency?from=${antes.id}&to=${despues.id}`),
+  );
+  assert.equal(ok.status, 200);
+  const body = (await ok.json()) as {
+    from: { id: string; itemCount: number; merkleRoot: string };
+    to: { id: string; itemCount: number; merkleRoot: string };
+    proof: string[];
+  };
+  assert.equal(body.from.id, antes.id);
+  assert.equal(body.to.id, despues.id);
+  assert.ok(body.proof.length > 0, "hay prueba");
+
+  const sinParametros = await consistency(get("/api/transparency/keys/consistency"));
+  assert.equal(sinParametros.status, 400);
+
+  const basura = await consistency(
+    get("/api/transparency/keys/consistency?from=../etc/passwd&to=otra"),
+  );
+  assert.equal(basura.status, 422, "un id que no tiene forma de id no llega a la consulta");
+
+  const inexistente = await consistency(
+    get(
+      `/api/transparency/keys/consistency?from=kys_00000000-0000-4000-8000-000000000000&to=${despues.id}`,
+    ),
+  );
+  assert.equal(inexistente.status, 404);
+
+  const iguales = await consistency(
+    get(`/api/transparency/keys/consistency?from=${antes.id}&to=${antes.id}`),
+  );
+  assert.equal(iguales.status, 400);
+});

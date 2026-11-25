@@ -14,7 +14,16 @@ import type {
 import { publishRequestMessage } from "../live";
 import { canTransition, listingStatusFor } from "../request-flow";
 import { normalizeCoverUrl, normalizeText } from "../text";
-import { areBlocked, FALTAN_SOBRES, messageEnvelopesFor, nowIso } from "./shared";
+import {
+  areBlocked,
+  assertNoV1WhenV2,
+  assertV1StillAllowed,
+  assertV2Envelopes,
+  FALTAN_SOBRES,
+  messageEnvelopesFor,
+  nowIso,
+  type V2MessageInput,
+} from "./shared";
 import {
   assertVerified,
   getUserById,
@@ -803,6 +812,7 @@ export function listMessages(
   const rows = getDb()
     .prepare(
       `SELECT m.id, m.body, m.ciphertext, m.iv, m.key_id, m.encrypted, m.created_at,
+              m.sender_device_id,
               u.id AS sender_id, u.name AS sender_name
        FROM messages m JOIN users u ON u.id = m.sender_id
        WHERE m.request_id = @requestId
@@ -816,6 +826,7 @@ export function listMessages(
     ciphertext: string | null;
     iv: string | null;
     key_id: string | null;
+    sender_device_id: string | null;
     encrypted: number;
     created_at: string;
     sender_id: string;
@@ -836,6 +847,7 @@ export function listMessages(
       ciphertext: row.ciphertext,
       iv: row.iv,
       keyId: row.key_id,
+      senderDeviceId: row.sender_device_id,
       envelopes: envelopes.get(row.id) ?? [],
       encrypted: Boolean(row.encrypted),
       createdAt: row.created_at,
@@ -891,7 +903,9 @@ function storeMessage(input: {
   ciphertext: string | null;
   iv: string | null;
   keyId: string | null;
+  senderDeviceId: string | null;
   envelopes: MessageEnvelopeView[];
+  v2: V2MessageInput | null;
 }): MessageView {
   const db = getDb();
   const id = `msg_${randomUUID()}`;
@@ -900,9 +914,34 @@ function storeMessage(input: {
   if (!user) throw new ApiError(401, "Necesitas iniciar sesión.");
 
   db.transaction(() => {
+    // La comprobación que vale es esta, dentro de la transacción: la de fuera
+    // responde antes y con el mismo error, pero entre las dos puede entrar un
+    // alta desde otro proceso y el mensaje se guardaría sin el sobre nuevo.
+    const usesV1 =
+      Boolean(input.keyId) ||
+      input.envelopes.length > 0 ||
+      Boolean(input.ciphertext && input.iv);
+    if (input.v2) assertV2Envelopes(input.userId, input.otherId, input.v2);
+    if (usesV1) {
+      assertV1Envelopes(
+        input.userId,
+        input.otherId,
+        {
+          keyId: input.keyId ?? undefined,
+          ciphertext: input.ciphertext ?? undefined,
+          iv: input.iv ?? undefined,
+        },
+        input.envelopes,
+      );
+    }
+    assertNoV1WhenV2(input.userId, input.otherId, {
+      hasV1: usesV1,
+      hasV2: Boolean(input.v2),
+    });
     db.prepare(
-      `INSERT INTO messages (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO messages
+         (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at, sender_device_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.requestId,
@@ -911,16 +950,23 @@ function storeMessage(input: {
       input.ciphertext,
       input.iv,
       input.keyId,
-      input.ciphertext || input.envelopes.length > 0 ? 1 : 0,
+      input.ciphertext || input.envelopes.length > 0 || input.v2 ? 1 : 0,
       now,
+      input.senderDeviceId,
     );
     // Un sobre por cada clave activa del destinatario. El mensaje no guarda el
     // texto: cada aparato abre el suyo con su clave privada.
     const insertEnvelope = db.prepare(
-      "INSERT INTO message_envelopes (message_id, key_id, ciphertext, iv) VALUES (?, ?, ?, ?)",
+      `INSERT INTO message_envelopes (message_id, key_id, ciphertext, iv, protocol, type)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     );
     for (const envelope of input.envelopes) {
-      insertEnvelope.run(id, envelope.keyId, envelope.ciphertext, envelope.iv);
+      insertEnvelope.run(id, envelope.keyId, envelope.ciphertext, envelope.iv, 1, null);
+    }
+    // Y uno por cada dispositivo de v2: el cuerpo es el mensaje de libolm, que
+    // el servidor guarda tal cual sin poder abrirlo.
+    for (const envelope of input.v2?.envelopes ?? []) {
+      insertEnvelope.run(id, envelope.recipientDeviceId, envelope.body, "", 2, envelope.type);
     }
     db.prepare("UPDATE requests SET updated_at = ? WHERE id = ?").run(now, input.requestId);
 
@@ -945,8 +991,9 @@ function storeMessage(input: {
     ciphertext: input.ciphertext,
     iv: input.iv,
     keyId: input.keyId,
+    senderDeviceId: input.senderDeviceId,
     envelopes: input.envelopes,
-    encrypted: Boolean(input.ciphertext) || input.envelopes.length > 0,
+    encrypted: Boolean(input.ciphertext) || input.envelopes.length > 0 || Boolean(input.v2),
     createdAt: now,
     sender: { id: user.id, name: user.name },
     isMine: true,
@@ -979,7 +1026,9 @@ export function addMessage(requestId: string, userId: string, body: string): Mes
     ciphertext: null,
     iv: null,
     keyId: null,
+    senderDeviceId: null,
     envelopes: [],
+    v2: null,
   });
 }
 
@@ -995,58 +1044,93 @@ export function addEncryptedMessage(
   requestId: string,
   userId: string,
   input: {
-    keyId: string;
+    keyId?: string;
     ciphertext?: string;
     iv?: string;
     envelopes?: MessageEnvelopeView[];
+    v2?: V2MessageInput;
   },
 ): MessageView {
   const request = assertCanMessage(requestId, userId);
   const otherId = otherParticipant(request, userId);
-  const senderKeys = listPublicKeyRecords(userId);
-  if (senderKeys.length === 0) {
-    throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
-  }
-  if (!senderKeys.some((key) => key.keyId === input.keyId)) {
-    throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
-  }
-  const peerKeys = listPublicKeyRecords(otherId);
-  if (peerKeys.length === 0) {
-    throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
+
+  // Un mensaje va con sobres v1 (una ranura por aparato) o con sobres v2 (un
+  // dispositivo por sobre), nunca con los dos a la vez.
+  if (input.v2) {
+    assertV2Envelopes(userId, otherId, input.v2);
   }
 
   const envelopes = input.envelopes ?? [];
-  if (envelopes.length > 0) {
-    const allowed = new Set(peerKeys.map((key) => key.keyId));
-    const seen = new Set<string>();
-    for (const envelope of envelopes) {
-      if (!allowed.has(envelope.keyId)) {
-        throw new ApiError(400, "Hay un sobre dirigido a una clave que no es de la otra persona.");
-      }
-      if (seen.has(envelope.keyId)) {
-        throw new ApiError(400, "Hay dos sobres para la misma clave.");
-      }
-      seen.add(envelope.keyId);
+  // Un `keyId` propio significa que el cliente habla v1: entonces se le exigen
+  // sus claves y las de la otra parte, aunque el sobre venga luego mal.
+  const usesV1 = Boolean(input.keyId) || envelopes.length > 0 || Boolean(input.ciphertext && input.iv);
+  if (usesV1) {
+    assertV1Envelopes(userId, otherId, input, envelopes);
+    if (envelopes.length === 0 && !(input.ciphertext && input.iv)) {
+      throw new ApiError(400, "Falta el sobre cifrado.");
     }
-    // Un sobre por clave activa: con uno de menos, ese aparato se queda sin
-    // poder abrir el mensaje y nadie se entera hasta que lo intenta leer.
-    if (peerKeys.some((key) => !seen.has(key.keyId))) {
-      throw new ApiError(409, FALTAN_SOBRES);
-    }
-  } else if (!input.ciphertext || !input.iv) {
-    throw new ApiError(400, "Falta el sobre cifrado.");
   }
+  if (!usesV1 && !input.v2) throw new ApiError(400, "Falta el sobre cifrado.");
+  assertNoV1WhenV2(userId, otherId, { hasV1: usesV1, hasV2: Boolean(input.v2) });
 
   return storeMessage({
     requestId,
     userId,
     otherId,
     body: "",
-    ciphertext: envelopes.length > 0 ? null : input.ciphertext ?? null,
-    iv: envelopes.length > 0 ? null : input.iv ?? null,
-    keyId: input.keyId,
+    ciphertext: usesV1 && envelopes.length === 0 ? input.ciphertext ?? null : null,
+    iv: usesV1 && envelopes.length === 0 ? input.iv ?? null : null,
+    // En v2 el `key_id` del mensaje es el dispositivo que firma: el receptor lo
+    // necesita para saber a qué paquete del registro pedir la clave.
+    // `keyId` se queda con la ranura de v1: el AAD de v1 se calcula con ella y
+    // el dispositivo de v2 va en su propia columna.
+    keyId: input.keyId ?? null,
+    senderDeviceId: input.v2?.senderDeviceId ?? null,
     envelopes,
+    v2: input.v2 ?? null,
   });
+}
+
+/**
+ * Reglas de los sobres de v1: la clave del remitente tiene que ser suya y hay
+ * que cubrir **todas** las ranuras activas del destinatario. Con una de menos,
+ * ese aparato se queda sin poder abrir el mensaje y nadie se entera hasta que lo
+ * intenta leer.
+ */
+function assertV1Envelopes(
+  userId: string,
+  otherId: string,
+  input: { keyId?: string; ciphertext?: string; iv?: string },
+  envelopes: MessageEnvelopeView[],
+): void {
+  if (envelopes.length > 0 || Boolean(input.ciphertext && input.iv)) assertV1StillAllowed();
+  const senderKeys = listPublicKeyRecords(userId);
+  if (senderKeys.length === 0) {
+    throw new ApiError(409, "Publica tu clave de cifrado antes de enviar mensajes.");
+  }
+  if (!input.keyId || !senderKeys.some((key) => key.keyId === input.keyId)) {
+    throw new ApiError(409, "Tu clave de cifrado ha cambiado: recarga la conversación.");
+  }
+  const peerKeys = listPublicKeyRecords(otherId);
+  if (peerKeys.length === 0) {
+    throw new ApiError(409, "La otra persona todavía no ha activado el cifrado.");
+  }
+  if (envelopes.length === 0) return;
+
+  const allowed = new Set(peerKeys.map((key) => key.keyId));
+  const seen = new Set<string>();
+  for (const envelope of envelopes) {
+    if (!allowed.has(envelope.keyId)) {
+      throw new ApiError(400, "Hay un sobre dirigido a una clave que no es de la otra persona.");
+    }
+    if (seen.has(envelope.keyId)) {
+      throw new ApiError(400, "Hay dos sobres para la misma clave.");
+    }
+    seen.add(envelope.keyId);
+  }
+  if (peerKeys.some((key) => !seen.has(key.keyId))) {
+    throw new ApiError(409, FALTAN_SOBRES);
+  }
 }
 
 /**

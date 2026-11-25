@@ -135,6 +135,28 @@ export function checkEnv(env: EnvLike = process.env): EnvIssue[] {
         "No es una clave Ed25519 en PKCS#8 (PEM o base64). Genera una con `npm run transparency:key`.",
       );
     }
+  } else if (!has(env, "TRANSPARENCY_SIGNING_KEY")) {
+    // El protocolo v2 comprueba que el dispositivo ajeno está en el directorio
+    // firmado antes de abrir sesión. Sin clave de firma esas instantáneas van
+    // sin firma, la prueba no vale y v2 no se puede usar: se cae a v1, y donde
+    // las dos partes tienen dispositivo el servidor lo rechaza.
+    warn(
+      "TRANSPARENCY_SIGNING_KEY",
+      "Sin esta clave las instantáneas del directorio van sin firma y el cifrado v2 no puede verificar dispositivos: los mensajes se quedan en el protocolo v1. Genera una con `npm run transparency:key`.",
+    );
+  }
+
+  // Un apagado de v1 con fecha ilegible no apaga nada: `v1Sunset()` devuelve
+  // `null` y el servidor sigue aceptando el protocolo viejo mientras el operador
+  // cree lo contrario.
+  if (has(env, "E2E_V1_SUNSET")) {
+    const fecha = new Date(env.E2E_V1_SUNSET!.trim());
+    if (Number.isNaN(fecha.getTime())) {
+      error(
+        "E2E_V1_SUNSET",
+        "No es una fecha ISO 8601 válida: con este valor el apagado de v1 no se aplica. Ejemplo: `2027-01-31T00:00:00Z`.",
+      );
+    }
   }
 
   if (!has(env, "APP_ENCRYPTION_KEY")) {

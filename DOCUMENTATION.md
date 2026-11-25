@@ -17,19 +17,19 @@ The code is AGPL-3.0 licensed.
 ```
 src/
   app/                 pages and route handlers (App Router)
-    api/               70 route files grouped by domain
+    api/               76 route files grouped by domain
     styles/            tokens, typography, structure, cards, dialogs, detail pages
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v69), seed
+    db/                connection, base schema (v2), migrations (v3–v75), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
     e2e.ts             end-to-end encryption (ECDH + HKDF + AES-GCM)
     route.ts           route wrapper: session, body, quota, errors
-tests/                 860 unit and integration tests (121 files)
-e2e/                   63 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
+tests/                 936 unit and integration tests (132 files)
+e2e/                   64 browser tests in Chromium with Playwright (+ WebCrypto smoke in Firefox and WebKit)
 deploy/                systemd, nginx, environment template and guide
 ```
 
@@ -73,7 +73,7 @@ Internal pages require a session; without one they redirect to `/?auth=1&next=�
 | `/api/transparency`, `/api/transparency/export` | Signed snapshots of the public catalogue: Merkle root, payload hash and Ed25519 signature; the export is the exact NDJSON that was signed. |
 | `/sitemap.xml`, `/robots.txt` | The sitemap publishes the home page and information pages in all three languages. Public catalogue, work, list and profile pages are omitted and marked `noindex`; no search-engine notifications are sent. |
 
-The API has 70 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place: all 93 exported JSON methods go through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
+The API has 76 route files under `src/app/api`. `route()` (`src/lib/route.ts`) applies the session, the Zod body schema, the quota with origin guard and `handleApiError()` in one place, and every handler goes through it. `tests/route.test.ts` checks on the files that no route leaves errors untranslated, that every mutation checks the origin and that no new route skips the wrapper. `route.tsx` (Open Graph images) is out of that count because it does not return JSON.
 
 - `/api/auth/*`: registration, sign-in, sign-out, session, verification and reset with single-use tokens.
 - `/api/listings`, `/api/listings/[id]`, `…/favorite`: publish, edit, withdraw and save copies.
@@ -81,6 +81,7 @@ The API has 70 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `/api/books/*`: work search, comments, likes, per-work alerts and reading states.
 - `/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messages, following and blocking.
 - `/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.
+- `/api/account/devices` (list and revoke), `/api/account/devices/[deviceId]`, `/api/users/[userId]/devices` (and `…/claim`, `…/proof`): the v2 device registry: each device publishes its signed bundle, the account lists and revokes its own, a peer gets the public bundle list, a single-use key is handed out only to an account it could talk to, and a proof shows that a device is in the signed key directory.
 - `/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: sanction appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person — from the team or, with their name recorded, from another instance.
 - `/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.
 - `/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic records (DNB and Open Library). Covers are streamed from disk as they are read (`src/lib/cover-response.ts`, chunked, no buffer per visitor), and a conditional request is answered `304` from the `stat` alone, without opening the file; the browser requests the reduced WebP variant through `/_next/image`, so a 220 px card never downloads the 1600 px JPEG. Each URL carries a version (`?v=…`, set on upload), which is what keeps a replaced cover out of every cache.
@@ -99,7 +100,7 @@ The API has 70 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v69). A new installation starts from `SCHEMA_V2` and its indexes and runs the 67 steps up to v69; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Nineteen of them matter for reading today's code:
+Migrations are versioned with `PRAGMA user_version` (currently v75). A new installation starts from `SCHEMA_V2` and its indexes and runs the 73 steps up to v75; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Twenty-three of them matter for reading today's code:
 
 - **v40** — One key slot per device and one encrypted envelope per key.
 - **v44** — When an exchange closes, the receiver gets a copy of their own.
@@ -120,6 +121,12 @@ Migrations are versioned with `PRAGMA user_version` (currently v69). A new insta
 - **v67** — Drops the two leftover tables of the former social publishing queue, so no unused schema or orphan rows remain.
 - **v68** — Keeps the native admin dashboard's history: `metrics_samples` stores one compact JSON snapshot every 15 minutes so the panel can draw 24 h/7 d without Prometheus or Grafana.
 - **v69** — Keeps the first-steps checklist dismissed in the account, so it no longer reappears when signing in from another browser; the local flag remains as a fallback.
+- **v70** — The v2 end-to-end protocol: `device_keys` holds each device's public bundle and `device_one_time_keys` the keys handed out once per session.
+- **v71** — The envelopes of that protocol: the existing envelope tables gain `protocol` (1 = v1 slot, 2 = v2 device) and `type` (pre-key or ratchet message), so one row per recipient device holds the body and nothing the server can read.
+- **v72** — Which device signed each message, kept apart from the v1 slot because the v1 associated data is derived from it.
+- **v73** — The key directory becomes an append-only log (`key_directory_log`): snapshots are built from it, so a new root is an extension of the previous one and a consistency proof exists.
+- **v74** — The device leaf in the key directory includes the Ed25519 signing key, so the operator commitment binds both device keys; existing v73 leaves are followed by a new-format line.
+- **v75** — Claimed one-time keys leave a tombstone (`device_one_time_keys_used`), so a lost publication response cannot republish a key that was already handed out.
 
 The detail of every step lives in that file and in its git history.
 
@@ -141,8 +148,9 @@ Messages within an exchange and direct messages are encrypted end to end (see **
 
 - Passwords with asynchronous `scrypt` and a unique salt, with the parameters stored in the hash itself (`scrypt$N,r,p$salt$hash`) so they can be raised later without locking anyone out; the previous format is still verified and rehashed at the next sign-in; sign-in always verifies a hash (against a decoy when the account does not exist), so response time does not reveal which addresses are registered.
 - Exchange and direct messages are end-to-end encrypted (ECDH P-256 + HKDF-SHA256 + AES-GCM). Each account publishes **one key per device slot** (the browser uses the `web` slot); the sender stores one envelope per recipient key, so several devices of the same account can read the same message. Only the first key of an account is published without confirmation (TOFU): as soon as any slot exists, both replacing a key and **adding a device** require the account password, and every change raises a security notification. The protocol, its threat model and the accepted limitations are in [`docs/e2e-protocol.md`](docs/e2e-protocol.md).
+- On top of that, protocol **v2** is being rolled out ([`docs/e2e-protocol-v2.md`](docs/e2e-protocol-v2.md)): identity **per device** instead of per platform slot, single-use keys the server hands out only once, and a Double Ratchet from libolm. That buys forward secrecy — a device compromised today does not open yesterday's messages — and authenticates the sender inside the session. Each device signs its bundle and **every** single-use key with its Ed25519 key; the server verifies the signature before storing anything and the client before opening a session, because libolm does not sign those keys. The text travels in an envelope that carries the conversation and is padded to 256-byte blocks, so a message moved to another thread fails to open and its size does not reveal its length. The server publishes, lists, revokes and hands out the keys and stores the envelopes without being able to open them; the client opens the device, writes to every device of the other person and decrypts what arrives. Once v2 is enabled in **Account**, exchanges and direct messages try v2 first and, when the other person has a device, the message goes out **only** in v2: sending the v1 copy as well would hand the server a ciphertext under a static key for every message, which is exactly the hole v2 closes. The v1 copy remains only for people who have no device yet, and `E2E_V1_SUNSET` sets the date when v1 stops being accepted. libolm is served from `/olm/` and loaded at runtime (the bundler cannot resolve its Node branches), and the CSP allows `wasm-unsafe-eval`, which only permits compiling WebAssembly. The thread shows a fingerprint of both sides' devices that changes as soon as anyone adds one: that is what is compared out of band to cover first contact. Before opening a session with someone else's device, the client checks with an inclusion proof that it is in the latest signed directory snapshot, verifies that signature and **pins** the operator key, so a second history stops matching. Single-use keys are topped up on their own when few remain, the device state is serialised across tabs with `navigator.locks`, and libolm is only served when it matches the `checksums.txt` published with its package. libolm is deprecated in favour of vodozemac (Rust): migrating is the next piece, and until then the protocol offers no post-quantum resistance.
 - The browser keeps **one identity per account** (`identity-v2:<userId>` in IndexedDB), never one per browser: two accounts that share a device must not share a key pair. The single identity of older versions is adopted once, and only for the account whose published `web` key is that same key; after that it is marked as taken, so the second account creates its own and has to confirm the password to publish it.
-- What it does **not** protect against, plainly: every message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change, not a patch.
+- What it does **not** protect against, plainly: a v1 message is encrypted with the identity key of its slot, **with no forward secrecy** (no ratchet), and there is no recovery. Whoever gets both the database and one device's private key can read what that device received; losing the device or the browser data means losing that history. Changing it takes a versioned protocol change, not a patch.
 - 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted, and the database only stores its SHA-256.
 - Second factor (TOTP per RFC 6238, ±1 step window, anti-replay) required for moderation and administration in production; secrets are stored encrypted.
 - The TOTP secret — and, in older databases, the shipping columns that v61 removed — is stored with AES-256-GCM and a key ring (`APP_ENCRYPTION_KEY`, `APP_ENCRYPTION_OLD_KEYS`), with an AAD that binds each value to its row and column. In production a value stored in plain text is a configuration error, not something to read silently: `decryptSecret()` throws and `npm run rotate:secrets` encrypts the leftovers.
@@ -237,7 +245,7 @@ The canonical template is `deploy/env.example`: every variable — the ones in t
 
 ## Tests and continuous integration
 
-`npm test` runs 860 unit and integration tests in 121 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 63 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
+`npm test` runs 936 unit and integration tests in 132 files (Node test runner on SQLite in memory), and `npm run test:e2e` adds 64 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto/IndexedDB smoke in Firefox and WebKit.
 
 `npm run test:coverage` enforces minimum thresholds of 92 % lines, 80 % branches and 88 % functions. Two of the browser tests are guards rather than features: `e2e/accesibilidad.spec.ts` runs **axe** (WCAG 2.0/2.1 A and AA) on the home page, the catalogue, a copy page and the sign-in dialog and fails on `serious` or `critical` findings, and `e2e/rendimiento.spec.ts` checks that a catalogue visit stays under a **byte budget** and that no single image goes over 250 KB — the guard against covers going back to the 1.3 MB originals. The budget is measured against the production build, so it only runs in CI. Continuous integration (`.github/workflows/ci.yml`) runs `lint`, `typecheck`, `test`, `test:coverage`, `build`, `npm audit --omit=dev`, the browser tests and a build of the Docker image, which is then scanned with Trivy: the job only fails on **critical vulnerabilities that have a fix**, because an advisory with no available patch cannot be solved at that moment but is still recorded.
 

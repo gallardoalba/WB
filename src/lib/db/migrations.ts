@@ -9,6 +9,7 @@ import type { Db } from "./index";
 import { CITIES, cityDistances } from "../cities";
 import { CATEGORIES, TAGS } from "../domain";
 import { encryptSecret, isEncrypted, shipContext } from "../secret-box";
+import { deviceDirectoryLine, slotDirectoryLine } from "../key-directory-format";
 import { normalizeText } from "../text";
 import { workKeyFromTitle } from "../work";
 import { INDEXES, LEGACY_UPGRADE, SCHEMA_V2, SCHEMA_VERSION } from "./schema";
@@ -2135,6 +2136,266 @@ function migrateToV69(db: Db) {
   db.pragma("user_version = 69");
 }
 
+/**
+ * v70: registro de dispositivos y sus claves de un solo uso.
+ *
+ * El protocolo v2 necesita una identidad **por dispositivo**, no por ranura de
+ * plataforma: publicar desde otro navegador ya no sustituye la clave anterior.
+ * La tabla guarda solo material público (identidad Curve25519, firma Ed25519);
+ * las claves privadas no salen del dispositivo.
+ *
+ * `bundle_signature` y `signature` son firmas Ed25519 del propio dispositivo
+ * sobre su paquete y sobre cada clave de un solo uso. libolm no las firma, así
+ * que son lo único que impide que el servidor cambie la clave que entrega y se
+ * quede en medio del establecimiento. Las claves de un solo uso se entregan de
+ * una en una y se borran en la misma transacción, así que el servidor no puede
+ * reutilizarlas.
+ */
+function migrateToV70(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_keys (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL,
+      identity_key TEXT NOT NULL,
+      signing_key TEXT NOT NULL,
+      bundle_signature TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      revoked_at TEXT,
+      PRIMARY KEY (user_id, device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS device_keys_user ON device_keys(user_id);
+
+    CREATE TABLE IF NOT EXISTS device_one_time_keys (
+      user_id TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      key_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      signature TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, device_id, key_id),
+      FOREIGN KEY (user_id, device_id) REFERENCES device_keys(user_id, device_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS device_one_time_keys_pending
+      ON device_one_time_keys(user_id, device_id, created_at);
+  `);
+
+  // Una base que ya tenía la tabla de una versión de desarrollo anterior de
+  // esta misma migración no gana la columna con `IF NOT EXISTS`: se añade aquí,
+  // como en las demás, para que la escalera sea idempotente de verdad.
+  const columnas = (db.pragma("table_info(device_keys)") as { name: string }[]).map(
+    (columna) => columna.name,
+  );
+  if (columnas.length > 0 && !columnas.includes("bundle_signature")) {
+    db.exec("ALTER TABLE device_keys ADD COLUMN bundle_signature TEXT NOT NULL DEFAULT ''");
+  }
+  db.pragma("user_version = 70");
+}
+
+/**
+ * v71: los sobres del protocolo v2 caben en las tablas que ya hay.
+ *
+ * Un mensaje siempre fue «una fila por mensaje y un sobre por destinatario»; lo
+ * que cambia con v2 es que el destinatario es un **dispositivo** y el cuerpo es
+ * un mensaje de libolm, no un AES-GCM. Se añade `protocol` (1 = v1 por ranura,
+ * 2 = v2 por dispositivo) y `type` (pre-clave o mensaje del ratchet) en vez de
+ * duplicar tablas: así el hilo, los no leídos, los avisos, la exportación y la
+ * purga siguen valiendo para los dos formatos sin tocar nada más.
+ */
+function migrateToV71(db: Db) {
+  // Se comprueba antes de añadir: una base restaurada de una copia ya migrada, o
+  // una instalación nueva que nace con el esquema completo, traen las columnas.
+  const addColumn = (table: string, column: string, definition: string) => {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (columns.some((existing) => existing.name === column)) return;
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  };
+  addColumn("message_envelopes", "protocol", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("message_envelopes", "type", "INTEGER");
+  addColumn("dm_message_envelopes", "protocol", "INTEGER NOT NULL DEFAULT 1");
+  addColumn("dm_message_envelopes", "type", "INTEGER");
+  db.pragma("user_version = 71");
+}
+
+/**
+ * v72: qué dispositivo firmó cada mensaje, aparte de la clave de v1.
+ *
+ * `key_id` guarda la **ranura de v1** y el AAD de v1 se calcula con ella: al
+ * meter ahí el dispositivo de v2, un envío dual dejaba el sobre v1 ilegible para
+ * cualquier cliente antiguo. Son dos datos distintos y van en dos columnas.
+ */
+function migrateToV72(db: Db) {
+  const addColumn = (table: string, column: string, definition: string) => {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (columns.some((existing) => existing.name === column)) return;
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  };
+  addColumn("messages", "sender_device_id", "TEXT");
+  addColumn("dm_messages", "sender_device_id", "TEXT");
+  db.pragma("user_version = 72");
+}
+
+/**
+ * v73: registro **append-only** del directorio de claves.
+ *
+ * Antes, la lista firmada se reconstruía desde el estado actual: una rotación
+ * cambiaba una hoja en su sitio y el árbol nuevo dejaba de ser una extensión del
+ * anterior, así que no podía existir prueba de consistencia entre dos raíces.
+ * Con un registro que solo crece, la raíz nueva contiene a la vieja y se puede
+ * demostrar sin enseñar el árbol entero.
+ *
+ * Se rellena con lo que hay hoy (una entrada por ranura y por dispositivo) para
+ * que la primera instantánea después de migrar no salga vacía.
+ */
+function migrateToV73(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS key_directory_log (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      line TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS key_directory_log_slot
+      ON key_directory_log(user_id, slot, seq);
+  `);
+
+  const empty = db.prepare("SELECT 1 AS hay FROM key_directory_log LIMIT 1").get() as
+    | { hay: number }
+    | undefined;
+  if (empty) {
+    db.pragma("user_version = 73");
+    return;
+  }
+
+  const insert = db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  );
+  db.transaction(() => {
+    const slots = db
+      .prepare("SELECT user_id, platform, key_id, updated_at FROM user_keys ORDER BY user_id, platform")
+      .all() as { user_id: string; platform: string; key_id: string; updated_at: string }[];
+    for (const row of slots) {
+      insert.run(
+        row.user_id,
+        row.platform,
+        slotDirectoryLine({
+          userId: row.user_id,
+          platform: row.platform,
+          keyId: row.key_id,
+          updatedAt: row.updated_at,
+        }),
+        row.updated_at,
+      );
+    }
+    const devices = db
+      .prepare(
+        "SELECT user_id, device_id, identity_key, signing_key, updated_at, revoked_at FROM device_keys ORDER BY user_id, device_id",
+      )
+      .all() as {
+      user_id: string;
+      device_id: string;
+      identity_key: string;
+      signing_key: string;
+      updated_at: string;
+      revoked_at: string | null;
+    }[];
+    for (const row of devices) {
+      insert.run(
+        row.user_id,
+        `device:${row.device_id}`,
+        deviceDirectoryLine({
+          userId: row.user_id,
+          deviceId: row.device_id,
+          identityKey: row.identity_key,
+          signingKey: row.signing_key,
+          updatedAt: row.updated_at,
+          revokedAt: row.revoked_at,
+        }),
+        row.updated_at,
+      );
+    }
+  })();
+  db.pragma("user_version = 73");
+}
+
+/**
+ * v74: la hoja del dispositivo incluye la clave de firma.
+ *
+ * v73 publicaba `cuenta|device:<id>|identidad|fecha|revocado`. La firma Ed25519
+ * se quedaba fuera del compromiso: el servidor podía cambiar solo esa clave en
+ * la lista de dispositivos, el cliente la fijaba en el primer prekey y los
+ * envíos posteriores fallaban. La hoja pasa a llevar las dos claves juntas.
+ *
+ * Las bases que ya estaban en v73 conservan sus líneas de cinco campos (el
+ * registro es append-only). Se añade una línea nueva con el formato actual para
+ * cada dispositivo, de modo que la última línea —la que leen las pruebas— sea
+ * la que ata las dos claves.
+ */
+function migrateToV74(db: Db) {
+  const last = db.prepare(
+    "SELECT line FROM key_directory_log WHERE user_id = ? AND slot = ? ORDER BY seq DESC LIMIT 1",
+  );
+  const insert = db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  );
+  const devices = db
+    .prepare(
+      "SELECT user_id, device_id, identity_key, signing_key, updated_at, revoked_at FROM device_keys ORDER BY user_id, device_id",
+    )
+    .all() as {
+    user_id: string;
+    device_id: string;
+    identity_key: string;
+    signing_key: string;
+    updated_at: string;
+    revoked_at: string | null;
+  }[];
+  db.transaction(() => {
+    for (const row of devices) {
+      const slot = `device:${row.device_id}`;
+      const line = deviceDirectoryLine({
+        userId: row.user_id,
+        deviceId: row.device_id,
+        identityKey: row.identity_key,
+        signingKey: row.signing_key,
+        updatedAt: row.updated_at,
+        revokedAt: row.revoked_at,
+      });
+      const previous = last.get(row.user_id, slot) as { line: string } | undefined;
+      if (previous?.line === line) continue;
+      insert.run(row.user_id, slot, line, row.updated_at);
+    }
+  })();
+  db.pragma("user_version = 74");
+}
+
+/**
+ * v75: tombstone de claves de un solo uso ya reclamadas.
+ *
+ * `claimOneTimeKey` borraba la fila al entregarla. Si el cliente perdía la
+ * respuesta y reintentaba la publicación, la misma clave volvía a estar
+ * disponible. Una clave de un solo uso no se puede reutilizar: se guarda el
+ * identificador reclamado y las publicaciones posteriores lo ignoran.
+ */
+function migrateToV75(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_one_time_keys_used (
+      user_id TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      key_id TEXT NOT NULL,
+      claimed_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, device_id, key_id),
+      FOREIGN KEY (user_id, device_id) REFERENCES device_keys(user_id, device_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS device_one_time_keys_used_at
+      ON device_one_time_keys_used(user_id, device_id, claimed_at);
+  `);
+  db.pragma("user_version = 75");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2273,6 +2534,12 @@ export function migrate(db: Db) {
   if (userVersion(db) < 67) migrateToV67(db);
   if (userVersion(db) < 68) migrateToV68(db);
   if (userVersion(db) < 69) migrateToV69(db);
+  if (userVersion(db) < 70) migrateToV70(db);
+  if (userVersion(db) < 71) migrateToV71(db);
+  if (userVersion(db) < 72) migrateToV72(db);
+  if (userVersion(db) < 73) migrateToV73(db);
+  if (userVersion(db) < 74) migrateToV74(db);
+  if (userVersion(db) < 75) migrateToV75(db);
 
   backfillSearchKeys(db);
 }

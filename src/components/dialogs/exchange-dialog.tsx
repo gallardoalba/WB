@@ -67,6 +67,12 @@ type Conversation = {
   keyChanged: boolean;
   /** Huella de seguridad de las dos cuentas, para comparar por otro canal. */
   safety: string | null;
+  /** Huella de los dispositivos v2, si este navegador tiene uno. */
+  v2Safety: string | null;
+  /** Mensajes v2 que no se han podido descifrar en este dispositivo. */
+  v2Failed: number;
+  /** La verificación del dispositivo de la otra parte falló, si pasó. */
+  v2Blocked: string | null;
 };
 
 /** Claves de la otra persona; admite un servidor anterior a la v40. */
@@ -105,6 +111,51 @@ function trustPeerKeys(userId: string, keys: PeerKey[]): void {
   for (const key of keys) {
     localStorage.setItem(pinStorageKey(userId, key.platform), key.keyId);
   }
+}
+
+/** Última huella v2 comparada con esta persona. */
+function v2SafetyKey(userId: string): string {
+  return `v2-safety:${userId}`;
+}
+
+/** Devuelve true si la huella cambió desde la última comparación guardada. */
+function rememberV2Safety(userId: string, safety: string | null): boolean {
+  if (!safety) return false;
+  try {
+    const previous = localStorage.getItem(v2SafetyKey(userId));
+    if (previous && previous !== safety) return true;
+    if (!previous) localStorage.setItem(v2SafetyKey(userId), safety);
+  } catch {
+    // Sin almacenamiento local no se puede recordar; no se bloquea por ello.
+  }
+  return false;
+}
+
+function trustV2Safety(userId: string): void {
+  try {
+    localStorage.removeItem(v2SafetyKey(userId));
+  } catch {
+    // Nada que borrar.
+  }
+}
+
+/**
+ * El protocolo v2 se carga aparte: arrastra libolm (WASM) y solo hace falta
+ * cuando este navegador tiene ya su dispositivo. Si no está, el hilo sigue
+ * funcionando con v1 exactamente igual que antes.
+ */
+let v2Module: Promise<typeof import("@/lib/e2e-v2-chat") | null> | null = null;
+async function getV2Module(): Promise<typeof import("@/lib/e2e-v2-chat") | null> {
+  if (!v2Module) {
+    v2Module = import("@/lib/e2e-v2-chat").catch(() => null);
+  }
+  const bridge = await v2Module;
+  if (!bridge) {
+    // Un fallo de carga no se cachea: el siguiente intento puede funcionar.
+    v2Module = null;
+    return null;
+  }
+  return bridge.v2Supported() ? bridge : null;
 }
 
 /** Descifra una tanda de mensajes con la clave de este navegador. */
@@ -236,6 +287,9 @@ export function ExchangeDialog({
         peer,
         keyChanged: false,
         safety: null,
+        v2Safety: null,
+        v2Failed: 0,
+        v2Blocked: null,
       };
     }
     // La ranura web es la de este navegador. Si está vacía se publica gratis;
@@ -269,6 +323,28 @@ export function ExchangeDialog({
       ...peerKeys.map((key) => key.publicJwk),
     ]);
     const decoded = await decodePayload(payload.messages, identity, peerKeys, conversationId);
+    const v2Safety = await getV2Module()
+      .then((bridge) => bridge?.safetyWith(me.id, peer.id))
+      .catch(() => null);
+    const v2SafetyChanged = rememberV2Safety(peer.id, v2Safety ?? null);
+    // Lo que llegue cifrado con v2 se descifra con el dispositivo de este
+    // navegador. `senderDeviceId` es el campo del protocolo v2; `keyId` es la
+    // ranura de v1 y en v2 va vacío.
+    const v2Decoded = await getV2Module()
+      .then((bridge) =>
+        bridge?.decryptV2({
+          userId: me.id,
+          peerUserId: peer.id,
+          conversation: `request:${conversationId}`,
+          messages: payload.messages.map((message) => ({
+            id: message.id,
+            senderDeviceId: message.senderDeviceId ?? "",
+            envelopes: message.envelopes,
+          })),
+        }),
+      )
+      .catch(() => undefined);
+    Object.assign(decoded, v2Decoded?.texts ?? {});
     return {
       peerKeys,
       privateKey: identity.privateKey,
@@ -280,6 +356,13 @@ export function ExchangeDialog({
       peer,
       keyChanged,
       safety,
+      v2Safety: v2Safety ?? null,
+      v2Failed: v2Decoded?.failed ?? 0,
+      v2Blocked:
+        v2Decoded?.blocked ??
+        (v2SafetyChanged
+          ? "La huella de los dispositivos de la otra persona ha cambiado. Compárala por otro canal antes de seguir."
+          : null),
     };
   }
 
@@ -308,6 +391,9 @@ export function ExchangeDialog({
           peer: data.keys.peer,
           keyChanged: false,
           safety: null,
+          v2Safety: null,
+          v2Failed: 0,
+          v2Blocked: null,
         };
         try {
           prepared = await prepareConversation(data, requestId);
@@ -372,6 +458,9 @@ export function ExchangeDialog({
             peer: thread.peer,
             keyChanged: thread.keyChanged,
             safety: thread.safety,
+            v2Safety: thread.v2Safety,
+            v2Failed: thread.v2Failed,
+            v2Blocked: thread.v2Blocked,
           }
         : {
             peerKeys: [],
@@ -384,6 +473,9 @@ export function ExchangeDialog({
             peer: data.keys.peer,
             keyChanged: false,
             safety: null,
+            v2Safety: null,
+            v2Failed: 0,
+            v2Blocked: null,
           };
       const decoded = { ...prepared.decoded };
       if (prepared.privateKey && prepared.myKeyId) {
@@ -479,16 +571,7 @@ export function ExchangeDialog({
     const formData = new FormData(form);
     const body = String(formData.get("body") ?? "").trim();
     if (!body || !requestId) return;
-    if (!thread?.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
-      setError(t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."));
-      return;
-    }
-    if (!thread.ownKeyReady) {
-      setError(
-        t("Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta»."),
-      );
-      return;
-    }
+    if (!thread) return;
     if (thread.keyChanged) {
       setError(t("La clave de la otra persona ha cambiado. Confírmala antes de enviar."));
       return;
@@ -496,22 +579,77 @@ export function ExchangeDialog({
     setSending(true);
     setError("");
     try {
-      const envelopes = await encryptForRecipients(
-        thread.privateKey,
-        thread.peerKeys,
-        requestId,
-        body,
-        messageAad(requestId, thread.me.id, thread.myKeyId),
-      );
+      // Con dispositivo en la otra punta, el mensaje va **solo** en v2. La
+      // copia en v1 usa una clave estática por conversación —sin forward
+      // secrecy y con un remitente que el servidor puede reescribir—, así que
+      // no se manda si no hace falta. Solo se recurre a ella cuando la otra
+      // persona todavía no tiene ningún dispositivo.
+      const v2 = await getV2Module()
+        .then((bridge) =>
+          bridge?.encryptV2({
+            userId: thread.me.id,
+            peerUserId: thread.peer.id,
+            conversation: `request:${requestId}`,
+            text: body,
+          }),
+        )
+        .catch(() => null);
+
+      let payload: Record<string, unknown>;
+      if (v2?.status === "ok") {
+        payload = { v2: v2.payload };
+      } else if (v2?.status === "error") {
+        // Un fallo de cifrado no puede convertirse en un envío en v1: si la
+        // otra parte tiene dispositivo, el servidor lo rechazaría igual.
+        setError(v2.message);
+        return;
+      } else {
+        // El módulo v2 ya funcionó en este hilo (hay huella de dispositivos):
+        // que ahora no esté no puede degradar el mensaje a v1 en silencio.
+        if (thread.v2Safety) {
+          setError(
+            t("No se pudo cargar el cifrado v2. Recarga la página antes de enviar; el mensaje no se ha enviado."),
+          );
+          return;
+        }
+        if (!thread.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
+          setError(
+            t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."),
+          );
+          return;
+        }
+        if (!thread.ownKeyReady) {
+          setError(
+            t("Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta»."),
+          );
+          return;
+        }
+        const envelopes = await encryptForRecipients(
+          thread.privateKey,
+          thread.peerKeys,
+          requestId,
+          body,
+          messageAad(requestId, thread.me.id, thread.myKeyId),
+        );
+        payload = { keyId: thread.myKeyId, envelopes };
+      }
+
       const data = await api<{ message: MessageView }>(`/api/requests/${requestId}/messages`, {
         method: "POST",
-        body: { keyId: thread.myKeyId, envelopes },
+        body: payload,
       });
       setThread({
         ...thread,
         messages: [...messages, data.message],
         decoded: { ...thread.decoded, [data.message.id]: body },
       });
+      // El sobre va a los aparatos de la otra persona, no a este: sin guardar
+      // el texto, se perdería al recargar.
+      void getV2Module()
+        .then((bridge) =>
+          bridge?.rememberSentV2(thread.me.id, `request:${requestId}`, data.message.id, body),
+        )
+        .catch(() => undefined);
       form.reset();
       onChanged();
     } catch (caught) {
@@ -525,6 +663,14 @@ export function ExchangeDialog({
     if (!thread) return;
     trustPeerKeys(thread.peer.id, thread.peerKeys);
     setThread({ ...thread, keyChanged: false });
+  }
+
+  async function trustNewV2Fingerprint() {
+    if (!thread) return;
+    trustV2Safety(thread.peer.id);
+    const bridge = await getV2Module().catch(() => null);
+    await bridge?.forgetPeerV2(thread.me.id, thread.peer.id);
+    window.location.reload();
   }
 
   async function reportMessage(messageId: string) {
@@ -905,6 +1051,16 @@ export function ExchangeDialog({
             <code>{thread.safety}</code>
           </>
         )}
+        {thread?.v2Safety && (
+          <>
+            <p>
+              {t(
+                "Huella de los dispositivos (v2). Cambia cuando cualquiera de las dos personas añade un aparato: vuelve a compararla.",
+              )}
+            </p>
+            <code>{thread.v2Safety}</code>
+          </>
+        )}
         <p>
           {t(
             "Los mensajes van cifrados de extremo a extremo: la clave privada se queda en este navegador y el servidor solo guarda sobres que no puede abrir. En otro dispositivo no se leen los mensajes anteriores; si cambias, pide a la otra persona que vuelva a escribirte.",
@@ -1045,6 +1201,29 @@ export function ExchangeDialog({
       {error && requestStatus !== "pending" && (
         <p className="form-error" role="alert">
           {error}
+        </p>
+      )}
+
+      {thread?.v2Blocked && (
+        <div className="form-error" role="alert">
+          <p>
+            {t(
+              "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
+            )}
+          </p>
+          <button
+            type="button"
+            className="secondary-button small"
+            onClick={() => void trustNewV2Fingerprint()}
+          >
+            {t("He comparado la nueva huella y quiero continuar")}
+          </button>
+        </div>
+      )}
+
+      {thread && thread.v2Failed > 0 && (
+        <p className="form-note" role="status">
+          {t("Algunos mensajes no se han podido descifrar en este navegador.")}
         </p>
       )}
 
