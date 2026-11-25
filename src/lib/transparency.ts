@@ -32,7 +32,11 @@ import { getDb, type Db } from "./db";
 import { KEY_MESSAGE_VERSION as KEY_FORMAT_VERSION } from "./e2e-v2-format";
 import { deviceDirectoryLine, slotDirectoryLine } from "./key-directory-format";
 
-export { deviceDirectoryLine, slotDirectoryLine } from "./key-directory-format";
+export {
+  deviceDirectoryLine,
+  revokedSlotDirectoryLine,
+  slotDirectoryLine,
+} from "./key-directory-format";
 import { listPublicWorks } from "./repo";
 
 /** Cabecera del mensaje firmado: si cambia el formato, sube la versión. */
@@ -172,6 +176,29 @@ export type KeyConsistencyProof = {
 };
 
 /**
+ * Caché de las líneas de las últimas instantáneas.
+ *
+ * Las instantáneas son inmutables y `keyInclusion` las descomprime en cada
+ * petición. Sin caché, pedir la prueba de un dispositivo cuesta O(n) en cada
+ * mensaje nuevo y el directorio solo crece. Se guardan las últimas veinte, la
+ * misma ventana que publica la API.
+ */
+const snapshotLineCache = new Map<string, string[]>();
+
+function linesForSnapshot(id: string, payload: Buffer | null): string[] | null {
+  if (!payload) return null;
+  const cached = snapshotLineCache.get(id);
+  if (cached) return cached;
+  const lines = gunzipSync(payload).toString("utf8").split("\n").filter(Boolean);
+  if (snapshotLineCache.size >= 20) {
+    const oldest = snapshotLineCache.keys().next().value;
+    if (oldest) snapshotLineCache.delete(oldest);
+  }
+  snapshotLineCache.set(id, lines);
+  return lines;
+}
+
+/**
  * Prueba de consistencia entre dos instantáneas guardadas del directorio.
  *
  * Solo necesita los dos `payload` que ya están en la base (se conservan siempre:
@@ -197,6 +224,8 @@ export function consistencyProofBetween(
         }
       | undefined;
     if (!row?.payload) return null;
+    const lines = linesForSnapshot(row.id, row.payload);
+    if (!lines) return null;
     return {
       header: {
         id: row.id,
@@ -204,7 +233,7 @@ export function consistencyProofBetween(
         merkleRoot: row.merkle_root,
         createdAt: row.created_at,
       },
-      lines: gunzipSync(row.payload).toString("utf8").split("\n").filter(Boolean),
+      lines,
     };
   };
   const from = read(fromId);
@@ -637,7 +666,8 @@ function toKeySnapshot(row: KeySnapshotRow): KeySnapshot {
  * servidor hostil podría añadir un dispositivo a una cuenta y quedar en medio
  * de todas las conversaciones sin que nada lo delatara, porque la clave de un
  * dispositivo no estaba comprometida en ningún sitio. La ranura de un
- * dispositivo es `device:<id>` y su huella, la clave de identidad.
+ * dispositivo es `device:<id>` y su hoja lleva la clave de identidad y la de
+ * firma: las dos quedan atadas al mismo compromiso.
  */
 export function keyDirectoryLines(db: Db = getDb()): string[] {
   const rows = db
@@ -679,6 +709,7 @@ export function recordDeviceInDirectory(
     userId: string;
     deviceId: string;
     identityKey: string;
+    signingKey: string;
     revokedAt: string | null;
     at: string;
   },
@@ -686,8 +717,15 @@ export function recordDeviceInDirectory(
   const slot = `device:${input.deviceId}`;
   const last = lastDirectoryLine(input.userId, slot, db);
   if (last) {
-    const [, , identityKey, , revoked] = last.split("|");
-    if (identityKey === input.identityKey && revoked === `revoked:${input.revokedAt ?? "-"}`) {
+    const fields = last.split("|");
+    const identityKey = fields[2];
+    const signingKey = fields[3];
+    const revoked = fields[5];
+    if (
+      identityKey === input.identityKey &&
+      signingKey === input.signingKey &&
+      revoked === `revoked:${input.revokedAt ?? "-"}`
+    ) {
       return false;
     }
   }
@@ -811,46 +849,53 @@ export function createKeySnapshot(
   db: Db = getDb(),
   options: CreateKeySnapshotOptions = {},
 ): KeySnapshot {
-  const createdAt = options.now ?? new Date().toISOString();
-  const lines = options.lines ?? keyDirectoryLines(db);
-  const previous = latestKeySnapshot(db);
-  const key = options.key === undefined ? signingKey() : options.key;
+  // Leer `previous` y escribir la nueva instantánea tienen que ser una sola
+  // unidad. Sin transacción, dos procesos podían encadenar la misma anterior y
+  // dejar dos raíces que no se contienen: la prueba de consistencia deja de
+  // existir para una de las dos.
+  const create = (): KeySnapshot => {
+    const createdAt = options.now ?? new Date().toISOString();
+    const lines = options.lines ?? keyDirectoryLines(db);
+    const previous = latestKeySnapshot(db);
+    const key = options.key === undefined ? signingKey() : options.key;
 
-  const snapshot: KeySnapshot = {
-    id: `kys_${randomUUID()}`,
-    createdAt,
-    itemCount: lines.length,
-    merkleRoot: merkleRoot(lines),
-    previousRoot: previous?.merkleRoot ?? null,
-    signature: null,
-    publicKey: key?.publicKey ?? null,
-    signer: key ? "ed25519" : null,
+    const snapshot: KeySnapshot = {
+      id: `kys_${randomUUID()}`,
+      createdAt,
+      itemCount: lines.length,
+      merkleRoot: merkleRoot(lines),
+      previousRoot: previous?.merkleRoot ?? null,
+      signature: null,
+      publicKey: key?.publicKey ?? null,
+      signer: key ? "ed25519" : null,
+    };
+    if (key) {
+      snapshot.signature = sign(
+        null,
+        Buffer.from(keySnapshotMessage(snapshot)),
+        key.privateKey,
+      ).toString("base64");
+    }
+
+    db.prepare(
+      `INSERT INTO key_snapshots
+         (id, created_at, item_count, merkle_root, previous_root, payload,
+          signature, public_key, signer)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      snapshot.id,
+      snapshot.createdAt,
+      snapshot.itemCount,
+      snapshot.merkleRoot,
+      snapshot.previousRoot,
+      gzipSync(Buffer.from(lines.join("\n"), "utf8")),
+      snapshot.signature,
+      snapshot.publicKey,
+      snapshot.signer,
+    );
+    return snapshot;
   };
-  if (key) {
-    snapshot.signature = sign(
-      null,
-      Buffer.from(keySnapshotMessage(snapshot)),
-      key.privateKey,
-    ).toString("base64");
-  }
-
-  db.prepare(
-    `INSERT INTO key_snapshots
-       (id, created_at, item_count, merkle_root, previous_root, payload,
-        signature, public_key, signer)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    snapshot.id,
-    snapshot.createdAt,
-    snapshot.itemCount,
-    snapshot.merkleRoot,
-    snapshot.previousRoot,
-    gzipSync(Buffer.from(lines.join("\n"), "utf8")),
-    snapshot.signature,
-    snapshot.publicKey,
-    snapshot.signer,
-  );
-  return snapshot;
+  return db.inTransaction ? create() : db.transaction(create)();
 }
 
 /** Una al día como mucho, igual que el catálogo. */
@@ -878,7 +923,14 @@ export function ensureKeySnapshotForDevice(
   deviceId: string,
   db: Db = getDb(),
 ): string | null {
-  if (keyInclusion(userId, `device:${deviceId}`, db)) return null;
+  // La comprobación no puede ser «existe alguna prueba de esta ranura»: tras
+  // cambiar la identidad, reactivar o retirar, la instantánea anterior sigue
+  // teniendo una línea (la vieja). Lo que importa es que la última línea del
+  // registro —el estado actual— esté dentro de la instantánea más reciente.
+  const current = lastDirectoryLine(userId, `device:${deviceId}`, db);
+  if (!current) return null;
+  const proof = keyInclusion(userId, `device:${deviceId}`, db);
+  if (proof?.line === current) return null;
   return createKeySnapshot(db).id;
 }
 
@@ -907,8 +959,8 @@ export function keyInclusion(
   const row = db
     .prepare("SELECT payload FROM key_snapshots WHERE id = ?")
     .get(snapshot.id) as { payload: Buffer | null } | undefined;
-  if (!row?.payload) return null;
-  const lines = gunzipSync(row.payload).toString("utf8").split("\n").filter(Boolean);
+  const lines = linesForSnapshot(snapshot.id, row?.payload ?? null);
+  if (!lines) return null;
   const prefix = `${userId}|${platform}|`;
   // La **última**: el registro es un histórico y la ranura puede aparecer varias
   // veces (una por rotación, cambio de identidad o retirada); la que vale es la

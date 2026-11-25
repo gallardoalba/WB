@@ -96,9 +96,13 @@ device key*, not that the person at the keyboard is the account holder. Every
 change other than replenishment raises a security notification, and a change of
 identity also notifies the people who talk to that account.
 
-Removing a device marks it revoked and drops its one-time keys; peers see it
-in the key-transparency history (§7) and stop sending to it. A suspended account
-publishes no devices and its one-time keys cannot be claimed.
+Removing a device marks it revoked and drops its one-time keys. The revocation
+appends a line to the key-directory log and **signs a new snapshot immediately**,
+so the inclusion proof stops saying `revoked:-` the same day. Peers re-check the
+directory for devices with an existing session every few hours; a pending
+message from before the revocation still opens with the session it already had,
+but new sends stop. A suspended account publishes no devices and its one-time
+keys cannot be claimed.
 
 Revocation is **not a remote wipe**: it stops new sessions and new messages for
 that device, but it cannot erase what the device already decrypted, the ratchet
@@ -161,6 +165,10 @@ Server-side rules, all tested:
   party and **only** them;
 - the sender device is the caller's own and is not revoked;
 - a suspended account neither sends nor receives;
+- **the whole request fits the 64 KiB JSON limit**: one envelope per device
+  multiplies the body, so the client computes the budget after listing the
+  recipient devices and refuses a long message before advancing the ratchet
+  (`MAX_JSON_BODY_BYTES`, `fitsForDevices`);
 - **the envelope covers every active device** of the other party: one for each,
   no duplicates, no extras. The rule is checked twice, the second time *inside*
   the transaction that writes the message, so a device added by another process
@@ -173,7 +181,10 @@ Server-side rules, all tested:
   and the answer is to reload and send again, not to weaken the rule;
 - once both sides have a v2 device, a v1-only message is **refused** (`409`):
   the conversation cannot fall back to the protocol without forward secrecy
-  (§10);
+  (§10). The client enforces the same rule locally: if it ever pinned a device
+  for that peer, an empty or shortened device list is an error, not a reason to
+  send v1. A missing pinned device must come with a valid inclusion proof of its
+  revocation; an active device hidden by the server blocks the send;
 - **v1 and v2 cannot travel together** (`409`). The client only sends one of
   the two; a message with both would leave in the database a copy encrypted
   with the per-conversation static key, which is exactly what v2 removes, so
@@ -257,31 +268,49 @@ separate signed snapshot of the key directory (`/api/transparency/keys`), a
 Merkle root, a hash chain, and per-account inclusion proofs
 (`/api/account/keys/proof`).
 
-The list is an **append-only log** (`key_directory_log`, v73) and the snapshot is
+The list is an **append-only log** (`key_directory_log`, v73–v74) and the snapshot is
 built from it in insertion order. That is not an implementation detail: a
 consistency proof can only show that a new tree extends an old one if the leaves
 that were already published stay where they were. While the list was rebuilt from
 the current state, rotating a key changed a leaf in the middle and no such proof
 existed. A change that matters —a new device, a different identity, a revocation,
 a v1 key rotation— appends a line; replenishing one-time keys does not, because
-it changes nothing the directory is about. The log keeps history: an old line is
+it changes nothing the directory is about. Directory-changing publishes are
+capped per account and day so one account cannot grow every snapshot without
+bound, and inclusion/consistency lines are cached by snapshot id. The log keeps history: an old line is
 never rewritten, and the client reads the last one for a slot.
 
 Lines (`keyDirectoryLines`):
 
 - each v1 platform slot: `account|slot|fingerprint|updated_at`;
 - each v2 device:
-  `account|device:<device_id>|<identity_key>|updated_at|revoked:<date|->`.
-  The last field is what makes inclusion mean something about *state*: without
-  it a proof only shows the device was once in the directory, so the leaf of a
-  revoked device would verify forever. The client refuses anything that is not
-  `revoked:-`, and says so instead of opening a session.
+  `account|device:<device_id>|<identity_key>|<signing_key>|updated_at|revoked:<date|->`.
+  The signed leaf carries **both** device keys: identity Curve25519 and signing
+  Ed25519. Without the second, a hostile server could change only the signing
+  key in the device list, the client would pin it on the first prekey and later
+  sends would fail. The last field is what makes inclusion mean something about
+  *state*: without it a proof only shows the device was once in the directory,
+  so the leaf of a revoked device would verify forever. The client refuses
+  anything that is not `revoked:-`, and says so instead of opening a session.
+  A v1 slot deleted with its account gets a `revoked:<date>` tombstone line so
+  the append-only history does not present it as still active.
+
+Deleting an account appends a revocation line for every v2 device and a
+tombstone for every v1 slot before removing the rows from `device_keys`,
+`device_one_time_keys` and `user_keys`. The append-only history is kept —that is
+what a transparency log is— but it no longer ends in an «active» line for a
+person who is gone. The operator signing key is **required** for v2: without
+`TRANSPARENCY_SIGNING_KEY` activation fails with `503` instead of publishing a
+device whose proof nobody can verify. Rotating that key changes the operator
+identity; the client and the witness pin it, so rotation is a deliberate
+operation (new witness file and client re-activation), never an automatic
+acceptance of a new key.
 
 What the client checks before trusting a device (`verifyDeviceProof`):
 
 - the line is **exactly** the one for that account and that device —
-  `account|device:<id>|<identity_key>|` — not just "somewhere in this text the
-  expected key appears". The `deviceId` is chosen by the client and public, so a
+  `account|device:<id>|<identity_key>|<signing_key>|` — not just "somewhere in
+  this text the expected key appears". The `deviceId` is chosen by the client and public, so a
   hostile account can publish a device with the same id and its own keys; a
   substring check would accept that line, which is signed and included, as if it
   were the peer's. This is the whole point of binding the leaf to the account;
@@ -312,31 +341,36 @@ already used, the client will refuse to continue with that peer and say so
 the device again in that browser, which starts the anchor from scratch — the same
 trust-on-first-use it had the first time.
 
-The snapshot is created once a day, and publishing a device **refreshes it** at
-that moment: without that, a new device had no inclusion proof until the next
-day, the client fell back to v1 and, with both sides on v2, the server refused
-the message (§10). The witness now exists, but it is the operator's own: because the signature is
-theirs, one operator can sign two coherent histories and both would verify. What
-catches that is someone keeping the roots they saw. `npm run
+The snapshot is created once a day, and **any directory change refreshes it** at
+that moment: a new device, a different identity, a reactivation and a revocation.
+Without that, the latest snapshot kept the old line and peers could not verify
+the new one until the next day. The witness now exists, but it is the operator's
+own: because the signature is theirs, one operator can sign two coherent
+histories and both would verify. What catches that is someone keeping the roots
+they saw. `npm run
 transparency:witness` fetches `/api/transparency` and `/api/transparency/keys`,
 checks every signature and both hash chains, and appends one line per snapshot
 (`id`, `createdAt`, `merkleRoot`, `previousRoot`, `itemCount`, `signature`,
 `publicKey`, `seenAt`) to a JSONL file; `--check` re-verifies without writing and
-fails if a pinned root changed, a signature changed, a snapshot disappeared or a
-chain broke. The daily `testigo` workflow runs it, **recovers the file from the
+fails if a pinned root changed, a signature changed, the operator public key
+changed, a log stopped publishing snapshots or a chain broke. The operator key is
+pinned from the first snapshot the witness sees; rotating it is a deliberate
+operation that needs a new witness file or an explicit human decision, never an
+automatic acceptance of a new key. The daily `testigo` workflow runs it, **recovers the file from the
 previous successful run** (otherwise the comparison would only span the
 snapshots of one day, which is useless for detection) and keeps it as an
 artifact; if there is history and it cannot be recovered, the run fails instead
 of pretending it is the first day. An artifact only counts as evidence if it is
 also copied **outside** the instance: an artifact that only the witness holds is worth nothing once the
-witness is the one being watched. Until those copies exist, and until
-consistency proofs land, the log still detects substitution only the day
-somebody diffs two roots; §2's bundle signature is what makes a substitution
-visible to a client that checks it.
+witness is the one being watched. The consistency proof already joins every new
+root to the one the witness pinned, even if the pinned snapshot has left the
+API's twenty-snapshot window. Until the external copies exist, the log still
+detects substitution only the day somebody diffs two roots; §2's bundle
+signature is what makes a substitution visible to a client that checks it.
 
 What does exist is the out-of-band check: `v2SafetyNumber` hashes every device
-of both sides (`device_id|identity_key|signing_key`, sorted, iterated SHA-512
-5200 times) into the 60 digits the interface shows. Adding a device changes the
+of both sides **and the two account ids** (`user|device|identity|signing`,
+sorted, iterated SHA-512 5200 times) into the 60 digits the interface shows. Adding a device changes the
 number, so a comparison made before stops being valid — which is the point.
 
 Until the last one exists, the transparency log detects a substitution only the
@@ -408,6 +442,11 @@ history after a seizure. Therefore:
 
 - once both devices have published a bundle, the thread is **v2 only**; a
   missing one-time key is a visible `409` and a retry, never a fall back;
+- the **client** remembers the devices it pinned for each peer. If the server
+  returns an empty list, or omits a pinned device, an empty list is not «the
+  peer has no device»: it is an error unless the missing device comes with a
+  valid inclusion proof of its revocation. The server-side rule is a second
+  line, not the only one, because a hostile server can ignore its own rules;
 - v1 is accepted only for threads created before v2 shipped, and the client
   marks those threads as legacy in the interface;
 - a client that receives a v1 envelope in a v2 thread refuses it and reports it
@@ -484,11 +523,13 @@ Shipped in this release:
 | One-time keys replenished on their own when the device runs low | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
 | Cap that keeps the fan-out affordable: 5 devices per account | `src/lib/repo/devices.ts` | `tests/devices.test.ts` |
 | Device state serialised across tabs (`navigator.locks`), re-read inside the lock | `src/lib/e2e-v2-chat.ts` | `tests/e2e-v2-locks.test.ts` |
-| libolm copied to `/olm/` only if it matches the package's own `checksums.txt` | `scripts/olm-assets.ts` | `tests/olm-integrity.test.ts` |
-| Anti-downgrade: once both sides have a device, a v1-only message is refused | `src/lib/repo/shared.ts`, requests and direct messages | `tests/message-v2.test.ts` |
+| libolm copied to `/olm/` only if it matches the package's own `checksums.txt`, and `olm.js` loaded with SRI | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts` | `tests/olm-integrity.test.ts` |
+| Anti-downgrade: once both sides have a device, a v1-only message is refused; the client blocks v1 if it ever pinned a device, and a hidden pinned device needs a valid revocation proof | `src/lib/repo/shared.ts`, `src/lib/e2e-v2-device.ts`, requests and direct messages | `tests/message-v2.test.ts`, `tests/e2e-v2-device.test.ts` |
 | Bridge for the interface: v2 first, v1 only for peers without a device, decrypt what arrives, activation | `src/lib/e2e-v2-chat.ts`, `src/components/account-settings.tsx`, both message dialogs | `tests/e2e-v2-device.test.ts` |
 | v2 accepted by exchange **and** direct messages, with the recipient device checked server-side | `src/lib/repo/requests.ts`, `src/lib/repo/direct.ts`, `src/lib/repo/shared.ts` | `tests/message-v2.test.ts` |
 | libolm served from `/olm/` and loaded at runtime, with `wasm-unsafe-eval` in the CSP | `scripts/olm-assets.ts`, `src/lib/olm-runtime.ts`, `src/proxy.ts` | smoke run in a real browser |
+| Per-request size budget: one envelope per device, checked against the 64 KiB JSON limit before touching the ratchet | `src/lib/request-limits.ts`, `src/lib/e2e-v2.ts` | `tests/e2e-v2.test.ts` |
+| Account deletion revokes and removes v2 device rows, one-time keys and leaves tombstones in the directory | `src/lib/repo/account.ts` | `tests/key-transparency.test.ts` |
 | Sunset switch for v1: a date after which v1 envelopes are refused with `410`, and a count of what is left | `src/lib/repo/shared.ts`, `src/lib/repo/maintenance.ts` | `tests/message-v2.test.ts` |
 | Account device list: the owner sees their devices and can revoke one; a browser without a device is told in «My account» that it cannot read v2-only messages | `src/components/account-settings.tsx`, `GET /api/account/devices`, `DELETE /api/account/devices/:id` | the static scan in `tests/route.test.ts` |
 | Witness: pins catalogue and key roots, verifies signatures and chains, `--check` fails on a rewritten root or a missing snapshot | `src/lib/witness.ts`, `scripts/witness-roots.ts`, `.github/workflows/testigo.yml` | `tests/witness.test.ts` |

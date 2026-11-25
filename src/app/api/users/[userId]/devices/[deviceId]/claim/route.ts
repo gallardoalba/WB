@@ -27,10 +27,21 @@ export const POST = route<undefined, "user", { userId: string; deviceId: string 
       throw new ApiError(403, "No puedes reclamar claves de esa cuenta.");
     }
     const deviceId = deviceIdSchema.parse(params.deviceId);
+    // La cuota por objetivo tiene que incluir a quien llama: con una clave
+    // global, un solo par podía agotar las 40 plazas de la hora y dejar a
+    // todos los demás sin poder reclamar. El tope global sigue existiendo para
+    // que muchas cuentas no vacíen el dispositivo, pero es más alto que el de
+    // una sola, de modo que un atacante no lo llena él solo.
+    hit({
+      bucket: "device:claim:caller-target",
+      key: `${user.id}:${params.userId}:${deviceId}`,
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
     hit({
       bucket: "device:claim:target",
       key: `${params.userId}:${deviceId}`,
-      limit: 40,
+      limit: 120,
       windowMs: 60 * 60 * 1000,
     });
 

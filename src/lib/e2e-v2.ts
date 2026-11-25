@@ -29,7 +29,12 @@
  * público.
  */
 import { bundleMessage, oneTimeKeyMessage } from "./e2e-v2-format";
-import { getOlm, type OlmFactory } from "./olm-runtime";
+import { getOlm, verifyOlmAssets, type OlmFactory } from "./olm-runtime";
+import {
+  JSON_ENVELOPE_OVERHEAD,
+  JSON_FIXED_OVERHEAD,
+  MAX_JSON_BODY_BYTES,
+} from "./request-limits";
 
 export { bundleMessage, oneTimeKeyMessage };
 
@@ -116,7 +121,10 @@ let ready: Promise<void> | null = null;
 
 /** Carga el WASM una sola vez por contexto. */
 export async function init(): Promise<void> {
-  ready ??= lib().then((loaded) => loaded.init());
+  ready ??= lib().then(async (loaded) => {
+    await verifyOlmAssets();
+    return loaded.init();
+  });
   return ready;
 }
 
@@ -124,9 +132,24 @@ export async function init(): Promise<void> {
 export async function createAccount(oneTimeKeys = ONE_TIME_KEY_TARGET): Promise<OlmAccount> {
   await init();
   const account = new (await lib()).Account();
-  account.create();
-  account.generate_one_time_keys(oneTimeKeys);
-  return account;
+  try {
+    account.create();
+    account.generate_one_time_keys(oneTimeKeys);
+    return account;
+  } catch (error) {
+    account.free();
+    throw error;
+  }
+}
+
+/**
+ * Libera la cuenta de libolm.
+ *
+ * `Account` y `Session` viven en el heap de WASM: no los recoge el GC. Cada
+ * objeto que se crea tiene que soltarse en el mismo sitio donde se usó.
+ */
+export function freeAccount(account: OlmAccount): void {
+  account.free();
 }
 
 export function identityKeys(account: OlmAccount): { identityKey: string; signingKey: string } {
@@ -198,10 +221,12 @@ export async function oneTimeKeyCapacity(): Promise<number> {
   await init();
   const { Account } = await lib();
   const probe = new Account();
-  probe.create();
-  const max = probe.max_number_of_one_time_keys();
-  probe.free();
-  return max;
+  try {
+    probe.create();
+    return probe.max_number_of_one_time_keys();
+  } finally {
+    probe.free();
+  }
 }
 
 /** Lo que el cliente recuerda de un dispositivo que ya vio. */
@@ -251,8 +276,13 @@ export async function startSession(account: OlmAccount, bundle: DeviceBundle): P
   await init();
   const { Session } = await lib();
   const session = new Session();
-  session.create_outbound(account, bundle.identityKey, bundle.oneTimeKey.key);
-  return session;
+  try {
+    session.create_outbound(account, bundle.identityKey, bundle.oneTimeKey.key);
+    return session;
+  } catch (error) {
+    session.free();
+    throw error;
+  }
 }
 
 /**
@@ -285,9 +315,14 @@ export async function acceptSession(
   if (prekey.type !== 0) throw new Error("Un mensaje de pre-clave debe ser de tipo 0.");
   const { Session } = await lib();
   const session = new Session();
-  session.create_inbound_from(account, senderIdentityKey, prekey.body);
-  account.remove_one_time_keys(session);
-  return session;
+  try {
+    session.create_inbound_from(account, senderIdentityKey, prekey.body);
+    account.remove_one_time_keys(session);
+    return session;
+  } catch (error) {
+    session.free();
+    throw error;
+  }
 }
 
 /**
@@ -355,6 +390,22 @@ export function fitsInEnvelope(conversation: string, text: string): boolean {
   return envelopeBodyLength(conversation, text) <= MAX_ENVELOPE_BODY;
 }
 
+/**
+ * ¿Cabe el mensaje completo en el cuerpo HTTP para `devices` destinatarios?
+ *
+ * No basta con mirar un sobre: cada dispositivo lleva el suyo y el servidor
+ * limita el JSON entero. Cinco dispositivos con 10.000 caracteres superan los
+ * 64 KiB aunque cada sobre quepa por separado.
+ */
+export function fitsForDevices(conversation: string, text: string, devices: number): boolean {
+  if (devices < 1) return false;
+  const total =
+    envelopeBodyLength(conversation, text) * devices +
+    JSON_FIXED_OVERHEAD +
+    JSON_ENVELOPE_OVERHEAD * devices;
+  return total <= MAX_JSON_BODY_BYTES;
+}
+
 /** Cifra con una sesión establecida (el primero sale como pre-clave). */
 export function encrypt(session: OlmSession, content: MessageContent): Envelope {
   const message = session.encrypt(seal(content));
@@ -392,8 +443,13 @@ export function pickleAccount(account: OlmAccount, key: string): string {
 export async function unpickleAccount(pickle: string, key: string): Promise<OlmAccount> {
   await init();
   const account = new (await lib()).Account();
-  account.unpickle(key, pickle);
-  return account;
+  try {
+    account.unpickle(key, pickle);
+    return account;
+  } catch (error) {
+    account.free();
+    throw error;
+  }
 }
 
 export function pickleSession(session: OlmSession, key: string): string {
@@ -404,6 +460,11 @@ export async function unpickleSession(pickle: string, key: string): Promise<OlmS
   await init();
   const { Session } = await lib();
   const session = new Session();
-  session.unpickle(key, pickle);
-  return session;
+  try {
+    session.unpickle(key, pickle);
+    return session;
+  } catch (error) {
+    session.free();
+    throw error;
+  }
 }

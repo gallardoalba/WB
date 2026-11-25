@@ -1,7 +1,8 @@
 import { json } from "@/lib/api";
+import { ApiError } from "@/lib/errors";
 import { listConversationPeers, notify, publishDevice, revokeDevice } from "@/lib/repo";
 import type { PublishChange } from "@/lib/repo";
-import { ensureKeySnapshotForDevice } from "@/lib/transparency";
+import { ensureKeySnapshotForDevice, signingKey } from "@/lib/transparency";
 import { deviceIdSchema, publishDeviceSchema } from "@/lib/validation";
 import { route } from "@/lib/route";
 
@@ -69,6 +70,15 @@ export const PUT = route<typeof publishDeviceSchema, "user", { deviceId: string 
   },
   async ({ user, body, params }) => {
     const deviceId = deviceIdSchema.parse(params.deviceId);
+    // Sin clave de operador la instantánea no se firma y ningún cliente puede
+    // verificar el dispositivo. Fallar aquí es mejor que publicar un aparato
+    // que nunca va a poder abrir sesiones.
+    if (!signingKey()) {
+      throw new ApiError(
+        503,
+        "El directorio de claves no está firmado. Configura TRANSPARENCY_SIGNING_KEY antes de activar el cifrado v2.",
+      );
+    }
     const { password, ...bundle } = body;
     const { device, change } = await publishDevice(user.id, { deviceId, ...bundle }, { password });
     warn(user.id, change);
@@ -101,6 +111,14 @@ export const DELETE = route<undefined, "user", { deviceId: string }>(
     const deviceId = deviceIdSchema.parse(params.deviceId);
     const revoked = revokeDevice(user.id, deviceId);
     if (revoked) {
+      // La retirada es un cambio del directorio: sin una instantánea nueva, la
+      // prueba que se sirve sigue diciendo `revoked:-` hasta el día siguiente.
+      // Se firma en el acto, igual que al publicar un dispositivo.
+      try {
+        ensureKeySnapshotForDevice(user.id, deviceId);
+      } catch (error) {
+        console.error("No se pudo firmar la instantánea tras retirar el dispositivo:", error);
+      }
       notify({
         userId: user.id,
         type: "security",

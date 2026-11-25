@@ -34,8 +34,13 @@ export default function globalSetup(): void {
       // v2: los dispositivos viven en su propia tabla. Si no se limpian, cada
       // pasada deja uno publicado que este navegador no puede abrir y el tope de
       // cinco acaba rechazando la activación.
+      // El registro y las instantáneas también se vacían: el tope diario de
+      // cambios cuenta las líneas del registro y arrastraba las de pasadas
+      // anteriores, así que la segunda ejecución fallaba con un 429.
       "DELETE FROM device_one_time_keys",
       "DELETE FROM device_keys",
+      "DELETE FROM key_directory_log",
+      "DELETE FROM key_snapshots",
       "UPDATE users SET public_key = NULL, public_key_id = NULL",
     ]) {
       db.prepare(sql).run();

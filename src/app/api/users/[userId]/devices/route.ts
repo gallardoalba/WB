@@ -12,7 +12,7 @@ import { route } from "@/lib/route";
  * dueño (`GET /api/account/devices`) y aquí sería una pista para agotarlas.
  */
 export const GET = route<undefined, "user", { userId: string }>(
-  {},
+  { limit: { bucket: "device:list", limit: 120, windowMs: 60 * 60 * 1000 } },
   ({ params }) =>
     json({
       devices: listDevices(params.userId).map((device) => ({

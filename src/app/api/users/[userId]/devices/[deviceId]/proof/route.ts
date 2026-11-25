@@ -1,5 +1,6 @@
 import { json } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { getDb } from "@/lib/db";
 import { getDevice } from "@/lib/repo";
 import { keyInclusion, latestKeySnapshot } from "@/lib/transparency";
 import { deviceIdSchema } from "@/lib/validation";
@@ -22,8 +23,20 @@ export const GET = route<undefined, "user", { userId: string; deviceId: string }
   { limit: { bucket: "device:proof", limit: 120, windowMs: 60 * 60 * 1000 } },
   ({ params }) => {
     const deviceId = deviceIdSchema.parse(params.deviceId);
-    if (!getDevice(params.userId, deviceId)) {
+    const device = getDevice(params.userId, deviceId);
+    if (!device) {
       throw new ApiError(404, "Ese dispositivo no existe.");
+    }
+    // Aunque la última instantánea sea anterior a la retirada, un dispositivo
+    // retirado no debe recibir una prueba que lo presente como activo.
+    if (device.revokedAt) {
+      throw new ApiError(404, "Ese dispositivo está retirado.");
+    }
+    const account = getDb()
+      .prepare("SELECT is_suspended FROM users WHERE id = ?")
+      .get(params.userId) as { is_suspended: number } | undefined;
+    if (!account || account.is_suspended) {
+      throw new ApiError(404, "Ese dispositivo no está disponible.");
     }
     const snapshot = latestKeySnapshot();
     if (snapshot && !snapshot.signature) {

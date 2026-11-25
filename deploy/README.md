@@ -998,6 +998,14 @@ instance rewrites that snapshot or starts signing with another key, the check
 fails. Without a signature, the verifier exits with an error: an unsigned
 snapshot is useful for comparing content, not as cryptographic proof.
 
+
+Protocol v2 needs this key: device activation fails with `503` if it is missing,
+because a device without a signed directory proof cannot open sessions. The
+client and the witness pin the operator public key. **Rotating it is a deliberate
+operation**, not a hot swap: publish the new key only after updating the witness
+file/anchor and asking users to re-activate v2 in their devices. A new key with
+new snapshot ids and no overlap is rejected by the witness (`compareWithWitness`)
+and by clients that already pinned the old one.
 What it guarantees: that a change to what is published leaves a trace and that a
 past snapshot cannot be replaced by another without breaking the signature or
 the chain. What it does not guarantee: that the process responding is exactly

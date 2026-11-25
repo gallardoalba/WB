@@ -91,6 +91,10 @@ test("dos dispositivos v2 se escriben y el hilo sobrevive a una recarga", async 
   await composer.getByLabel("Escribe un mensaje").fill(texto);
   await composer.getByRole("button", { name: "Enviar" }).click();
   await expect(composer.getByText(texto).last()).toBeVisible();
+  // El texto aparece en el acto (envío optimista), pero el sobre todavía puede
+  // estar viajando. Sin esperar a que desaparezca «Enviando…», la otra pestaña
+  // abría el hilo antes de que el mensaje existiera y lo veía vacío.
+  await expect(composer.locator(".dm-pending")).toHaveCount(0, { timeout: 30_000 });
 
   // La otra parte lo descifra con su dispositivo. Esto es lo que fallaba cuando
   // los diálogos pasaban `keyId` en lugar de `senderDeviceId`.
@@ -108,6 +112,9 @@ test("dos dispositivos v2 se escriben y el hilo sobrevive a una recarga", async 
   await thread.getByLabel("Escribe un mensaje").fill(respuesta);
   await thread.getByRole("button", { name: "Enviar" }).click();
   await expect(thread.getByText(respuesta).last()).toBeVisible();
+  // Igual que en el primer envío: antes de cambiar de ventana, el sobre tiene
+  // que haber llegado al servidor.
+  await expect(thread.locator(".dm-pending")).toHaveCount(0, { timeout: 30_000 });
 
   // Lo que escribió cada parte tampoco se pierde al volver a abrir el hilo: lo
   // propio sale de la caché del dispositivo (el sobre fue para la otra persona).

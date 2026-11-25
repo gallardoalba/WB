@@ -194,7 +194,20 @@ export type ConsistencyProof = {
 };
 
 /** A quién tiene que pertenecer la línea de la prueba. */
-export type ExpectedDevice = { userId: string; deviceId: string; identityKey: string };
+export type ExpectedDevice = {
+  userId: string;
+  deviceId: string;
+  identityKey: string;
+  signingKey: string;
+};
+
+/** Resultado de verificar una prueba: además de válida, puede estar retirada. */
+export type DeviceProofResult = {
+  ok: boolean;
+  reason?: string;
+  /** La prueba es válida y demuestra que el dispositivo está retirado. */
+  revoked?: boolean;
+};
 
 /**
  * Comprueba la prueba completa: el dispositivo está en el árbol y el árbol lo
@@ -206,29 +219,28 @@ export type ExpectedDevice = { userId: string; deviceId: string; identityKey: st
  * publicar un dispositivo con el mismo id y su propia clave, y el servidor
  * podría enseñar esa línea —válida y firmada— como si fuera la del
  * destinatario. Lo que se compara es el principio canónico
- * `cuenta|device:<id>|<clave>|`, no una subcadena.
+ * `cuenta|device:<id>|<identidad>|<firma>|`, no una subcadena.
+ *
+ * La firma Ed25519 va en la hoja a propósito: si solo estuviera la identidad,
+ * un servidor hostil podía cambiar la clave de firma en la lista de
+ * dispositivos, el cliente la fijaba en el primer prekey y los envíos
+ * posteriores fallaban.
  */
 export async function verifyDeviceProof(
   proof: DeviceProof,
   snapshot: KeySnapshotHeader,
   expected: ExpectedDevice,
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<DeviceProofResult> {
   if (proof.root !== snapshot.merkleRoot) {
     return { ok: false, reason: "La prueba no es de la instantánea que se publicó." };
   }
-  const prefix = `${expected.userId}|device:${expected.deviceId}|${expected.identityKey}|`;
+  const prefix = `${expected.userId}|device:${expected.deviceId}|${expected.identityKey}|${expected.signingKey}|`;
   if (!proof.line.startsWith(prefix)) {
     return { ok: false, reason: "La prueba es de otra cuenta o de otro dispositivo." };
   }
-  // La línea lleva el estado de retirada en el último campo: `revoked:-` es
-  // activo. Sin esta comprobación, la prueba de un aparato retirado —que sigue
-  // en el árbol— se aceptaría como si estuviera vivo.
   const fields = proof.line.split("|");
-  if (fields.length !== 5) {
+  if (fields.length !== 6 || fields[2] !== expected.identityKey || fields[3] !== expected.signingKey) {
     return { ok: false, reason: "La línea del directorio no tiene el formato esperado." };
-  }
-  if (fields[4] !== "revoked:-") {
-    return { ok: false, reason: "Ese dispositivo está retirado en el directorio." };
   }
   if (!Number.isSafeInteger(snapshot.itemCount) || proof.index >= snapshot.itemCount) {
     return { ok: false, reason: "La prueba apunta fuera de la instantánea." };
@@ -238,6 +250,16 @@ export async function verifyDeviceProof(
   }
   if (!(await verifySnapshotSignature(snapshot))) {
     return { ok: false, reason: "La instantánea no está firmada por su clave." };
+  }
+  // El estado de retirada se comprueba **después** de validar la prueba: una
+  // prueba rota no puede servir para que el servidor se invente una retirada y
+  // haga desaparecer un dispositivo activo de la lista.
+  if (fields[5] !== "revoked:-") {
+    return {
+      ok: false,
+      revoked: true,
+      reason: "Ese dispositivo está retirado en el directorio.",
+    };
   }
   return { ok: true };
 }

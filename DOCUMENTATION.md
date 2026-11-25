@@ -22,7 +22,7 @@ src/
     proxy.ts           CSP with nonce and security headers
   components/          server shell and interactive islands
   lib/
-    db/                connection, base schema (v2), migrations (v3–v73), seed
+    db/                connection, base schema (v2), migrations (v3–v74), seed
     repo/              SQL queries per domain; `repo.ts` only re-exports
     validation.ts      Zod schemas with translated messages
     secret-box.ts      reversible encryption with a key ring (TOTP)
@@ -100,7 +100,7 @@ The API has 76 route files under `src/app/api`. `route()` (`src/lib/route.ts`) a
 - `appeals` keeps a snapshot of the sanction (reason, date and sanctioner), the appeal text and its review, including whether it was reviewed by the team or by an external reviewer and that person's name; a partial unique index allows only one open appeal per sanction.
 - Provenance: every copy created by closing an exchange keeps `from_listing_id` (where it came from) and `from_request_id` (which exchange; unique, so a retry cannot duplicate the copy). `getCopyJourney()` walks that chain and returns an **aggregate** journey — ordered cities, month and year, and accumulated kilometres — with no names or identifiers; a stop whose owner hides their city (v48) carries no city and does not add kilometres. `users.show_journey` (v56, on by default) lets the current owner hide the whole journey: it then returns nothing for everyone else and stays visible to them, marked as hidden.
 
-Migrations are versioned with `PRAGMA user_version` (currently v73). A new installation starts from `SCHEMA_V2` and its indexes and runs the 71 steps up to v73; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Twenty-three of them matter for reading today's code:
+Migrations are versioned with `PRAGMA user_version` (currently v74). A new installation starts from `SCHEMA_V2` and its indexes and runs the 72 steps up to v74; existing ones climb the ladder in `src/lib/db/migrations.ts`, which keeps the data. Twenty-three of them matter for reading today's code:
 
 - **v40** — One key slot per device and one encrypted envelope per key.
 - **v44** — When an exchange closes, the receiver gets a copy of their own.
@@ -125,6 +125,7 @@ Migrations are versioned with `PRAGMA user_version` (currently v73). A new insta
 - **v71** — The envelopes of that protocol: the existing envelope tables gain `protocol` (1 = v1 slot, 2 = v2 device) and `type` (pre-key or ratchet message), so one row per recipient device holds the body and nothing the server can read.
 - **v72** — Which device signed each message, kept apart from the v1 slot because the v1 associated data is derived from it.
 - **v73** — The key directory becomes an append-only log (`key_directory_log`): snapshots are built from it, so a new root is an extension of the previous one and a consistency proof exists.
+- **v74** — The device leaf in the key directory includes the Ed25519 signing key, so the operator commitment binds both device keys; existing v73 leaves are followed by a new-format line.
 
 The detail of every step lives in that file and in its git history.
 

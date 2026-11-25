@@ -14,8 +14,9 @@
  *   se rechaza en vez de aceptarse en silencio.
  * - **Cada mensaje va a cada dispositivo por separado.** Como en v1, pero con
  *   una sesión por dispositivo y no por ranura.
- * - **Un sobre se descifra una vez.** Se confirma al servidor solo después de
- *   descifrarlo: si se confirmara antes, un corte de red perdería el mensaje.
+ * - **Un sobre se descifra una vez.** No hay confirmación al servidor: el
+ *   sobre vive dentro del mensaje y se borra con él. El texto ya abierto se
+ *   guarda cifrado en el dispositivo para poder releer el hilo tras recargar.
  */
 import * as v2 from "./e2e-v2";
 import {
@@ -32,7 +33,17 @@ export type VerifiedDevice = {
   signingKey: string;
   /** Raíz de la instantánea en la que estaba. Solo sirve para depurar. */
   root: string;
+  /** Cuándo se comprobó por última vez, para no confiar para siempre. */
+  checkedAt: string;
 };
+
+/**
+ * Cuánto dura la comprobación de un dispositivo antes de volver a pedir la
+ * prueba. La retirada de un aparato perdido tiene que llegar aunque la sesión
+ * ya estuviera abierta; no se puede revalidar en cada mensaje (dos peticiones
+ * por envío), pero tampoco dejarla indefinidamente.
+ */
+const DIRECTORY_RECHECK_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Clave de las tablas locales de un dispositivo ajeno.
@@ -222,54 +233,63 @@ export async function openDevice(input: {
   const stored = await input.store.load(input.userId);
   if (stored) {
     const account = await v2.unpickleAccount(stored.account, stored.pickleKey);
-    const session = { state: stored, account };
-    // Un alta que se quedó a medias (publicada en el servidor pero sin llegar a
-    // guardarse el «publicado») se termina aquí.
-    if (stored.published === false) {
-      const keys = v2.deviceKeys(account, stored.deviceId);
-      await input.api.publish({
-        ...keys,
-        oneTimeKeys: v2.oneTimeKeys(account, stored.deviceId),
-        password: input.password,
-      });
-      v2.markKeysAsPublished(account);
-      stored.published = true;
-      stored.account = v2.pickleAccount(account, stored.pickleKey);
-      await input.store.save(stored);
+    try {
+      const session = { state: stored, account };
+      // Un alta que se quedó a medias (publicada en el servidor pero sin llegar a
+      // guardarse el «publicado») se termina aquí.
+      if (stored.published === false) {
+        const keys = v2.deviceKeys(account, stored.deviceId);
+        await input.api.publish({
+          ...keys,
+          oneTimeKeys: v2.oneTimeKeys(account, stored.deviceId),
+          password: input.password,
+        });
+        v2.markKeysAsPublished(account);
+        stored.published = true;
+        stored.account = v2.pickleAccount(account, stored.pickleKey);
+        await input.store.save(stored);
+      }
+      // Un dispositivo que se queda sin claves de un solo uso deja de poder abrir
+      // sesiones nuevas: se repone al abrirlo, no cuando ya es tarde.
+      await replenishIfLow(session, input.api, input.store);
+      return session;
+    } catch (error) {
+      v2.freeAccount(account);
+      throw error;
     }
-    // Un dispositivo que se queda sin claves de un solo uso deja de poder abrir
-    // sesiones nuevas: se repone al abrirlo, no cuando ya es tarde.
-    await replenishIfLow(session, input.api, input.store);
-    return session;
   }
 
   const deviceId = input.deviceId ?? newDeviceId();
   const account = await v2.createAccount();
+  try {
+    // Se guarda **antes** de publicar: si el guardado falla después, quedaría un
+    // dispositivo activo en el servidor cuya clave privada no existe, y el alta
+    // siguiente pediría contraseña para nada.
+    const pickleKey = randomSecret();
+    const state: DeviceState = {
+      userId: input.userId,
+      deviceId,
+      account: v2.pickleAccount(account, pickleKey),
+      sessions: {},
+      pins: {},
+      pickleKey,
+      published: false,
+    };
+    await input.store.save(state);
 
-  // Se guarda **antes** de publicar: si el guardado falla después, quedaría un
-  // dispositivo activo en el servidor cuya clave privada no existe, y el alta
-  // siguiente pediría contraseña para nada.
-  const pickleKey = randomSecret();
-  const state: DeviceState = {
-    userId: input.userId,
-    deviceId,
-    account: v2.pickleAccount(account, pickleKey),
-    sessions: {},
-    pins: {},
-    pickleKey,
-    published: false,
-  };
-  await input.store.save(state);
+    const keys = v2.deviceKeys(account, deviceId);
+    const oneTimeKeys = v2.oneTimeKeys(account, deviceId);
+    await input.api.publish({ ...keys, oneTimeKeys, password: input.password });
+    v2.markKeysAsPublished(account);
 
-  const keys = v2.deviceKeys(account, deviceId);
-  const oneTimeKeys = v2.oneTimeKeys(account, deviceId);
-  await input.api.publish({ ...keys, oneTimeKeys, password: input.password });
-  v2.markKeysAsPublished(account);
-
-  state.published = true;
-  state.account = v2.pickleAccount(account, pickleKey);
-  await input.store.save(state);
-  return { state, account };
+    state.published = true;
+    state.account = v2.pickleAccount(account, pickleKey);
+    await input.store.save(state);
+    return { state, account };
+  } catch (error) {
+    v2.freeAccount(account);
+    throw error;
+  }
 }
 
 /**
@@ -354,12 +374,16 @@ async function assertInDirectory(
   api: DeviceApi,
   peerUserId: string,
   device: { deviceId: string; identityKey: string; signingKey: string },
+  options: { force?: boolean } = {},
 ): Promise<void> {
   const key = deviceStateKey(peerUserId, device.deviceId);
   const seen = session.state.verified?.[key];
-  if (seen && seen.identityKey === device.identityKey && seen.signingKey === device.signingKey) {
-    return;
-  }
+  const fresh =
+    seen &&
+    seen.identityKey === device.identityKey &&
+    seen.signingKey === device.signingKey &&
+    Date.now() - Date.parse(seen.checkedAt) < DIRECTORY_RECHECK_MS;
+  if (!options.force && fresh) return;
 
   // El tipo ya la exige, pero un adaptador escrito en JavaScript puede omitirla:
   // sin prueba no hay sesión, en vez de seguir como si el directorio cuadrara.
@@ -375,6 +399,7 @@ async function assertInDirectory(
     userId: peerUserId,
     deviceId: device.deviceId,
     identityKey: device.identityKey,
+    signingKey: device.signingKey,
   });
   if (!result.ok) {
     throw new VerificationError(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
@@ -427,6 +452,7 @@ async function assertInDirectory(
     identityKey: device.identityKey,
     signingKey: device.signingKey,
     root: snapshot.merkleRoot,
+    checkedAt: new Date().toISOString(),
   };
 }
 
@@ -447,21 +473,72 @@ export async function encryptForDevices(input: {
 }): Promise<{ senderDeviceId: string; envelopes: OutgoingEnvelope[] }> {
   const { session, api, conversation, text, peerUserId } = input;
   const devices = await api.listDevices(peerUserId);
-  if (devices.length === 0) throw new NoDeviceError("La otra persona no tiene ningún dispositivo activo.");
+  const peerPrefix = `${peerUserId}:`;
+  const pinnedEntries = Object.entries(session.state.pins).filter(([key]) =>
+    key.startsWith(peerPrefix),
+  );
 
+  // Una lista vacía solo es «la otra persona no tiene dispositivo» si este
+  // cliente no vio nunca uno suyo. Si ya lo vio, el servidor está ocultando
+  // dispositivos activos (o el par los retiró todos) y caer a v1 en silencio
+  // entregaría el mensaje sin forward secrecy a quien controla el servidor.
+  if (devices.length === 0) {
+    if (pinnedEntries.length > 0) {
+      throw new VerificationError(
+        "El servidor no publica ningún dispositivo de la otra persona, pero este navegador ya vio alguno. No se envía en v1: espera a que vuelva a publicar uno.",
+      );
+    }
+    throw new NoDeviceError("La otra persona no tiene ningún dispositivo activo.");
+  }
+
+  // Antes de tocar el ratchet: el cuerpo HTTP lleva un sobre por dispositivo y
+  // el servidor corta en 64 KiB. Estimar solo un sobre dejaba pasar envíos que
+  // acababan en 413 después de haber cifrado.
+  if (!v2.fitsForDevices(conversation, text, devices.length)) {
+    throw new Error(
+      `El mensaje es demasiado largo para ${devices.length} dispositivo${devices.length === 1 ? "" : "s"}: acórtalo.`,
+    );
+  }
+
+  const listed = new Set(devices.map((device) => device.deviceId));
   const envelopes: OutgoingEnvelope[] = [];
   for (const device of devices) {
     const key = deviceStateKey(peerUserId, device.deviceId);
     const existing = session.state.sessions[key];
+    const known = session.state.pins[key];
+
+    // Que la lista cambie las claves bajo el mismo id no puede pasar
+    // desapercibido. Si el dispositivo cambió de identidad de verdad, sus
+    // mensajes nuevos no se abren con la sesión vieja; si lo cambió el
+    // servidor, no hay que aceptar el paquete nuevo sin que la persona lo
+    // confirme.
+    if (
+      known &&
+      (known.identityKey !== device.identityKey || known.signingKey !== device.signingKey)
+    ) {
+      delete session.state.sessions[key];
+      throw new VerificationError(
+        "El dispositivo de la otra persona ha cambiado de clave. Verifica la huella antes de volver a enviar.",
+      );
+    }
+
     let sessionFor: v2.OlmSession;
     if (existing) {
+      // La sesión puede ser de hace horas: volver a mirar el directorio de vez
+      // en cuando es lo que detecta una retirada que el listado todavía
+      // incluye.
+      await assertInDirectory(session, api, peerUserId, device);
       sessionFor = await v2.unpickleSession(existing, session.state.pickleKey);
     } else {
       await assertInDirectory(session, api, peerUserId, device);
       const bundle = await api.claim(peerUserId, device.deviceId);
       // El paquete reclamado y el que publica el registro tienen que ser el
       // mismo: si no, el servidor está enseñando dos verdades distintas.
-      if (bundle.identityKey !== device.identityKey || bundle.signingKey !== device.signingKey) {
+      if (
+        bundle.deviceId !== device.deviceId ||
+        bundle.identityKey !== device.identityKey ||
+        bundle.signingKey !== device.signingKey
+      ) {
         throw new VerificationError("El paquete reclamado no coincide con el del registro.");
       }
       sessionFor = await v2.startVerifiedSession(session.account, bundle, session.state.pins[key]);
@@ -485,6 +562,36 @@ export async function encryptForDevices(input: {
       // ramas, también para la sesión recién establecida.
       v2.forgetSession(sessionFor);
     }
+  }
+
+  // Y al revés: si el servidor deja de listar un dispositivo que este cliente
+  // ya conocía, hay que saber si fue una retirada real o una lista recortada.
+  // La prueba de inclusión lo distingue; sin ella no se envía a medias.
+  for (const [key, known] of pinnedEntries) {
+    const deviceId = key.slice(peerPrefix.length);
+    if (listed.has(deviceId)) continue;
+    let answer: { proof: DeviceProof; snapshot: KeySnapshotHeader };
+    try {
+      answer = await api.deviceProof(peerUserId, deviceId);
+    } catch {
+      throw new VerificationError(
+        "El servidor ya no lista un dispositivo conocido y no da prueba de su retirada.",
+      );
+    }
+    const result = await verifyDeviceProof(answer.proof, answer.snapshot, {
+      userId: peerUserId,
+      deviceId,
+      identityKey: known.identityKey,
+      signingKey: known.signingKey,
+    });
+    if (!result.revoked) {
+      throw new VerificationError(
+        "El servidor oculta un dispositivo activo de la otra persona. No se envía el mensaje.",
+      );
+    }
+    delete session.state.pins[key];
+    delete session.state.sessions[key];
+    if (session.state.verified) delete session.state.verified[key];
   }
 
   return { senderDeviceId: session.state.deviceId, envelopes };
@@ -649,7 +756,8 @@ async function acceptFromRegistry(
 ): Promise<v2.OlmSession> {
   await assertInDirectory(session, api, peerUserId, device);
   // El par completo, como en el camino de envío: comprobar solo la identidad
-  // dejaba cambiar la clave de firma sin que se notara.
+  // dejaba cambiar la clave de firma sin que se notara. La prueba del
+  // directorio ya ata las dos claves; el pin sigue siendo la segunda barrera.
   const key = deviceStateKey(peerUserId, device.deviceId);
   const pinned = session.state.pins[key];
   if (

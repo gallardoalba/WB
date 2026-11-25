@@ -120,9 +120,16 @@ function trustPeerKeys(userId: string, keys: PeerKey[]): void {
  */
 let v2Module: Promise<typeof import("@/lib/e2e-v2-chat") | null> | null = null;
 async function getV2Module(): Promise<typeof import("@/lib/e2e-v2-chat") | null> {
-  v2Module ??= import("@/lib/e2e-v2-chat").catch(() => null);
+  if (!v2Module) {
+    v2Module = import("@/lib/e2e-v2-chat").catch(() => null);
+  }
   const bridge = await v2Module;
-  return bridge && bridge.v2Supported() ? bridge : null;
+  if (!bridge) {
+    // Un fallo de carga no se cachea: el siguiente intento puede funcionar.
+    v2Module = null;
+    return null;
+  }
+  return bridge.v2Supported() ? bridge : null;
 }
 
 /** Descifra una tanda de mensajes con la clave de este navegador. */
@@ -566,6 +573,14 @@ export function ExchangeDialog({
         setError(v2.message);
         return;
       } else {
+        // El módulo v2 ya funcionó en este hilo (hay huella de dispositivos):
+        // que ahora no esté no puede degradar el mensaje a v1 en silencio.
+        if (thread.v2Safety) {
+          setError(
+            t("No se pudo cargar el cifrado v2. Recarga la página antes de enviar; el mensaje no se ha enviado."),
+          );
+          return;
+        }
         if (!thread.privateKey || !thread.myKeyId || thread.peerKeys.length === 0) {
           setError(
             t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."),

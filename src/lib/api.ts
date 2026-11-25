@@ -3,9 +3,10 @@ import { ApiError } from "./errors";
 import { DEFAULT_LOCALE, translate, type Locale } from "./i18n";
 import { getLocale } from "./i18n-server";
 import { reportError, requestIdFrom } from "./observability";
+import { MAX_JSON_BODY_BYTES } from "./request-limits";
 
 /** Tope de cuerpo para las rutas JSON: ninguno de los formularios lo necesita. */
-const MAX_BODY_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = MAX_JSON_BODY_BYTES;
 
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   // Las respuestas llevan datos de sesión: no se deben cachear en ningún proxy.

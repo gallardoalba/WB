@@ -18,7 +18,7 @@ import { route } from "@/lib/route";
  * —posible desde el protocolo v2— tiene que poder pedir la suya.
  */
 export const GET = route(
-  {},
+  { limit: { bucket: "keys:proof", limit: 120, windowMs: 60 * 60 * 1000 } },
   ({ user, request }) => {
     const device = new URL(request.url).searchParams.get("device");
     const proof = device

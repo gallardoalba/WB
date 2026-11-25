@@ -51,6 +51,54 @@ export async function getOlm(): Promise<OlmFactory> {
   return factory;
 }
 
+/** Integridad SRI declarada en `/olm/integrity.json`, si el build la dejó. */
+async function integrityFor(src: string): Promise<string | null> {
+  try {
+    const response = await fetch("/olm/integrity.json", { cache: "no-cache" });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      files?: Record<string, { integrity?: string }>;
+    };
+    const name = src.split("/").pop() ?? "";
+    return data.files?.[name]?.integrity ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Comprueba el WASM antes de inicializar libolm.
+ *
+ * El build ya verificó el paquete y `olm.js` se carga con SRI, pero el binario
+ * `olm.wasm` lo pide el propio Emscripten. Se descarga aquí, se calcula su
+ * SHA-256 y se compara con el que dejó `scripts/olm-assets.ts`; si no coincide,
+ * no se inicializa el ratchet. En Node (pruebas) no hay `document` y se omite.
+ */
+export async function verifyOlmAssets(): Promise<void> {
+  if (typeof document === "undefined") return;
+  try {
+    const manifest = await fetch("/olm/integrity.json", { cache: "no-cache" });
+    if (!manifest.ok) return;
+    const data = (await manifest.json()) as {
+      files?: Record<string, { sha256?: string }>;
+    };
+    const expected = data.files?.["olm.wasm"]?.sha256;
+    if (!expected) throw new Error("No hay hash para olm.wasm.");
+    const wasm = await fetch("/olm/olm.wasm", { cache: "no-cache" });
+    if (!wasm.ok) throw new Error("No se pudo descargar olm.wasm.");
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await wasm.arrayBuffer()));
+    const actual = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    if (actual !== expected) {
+      throw new Error("El binario de libolm no coincide con el que se compiló.");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("No hay hash")) throw error;
+    throw new Error(
+      `No se pudo verificar la integridad de libolm: ${error instanceof Error ? error.message : "error desconocido"}`,
+    );
+  }
+}
+
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(`script[data-olm="${src}"]`);
@@ -61,12 +109,20 @@ function loadScript(src: string): Promise<void> {
       });
       return;
     }
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.dataset.olm = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("No se pudo cargar libolm."));
-    document.head.append(script);
+    void integrityFor(src)
+      .then((integrity) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.dataset.olm = src;
+        // Si el build no dejó `integrity.json` (por ejemplo, un `next dev`
+        // antiguo) se carga igualmente: la comprobación de `prebuild` sigue
+        // siendo la barrera principal.
+        if (integrity) script.integrity = integrity;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("No se pudo cargar libolm."));
+        document.head.append(script);
+      })
+      .catch(() => reject(new Error("No se pudo cargar libolm.")));
   });
 }

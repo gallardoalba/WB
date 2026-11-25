@@ -78,12 +78,12 @@ async function dispositivoPublicado(userId: string, deviceId = "dispositivo-dire
   const account = await v2.createAccount(2);
   const signed = v2.deviceKeys(account, deviceId);
   await repo.publishDevice(userId, { ...signed, oneTimeKeys: v2.oneTimeKeys(account, deviceId) });
-  return { deviceId, identityKey: signed.identityKey };
+  return { deviceId, identityKey: signed.identityKey, signingKey: signed.signingKey };
 }
 
 test("la prueba de un dispositivo verifica contra la raíz firmada", async () => {
   const ana = cuenta("Ana Directorio");
-  const { deviceId, identityKey } = await dispositivoPublicado(ana);
+  const { deviceId, identityKey, signingKey } = await dispositivoPublicado(ana);
   const snapshot = transparency.createKeySnapshot(db.getDb(), {
     key: claveDeFirma(),
     now: "2027-02-01T00:00:00.000Z",
@@ -103,14 +103,14 @@ test("la prueba de un dispositivo verifica contra la raíz firmada", async () =>
       signature: snapshot.signature,
       publicKey: snapshot.publicKey,
     },
-    { userId: ana, deviceId, identityKey },
+    { userId: ana, deviceId, identityKey, signingKey },
   );
   assert.equal(resultado.ok, true, resultado.reason);
 });
 
 test("una línea, una rama o una raíz retocadas no cuadran", async () => {
   const bruno = cuenta("Bruno Directorio");
-  const { deviceId, identityKey } = await dispositivoPublicado(bruno);
+  const { deviceId, identityKey, signingKey } = await dispositivoPublicado(bruno);
   const snapshot = transparency.createKeySnapshot(db.getDb(), {
     key: claveDeFirma(),
     now: "2027-03-01T00:00:00.000Z",
@@ -126,7 +126,7 @@ test("una línea, una rama o una raíz retocadas no cuadran", async () => {
     publicKey: snapshot.publicKey,
   };
 
-  const esperado = { userId: bruno, deviceId, identityKey };
+  const esperado = { userId: bruno, deviceId, identityKey, signingKey };
   const lineaCambiada = { line: proof.line.replace(identityKey, "Z".repeat(43)), index: proof.index, branch: proof.branch, root: proof.root };
   assert.equal(await verifyInclusion(lineaCambiada), false, "otra clave no llega a la misma raíz");
   assert.equal((await verifyDeviceProof(lineaCambiada, cabecera, esperado)).ok, false);
@@ -187,6 +187,7 @@ test("una prueba válida de otra cuenta no sirve aunque traiga la misma clave", 
       userId: atacante,
       deviceId,
       identityKey: suyo.identityKey,
+      signingKey: suyo.signingKey,
     })).ok,
     true,
   );
@@ -195,6 +196,7 @@ test("una prueba válida de otra cuenta no sirve aunque traiga la misma clave", 
     userId: victima,
     deviceId,
     identityKey: suyo.identityKey,
+    signingKey: suyo.signingKey,
   });
   assert.equal(suplantada.ok, false);
   assert.match(suplantada.reason ?? "", /otra cuenta/);
@@ -202,14 +204,14 @@ test("una prueba válida de otra cuenta no sirve aunque traiga la misma clave", 
 
 test("una prueba mal formada se rechaza sin calcular hashes", async () => {
   const dani = cuenta("Dani Directorio");
-  const { deviceId, identityKey } = await dispositivoPublicado(dani, "dispositivo-malformado");
+  const { deviceId, identityKey, signingKey } = await dispositivoPublicado(dani, "dispositivo-malformado");
   const snapshot = transparency.createKeySnapshot(db.getDb(), {
     key: claveDeFirma(),
     now: "2027-06-01T00:00:00.000Z",
   });
   const proof = transparency.keyInclusion(dani, `device:${deviceId}`)!;
   const base = { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root };
-  const esperado = { userId: dani, deviceId, identityKey };
+  const esperado = { userId: dani, deviceId, identityKey, signingKey };
   const cabecera: KeySnapshotHeader = {
     id: snapshot.id,
     createdAt: snapshot.createdAt,
@@ -246,7 +248,7 @@ test("la prueba de un dispositivo retirado no se acepta como si estuviera activo
   // inclusión verifica; lo que dice que ya no vale es el estado de la línea.
   const elena = cuenta("Elena Retirada");
   const deviceId = "dispositivo-retirado-1";
-  const { identityKey } = await dispositivoPublicado(elena, deviceId);
+  const { identityKey, signingKey } = await dispositivoPublicado(elena, deviceId);
 
   const alPublicar = transparency.createKeySnapshot(db.getDb(), {
     key: claveDeFirma(),
@@ -259,7 +261,7 @@ test("la prueba de un dispositivo retirado no se acepta como si estuviera activo
         return { line: proof.line, index: proof.index, branch: proof.branch, root: proof.root };
       })(),
       cabeceraDe(alPublicar),
-      { userId: elena, deviceId, identityKey },
+      { userId: elena, deviceId, identityKey, signingKey },
     )).ok,
     true,
     "recién publicado, vale",
@@ -276,7 +278,7 @@ test("la prueba de un dispositivo retirado no se acepta como si estuviera activo
   const tras = await verifyDeviceProof(
     { line: prueba.line, index: prueba.index, branch: prueba.branch, root: prueba.root },
     cabeceraDe(trasRetirar),
-    { userId: elena, deviceId, identityKey },
+    { userId: elena, deviceId, identityKey, signingKey },
   );
   assert.equal(tras.ok, false);
   assert.match(tras.reason ?? "", /retirado/);

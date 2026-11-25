@@ -304,13 +304,22 @@ test("reponer claves no devuelve a la vida un dispositivo retirado entre medias"
     return original(fn);
   };
   try {
-    await repo.publishDevice(marta, replenish(real.account, DEVICE_ID, real.input, 2));
+    // La reposición ya no puede seguir: la clasificación cambió dentro de la
+    // transacción y no se comprobó la contraseña para una reactivación.
+    await assert.rejects(
+      () => repo.publishDevice(marta, replenish(real.account, DEVICE_ID, real.input, 2)),
+      /cambió mientras se publicaba/,
+    );
   } finally {
     (conexion as unknown as { transaction: unknown }).transaction = original;
   }
 
   const despues = repo.getDevice(marta, DEVICE_ID);
   assert.ok(despues?.revokedAt, "sigue retirado: reponer no lo resucita");
+  const ultima = getDb()
+    .prepare("SELECT line FROM key_directory_log WHERE user_id = ? AND slot = ? ORDER BY seq DESC LIMIT 1")
+    .get(marta, `device:${DEVICE_ID}`) as { line: string };
+  assert.match(ultima.line, /\|revoked:\d{4}-/, "el directorio no puede quedar diciendo que está activo");
 });
 
 test("no se pueden acumular dispositivos sin tope", async () => {
@@ -334,4 +343,24 @@ test("no se pueden acumular dispositivos sin tope", async () => {
   repo.revokeDevice(nora, "dispositivo-de-nora-1");
   const { change } = await repo.publishDevice(nora, extra.input, { password: PASSWORD });
   assert.equal(change, "another");
+});
+
+test("reactivar un dispositivo también cuenta para el tope", async () => {
+  const pia = cuenta("Pía Tope Reactiva");
+  const primero = await device("pia-dispositivo-1");
+  await repo.publishDevice(pia, primero.input);
+  for (let index = 2; index <= repo.MAX_DEVICES_PER_ACCOUNT; index += 1) {
+    const real = await device(`pia-dispositivo-${index}`);
+    await repo.publishDevice(pia, real.input, { password: PASSWORD });
+  }
+  repo.revokeDevice(pia, "pia-dispositivo-1");
+  const sexto = await device("pia-dispositivo-6");
+  await repo.publishDevice(pia, sexto.input, { password: PASSWORD });
+  assert.equal(repo.listDevices(pia).length, repo.MAX_DEVICES_PER_ACCOUNT);
+
+  await assert.rejects(
+    () => repo.publishDevice(pia, primero.input, { password: PASSWORD }),
+    (error: { status?: number; message?: string }) =>
+      error.status === 409 && /como mucho/.test(error.message ?? ""),
+  );
 });

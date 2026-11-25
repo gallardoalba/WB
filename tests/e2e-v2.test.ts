@@ -270,3 +270,10 @@ test("el tamaño calculado del sobre es un tope y no una estimación corta", asy
   assert.equal(v2.fitsInEnvelope(HILO, "mensaje normal"), true);
   assert.equal(v2.fitsInEnvelope(HILO, "x".repeat(60_000)), false);
 });
+
+test("el presupuesto de tamaño tiene en cuenta todos los dispositivos", () => {
+  assert.equal(v2.fitsForDevices(HILO, "mensaje corto", 5), true);
+  assert.equal(v2.fitsForDevices(HILO, "x".repeat(10_000), 1), true);
+  assert.equal(v2.fitsForDevices(HILO, "x".repeat(10_000), 5), false);
+  assert.equal(v2.fitsForDevices(HILO, "x".repeat(48_000), 1), false);
+});

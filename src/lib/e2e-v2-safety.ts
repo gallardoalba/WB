@@ -43,12 +43,27 @@ function sideLines(devices: DeviceFingerprint[]): string {
 export async function v2SafetyNumber(
   me: DeviceFingerprint[],
   peer: DeviceFingerprint[],
+  /** Identidades de las dos cuentas, para atar la huella a sus titulares. */
+  userIds: { me?: string; peer?: string } = {},
 ): Promise<string | null> {
   if (me.length === 0 || peer.length === 0) return null;
 
-  // Ordenar los dos lados hace la huella independiente de quién la calcula.
-  const [first, second] = [sideLines(me), sideLines(peer)].sort();
-  let digest = new TextEncoder().encode(`${first}\u0000${second}`);
+  let material: string;
+  if (userIds.me && userIds.peer) {
+    // Sin los ids, el número solo identifica un conjunto de aparatos: dos
+    // cuentas con los mismos fingerprints producían la misma huella. Con los
+    // ids, la comparación ata también a quién pertenece cada lado.
+    const sides = [
+      { id: userIds.me, lines: sideLines(me) },
+      { id: userIds.peer, lines: sideLines(peer) },
+    ].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    material = sides.map((side) => `${side.id}\u0000${side.lines}`).join("\u0000");
+  } else {
+    // Compatibilidad con el formato anterior cuando solo se pasan aparatos.
+    const [first, second] = [sideLines(me), sideLines(peer)].sort();
+    material = `${first}\u0000${second}`;
+  }
+  let digest = new TextEncoder().encode(material);
   for (let round = 0; round < ROUNDS; round += 1) {
     digest = new Uint8Array(await crypto.subtle.digest("SHA-512", digest));
   }

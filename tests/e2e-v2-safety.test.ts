@@ -54,3 +54,15 @@ test("sin dispositivos en alguna de las dos partes no hay número", async () => 
   assert.equal(await v2SafetyNumber([], ana), null);
   assert.equal(formatSafetyNumber(null), null);
 });
+
+test("los identificadores de cuenta forman parte de la huella", async () => {
+  const ana = [dispositivo("ana-uno", "a")];
+  const bruno = [dispositivo("bruno-uno", "c")];
+
+  const desdeAna = await v2SafetyNumber(ana, bruno, { me: "usr_ana", peer: "usr_bruno" });
+  const desdeBruno = await v2SafetyNumber(bruno, ana, { me: "usr_bruno", peer: "usr_ana" });
+  assert.equal(desdeAna, desdeBruno, "sigue sin depender de quién la calcula");
+
+  const otraCuenta = await v2SafetyNumber(ana, bruno, { me: "usr_ana", peer: "usr_carla" });
+  assert.notEqual(desdeAna, otraCuenta, "cambiar el titular cambia la huella");
+});

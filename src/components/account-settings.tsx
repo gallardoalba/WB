@@ -86,6 +86,7 @@ export function AccountSettings({
   const [keyPassword, setKeyPassword] = useState("");
   const [keyBusy, setKeyBusy] = useState(false);
   const [v2Active, setV2Active] = useState(false);
+  const [v2Orphan, setV2Orphan] = useState(false);
   const [v2Busy, setV2Busy] = useState(false);
   const [v2Password, setV2Password] = useState("");
   const [v2NeedsPassword, setV2NeedsPassword] = useState(false);
@@ -117,7 +118,15 @@ export function AccountSettings({
       // cambia en cada render.
       await api<{ devices: OwnDevice[] }>("/api/account/devices")
         .then((data) => {
-          if (!cancelled) setV2Devices(data.devices);
+          if (cancelled) return;
+          setV2Devices(data.devices);
+          // El dispositivo local puede haber sido retirado desde otro
+          // navegador. Si el servidor ya no lo lista, no se puede seguir
+          // diciendo que este navegador está activo.
+          if (mine && !data.devices.some((device) => device.deviceId === mine)) {
+            setV2Active(false);
+            setV2Orphan(true);
+          }
         })
         .catch(() => {
           if (!cancelled) setV2Devices([]);
@@ -319,7 +328,12 @@ export function AccountSettings({
     setV2Msg("");
     try {
       const activated = await import("@/lib/e2e-v2-chat");
+      // Si el servidor ya no lista el dispositivo local, hay que empezar de
+      // cero: publicar el mismo id no lo resucita y la clave privada antigua
+      // ya no sirve para las sesiones nuevas.
+      if (v2Orphan) await activated.forgetV2Device(user.id);
       await activated.activateV2(user.id, v2Password || undefined);
+      setV2Orphan(false);
       setV2Active(true);
       setV2NeedsPassword(false);
       setV2Password("");
@@ -850,6 +864,13 @@ export function AccountSettings({
                   void activateV2Device();
                 }}
               >
+                {v2Orphan && (
+                  <p className="form-note" role="status">
+                    {t(
+                      "Este dispositivo ya no está activo en el servidor. Al volver a activar el cifrado se creará uno nuevo en este navegador y se perderá el historial local de v2; los mensajes anteriores no se podrán leer aquí.",
+                    )}
+                  </p>
+                )}
                 {v2NeedsPassword && (
                   <label htmlFor="v2-password">
                     {t("Contraseña actual")}
@@ -868,7 +889,11 @@ export function AccountSettings({
                   type="submit"
                   disabled={v2Busy || (v2NeedsPassword && !v2Password)}
                 >
-                  {v2Busy ? t("Activando…") : t("Activar el cifrado v2 en este navegador")}
+                  {v2Busy
+                    ? t("Activando…")
+                    : v2Orphan
+                      ? t("Volver a activar el cifrado v2 en este navegador")
+                      : t("Activar el cifrado v2 en este navegador")}
                 </button>
               </form>
             )}

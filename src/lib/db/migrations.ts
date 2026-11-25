@@ -2292,12 +2292,13 @@ function migrateToV73(db: Db) {
     }
     const devices = db
       .prepare(
-        "SELECT user_id, device_id, identity_key, updated_at, revoked_at FROM device_keys ORDER BY user_id, device_id",
+        "SELECT user_id, device_id, identity_key, signing_key, updated_at, revoked_at FROM device_keys ORDER BY user_id, device_id",
       )
       .all() as {
       user_id: string;
       device_id: string;
       identity_key: string;
+      signing_key: string;
       updated_at: string;
       revoked_at: string | null;
     }[];
@@ -2309,6 +2310,7 @@ function migrateToV73(db: Db) {
           userId: row.user_id,
           deviceId: row.device_id,
           identityKey: row.identity_key,
+          signingKey: row.signing_key,
           updatedAt: row.updated_at,
           revokedAt: row.revoked_at,
         }),
@@ -2317,6 +2319,57 @@ function migrateToV73(db: Db) {
     }
   })();
   db.pragma("user_version = 73");
+}
+
+/**
+ * v74: la hoja del dispositivo incluye la clave de firma.
+ *
+ * v73 publicaba `cuenta|device:<id>|identidad|fecha|revocado`. La firma Ed25519
+ * se quedaba fuera del compromiso: el servidor podía cambiar solo esa clave en
+ * la lista de dispositivos, el cliente la fijaba en el primer prekey y los
+ * envíos posteriores fallaban. La hoja pasa a llevar las dos claves juntas.
+ *
+ * Las bases que ya estaban en v73 conservan sus líneas de cinco campos (el
+ * registro es append-only). Se añade una línea nueva con el formato actual para
+ * cada dispositivo, de modo que la última línea —la que leen las pruebas— sea
+ * la que ata las dos claves.
+ */
+function migrateToV74(db: Db) {
+  const last = db.prepare(
+    "SELECT line FROM key_directory_log WHERE user_id = ? AND slot = ? ORDER BY seq DESC LIMIT 1",
+  );
+  const insert = db.prepare(
+    "INSERT INTO key_directory_log (user_id, slot, line, created_at) VALUES (?, ?, ?, ?)",
+  );
+  const devices = db
+    .prepare(
+      "SELECT user_id, device_id, identity_key, signing_key, updated_at, revoked_at FROM device_keys ORDER BY user_id, device_id",
+    )
+    .all() as {
+    user_id: string;
+    device_id: string;
+    identity_key: string;
+    signing_key: string;
+    updated_at: string;
+    revoked_at: string | null;
+  }[];
+  db.transaction(() => {
+    for (const row of devices) {
+      const slot = `device:${row.device_id}`;
+      const line = deviceDirectoryLine({
+        userId: row.user_id,
+        deviceId: row.device_id,
+        identityKey: row.identity_key,
+        signingKey: row.signing_key,
+        updatedAt: row.updated_at,
+        revokedAt: row.revoked_at,
+      });
+      const previous = last.get(row.user_id, slot) as { line: string } | undefined;
+      if (previous?.line === line) continue;
+      insert.run(row.user_id, slot, line, row.updated_at);
+    }
+  })();
+  db.pragma("user_version = 74");
 }
 
 export function migrate(db: Db) {
@@ -2461,6 +2514,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 71) migrateToV71(db);
   if (userVersion(db) < 72) migrateToV72(db);
   if (userVersion(db) < 73) migrateToV73(db);
+  if (userVersion(db) < 74) migrateToV74(db);
 
   backfillSearchKeys(db);
 }

@@ -414,10 +414,20 @@ test("cambiar solo la clave de firma también se rechaza", async () => {
   db.getDb()
     .prepare("UPDATE device_keys SET signing_key = ? WHERE device_id = ?")
     .run("Z".repeat(43), "dispositivo-de-ana-05");
+  // El directorio tiene que reflejar el cambio para que la prueba no falle
+  // antes por «otra cuenta»; lo que se quiere probar es el pin del par.
+  const cambiado = repo.getDevice(ana, "dispositivo-de-ana-05")!;
+  transparency.recordDeviceInDirectory(db.getDb(), {
+    userId: ana,
+    deviceId: cambiado.deviceId,
+    identityKey: cambiado.identityKey,
+    signingKey: cambiado.signingKey,
+    revokedAt: null,
+    at: new Date().toISOString(),
+  });
 
   deAna.session.state.sessions = {};
   await enviar(deAna, hilo, bruno, "segundo");
-
   await assert.rejects(() => recibir(deBruno, hilo, ana), /cambiado de clave/);
 });
 
@@ -719,4 +729,80 @@ test("el mismo id de dispositivo en dos cuentas no comparte nada", async () => {
     (await recibir(deCarla, conCarla, ana)).map((message) => message.text),
     ["para carla"],
   );
+});
+
+test("una lista vacía no degrada a v1 si ya se conocía un dispositivo", async () => {
+  const ana = cuenta("Ana Oculta");
+  const bruno = cuenta("Bruno Oculta");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-10");
+  await abrir(bruno, "dispositivo-de-bruno-10");
+
+  currentUser = ana;
+  await encryptForDevices({
+    session: deAna.session,
+    api: api(),
+    conversation: `request:${hilo}`,
+    text: "primero",
+    peerUserId: bruno,
+  });
+
+  const oculto = {
+    ...api(),
+    async listDevices() {
+      return [];
+    },
+  };
+  await assert.rejects(
+    () =>
+      encryptForDevices({
+        session: deAna.session,
+        api: oculto,
+        conversation: `request:${hilo}`,
+        text: "no debe salir en v1",
+        peerUserId: bruno,
+      }),
+    /ya vio alguno/,
+  );
+});
+
+test("ocultar uno de varios dispositivos activos también se detecta", async () => {
+  const ana = cuenta("Ana Parcial");
+  const bruno = cuenta("Bruno Parcial");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-11");
+  const brunoUno = await abrir(bruno, "dispositivo-de-bruno-11");
+  await abrir(bruno, "dispositivo-de-bruno-12", PASSWORD);
+
+  currentUser = ana;
+  await encryptForDevices({
+    session: deAna.session,
+    api: api(),
+    conversation: `request:${hilo}`,
+    text: "primero",
+    peerUserId: bruno,
+  });
+
+  const todos = repo.listDevices(bruno);
+  assert.equal(todos.length, 2);
+  const parcial = {
+    ...api(),
+    async listDevices(userId: string) {
+      return api()
+        .listDevices(userId)
+        .then((devices) => devices.filter((device) => device.deviceId !== todos[1]!.deviceId));
+    },
+  };
+  await assert.rejects(
+    () =>
+      encryptForDevices({
+        session: deAna.session,
+        api: parcial,
+        conversation: `request:${hilo}`,
+        text: "parcial",
+        peerUserId: bruno,
+      }),
+    /oculta un dispositivo activo/,
+  );
+  assert.ok(brunoUno.session.state.deviceId);
 });

@@ -137,16 +137,32 @@ export function compareWithWitness(seen: WitnessEntry[], published: WitnessEntry
     if (ahora.signature !== antes.signature) {
       problems.push(`${clave(ahora)} cambió de firma`);
     }
-    if (ahora.publicKey !== antes.publicKey) {
-      problems.push(`${clave(ahora)} cambió de clave pública`);
-    }
   }
 
   for (const log of ["catalogue", "keys"] as const) {
     const apuntado = newestEntry(seen, log);
     const publicado = newestEntry(published, log);
-    if (!apuntado || !publicado || publicado.id === apuntado.id) continue;
-    if (publicado.createdAt < apuntado.createdAt) {
+    if (!apuntado) continue;
+    if (!publicado) {
+      // Un registro que tenía historial y ahora no publica nada no es «una
+      // ventana de veinte»: es que han desaparecido todas las instantáneas.
+      problems.push(`${log}: el registro ya no publica ninguna instantánea`);
+      continue;
+    }
+    // La clave del operador se fija con la primera instantánea que ve el
+    // testigo. Si cambia, aunque sea con un id nuevo, hay que parar: el cliente
+    // también la tiene fijada y no aceptaría esa historia sin una rotación
+    // explícita.
+    const anchor = apuntado.publicKey;
+    if (anchor) {
+      for (const ahora of published) {
+        if (ahora.log !== log || !ahora.publicKey || ahora.publicKey === anchor) continue;
+        problems.push(
+          `${log}: la clave pública del operador cambió (${anchor.slice(0, 12)}… → ${ahora.publicKey.slice(0, 12)}…)`,
+        );
+      }
+    }
+    if (publicado.id !== apuntado.id && publicado.createdAt < apuntado.createdAt) {
       problems.push(
         `${log}: lo publicado (${publicado.id}) es anterior a lo último que el testigo vio (${apuntado.id})`,
       );

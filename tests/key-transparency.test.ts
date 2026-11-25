@@ -336,3 +336,72 @@ test("reponer claves de un solo uso no engorda el directorio", async () => {
     "retirarlo sí: deja una línea nueva con el estado",
   );
 });
+
+test("borrar la cuenta retira sus dispositivos y deja la prueba en el directorio", async () => {
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Lucía Baja");
+  const account = await v2.createAccount(2);
+  const deviceId = "lucia-dispositivo-baja";
+  await repo.publishDevice(id, {
+    ...v2.deviceKeys(account, deviceId),
+    oneTimeKeys: v2.oneTimeKeys(account, deviceId),
+  });
+
+  repo.deleteAccount(id);
+  const conexion = getDb();
+  const devices = conexion
+    .prepare("SELECT COUNT(*) AS n FROM device_keys WHERE user_id = ?")
+    .get(id) as { n: number };
+  const keys = conexion
+    .prepare("SELECT COUNT(*) AS n FROM device_one_time_keys WHERE user_id = ?")
+    .get(id) as { n: number };
+  assert.equal(devices.n, 0, "no quedan dispositivos v2");
+  assert.equal(keys.n, 0, "no quedan claves de un solo uso");
+
+  const snapshot = transparency.createKeySnapshot(conexion, { key: keyPair() });
+  const proof = transparency.keyInclusion(id, `device:${deviceId}`);
+  assert.ok(proof, "la línea histórica sigue en el árbol");
+  assert.equal(proof.snapshotId, snapshot.id);
+  assert.match(proof.line, /\|revoked:\d{4}-/);
+});
+
+test("cambiar la identidad o retirar refresca la prueba el mismo día", async () => {
+  const v2 = await import("../src/lib/e2e-v2.ts");
+  const id = cuenta("Marta Refresco");
+  const account = await v2.createAccount(2);
+  const deviceId = "marta-dispositivo-refresco";
+  await repo.publishDevice(id, {
+    ...v2.deviceKeys(account, deviceId),
+    oneTimeKeys: v2.oneTimeKeys(account, deviceId),
+  });
+  const antes = transparency.createKeySnapshot(getDb(), { key: keyPair() });
+  assert.ok(transparency.keyInclusion(id, `device:${deviceId}`));
+
+  // Un cambio de identidad deja una línea nueva; la instantánea todavía tiene
+  // la vieja, así que `ensure` tiene que firmar otra.
+  const cambiado = repo.getDevice(id, deviceId)!;
+  getDb()
+    .prepare("UPDATE device_keys SET identity_key = ?, signing_key = ?, updated_at = ? WHERE user_id = ? AND device_id = ?")
+    .run("N".repeat(43), "M".repeat(43), new Date().toISOString(), id, deviceId);
+  transparency.recordDeviceInDirectory(getDb(), {
+    userId: id,
+    deviceId,
+    identityKey: "N".repeat(43),
+    signingKey: "M".repeat(43),
+    revokedAt: cambiado.revokedAt,
+    at: new Date().toISOString(),
+  });
+  const trasCambio = transparency.ensureKeySnapshotForDevice(id, deviceId);
+  assert.ok(trasCambio, "se crea una instantánea nueva");
+  assert.notEqual(trasCambio, antes.id);
+  assert.match(
+    transparency.keyInclusion(id, `device:${deviceId}`)!.line,
+    new RegExp(`${id}\\|device:${deviceId}\\|${"N".repeat(43)}\\|${"M".repeat(43)}\\|`),
+  );
+
+  // Y lo mismo al retirar: la última línea es `revoked:` y hay que publicarla.
+  repo.revokeDevice(id, deviceId);
+  const trasRetirar = transparency.ensureKeySnapshotForDevice(id, deviceId);
+  assert.ok(trasRetirar, "la retirada también se firma en el acto");
+  assert.match(transparency.keyInclusion(id, `device:${deviceId}`)!.line, /\|revoked:\d{4}-/);
+});

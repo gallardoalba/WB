@@ -36,6 +36,16 @@ export const MAX_ONE_TIME_KEYS = 100;
  */
 export const MAX_DEVICES_PER_ACCOUNT = 5;
 
+/**
+ * Cambios de directorio por cuenta y día.
+ *
+ * Cada alta, cambio de identidad o reactivación añade una línea al registro
+ * append-only y engorda todas las instantáneas. Diez al día dejan margen de
+ * sobra a una persona y acotan el daño de una cuenta que intente inflar el
+ * árbol.
+ */
+export const MAX_DIRECTORY_CHANGES_PER_DAY = 10;
+
 export type DeviceKey = {
   deviceId: string;
   identityKey: string;
@@ -150,6 +160,35 @@ function assertSigned(input: PublishDeviceInput): void {
  * ellas, así que servirlas solo produciría establecimientos imposibles que se
  * confunden con un ataque.
  */
+function classifyChange(
+  existing: DeviceKey | null,
+  input: PublishDeviceInput,
+  hasAnyIdentity: boolean,
+): PublishChange {
+  if (existing?.revokedAt) return "reactivation";
+  if (
+    existing &&
+    (existing.identityKey !== input.identityKey || existing.signingKey !== input.signingKey)
+  ) {
+    return "identity";
+  }
+  if (existing) return "keys";
+  return hasAnyIdentity ? "another" : "initial";
+}
+
+/** ¿Este cambio exige contraseña? Reponer claves no, el resto sí. */
+function requiresPassword(change: PublishChange): boolean {
+  return change === "another" || change === "identity" || change === "reactivation";
+}
+
+function hasAnyIdentity(userId: string, db: Db): boolean {
+  // Cuenta también la identidad de v1: una cuenta que ya cifra tiene algo que
+  // proteger, aunque todavía no haya publicado ningún dispositivo v2. Sin
+  // esto, una sesión robada instalaba el primer dispositivo v2 sin contraseña
+  // y recibía el tráfico futuro.
+  return listDevices(userId, db, { includeRevoked: true }).length > 0 || hasPublishedKey(userId, db);
+}
+
 export async function publishDevice(
   userId: string,
   input: PublishDeviceInput,
@@ -159,36 +198,56 @@ export async function publishDevice(
   assertSigned(input);
 
   const existing = getDevice(userId, input.deviceId, db);
-  // Cuenta también la identidad de v1: una cuenta que ya cifra tiene algo que
-  // proteger, aunque todavía no haya publicado ningún dispositivo v2. Sin
-  // esto, una sesión robada instalaba el primer dispositivo v2 sin contraseña
-  // y recibía el tráfico futuro.
-  const hasAnyIdentity =
-    listDevices(userId, db, { includeRevoked: true }).length > 0 || hasPublishedKey(userId, db);
-  const identityChanged =
-    existing !== null &&
-    (existing.identityKey !== input.identityKey || existing.signingKey !== input.signingKey);
-
-  let change: PublishChange;
-  if (existing?.revokedAt) change = "reactivation";
-  else if (identityChanged) change = "identity";
-  else if (existing) change = "keys";
-  else change = hasAnyIdentity ? "another" : "initial";
+  const change = classifyChange(existing, input, hasAnyIdentity(userId, db));
+  if (change !== "keys") {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const row = db
+      .prepare("SELECT COUNT(*) AS total FROM key_directory_log WHERE user_id = ? AND created_at > ?")
+      .get(userId, since) as { total: number };
+    if (row.total >= MAX_DIRECTORY_CHANGES_PER_DAY) {
+      throw new ApiError(
+        429,
+        "Has hecho demasiados cambios de dispositivos hoy. Espera para volver a intentarlo.",
+      );
+    }
+  }
 
   // El **primer** dispositivo de una cuenta es TOFU, igual que la primera clave
   // en v1: no hay nada anterior que proteger. Reponer claves tampoco pide
   // contraseña, porque la firma del paquete ya prueba que lo publica el propio
   // dispositivo. Todo lo demás sí: añadir un dispositivo más, cambiar su
   // identidad o reactivar uno retirado.
-  if (change === "another" || change === "identity" || change === "reactivation") {
+  const passwordChecked = requiresPassword(change);
+  if (passwordChecked) {
     await assertPassword(userId, options.password, change, db);
   }
 
   const now = new Date().toISOString();
   db.transaction(() => {
+    // La clasificación se leyó antes de verificar la contraseña (que es
+    // asíncrona). Se vuelve a leer **dentro** de la transacción: si otra
+    // petición cambió el dispositivo entretanto, no se puede aplicar el cambio
+    // con la contraseña que se comprobó para otro estado. Rechazar y pedir que
+    // se reintente es preferible a escribir una línea del directorio que diga
+    // «activo» sobre un dispositivo retirado.
+    const current = getDevice(userId, input.deviceId, db);
+    const currentChange = classifyChange(current, input, hasAnyIdentity(userId, db));
+    if (requiresPassword(currentChange) && !passwordChecked) {
+      throw new ApiError(
+        409,
+        "El dispositivo cambió mientras se publicaba la clave. Vuelve a intentarlo.",
+      );
+    }
+    const currentIdentityChanged =
+      current !== null &&
+      (current.identityKey !== input.identityKey || current.signingKey !== input.signingKey);
+
     // Dentro de la transacción: dos altas simultáneas leerían el mismo recuento
-    // y el tope se quedaría corto.
-    if (change === "another") assertDeviceRoom(userId, db);
+    // y el tope se quedaría corto. Una reactivación también añade un aparato
+    // activo y tiene que contar para el mismo tope.
+    if (currentChange === "another" || currentChange === "reactivation") {
+      assertDeviceRoom(userId, db);
+    }
     db.prepare(
       `INSERT INTO device_keys
          (user_id, device_id, identity_key, signing_key, bundle_signature,
@@ -211,18 +270,25 @@ export async function publishDevice(
       input.signature,
       now,
       now,
-      change === "reactivation" ? 1 : 0,
+      currentChange === "reactivation" ? 1 : 0,
     );
-    // El directorio es un registro: cada cambio que importa deja su línea.
-    recordDeviceInDirectory(db, {
-      userId,
-      deviceId: input.deviceId,
-      identityKey: input.identityKey,
-      revokedAt: change === "reactivation" ? null : existing?.revokedAt ?? null,
-      at: now,
-    });
+    // El directorio es un registro: cada cambio que importa deja su línea. El
+    // estado de retirada se toma de la fila que se acaba de escribir, no de la
+    // lectura de fuera: una retirada concurrente no puede quedar borrada del
+    // registro por una reposición de claves.
+    const saved = getDevice(userId, input.deviceId, db);
+    if (saved) {
+      recordDeviceInDirectory(db, {
+        userId,
+        deviceId: input.deviceId,
+        identityKey: saved.identityKey,
+        signingKey: saved.signingKey,
+        revokedAt: saved.revokedAt,
+        at: now,
+      });
+    }
 
-    if (identityChanged) {
+    if (currentIdentityChanged) {
       db.prepare("DELETE FROM device_one_time_keys WHERE user_id = ? AND device_id = ?").run(
         userId,
         input.deviceId,
@@ -253,11 +319,9 @@ export async function publishDevice(
     ).run(userId, input.deviceId, userId, input.deviceId, MAX_ONE_TIME_KEYS);
   })();
 
-  const row = db
-    .prepare(`${SELECT_DEVICE} WHERE d.user_id = ? AND d.device_id = ?`)
-    .get(userId, input.deviceId) as DeviceRow | undefined;
-  if (!row) throw new ApiError(500, "No se pudo guardar el dispositivo.");
-  return { device: toDevice(row), change };
+  const current = getDevice(userId, input.deviceId, db);
+  if (!current) throw new ApiError(500, "No se pudo guardar el dispositivo.");
+  return { device: current, change };
 }
 
 /** ¿La cuenta ya publicó alguna identidad? Incluye la ranura v1 y la columna antigua. */
@@ -370,6 +434,7 @@ export function revokeDevice(userId: string, deviceId: string, db: Db = getDb())
           userId,
           deviceId,
           identityKey: device.identityKey,
+          signingKey: device.signingKey,
           revokedAt: device.revokedAt,
           at: now,
         });

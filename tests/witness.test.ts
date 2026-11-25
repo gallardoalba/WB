@@ -145,3 +145,45 @@ test("una ventana de veinte no es un fallo aunque haya mucho apuntado", () => {
   assert.equal(atras.length, 1);
   assert.match(atras[0]!, /anterior a lo último que el testigo vio/);
 });
+
+test("un registro que deja de publicar instantáneas se denuncia", () => {
+  const antes = {
+    log: "keys" as const,
+    id: "kys_00000000-0000-4000-8000-000000000001",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    merkleRoot: "raiz",
+    previousRoot: null,
+    itemCount: 1,
+    signature: "firma",
+    publicKey: "clave",
+    seenAt: "2026-01-01T00:05:00.000Z",
+  };
+  const problemas = witness.compareWithWitness([antes], []);
+  assert.equal(problemas.length, 1);
+  assert.match(problemas[0]!, /ya no publica ninguna instantánea/);
+});
+
+test("un cambio de la clave del operador se denuncia aunque el id sea nuevo", () => {
+  const antes = {
+    log: "keys" as const,
+    id: "kys_00000000-0000-4000-8000-000000000001",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    merkleRoot: "raiz-1",
+    previousRoot: null,
+    itemCount: 1,
+    signature: "firma-1",
+    publicKey: "clave-1",
+    seenAt: "2026-01-01T00:05:00.000Z",
+  };
+  const nueva = {
+    ...antes,
+    id: "kys_00000000-0000-4000-8000-000000000002",
+    createdAt: "2026-01-02T00:00:00.000Z",
+    merkleRoot: "raiz-2",
+    previousRoot: "raiz-1",
+    signature: "firma-2",
+    publicKey: "clave-2",
+  };
+  const problemas = witness.compareWithWitness([antes], [antes, nueva]);
+  assert.ok(problemas.some((problem) => /clave pública del operador/.test(problem)));
+});

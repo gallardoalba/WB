@@ -84,7 +84,7 @@ const store = typeof window === "undefined" ? null : indexedDbStore();
 
 /** Sesión abierta en esta pestaña. Se intenta una vez por carga. */
 let session: Session | null = null;
-let opening: Promise<Session | null> | null = null;
+const opening = new Map<string, Promise<Session | null>>();
 
 export function v2Supported(): boolean {
   if (typeof window === "undefined" || !isSupported()) return false;
@@ -131,12 +131,26 @@ async function withSession<T>(userId: string, run: (session: Session) => Promise
     if (!state) throw new NoDeviceError("No hay dispositivo en este navegador.");
     const account = await v2.unpickleAccount(state.account, state.pickleKey);
     const current: Session = { state, account };
-    const result = await run(current);
-    await store.save(current.state);
-    // La copia en memoria deja de ser fiable: la próxima lectura la recarga.
-    session = null;
-    return result;
+    try {
+      const result = await run(current);
+      await store.save(current.state);
+      return result;
+    } finally {
+      // Las cuentas viven en el heap de WASM: sin `free()` se acumula una por
+      // operación. La copia en memoria también deja de ser fiable y se suelta
+      // aquí para que la próxima lectura la recargue.
+      v2.freeAccount(account);
+      freeCachedSession();
+    }
   });
+}
+
+/** Suelta la cuenta cacheada de la pestaña, si la hay. */
+function freeCachedSession(): void {
+  if (session) {
+    v2.freeAccount(session.account);
+    session = null;
+  }
 }
 
 /**
@@ -147,15 +161,25 @@ async function withSession<T>(userId: string, run: (session: Session) => Promise
 export async function loadV2Session(userId: string): Promise<Session | null> {
   if (!v2Supported() || !store) return null;
   if (session?.state.userId === userId) return session;
-  opening ??= (async () => {
+  const pending = opening.get(userId);
+  if (pending) return pending;
+
+  // Abrir también puede publicar/repner claves y guardar el estado: tiene que
+  // ocurrir dentro del mismo cerrojo que el resto de operaciones. Antes se
+  // hacía fuera y dos pestañas podían pisarse el ratchet al cargar a la vez.
+  const promise = withLock(userId, async () => {
+    if (session?.state.userId === userId) return session;
     const existing = await store.load(userId);
     if (!existing) return null;
-    session = await openDevice({ userId, store, api: httpApi });
-    return session;
-  })().finally(() => {
-    opening = null;
+    const next = await openDevice({ userId, store, api: httpApi });
+    if (session && session !== next) v2.freeAccount(session.account);
+    session = next;
+    return next;
+  }).finally(() => {
+    opening.delete(userId);
   });
-  return opening;
+  opening.set(userId, promise);
+  return promise;
 }
 
 /** ¿Hay dispositivo v2 en este navegador? Sin abrirlo ni publicar nada. */
@@ -179,17 +203,9 @@ export async function activateV2(userId: string, password?: string): Promise<Ses
   const created = await withLock(userId, () =>
     openDevice({ userId, store, api: httpApi, password }),
   );
+  if (session && session !== created) v2.freeAccount(session.account);
   session = created;
   return created;
-}
-
-/** Dispositivos v2 activos de una cuenta; vacío si no tiene o no hay red. */
-export async function peerDeviceCount(userId: string): Promise<number> {
-  try {
-    return (await httpApi.listDevices(userId)).length;
-  } catch {
-    return 0;
-  }
 }
 
 export type V2SendPayload = { senderDeviceId: string; envelopes: OutgoingEnvelope[] };
@@ -314,7 +330,14 @@ export async function decryptV2(input: {
   conversation: string;
   messages: ThreadMessage[];
 }): Promise<V2DecodeResult> {
-  const current = await loadV2Session(input.userId).catch(() => null);
+  let current: Session | null;
+  try {
+    current = await loadV2Session(input.userId);
+  } catch {
+    // Un almacén roto no es «no había mensajes»: que la interfaz lo muestre en
+    // vez de dejar el hilo vacío sin explicación.
+    return { texts: {}, failed: 1 };
+  }
   if (!current || input.messages.length === 0) return { texts: {}, failed: 0 };
   try {
     return await withSession(input.userId, async (fresh) => {
@@ -363,7 +386,9 @@ export async function safetyWith(
       httpApi.listDevices(userId),
       httpApi.listDevices(peerUserId),
     ]);
-    return formatSafetyNumber(await v2SafetyNumber(me, peer));
+    return formatSafetyNumber(
+      await v2SafetyNumber(me, peer, { me: userId, peer: peerUserId }),
+    );
   } catch {
     return null;
   }
@@ -371,8 +396,8 @@ export async function safetyWith(
 
 /** Descarta la sesión en memoria (al cerrar sesión o cambiar de cuenta). */
 export function forgetV2Session(): void {
-  session = null;
-  opening = null;
+  freeCachedSession();
+  opening.clear();
 }
 
 /**

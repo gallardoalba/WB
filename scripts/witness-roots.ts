@@ -63,7 +63,10 @@ function readSeen(file: string): WitnessEntry[] {
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { accept: "application/json" } });
+  const response = await fetch(url, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(20_000),
+  });
   if (!response.ok) throw new Error(`${url} respondió ${response.status}`);
   return (await response.json()) as T;
 }
@@ -79,6 +82,22 @@ function lastPinned(seen: WitnessEntry[]): WitnessEntry | null {
  * Devuelve el problema, o `null` si cuadra o si no hay nada que comprobar (la
  * primera vez, o cuando la raíz no ha cambiado).
  */
+/**
+ * Forma de un id de instantánea.
+ *
+ * El id fijado en el fichero se usa para construir una URL cuando la API ya no
+ * lista esa instantánea (por ejemplo, tras más de veinte días sin ejecutar el
+ * testigo). Se valida aquí para que un fichero manipulado no pueda inyectar
+ * nada en la petición; el host sigue viniendo de `--url`.
+ */
+const SNAPSHOT_ID = /^kys_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+type ConsistencyAnswer = {
+  from: { id: string; itemCount: number; merkleRoot: string };
+  to: { id: string; itemCount: number; merkleRoot: string };
+  proof: string[];
+};
+
 async function checkConsistency(
   url: string,
   seen: WitnessEntry[],
@@ -89,26 +108,38 @@ async function checkConsistency(
   if (!pinned || !current) return null;
   if (pinned.merkleRoot === current.merkleRoot) return null;
 
-  // Los identificadores que van en la URL salen de lo que **publica** el
-  // servidor, no del fichero del testigo: lo apuntado solo sirve para comprobar
-  // que lo publicado sigue diciendo lo mismo, nunca para construir una petición.
-  const from = published.find((entry) => entry.log === "keys" && entry.id === pinned.id);
-  if (!from) return `la instantánea apuntada ${pinned.id} ya no se publica`;
-  if (from.merkleRoot !== pinned.merkleRoot || from.itemCount !== pinned.itemCount) {
-    return `la instantánea ${from.id} ya no dice lo que el testigo apuntó`;
+  // Si la instantánea fijada sigue en la ventana publicada, se contrasta con lo
+  // que dice el servidor. Si ya salió de la ventana, no es un fallo: se pide la
+  // prueba directamente contra la instantánea fijada, que la base conserva.
+  const listed = published.find((entry) => entry.log === "keys" && entry.id === pinned.id);
+  const from = listed ?? pinned;
+  if (listed && (listed.merkleRoot !== pinned.merkleRoot || listed.itemCount !== pinned.itemCount)) {
+    return `la instantánea ${listed.id} ya no dice lo que el testigo apuntó`;
+  }
+  if (!SNAPSHOT_ID.test(from.id) || !SNAPSHOT_ID.test(current.id)) {
+    return "hay un identificador de instantánea con una forma inesperada";
   }
 
-  const answer = await getJson<{
-    from: { id: string; itemCount: number; merkleRoot: string };
-    to: { id: string; itemCount: number; merkleRoot: string };
-    proof: string[];
-  }>(
-    `${url}/api/transparency/keys/consistency?from=${encodeURIComponent(from.id)}&to=${encodeURIComponent(current.id)}`,
-  );
-  if (answer.from.itemCount !== from.itemCount || answer.from.merkleRoot !== from.merkleRoot) {
+  let answer: ConsistencyAnswer;
+  try {
+    answer = await getJson<ConsistencyAnswer>(
+      `${url}/api/transparency/keys/consistency?from=${encodeURIComponent(from.id)}&to=${encodeURIComponent(current.id)}`,
+    );
+  } catch {
+    return `la instantánea apuntada ${from.id} ya no se puede comprobar contra ${current.id}`;
+  }
+  if (
+    answer.from.id !== from.id ||
+    answer.from.itemCount !== from.itemCount ||
+    answer.from.merkleRoot !== from.merkleRoot
+  ) {
     return "la prueba de consistencia no parte de la instantánea que el testigo apuntó";
   }
-  if (answer.to.itemCount !== current.itemCount || answer.to.merkleRoot !== current.merkleRoot) {
+  if (
+    answer.to.id !== current.id ||
+    answer.to.itemCount !== current.itemCount ||
+    answer.to.merkleRoot !== current.merkleRoot
+  ) {
     return "la prueba de consistencia no termina en la instantánea publicada";
   }
   const ok = await verifyConsistencyProof(

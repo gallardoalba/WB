@@ -76,9 +76,16 @@ function peerEntries(peer: DirectThreadView["peer"]): RecipientKey[] {
  */
 let v2Module: Promise<typeof import("@/lib/e2e-v2-chat") | null> | null = null;
 async function getV2(): Promise<typeof import("@/lib/e2e-v2-chat") | null> {
-  v2Module ??= import("@/lib/e2e-v2-chat").catch(() => null);
+  if (!v2Module) {
+    v2Module = import("@/lib/e2e-v2-chat").catch(() => null);
+  }
   const bridge = await v2Module;
-  return bridge && bridge.v2Supported() ? bridge : null;
+  if (!bridge) {
+    // Un fallo de carga no se cachea: el siguiente intento puede funcionar.
+    v2Module = null;
+    return null;
+  }
+  return bridge.v2Supported() ? bridge : null;
 }
 
 /**
@@ -325,6 +332,12 @@ export function DirectMessageDialog({
           setError(v2.message);
           return;
         } else {
+          if (v2Safety) {
+            setError(
+              t("No se pudo cargar el cifrado v2. Recarga la página antes de enviar; el mensaje no se ha enviado."),
+            );
+            return;
+          }
           if (!privateKey || !keyId) {
             throw new Error(
               t("Falta la clave de cifrado de la conversación. Vuelve a abrir el intercambio."),

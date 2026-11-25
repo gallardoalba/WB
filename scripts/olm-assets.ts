@@ -40,7 +40,7 @@ const sha256 = (file: string) => createHash("sha256").update(readFileSync(file))
 const expected = expectedHashes();
 mkdirSync(target, { recursive: true });
 
-const copied: Record<string, string> = {};
+const copied: Record<string, { sha256: string; integrity: string }> = {};
 for (const file of ["olm.js", "olm.wasm"]) {
   const source = path.join(origin, file);
   const digest = sha256(source);
@@ -56,10 +56,19 @@ for (const file of ["olm.js", "olm.wasm"]) {
     );
   }
   copyFileSync(source, path.join(target, file));
-  copied[file] = digest;
+  copied[file] = {
+    sha256: digest,
+    // Formato que entiende el atributo `integrity` del navegador. El cargador
+    // lo lee antes de inyectar `/olm/olm.js`: el build ya comprobó el paquete,
+    // pero un fichero servido desde disco o un CDN también tiene que coincidir.
+    integrity: `sha256-${Buffer.from(digest, "hex").toString("base64")}`,
+  };
 }
 
 // Queda junto a los ficheros para poder comprobar de un vistazo qué se sirve.
-writeFileSync(path.join(target, "integrity.json"), `${JSON.stringify({ sha256: copied }, null, 2)}\n`);
+writeFileSync(
+  path.join(target, "integrity.json"),
+  `${JSON.stringify({ files: copied }, null, 2)}\n`,
+);
 
 console.log(`libolm copiado y verificado en ${path.relative(process.cwd(), target)}`);
