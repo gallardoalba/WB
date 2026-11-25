@@ -32,6 +32,7 @@ const EXPECTED_TABLES = [
   "city_distances",
   "device_keys",
   "device_one_time_keys",
+  "device_one_time_keys_used",
   "dm_message_envelopes",
   "dm_messages",
   "dm_reads",

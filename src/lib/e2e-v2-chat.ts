@@ -16,6 +16,7 @@ import * as v2 from "./e2e-v2";
 import {
   decryptThread,
   encryptForDevices,
+  forgetPeerState,
   NoDeviceError,
   openDevice,
   rememberPlaintext,
@@ -58,11 +59,20 @@ const httpApi: DeviceApi = {
     );
   },
   async ownDevices() {
-    const response = await api<{ devices: { deviceId: string; oneTimeKeys: number }[] }>(
-      "/api/account/devices",
-    );
+    const response = await api<{
+      devices: {
+        deviceId: string;
+        identityKey: string;
+        signingKey: string;
+        bundleSignature: string;
+        oneTimeKeys: number;
+      }[];
+    }>("/api/account/devices");
     return response.devices.map((device) => ({
       deviceId: device.deviceId,
+      identityKey: device.identityKey,
+      signingKey: device.signingKey,
+      bundleSignature: device.bundleSignature,
       oneTimeKeys: device.oneTimeKeys,
     }));
   },
@@ -129,6 +139,9 @@ async function withSession<T>(userId: string, run: (session: Session) => Promise
     // `NoDeviceError`, no un `Error` suelto: el llamador distingue «no hay
     // dispositivo» de «el dispositivo no se puede abrir».
     if (!state) throw new NoDeviceError("No hay dispositivo en este navegador.");
+    if (state.userId !== userId) {
+      throw new VerificationError("El estado guardado pertenece a otra cuenta.");
+    }
     const account = await v2.unpickleAccount(state.account, state.pickleKey);
     const current: Session = { state, account };
     try {
@@ -286,12 +299,13 @@ export async function encryptV2(input: {
  */
 export async function rememberSentV2(
   userId: string,
+  conversation: string,
   messageId: string,
   text: string,
 ): Promise<void> {
   try {
     await withSession(userId, async (fresh) => {
-      rememberPlaintext(fresh.state, messageId, text);
+      rememberPlaintext(fresh.state, conversation, messageId, text);
     });
   } catch {
     // Sin dispositivo o sin almacén no hay nada que recordar.
@@ -333,7 +347,12 @@ export async function decryptV2(input: {
   let current: Session | null;
   try {
     current = await loadV2Session(input.userId);
-  } catch {
+  } catch (error) {
+    // Un fallo de verificación no es «no había mensajes»: es una señal de
+    // identidad y la interfaz debe decirla, no contarla como sobre roto.
+    if (error instanceof VerificationError) {
+      return { texts: {}, failed: 0, blocked: error.message };
+    }
     // Un almacén roto no es «no había mensajes»: que la interfaz lo muestre en
     // vez de dejar el hilo vacío sin explicación.
     return { texts: {}, failed: 1 };
@@ -386,6 +405,20 @@ export async function safetyWith(
       httpApi.listDevices(userId),
       httpApi.listDevices(peerUserId),
     ]);
+    // Una lista del servidor no es una huella: al menos exigimos que cada
+    // paquete esté firmado por la clave que dice tener. La prueba de inclusión
+    // se comprueba en los caminos de sesión; aquí no se puede fingir una lista
+    // entera con claves arbitrarias sin poseer sus claves privadas.
+    const signatures = await Promise.all(
+      [...me, ...peer].map((device) =>
+        v2.verifySignature(
+          device.signingKey,
+          v2.bundleMessage(device.deviceId, device.identityKey, device.signingKey),
+          device.bundleSignature,
+        ),
+      ),
+    );
+    if (signatures.some((valid) => !valid)) return null;
     return formatSafetyNumber(
       await v2SafetyNumber(me, peer, { me: userId, peer: peerUserId }),
     );
@@ -409,7 +442,28 @@ export function forgetV2Session(): void {
  */
 export async function forgetV2Device(userId: string): Promise<void> {
   forgetV2Session();
-  await forgetDevice(userId).catch(() => undefined);
+  // Sin IndexedDB no hay estado que borrar (y el test de "sin almacén" no
+  // debe romper la página).
+  if (!isSupported()) return;
+  // Con cerrojo si el navegador lo tiene; si no, no hay forma de coordinar
+  // pestañas y borrar es más seguro que dejar el material privado.
+  const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+  if (locks) await withLock(userId, () => forgetDevice(userId));
+  else await forgetDevice(userId);
+}
+
+/**
+ * Olvida solo los dispositivos de una cuenta con la que se habla.
+ *
+ * Se usa después de comparar por otro canal una huella nueva: borra sesiones,
+ * pins y verificaciones de ese par, pero conserva el resto de contactos y la
+ * identidad de este navegador. La siguiente operación vuelve a fijar el
+ * dispositivo con la huella que se haya comprobado.
+ */
+export async function forgetPeerV2(userId: string, peerUserId: string): Promise<void> {
+  await withSession(userId, async (fresh) => {
+    forgetPeerState(fresh.state, peerUserId);
+  });
 }
 
 /** Identificador del dispositivo de esta cuenta en este navegador, si existe. */
@@ -417,4 +471,19 @@ export async function deviceIdFor(userId: string): Promise<string | null> {
   if (!v2Supported() || !store) return null;
   const state = await store.load(userId).catch(() => null);
   return state?.deviceId ?? null;
+}
+
+/** Claves públicas del dispositivo local, para compararlas con el servidor. */
+export async function deviceKeysFor(
+  userId: string,
+): Promise<{ identityKey: string; signingKey: string } | null> {
+  if (!store) return null;
+  const state = await store.load(userId).catch(() => null);
+  if (!state) return null;
+  const account = await v2.unpickleAccount(state.account, state.pickleKey);
+  try {
+    return v2.identityKeys(account);
+  } finally {
+    v2.freeAccount(account);
+  }
 }

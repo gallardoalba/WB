@@ -27,11 +27,10 @@ export const GET = route<undefined, "user", { userId: string; deviceId: string }
     if (!device) {
       throw new ApiError(404, "Ese dispositivo no existe.");
     }
-    // Aunque la última instantánea sea anterior a la retirada, un dispositivo
-    // retirado no debe recibir una prueba que lo presente como activo.
-    if (device.revokedAt) {
-      throw new ApiError(404, "Ese dispositivo está retirado.");
-    }
+    // Un dispositivo retirado **sí** tiene prueba: la hoja lleva
+    // `revoked:<fecha>` y el cliente la usa para distinguir una retirada
+    // legítima de una lista a la que el servidor le ha quitado un aparato
+    // activo. Devolver 404 aquí dejaba la conversación bloqueada para siempre.
     const account = getDb()
       .prepare("SELECT is_suspended FROM users WHERE id = ?")
       .get(params.userId) as { is_suspended: number } | undefined;

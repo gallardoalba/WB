@@ -268,7 +268,7 @@ separate signed snapshot of the key directory (`/api/transparency/keys`), a
 Merkle root, a hash chain, and per-account inclusion proofs
 (`/api/account/keys/proof`).
 
-The list is an **append-only log** (`key_directory_log`, v73–v74) and the snapshot is
+The list is an **append-only log** (`key_directory_log`, v73–v75) and the snapshot is
 built from it in insertion order. That is not an implementation detail: a
 consistency proof can only show that a new tree extends an old one if the leaves
 that were already published stay where they were. While the list was rebuilt from
@@ -372,6 +372,9 @@ What does exist is the out-of-band check: `v2SafetyNumber` hashes every device
 of both sides **and the two account ids** (`user|device|identity|signing`,
 sorted, iterated SHA-512 5200 times) into the 60 digits the interface shows. Adding a device changes the
 number, so a comparison made before stops being valid — which is the point.
+The first comparison is still trust-on-first-use: a server that substitutes the
+list before anyone compares is not detected by the number alone. The interface
+stores the last compared value per person and blocks when it changes.
 
 Until the last one exists, the transparency log detects a substitution only the
 day someone diffs two roots; the bundle signature (§2) is what makes the

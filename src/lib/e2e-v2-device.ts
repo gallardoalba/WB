@@ -57,6 +57,31 @@ export function deviceStateKey(userId: string, deviceId: string): string {
   return `${userId}:${deviceId}`;
 }
 
+/** ¿Este navegador ha visto alguna vez un dispositivo de esa cuenta? */
+export function hasSeenPeer(state: DeviceState, peerUserId: string): boolean {
+  const prefix = `${peerUserId}:`;
+  return [state.knownDevices, state.pins, state.sessions].some((map) =>
+    Boolean(map && Object.keys(map).some((key) => key.startsWith(prefix))),
+  );
+}
+
+/** Marca un dispositivo como visto, para el bloqueo anti-degradación. */
+function rememberDevice(state: DeviceState, key: string): void {
+  (state.knownDevices ??= {})[key] = true;
+}
+
+/** Borra el estado criptográfico de todos los dispositivos de una cuenta. */
+export function forgetPeerState(state: DeviceState, peerUserId: string): void {
+  const prefix = `${peerUserId}:`;
+  const maps = [state.knownDevices, state.pins, state.sessions, state.verified];
+  for (const map of maps) {
+    if (!map) continue;
+    for (const key of Object.keys(map)) {
+      if (key.startsWith(prefix)) delete (map as Record<string, unknown>)[key];
+    }
+  }
+}
+
 /** Lo que se guarda en el dispositivo. Nunca sale de aquí en claro. */
 export type DeviceState = {
   userId: string;
@@ -73,6 +98,13 @@ export type DeviceState = {
    * clave compuesta que `sessions`.
    */
   pins: Record<string, v2.PinnedDevice>;
+  /**
+   * Dispositivos de cada cuenta que este navegador ha llegado a verificar alguna
+   * vez. No se borran cuando un dispositivo se retira: es la memoria que impide
+   * degradar a v1 después de haber usado v2. Se borra solo con un reset explícito
+   * de la confianza de ese par.
+   */
+  knownDevices?: Record<string, true>;
   /** Secreto local del bote de libolm; viaja dentro del estado ya cifrado. */
   pickleKey: string;
   /** Clave con la que el operador firma el directorio; se fija la primera vez. */
@@ -114,9 +146,14 @@ const DECRYPTED_CACHE_LIMIT = 500;
  * cifrado con una clave no exportable (`e2e-v2-idb.ts`), así que el texto no
  * queda en claro en el perfil del navegador.
  */
-export function rememberPlaintext(state: DeviceState, messageId: string, text: string): void {
+export function rememberPlaintext(
+  state: DeviceState,
+  conversation: string,
+  messageId: string,
+  text: string,
+): void {
   const cache = (state.decrypted ??= {});
-  cache[messageId] = text;
+  cache[`${conversation}:${messageId}`] = text;
   const ids = Object.keys(cache);
   for (const id of ids.slice(0, Math.max(0, ids.length - DECRYPTED_CACHE_LIMIT))) delete cache[id];
 }
@@ -173,7 +210,15 @@ export type DeviceApi = {
    * Los dispositivos de una cuenta, con cuántas claves de un solo uso le quedan
    * a cada uno. Para los propios es lo que dispara la reposición.
    */
-  ownDevices(userId: string): Promise<{ deviceId: string; oneTimeKeys: number }[]>;
+  ownDevices(userId: string): Promise<
+    {
+      deviceId: string;
+      identityKey: string;
+      signingKey: string;
+      bundleSignature: string;
+      oneTimeKeys: number;
+    }[]
+  >;
   /**
    * Prueba de que el dispositivo está en la última instantánea firmada.
    *
@@ -231,13 +276,21 @@ export async function openDevice(input: {
   deviceId?: string;
 }): Promise<Session> {
   const stored = await input.store.load(input.userId);
+  if (stored && stored.userId !== input.userId) {
+    throw new VerificationError("El estado guardado pertenece a otra cuenta.");
+  }
   if (stored) {
     const account = await v2.unpickleAccount(stored.account, stored.pickleKey);
     try {
       const session = { state: stored, account };
       // Un alta que se quedó a medias (publicada en el servidor pero sin llegar a
-      // guardarse el «publicado») se termina aquí.
+      // guardarse el «publicado») se termina aquí. Las claves del intento
+      // anterior se descartan y se generan otras: si el servidor sí llegó a
+      // guardarlas, alguna pudo reclamarse ya; republicarlas sería reutilizar
+      // una clave de un solo uso.
       if (stored.published === false) {
+        account.mark_keys_as_published();
+        account.generate_one_time_keys(ONE_TIME_KEY_BATCH);
         const keys = v2.deviceKeys(account, stored.deviceId);
         await input.api.publish({
           ...keys,
@@ -285,7 +338,12 @@ export async function openDevice(input: {
     state.published = true;
     state.account = v2.pickleAccount(account, pickleKey);
     await input.store.save(state);
-    return { state, account };
+    const session = { state, account };
+    // Comprobar que el servidor publicó de verdad nuestras claves: si otra
+    // petición o un servidor hostil las cambió, hay que decirlo antes de
+    // cifrar nada. También aprovecha para reponer si quedan pocas.
+    await replenishIfLow(session, input.api, input.store);
+    return session;
   } catch (error) {
     v2.freeAccount(account);
     throw error;
@@ -321,21 +379,34 @@ export async function replenishIfLow(
   try {
     const devices = await api.ownDevices(session.state.userId);
     const mine = devices.find((device) => device.deviceId === session.state.deviceId);
-    if (!mine) return;
+    if (!mine) {
+      throw new VerificationError(
+        "El servidor ya no publica este dispositivo. Vuelve a activar el cifrado v2 en «Mi cuenta».",
+      );
+    }
+    const local = v2.identityKeys(session.account);
+    if (mine.identityKey !== local.identityKey || mine.signingKey !== local.signingKey) {
+      throw new VerificationError(
+        "El servidor publica otras claves para este dispositivo. No se usa el cifrado hasta verificar la cuenta.",
+      );
+    }
     await replenishKeys(session, api, mine.oneTimeKeys);
     await store?.save(session.state);
-  } catch {
-    // Sin red o sin cuota: se reintentará al abrir el dispositivo otra vez.
+  } catch (error) {
+    // Un fallo de identidad no es «sin red»: no se puede seguir usando el
+    // dispositivo como si nada. Lo demás se reintenta en la próxima apertura.
+    if (error instanceof VerificationError) throw error;
   }
 }
 
 /**
  * Repone claves de un solo uso si quedan pocas.
  *
- * Si el dispositivo ya tiene claves sin publicar —de un intento anterior que no
- * llegó a guardarse— se publican **esas** y no se generan más: generar en cada
- * intento acababa superando el tope que acepta el servidor y dejaba todos los
- * envíos posteriores en 400 para siempre.
+ * Las claves sin publicar de un intento anterior se descartan y se generan
+ * nuevas. Si el intento llegó al servidor pero se perdió la respuesta, las
+ * viejas pueden estar ya reclamadas; volver a publicarlas reutilizaría una
+ * clave de un solo uso. Generar un lote nuevo cada vez mantiene el tope del
+ * servidor bajo control y evita ese camino.
  */
 export async function replenishKeys(
   session: Session,
@@ -344,9 +415,8 @@ export async function replenishKeys(
 ): Promise<void> {
   if (pending > ONE_TIME_KEY_FLOOR) return;
   const account = session.account;
-  if (v2.oneTimeKeys(account, session.state.deviceId).length === 0) {
-    account.generate_one_time_keys(ONE_TIME_KEY_BATCH);
-  }
+  account.mark_keys_as_published();
+  account.generate_one_time_keys(ONE_TIME_KEY_BATCH);
   const keys = v2.oneTimeKeys(account, session.state.deviceId);
   const { identityKey, signingKey } = v2.identityKeys(account);
   await api.publish({
@@ -360,40 +430,40 @@ export async function replenishKeys(
   session.state.account = v2.pickleAccount(account, session.state.pickleKey);
 }
 
-/**
- * Comprueba que un dispositivo está en el directorio firmado y que la clave del
- * operador no ha cambiado desde la primera vez.
- *
- * Se hace **una vez por dispositivo y clave**: la prueba cuesta dos peticiones y
- * el resultado no cambia mientras el dispositivo no cambie. Si el dispositivo
- * cambia de clave, la comprobación se repite: darla por buena para siempre
- * dejaba pasar un paquete nuevo sin volver a mirar el directorio.
- */
-async function assertInDirectory(
-  session: Session,
+/** Lo que devuelve la ruta de prueba de un dispositivo. */
+type DirectoryProofAnswer = { proof: DeviceProof; snapshot: KeySnapshotHeader };
+
+async function readDeviceProof(
   api: DeviceApi,
   peerUserId: string,
-  device: { deviceId: string; identityKey: string; signingKey: string },
-  options: { force?: boolean } = {},
-): Promise<void> {
-  const key = deviceStateKey(peerUserId, device.deviceId);
-  const seen = session.state.verified?.[key];
-  const fresh =
-    seen &&
-    seen.identityKey === device.identityKey &&
-    seen.signingKey === device.signingKey &&
-    Date.now() - Date.parse(seen.checkedAt) < DIRECTORY_RECHECK_MS;
-  if (!options.force && fresh) return;
-
-  // El tipo ya la exige, pero un adaptador escrito en JavaScript puede omitirla:
-  // sin prueba no hay sesión, en vez de seguir como si el directorio cuadrara.
-  const answer: { proof: DeviceProof; snapshot: KeySnapshotHeader } | null | undefined =
-    await api.deviceProof?.(peerUserId, device.deviceId);
+  deviceId: string,
+): Promise<DirectoryProofAnswer> {
+  const answer = await api.deviceProof?.(peerUserId, deviceId);
   if (!answer?.proof || !answer.snapshot) {
     throw new VerificationError(
       "El servidor no ha dado prueba de que ese dispositivo esté en el directorio firmado.",
     );
   }
+  return answer;
+}
+
+/**
+ * Verifica una respuesta del directorio y deja el ancla actualizada.
+ *
+ * Es el único camino que debe aceptar una prueba: comprueba inclusión, firma,
+ * clave del operador fijada, antigüedad y continuidad con la instantánea
+ * anterior. Devuelve `revoked: true` cuando la prueba es válida pero la hoja
+ * dice que el dispositivo está retirado; en ese caso el llamador decide si lo
+ * poda (envío) o lo rechaza (recepción).
+ */
+async function verifyDirectoryAnswer(
+  session: Session,
+  api: DeviceApi,
+  peerUserId: string,
+  device: { deviceId: string; identityKey: string; signingKey: string },
+  answer: DirectoryProofAnswer,
+): Promise<{ revoked: boolean }> {
+  const key = deviceStateKey(peerUserId, device.deviceId);
   const { proof, snapshot } = answer;
   const result = await verifyDeviceProof(proof, snapshot, {
     userId: peerUserId,
@@ -401,16 +471,15 @@ async function assertInDirectory(
     identityKey: device.identityKey,
     signingKey: device.signingKey,
   });
-  if (!result.ok) {
+  if (!result.ok && !result.revoked) {
     throw new VerificationError(`Ese dispositivo no está en el directorio firmado: ${result.reason}`);
   }
   if (session.state.directoryKey && snapshot.publicKey !== session.state.directoryKey) {
     throw new VerificationError("La clave con la que se firma el directorio ha cambiado sin avisar.");
   }
-  // Y la instantánea nueva tiene que **continuar** la que ya se comprobó: sin
-  // esto, el servidor podía repetir un directorio de antes de una retirada —la
-  // firma y la inclusión siguen siendo válidas— o servir otra historia a cada
-  // cliente. La prueba de consistencia lo impide sin enseñar el árbol entero.
+  // La instantánea nueva tiene que continuar la que ya se comprobó, incluso si
+  // la prueba es de una retirada: si no, el servidor podría enseñar una historia
+  // anterior a la retirada y usar esa prueba para hacer desaparecer un aparato.
   const last = session.state.lastSnapshot;
   if (last && last.root !== snapshot.merkleRoot) {
     if (snapshot.createdAt < last.createdAt) {
@@ -423,6 +492,7 @@ async function assertInDirectory(
       chain.from.id !== last.id ||
       chain.from.merkleRoot !== last.root ||
       chain.from.itemCount !== last.itemCount ||
+      chain.to.id !== snapshot.id ||
       chain.to.merkleRoot !== snapshot.merkleRoot ||
       chain.to.itemCount !== snapshot.itemCount
     ) {
@@ -448,12 +518,54 @@ async function assertInDirectory(
     root: snapshot.merkleRoot,
     itemCount: snapshot.itemCount,
   };
+  rememberDevice(session.state, key);
+  if (result.revoked) {
+    if (session.state.verified) delete session.state.verified[key];
+    return { revoked: true };
+  }
   (session.state.verified ??= {})[key] = {
     identityKey: device.identityKey,
     signingKey: device.signingKey,
     root: snapshot.merkleRoot,
     checkedAt: new Date().toISOString(),
   };
+  return { revoked: false };
+}
+
+/**
+ * Comprueba que un dispositivo está en el directorio firmado y que la clave del
+ * operador no ha cambiado desde la primera vez.
+ *
+ * Se hace **una vez por dispositivo y clave**: la prueba cuesta dos peticiones y
+ * el resultado no cambia mientras el dispositivo no cambie. Si el dispositivo
+ * cambia de clave, la comprobación se repite: darla por buena para siempre
+ * dejaba pasar un paquete nuevo sin volver a mirar el directorio.
+ */
+async function assertInDirectory(
+  session: Session,
+  api: DeviceApi,
+  peerUserId: string,
+  device: { deviceId: string; identityKey: string; signingKey: string },
+  options: { force?: boolean } = {},
+): Promise<{ revoked: boolean }> {
+  const key = deviceStateKey(peerUserId, device.deviceId);
+  const seen = session.state.verified?.[key];
+  const fresh =
+    seen &&
+    seen.identityKey === device.identityKey &&
+    seen.signingKey === device.signingKey &&
+    Date.now() - Date.parse(seen.checkedAt) < DIRECTORY_RECHECK_MS;
+  if (!options.force && fresh) {
+    rememberDevice(session.state, key);
+    return { revoked: false };
+  }
+  return verifyDirectoryAnswer(
+    session,
+    api,
+    peerUserId,
+    device,
+    await readDeviceProof(api, peerUserId, device.deviceId),
+  );
 }
 
 /**
@@ -463,10 +575,21 @@ async function assertInDirectory(
  * de un solo uso, se **verifica** el paquete y se abre la sesión; para uno ya
  * conocido se reutiliza la sesión guardada, que es lo que da el ratchet.
  */
+function pruneDevice(session: Session, key: string): void {
+  delete session.state.pins[key];
+  delete session.state.sessions[key];
+  if (session.state.verified) delete session.state.verified[key];
+}
+
+function noActiveV2(): VerificationError {
+  return new VerificationError(
+    "La otra persona no tiene ningún dispositivo v2 activo, pero este navegador ya vio alguno. No se envía en v1: espera a que vuelva a publicar uno.",
+  );
+}
+
 export async function encryptForDevices(input: {
   session: Session;
   api: DeviceApi;
-  apiStore?: DeviceStore;
   conversation: string;
   text: string;
   peerUserId: string;
@@ -477,17 +600,33 @@ export async function encryptForDevices(input: {
   const pinnedEntries = Object.entries(session.state.pins).filter(([key]) =>
     key.startsWith(peerPrefix),
   );
+  const seenPeer = hasSeenPeer(session.state, peerUserId);
 
   // Una lista vacía solo es «la otra persona no tiene dispositivo» si este
-  // cliente no vio nunca uno suyo. Si ya lo vio, el servidor está ocultando
-  // dispositivos activos (o el par los retiró todos) y caer a v1 en silencio
-  // entregaría el mensaje sin forward secrecy a quien controla el servidor.
+  // cliente no vio nunca uno suyo. Si ya lo vio, hay que pedir prueba de cada
+  // dispositivo fijado: una retirada legítima permite podarlos, pero un
+  // servidor que oculta uno activo no puede fabricar esa prueba. En ningún caso
+  // se cae a v1 después de haber usado v2.
   if (devices.length === 0) {
-    if (pinnedEntries.length > 0) {
+    let hiddenActive = false;
+    for (const [key, known] of pinnedEntries) {
+      const deviceId = key.slice(peerPrefix.length);
+      const check = await verifyDirectoryAnswer(
+        session,
+        api,
+        peerUserId,
+        { deviceId, ...known },
+        await readDeviceProof(api, peerUserId, deviceId),
+      );
+      if (check.revoked) pruneDevice(session, key);
+      else hiddenActive = true;
+    }
+    if (hiddenActive) {
       throw new VerificationError(
-        "El servidor no publica ningún dispositivo de la otra persona, pero este navegador ya vio alguno. No se envía en v1: espera a que vuelva a publicar uno.",
+        "El servidor no publica un dispositivo activo de la otra persona, pero este navegador ya vio alguno. No se envía el mensaje.",
       );
     }
+    if (pinnedEntries.length > 0 || seenPeer) throw noActiveV2();
     throw new NoDeviceError("La otra persona no tiene ningún dispositivo activo.");
   }
 
@@ -508,29 +647,30 @@ export async function encryptForDevices(input: {
     const known = session.state.pins[key];
 
     // Que la lista cambie las claves bajo el mismo id no puede pasar
-    // desapercibido. Si el dispositivo cambió de identidad de verdad, sus
-    // mensajes nuevos no se abren con la sesión vieja; si lo cambió el
-    // servidor, no hay que aceptar el paquete nuevo sin que la persona lo
-    // confirme.
+    // desapercibido. Si el dispositivo cambió de identidad de verdad, hay que
+    // confirmar la nueva huella; el reset explícito borra el pin.
     if (
       known &&
       (known.identityKey !== device.identityKey || known.signingKey !== device.signingKey)
     ) {
       delete session.state.sessions[key];
       throw new VerificationError(
-        "El dispositivo de la otra persona ha cambiado de clave. Verifica la huella antes de volver a enviar.",
+        "El dispositivo de la otra persona ha cambiado de clave. Verifica la huella y acepta el cambio antes de volver a enviar.",
       );
+    }
+
+    // La sesión puede ser de hace horas: volver a mirar el directorio de vez
+    // en cuando es lo que detecta una retirada que el listado todavía incluye.
+    const check = await assertInDirectory(session, api, peerUserId, device);
+    if (check.revoked) {
+      pruneDevice(session, key);
+      continue;
     }
 
     let sessionFor: v2.OlmSession;
     if (existing) {
-      // La sesión puede ser de hace horas: volver a mirar el directorio de vez
-      // en cuando es lo que detecta una retirada que el listado todavía
-      // incluye.
-      await assertInDirectory(session, api, peerUserId, device);
       sessionFor = await v2.unpickleSession(existing, session.state.pickleKey);
     } else {
-      await assertInDirectory(session, api, peerUserId, device);
       const bundle = await api.claim(peerUserId, device.deviceId);
       // El paquete reclamado y el que publica el registro tienen que ser el
       // mismo: si no, el servidor está enseñando dos verdades distintas.
@@ -556,6 +696,7 @@ export async function encryptForDevices(input: {
         identityKey: device.identityKey,
         signingKey: device.signingKey,
       };
+      rememberDevice(session.state, key);
     } finally {
       // El objeto vive en el WASM: si no se suelta, cada envío deja una sesión
       // ocupando memoria hasta recargar la página. Y esto vale para las dos
@@ -570,31 +711,37 @@ export async function encryptForDevices(input: {
   for (const [key, known] of pinnedEntries) {
     const deviceId = key.slice(peerPrefix.length);
     if (listed.has(deviceId)) continue;
-    let answer: { proof: DeviceProof; snapshot: KeySnapshotHeader };
-    try {
-      answer = await api.deviceProof(peerUserId, deviceId);
-    } catch {
-      throw new VerificationError(
-        "El servidor ya no lista un dispositivo conocido y no da prueba de su retirada.",
-      );
-    }
-    const result = await verifyDeviceProof(answer.proof, answer.snapshot, {
-      userId: peerUserId,
-      deviceId,
-      identityKey: known.identityKey,
-      signingKey: known.signingKey,
-    });
-    if (!result.revoked) {
+    const check = await verifyDirectoryAnswer(
+      session,
+      api,
+      peerUserId,
+      { deviceId, ...known },
+      await readDeviceProof(api, peerUserId, deviceId),
+    );
+    if (!check.revoked) {
       throw new VerificationError(
         "El servidor oculta un dispositivo activo de la otra persona. No se envía el mensaje.",
       );
     }
-    delete session.state.pins[key];
-    delete session.state.sessions[key];
-    if (session.state.verified) delete session.state.verified[key];
+    pruneDevice(session, key);
   }
 
+  if (envelopes.length === 0) throw noActiveV2();
   return { senderDeviceId: session.state.deviceId, envelopes };
+}
+
+/**
+ * ¿Hay que volver a mirar el directorio para aceptar este mensaje?
+ *
+ * Un pre-clave siempre; un mensaje normal con sesión viva, cuando la
+ * verificación del remitente ha caducado. Así una retirada también llega al
+ * lado que recibe, no solo al que envía.
+ */
+function shouldRecheckSender(session: Session, key: string, type: number | undefined): boolean {
+  if ((type ?? 0) === 0) return true;
+  if (!session.state.sessions[key]) return true;
+  const seen = session.state.verified?.[key];
+  return !seen || Date.now() - Date.parse(seen.checkedAt) >= DIRECTORY_RECHECK_MS;
 }
 
 export type DecryptFailure = { messageId: string; reason: string };
@@ -643,10 +790,11 @@ export async function decryptThread(input: {
   const needsRegistry = messages.some((message) => {
     const envelope = envelopes.get(message.id);
     if (!envelope || cache[message.id] !== undefined) return false;
-    // Un mensaje normal con sesión viva se abre sin registro; un pre-clave
-    // puede tener que abrir una sesión nueva y entonces sí hace falta.
-    if ((envelope.type ?? 0) === 0) return true;
-    return !session.state.sessions[deviceStateKey(peerUserId, message.senderDeviceId)];
+    return shouldRecheckSender(
+      session,
+      deviceStateKey(peerUserId, message.senderDeviceId),
+      envelope.type,
+    );
   });
   const registry = needsRegistry
     ? new Map((await api.listDevices(peerUserId)).map((device) => [device.deviceId, device]))
@@ -656,16 +804,44 @@ export async function decryptThread(input: {
   const failures: DecryptFailure[] = [];
 
   for (const message of messages) {
-    const known = cache[message.id];
+    const cacheKey = `${conversation}:${message.id}`;
+    const known = cache[cacheKey];
     if (known !== undefined) {
       texts.push({ messageId: message.id, text: known });
       continue;
     }
     const envelope = envelopes.get(message.id);
     if (!envelope) continue;
-
     const device = registry.get(message.senderDeviceId) ?? null;
+    const senderKey = deviceStateKey(peerUserId, message.senderDeviceId);
     try {
+      // La sesión viva no basta: si el remitente se retiró o cambió de clave,
+      // hay que verlo antes de mostrar un mensaje nuevo.
+      if (shouldRecheckSender(session, senderKey, envelope.type)) {
+        // Un mensaje pendiente de antes de la retirada sigue abriéndose con la
+        // sesión que ya existe. Lo que no se permite es estrenar sesión con un
+        // dispositivo que el registro ya no publica.
+        if (!session.state.sessions[senderKey] && !device) {
+          throw new VerificationError(
+            "Un mensaje viene de un dispositivo que ya no está en el registro. No se muestra.",
+          );
+        }
+        if (device) {
+          const check = await assertInDirectory(session, api, peerUserId, device);
+          if (check.revoked && !session.state.sessions[senderKey]) {
+            throw new VerificationError("Ese dispositivo está retirado en el directorio.");
+          }
+          const pinned = session.state.pins[senderKey];
+          if (
+            pinned &&
+            (pinned.identityKey !== device.identityKey || pinned.signingKey !== device.signingKey)
+          ) {
+            throw new VerificationError(
+              "El dispositivo de la otra persona ha cambiado de clave sin avisar.",
+            );
+          }
+        }
+      }
       const text = await openEnvelope(
         session,
         api,
@@ -675,7 +851,7 @@ export async function decryptThread(input: {
         { type: envelope.type ?? 0, body: envelope.ciphertext },
         conversation,
       );
-      rememberPlaintext(session.state, message.id, text);
+      rememberPlaintext(session.state, conversation, message.id, text);
       texts.push({ messageId: message.id, text });
     } catch (error) {
       // Un fallo de verificación es un ataque o un registro incoherente y para
@@ -754,7 +930,10 @@ async function acceptFromRegistry(
   device: { deviceId: string; identityKey: string; signingKey: string },
   envelope: { type: number; body: string },
 ): Promise<v2.OlmSession> {
-  await assertInDirectory(session, api, peerUserId, device);
+  const check = await assertInDirectory(session, api, peerUserId, device);
+  if (check.revoked) {
+    throw new VerificationError("Ese dispositivo está retirado en el directorio.");
+  }
   // El par completo, como en el camino de envío: comprobar solo la identidad
   // dejaba cambiar la clave de firma sin que se notara. La prueba del
   // directorio ya ata las dos claves; el pin sigue siendo la segunda barrera.
@@ -770,6 +949,7 @@ async function acceptFromRegistry(
     identityKey: device.identityKey,
     signingKey: device.signingKey,
   };
+  rememberDevice(session.state, key);
   const opened = await v2.acceptSession(session.account, device.identityKey, {
     type: envelope.type,
     body: envelope.body,

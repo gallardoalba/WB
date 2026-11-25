@@ -31,7 +31,14 @@ type StoredKeys = {
  * diálogo: son formularios largos, con contraseñas y verificación en dos
  * pasos, y así se pueden enlazar, recargar y leer con calma.
  */
-type OwnDevice = { deviceId: string; createdAt: string; updatedAt: string; oneTimeKeys: number };
+type OwnDevice = {
+  deviceId: string;
+  identityKey?: string;
+  signingKey?: string;
+  createdAt: string;
+  updatedAt: string;
+  oneTimeKeys: number;
+};
 
 /** Identificador legible de un dispositivo: no hace falta enseñar los 24 caracteres. */
 function shortDeviceId(deviceId: string): string {
@@ -110,6 +117,7 @@ export function AccountSettings({
       const bridge = await import("@/lib/e2e-v2-chat").catch(() => null);
       const active = bridge ? await bridge.hasV2Device(user.id).catch(() => false) : false;
       const mine = bridge ? await bridge.deviceIdFor(user.id).catch(() => null) : null;
+      const localKeys = bridge ? await bridge.deviceKeysFor(user.id).catch(() => null) : null;
       if (!cancelled) {
         setV2Active(active);
         setMyDeviceId(mine);
@@ -123,9 +131,23 @@ export function AccountSettings({
           // El dispositivo local puede haber sido retirado desde otro
           // navegador. Si el servidor ya no lo lista, no se puede seguir
           // diciendo que este navegador está activo.
-          if (mine && !data.devices.some((device) => device.deviceId === mine)) {
+          const listed = data.devices.find((device) => device.deviceId === mine);
+          if (mine && !listed) {
             setV2Active(false);
             setV2Orphan(true);
+          } else if (
+            listed &&
+            localKeys &&
+            (listed.identityKey !== localKeys.identityKey ||
+              listed.signingKey !== localKeys.signingKey)
+          ) {
+            // El servidor cambió las claves bajo el mismo id: este navegador ya
+            // no puede recibir lo que se cifre con la identidad publicada.
+            setV2Active(false);
+            setV2Orphan(true);
+            setV2Error(
+              t("El servidor publica otras claves para este dispositivo. Vuelve a activar el cifrado v2."),
+            );
           }
         })
         .catch(() => {
@@ -135,7 +157,7 @@ export function AccountSettings({
     return () => {
       cancelled = true;
     };
-  }, [user.id]);
+  }, [user.id, t]);
 
   useEffect(() => {
     let cancelled = false;

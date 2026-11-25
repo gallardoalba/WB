@@ -2,10 +2,10 @@
  * Número de seguridad de los dispositivos v2.
  *
  * Sirve para comprobar **fuera de banda** que las claves de la otra persona son
- * las que son. Es la pieza que cubre el punto ciego que deja el anclaje: fijar
- * la clave en el primer contacto protege de un cambio posterior, pero no de que
- * el primer contacto ya venga sustituido. Comparar este número por una llamada,
- * en persona o por otro canal lo cubre.
+ * las que son. El primer contacto sigue siendo confianza a ciegas (TOFU): el
+ * servidor puede haber sustituido la lista antes de que se compare. Lo que sí
+ * detecta es un cambio posterior, siempre que la persona recuerde la huella
+ * anterior. La interfaz guarda la última comparada y bloquea cuando cambia.
  *
  * Se calcula como en Signal: se ordenan los dos lados para que los dos calculen
  * lo mismo, se concatenan los identificadores de todos los dispositivos con sus

@@ -917,7 +917,27 @@ function storeMessage(input: {
     // La comprobación que vale es esta, dentro de la transacción: la de fuera
     // responde antes y con el mismo error, pero entre las dos puede entrar un
     // alta desde otro proceso y el mensaje se guardaría sin el sobre nuevo.
+    const usesV1 =
+      Boolean(input.keyId) ||
+      input.envelopes.length > 0 ||
+      Boolean(input.ciphertext && input.iv);
     if (input.v2) assertV2Envelopes(input.userId, input.otherId, input.v2);
+    if (usesV1) {
+      assertV1Envelopes(
+        input.userId,
+        input.otherId,
+        {
+          keyId: input.keyId ?? undefined,
+          ciphertext: input.ciphertext ?? undefined,
+          iv: input.iv ?? undefined,
+        },
+        input.envelopes,
+      );
+    }
+    assertNoV1WhenV2(input.userId, input.otherId, {
+      hasV1: usesV1,
+      hasV2: Boolean(input.v2),
+    });
     db.prepare(
       `INSERT INTO messages
          (id, request_id, sender_id, body, ciphertext, iv, key_id, encrypted, created_at, sender_device_id)

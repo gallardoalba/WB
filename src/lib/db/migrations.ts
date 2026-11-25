@@ -2372,6 +2372,30 @@ function migrateToV74(db: Db) {
   db.pragma("user_version = 74");
 }
 
+/**
+ * v75: tombstone de claves de un solo uso ya reclamadas.
+ *
+ * `claimOneTimeKey` borraba la fila al entregarla. Si el cliente perdía la
+ * respuesta y reintentaba la publicación, la misma clave volvía a estar
+ * disponible. Una clave de un solo uso no se puede reutilizar: se guarda el
+ * identificador reclamado y las publicaciones posteriores lo ignoran.
+ */
+function migrateToV75(db: Db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_one_time_keys_used (
+      user_id TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      key_id TEXT NOT NULL,
+      claimed_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, device_id, key_id),
+      FOREIGN KEY (user_id, device_id) REFERENCES device_keys(user_id, device_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS device_one_time_keys_used_at
+      ON device_one_time_keys_used(user_id, device_id, claimed_at);
+  `);
+  db.pragma("user_version = 75");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2515,6 +2539,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 72) migrateToV72(db);
   if (userVersion(db) < 73) migrateToV73(db);
   if (userVersion(db) < 74) migrateToV74(db);
+  if (userVersion(db) < 75) migrateToV75(db);
 
   backfillSearchKeys(db);
 }

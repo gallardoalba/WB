@@ -301,6 +301,10 @@ export function sendDirectMessage(
     // porque el conjunto de dispositivos puede cambiar entre la de fuera y este
     // `INSERT`.
     if (input.v2) assertV2Envelopes(viewerId, peerId, input.v2);
+    assertNoV1WhenV2(viewerId, peerId, {
+      hasV1: usesV1,
+      hasV2: Boolean(input.v2),
+    });
     let row = threadRow(viewerId, peerId);
     if (!row) {
       const id = `dmt_${randomUUID()}`;

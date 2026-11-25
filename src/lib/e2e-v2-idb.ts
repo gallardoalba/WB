@@ -32,6 +32,22 @@ function request<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
+/**
+ * Espera al **commit** de la transacción, no solo al éxito de la petición.
+ *
+ * En IndexedDB `request.onsuccess` llega antes de que la transacción confirme.
+ * Si después aborta, la escritura se revierte y el cliente no puede enterarse
+ * si solo espera a la petición: daba por guardado un estado que no existía, o
+ * por borrado un dispositivo que seguía en el perfil.
+ */
+function transactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB abortó la transacción."));
+    tx.onerror = () => reject(tx.error ?? new Error("IndexedDB falló."));
+  });
+}
+
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const open = indexedDB.open(DB_NAME, DB_VERSION);
@@ -75,20 +91,32 @@ async function localKey(db: IDBDatabase): Promise<CryptoKey> {
   ]);
 
   return new Promise<CryptoKey>((resolve, reject) => {
-    const store = db.transaction(KEY_STORE, "readwrite").objectStore(KEY_STORE);
+    const tx = db.transaction(KEY_STORE, "readwrite");
+    const done = transactionDone(tx);
+    const store = tx.objectStore(KEY_STORE);
     const current = store.get("local");
+    let chosen: CryptoKey | null = null;
     current.onsuccess = () => {
       const stored = current.result as CryptoKey | undefined;
       if (stored) {
-        resolve(stored);
+        chosen = stored;
         return;
       }
       const put = store.put(candidate, "local");
-      put.onsuccess = () => resolve(candidate);
+      put.onsuccess = () => {
+        chosen = candidate;
+      };
       put.onerror = () => reject(put.error ?? new Error("No se pudo guardar la clave local."));
     };
     current.onerror = () =>
       reject(current.error ?? new Error("No se pudo leer la clave local."));
+    done.then(
+      () => {
+        if (chosen) resolve(chosen);
+        else reject(new Error("No se pudo guardar la clave local."));
+      },
+      reject,
+    );
   });
 }
 
@@ -114,7 +142,11 @@ export function indexedDbStore(): DeviceStore {
       )) as { iv: Uint8Array<ArrayBuffer>; data: ArrayBuffer } | undefined;
       if (!record) return null;
       const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: record.iv }, key, record.data);
-      return JSON.parse(new TextDecoder().decode(plain)) as DeviceState;
+      const state = JSON.parse(new TextDecoder().decode(plain)) as DeviceState;
+      if (state.userId !== userId) {
+        throw new Error("El estado guardado pertenece a otra cuenta.");
+      }
+      return state;
     },
 
     async save(state: DeviceState): Promise<void> {
@@ -126,12 +158,13 @@ export function indexedDbStore(): DeviceStore {
         key,
         new TextEncoder().encode(JSON.stringify(state)),
       );
-      await request(
-        connection
-          .transaction(DEVICE_STORE, "readwrite")
-          .objectStore(DEVICE_STORE)
-          .put({ iv, data }, state.userId),
-      );
+      if (typeof state.userId !== "string" || !state.userId) {
+        throw new Error("El estado no tiene cuenta.");
+      }
+      const tx = connection.transaction(DEVICE_STORE, "readwrite");
+      const done = transactionDone(tx);
+      tx.objectStore(DEVICE_STORE).put({ iv, data }, state.userId);
+      await done;
     },
   };
 }
@@ -139,7 +172,8 @@ export function indexedDbStore(): DeviceStore {
 /** Borra el dispositivo de esta cuenta de este navegador. */
 export async function forgetDevice(userId: string): Promise<void> {
   const connection = await openDatabase();
-  await request(
-    connection.transaction(DEVICE_STORE, "readwrite").objectStore(DEVICE_STORE).delete(userId),
-  );
+  const tx = connection.transaction(DEVICE_STORE, "readwrite");
+  const done = transactionDone(tx);
+  tx.objectStore(DEVICE_STORE).delete(userId);
+  await done;
 }

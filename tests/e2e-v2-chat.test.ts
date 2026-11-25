@@ -44,7 +44,7 @@ test("cifrar y descifrar sin dispositivo no lanzan: lo dicen en el resultado", a
 });
 
 test("guardar u olvidar el dispositivo sin almacén no rompe la página", async () => {
-  await bridge.rememberSentV2("usr_ana", "msg_1", "hola");
+  await bridge.rememberSentV2("usr_ana", "request:rq_1", "msg_1", "hola");
   await bridge.forgetV2Device("usr_ana");
   bridge.forgetV2Session();
 });

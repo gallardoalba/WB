@@ -201,6 +201,19 @@ test("reclamar entrega una clave distinta cada vez, con su firma, y las agota", 
   assert.equal(repo.claimOneTimeKey(elena, "no-existe-000000"), null);
 });
 
+test("republicar una clave ya reclamada no la resucita", async () => {
+  const usuario = cuenta("Olivia Reintento");
+  const real = await device("olivia-dispositivo-01", 1);
+  repo.publishDevice(usuario, real.input);
+  const primera = repo.claimOneTimeKey(usuario, "olivia-dispositivo-01");
+  assert.ok(primera?.oneTimeKey, "la primera reclamación entrega la clave");
+
+  // Simula que se perdió la respuesta y el cliente reintenta la publicación.
+  repo.publishDevice(usuario, real.input);
+  const segunda = repo.claimOneTimeKey(usuario, "olivia-dispositivo-01");
+  assert.equal(segunda?.oneTimeKey, null, "la clave reclamada no vuelve a estar disponible");
+});
+
 test("revocar y suspender cierran la entrega de claves", async () => {
   const fran = cuenta("Fran Dispositivos");
   const real = await device(DEVICE_ID);

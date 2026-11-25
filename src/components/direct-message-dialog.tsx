@@ -198,6 +198,7 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
   const v2Safety = await getV2()
     .then((bridge) => bridge?.safetyWith(payload.me.id, payload.peer.id))
     .catch(() => null);
+  const v2SafetyChanged = rememberV2Safety(payload.peer.id, v2Safety ?? null);
 
   return {
     payload,
@@ -209,8 +210,36 @@ async function fetchThread(peerId: string, mayPublish: boolean): Promise<Prepare
     safety,
     v2Safety: v2Safety ?? null,
     v2Failed: v2Texts?.failed ?? 0,
-    v2Blocked: v2Texts?.blocked ?? null,
+    v2Blocked:
+      v2Texts?.blocked ??
+      (v2SafetyChanged
+        ? "La huella de los dispositivos de la otra persona ha cambiado. Compárala por otro canal antes de seguir."
+        : null),
   };
+}
+
+function v2SafetyKey(userId: string): string {
+  return `v2-safety:${userId}`;
+}
+
+function rememberV2Safety(userId: string, safety: string | null): boolean {
+  if (!safety) return false;
+  try {
+    const previous = localStorage.getItem(v2SafetyKey(userId));
+    if (previous && previous !== safety) return true;
+    if (!previous) localStorage.setItem(v2SafetyKey(userId), safety);
+  } catch {
+    // Sin almacenamiento local no se puede recordar.
+  }
+  return false;
+}
+
+function trustV2Safety(userId: string): void {
+  try {
+    localStorage.removeItem(v2SafetyKey(userId));
+  } catch {
+    // Nada que borrar.
+  }
 }
 
 export function DirectMessageDialog({
@@ -294,6 +323,14 @@ export function DirectMessageDialog({
     return () => setError("");
   }, []);
 
+  async function trustNewV2Fingerprint() {
+    if (!thread) return;
+    trustV2Safety(thread.peer.id);
+    const bridge = await getV2().catch(() => null);
+    await bridge?.forgetPeerV2(thread.me.id, thread.peer.id);
+    await load();
+  }
+
   function send(event: FormEvent) {
     event.preventDefault();
     const body = draft.trim();
@@ -360,7 +397,7 @@ export function DirectMessageDialog({
         // El sobre no va a este aparato: sin guardar el texto, dejaría de verse
         // al recargar.
         void getV2()
-          .then((bridge) => bridge?.rememberSentV2(meId, created.id, body))
+          .then((bridge) => bridge?.rememberSentV2(meId, conversationId, created.id, body))
           .catch(() => undefined);
         setDraft("");
         await load();
@@ -392,11 +429,20 @@ export function DirectMessageDialog({
         )}
 
         {v2Blocked && (
-          <p className="form-error" role="alert">
-            {t(
-              "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
-            )}
-          </p>
+          <div className="form-error" role="alert">
+            <p>
+              {t(
+                "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
+              )}
+            </p>
+            <button
+              type="button"
+              className="secondary-button small"
+              onClick={() => void trustNewV2Fingerprint()}
+            >
+              {t("He comparado la nueva huella y quiero continuar")}
+            </button>
+          </div>
         )}
 
         {v2Failed > 0 && (

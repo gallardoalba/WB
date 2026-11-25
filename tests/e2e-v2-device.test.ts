@@ -20,7 +20,7 @@ import "./olm-setup.ts";
 
 import type { DeviceApi, DeviceState, DeviceStore } from "../src/lib/e2e-v2-device.ts";
 import * as v2 from "../src/lib/e2e-v2.ts";
-import { decryptThread, encryptForDevices, openDevice } from "../src/lib/e2e-v2-device.ts";
+import { decryptThread, deviceStateKey, encryptForDevices, openDevice } from "../src/lib/e2e-v2-device.ts";
 import { hashPasswordSync } from "../src/lib/password.ts";
 import * as transparency from "../src/lib/transparency.ts";
 
@@ -98,6 +98,9 @@ function api(): DeviceApi {
     async ownDevices(userId) {
       return repo.listDevices(userId).map((device) => ({
         deviceId: device.deviceId,
+        identityKey: device.identityKey,
+        signingKey: device.signingKey,
+        bundleSignature: device.bundleSignature,
         oneTimeKeys: device.oneTimeKeys,
       }));
     },
@@ -763,6 +766,61 @@ test("una lista vacía no degrada a v1 si ya se conocía un dispositivo", async 
         peerUserId: bruno,
       }),
     /ya vio alguno/,
+  );
+});
+
+test("el servidor no puede cambiar las claves del dispositivo propio", async () => {
+  const ana = cuenta("Ana Suplantada");
+  const deAna = await abrir(ana, "dispositivo-de-ana-propio");
+  db.getDb()
+    .prepare(
+      "UPDATE device_keys SET identity_key = ?, signing_key = ? WHERE user_id = ? AND device_id = ?",
+    )
+    .run("A".repeat(43), "B".repeat(43), ana, "dispositivo-de-ana-propio");
+
+  await assert.rejects(
+    () =>
+      openDevice({
+        userId: ana,
+        store: store(deAna.box),
+        api: api(),
+      }),
+    /otras claves|no publica/i,
+  );
+});
+
+test("retirar un dispositivo y dejar otro activo no bloquea los envíos", async () => {
+  const ana = cuenta("Ana Retirada");
+  const bruno = cuenta("Bruno Retirada");
+  const hilo = intercambio(ana, bruno);
+  const deAna = await abrir(ana, "dispositivo-de-ana-ret1");
+  await abrir(bruno, "dispositivo-de-bruno-ret1");
+  await abrir(bruno, "dispositivo-de-bruno-ret2", PASSWORD);
+
+  currentUser = ana;
+  const primero = await encryptForDevices({
+    session: deAna.session,
+    api: api(),
+    conversation: `request:${hilo}`,
+    text: "primero",
+    peerUserId: bruno,
+  });
+  assert.equal(primero.envelopes.length, 2, "se fijan los dos dispositivos");
+
+  repo.revokeDevice(bruno, "dispositivo-de-bruno-ret2");
+  const segundo = await encryptForDevices({
+    session: deAna.session,
+    api: api(),
+    conversation: `request:${hilo}`,
+    text: "segundo",
+    peerUserId: bruno,
+  });
+  assert.equal(segundo.envelopes.length, 1, "solo queda el dispositivo activo");
+  assert.equal(segundo.envelopes[0]!.recipientDeviceId, "dispositivo-de-bruno-ret1");
+  assert.equal(
+    deAna.session.state.pins[deviceStateKey(bruno, "dispositivo-de-bruno-ret2")],
+    undefined,
+    "el retirado se poda",
   );
 });
 

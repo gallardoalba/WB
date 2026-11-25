@@ -199,18 +199,7 @@ export async function publishDevice(
 
   const existing = getDevice(userId, input.deviceId, db);
   const change = classifyChange(existing, input, hasAnyIdentity(userId, db));
-  if (change !== "keys") {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const row = db
-      .prepare("SELECT COUNT(*) AS total FROM key_directory_log WHERE user_id = ? AND created_at > ?")
-      .get(userId, since) as { total: number };
-    if (row.total >= MAX_DIRECTORY_CHANGES_PER_DAY) {
-      throw new ApiError(
-        429,
-        "Has hecho demasiados cambios de dispositivos hoy. Espera para volver a intentarlo.",
-      );
-    }
-  }
+  if (change !== "keys") assertDirectoryChangeRoom(userId, db);
 
   // El **primer** dispositivo de una cuenta es TOFU, igual que la primera clave
   // en v1: no hay nada anterior que proteger. Reponer claves tampoco pide
@@ -223,6 +212,7 @@ export async function publishDevice(
   }
 
   const now = new Date().toISOString();
+  let appliedChange = change;
   db.transaction(() => {
     // La clasificación se leyó antes de verificar la contraseña (que es
     // asíncrona). Se vuelve a leer **dentro** de la transacción: si otra
@@ -232,6 +222,7 @@ export async function publishDevice(
     // «activo» sobre un dispositivo retirado.
     const current = getDevice(userId, input.deviceId, db);
     const currentChange = classifyChange(current, input, hasAnyIdentity(userId, db));
+    appliedChange = currentChange;
     if (requiresPassword(currentChange) && !passwordChecked) {
       throw new ApiError(
         409,
@@ -247,6 +238,15 @@ export async function publishDevice(
     // activo y tiene que contar para el mismo tope.
     if (currentChange === "another" || currentChange === "reactivation") {
       assertDeviceRoom(userId, db);
+    }
+    if (currentChange !== "keys") {
+      assertDirectoryChangeRoom(userId, db);
+      if (input.oneTimeKeys.length === 0) {
+        throw new ApiError(
+          422,
+          "Un dispositivo nuevo, reactivado o con clave nueva necesita al menos una clave de un solo uso.",
+        );
+      }
     }
     db.prepare(
       `INSERT INTO device_keys
@@ -302,7 +302,13 @@ export async function publishDevice(
          key = excluded.key,
          signature = excluded.signature`,
     );
+    const yaUsada = db.prepare(
+      "SELECT 1 AS usada FROM device_one_time_keys_used WHERE user_id = ? AND device_id = ? AND key_id = ?",
+    );
     for (const key of input.oneTimeKeys) {
+      // Reintentar una publicación después de perder la respuesta no puede
+      // resucitar una clave que ya se entregó.
+      if (yaUsada.get(userId, input.deviceId, key.keyId)) continue;
       insertar.run(userId, input.deviceId, key.keyId, key.key, key.signature, now);
     }
 
@@ -321,7 +327,9 @@ export async function publishDevice(
 
   const current = getDevice(userId, input.deviceId, db);
   if (!current) throw new ApiError(500, "No se pudo guardar el dispositivo.");
-  return { device: current, change };
+  // El cambio que importa es el que se aplicó dentro de la transacción, no el
+  // que se leyó antes de comprobar la contraseña.
+  return { device: current, change: appliedChange };
 }
 
 /** ¿La cuenta ya publicó alguna identidad? Incluye la ranura v1 y la columna antigua. */
@@ -342,6 +350,18 @@ function hasPublishedKey(userId: string, db: Db): boolean {
  * activos; los retirados no ocupan sitio hasta que se reactivan, y eso ya pide
  * contraseña.
  */
+function assertDirectoryChangeRoom(userId: string, db: Db): void {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const row = db
+    .prepare("SELECT COUNT(*) AS total FROM key_directory_log WHERE user_id = ? AND created_at > ?")
+    .get(userId, since) as { total: number };
+  if (row.total < MAX_DIRECTORY_CHANGES_PER_DAY) return;
+  throw new ApiError(
+    429,
+    "Has hecho demasiados cambios de dispositivos hoy. Espera para volver a intentarlo.",
+  );
+}
+
 function assertDeviceRoom(userId: string, db: Db): void {
   const row = db
     .prepare(
@@ -482,6 +502,13 @@ export function claimOneTimeKey(
           RETURNING key_id, key, signature`,
       )
       .get(userId, deviceId) as { key_id: string; key: string; signature: string } | undefined;
+    if (key) {
+      db.prepare(
+        `INSERT INTO device_one_time_keys_used (user_id, device_id, key_id, claimed_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, device_id, key_id) DO UPDATE SET claimed_at = excluded.claimed_at`,
+      ).run(userId, deviceId, key.key_id, new Date().toISOString());
+    }
 
     return {
       deviceId,

@@ -185,11 +185,29 @@ export type KeyConsistencyProof = {
  */
 const snapshotLineCache = new Map<string, string[]>();
 
-function linesForSnapshot(id: string, payload: Buffer | null): string[] | null {
-  if (!payload) return null;
+function linesForSnapshot(
+  id: string,
+  itemCount: number,
+  payload: Buffer | null,
+  db: Db,
+): string[] | null {
   const cached = snapshotLineCache.get(id);
   if (cached) return cached;
-  const lines = gunzipSync(payload).toString("utf8").split("\n").filter(Boolean);
+  let lines: string[];
+  if (payload) {
+    try {
+      lines = gunzipSync(payload).toString("utf8").split("\n").filter(Boolean);
+    } catch {
+      return null;
+    }
+  } else {
+    // El registro append-only conserva todas las hojas. Una instantánea es su
+    // prefijo de `itemCount`; no hace falta guardar una copia comprimida del
+    // directorio entero por cada cambio.
+    const all = keyDirectoryLines(db);
+    if (all.length < itemCount) return null;
+    lines = all.slice(0, itemCount);
+  }
   if (snapshotLineCache.size >= 20) {
     const oldest = snapshotLineCache.keys().next().value;
     if (oldest) snapshotLineCache.delete(oldest);
@@ -223,9 +241,9 @@ export function consistencyProofBetween(
           payload: Buffer | null;
         }
       | undefined;
-    if (!row?.payload) return null;
-    const lines = linesForSnapshot(row.id, row.payload);
-    if (!lines) return null;
+    if (!row) return null;
+    const lines = linesForSnapshot(row.id, row.item_count, row.payload, db);
+    if (!lines || merkleRoot(lines) !== row.merkle_root) return null;
     return {
       header: {
         id: row.id,
@@ -513,11 +531,19 @@ export function prunePayloads(
   retentionDays = PAYLOAD_RETENTION_DAYS,
 ): number {
   const cutoff = new Date(Date.parse(now) - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-  return db
+  const catalogue = db
     .prepare(
       "UPDATE transparency_snapshots SET payload = NULL WHERE payload IS NOT NULL AND created_at < ?",
     )
     .run(cutoff).changes;
+  // Las instantáneas del directorio de claves ya se reconstruyen desde el log;
+  // el payload solo existía en versiones anteriores o en utilidades de prueba.
+  const keys = db
+    .prepare(
+      "UPDATE key_snapshots SET payload = NULL WHERE payload IS NOT NULL AND created_at < ?",
+    )
+    .run(cutoff).changes;
+  return catalogue + keys;
 }
 
 /**
@@ -535,6 +561,9 @@ export function verifyChain(snapshots: TransparencySnapshot[]): SnapshotVerifica
       problems.push(
         `${newer.id} dice venir de ${newer.previousRoot ?? "nada"} y la anterior es ${older.merkleRoot}`,
       );
+    }
+    if (newer.itemCount < older.itemCount) {
+      problems.push(`${newer.id} tiene menos hojas que la anterior (${older.id})`);
     }
   }
   return { ok: problems.length === 0, problems };
@@ -888,7 +917,10 @@ export function createKeySnapshot(
       snapshot.itemCount,
       snapshot.merkleRoot,
       snapshot.previousRoot,
-      gzipSync(Buffer.from(lines.join("\n"), "utf8")),
+      // Las instantáneas reales se reconstruyen desde el registro append-only.
+      // Solo se guarda una copia si el llamador pasó líneas explícitas (pruebas
+      // y utilidades de auditoría); así no crece O(N²) con cada dispositivo.
+      options.lines ? gzipSync(Buffer.from(lines.join("\n"), "utf8")) : null,
       snapshot.signature,
       snapshot.publicKey,
       snapshot.signer,
@@ -904,9 +936,20 @@ export function ensureDailyKeySnapshot(
   options: CreateKeySnapshotOptions = {},
 ): KeySnapshot | null {
   const now = options.now ?? new Date().toISOString();
+  const key = options.key === undefined ? signingKey() : options.key;
+  // Sin clave no se firma nada: una instantánea sin firma no sirve a los
+  // clientes ni al testigo, y crear una cada día solo llenaría la tabla.
+  if (!key) return null;
   const latest = latestKeySnapshot(db);
-  if (latest && latest.createdAt.slice(0, 10) === now.slice(0, 10)) return null;
-  return createKeySnapshot(db, { ...options, now });
+  if (
+    latest &&
+    latest.createdAt.slice(0, 10) === now.slice(0, 10) &&
+    latest.signature &&
+    latest.publicKey
+  ) {
+    return null;
+  }
+  return createKeySnapshot(db, { ...options, now, key });
 }
 
 /**
@@ -959,8 +1002,8 @@ export function keyInclusion(
   const row = db
     .prepare("SELECT payload FROM key_snapshots WHERE id = ?")
     .get(snapshot.id) as { payload: Buffer | null } | undefined;
-  const lines = linesForSnapshot(snapshot.id, row?.payload ?? null);
-  if (!lines) return null;
+  const lines = linesForSnapshot(snapshot.id, snapshot.itemCount, row?.payload ?? null, db);
+  if (!lines || merkleRoot(lines) !== snapshot.merkleRoot) return null;
   const prefix = `${userId}|${platform}|`;
   // La **última**: el registro es un histórico y la ranura puede aparecer varias
   // veces (una por rotación, cambio de identidad o retirada); la que vale es la
@@ -1017,6 +1060,9 @@ export function verifyKeyChain(snapshots: KeySnapshot[]): { ok: boolean; problem
       problems.push(
         `${newer.id} dice venir de ${newer.previousRoot ?? "nada"} y la anterior es ${older.merkleRoot}`,
       );
+    }
+    if (newer.itemCount < older.itemCount) {
+      problems.push(`${newer.id} tiene menos hojas que la anterior (${older.id})`);
     }
   }
   return { ok: problems.length === 0, problems };

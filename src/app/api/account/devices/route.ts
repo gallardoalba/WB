@@ -13,6 +13,9 @@ export const GET = route<undefined, "user">({}, ({ user }) =>
   json({
     devices: listDevices(user.id).map((device) => ({
       deviceId: device.deviceId,
+      identityKey: device.identityKey,
+      signingKey: device.signingKey,
+      bundleSignature: device.bundleSignature,
       createdAt: device.createdAt,
       updatedAt: device.updatedAt,
       oneTimeKeys: device.oneTimeKeys,

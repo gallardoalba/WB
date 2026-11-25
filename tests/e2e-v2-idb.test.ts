@@ -29,24 +29,29 @@ class FakeStore {
 
 class FakeTransaction {
   oncomplete: Handler = null;
+  onabort: Handler = null;
 
-  constructor(private readonly store: FakeStore) {}
+  constructor(
+    private readonly store: FakeStore,
+    private readonly abort = false,
+  ) {}
 
   objectStore() {
     return {
-      get: (key: string) => this.#run((request) => (request.result = this.store.entries.get(key))),
+      get: (key: string) => this.#run((request) => (request.result = this.store.entries.get(key)), false),
       put: (value: unknown, key: string) =>
-        this.#run(() => this.store.entries.set(key, value)),
-      delete: (key: string) => this.#run(() => this.store.entries.delete(key)),
+        this.#run(() => this.store.entries.set(key, value), true),
+      delete: (key: string) => this.#run(() => this.store.entries.delete(key), true),
     };
   }
 
-  #run(apply: (request: FakeRequest) => void): FakeRequest {
+  #run(apply: (request: FakeRequest) => void, write: boolean): FakeRequest {
     const request = new FakeRequest();
     queueMicrotask(() => {
-      apply(request);
+      if (!this.abort || !write) apply(request);
       request.onsuccess?.();
-      this.oncomplete?.();
+      if (this.abort) this.onabort?.();
+      else this.oncomplete?.();
     });
     return request;
   }
@@ -54,6 +59,7 @@ class FakeTransaction {
 
 class FakeDatabase {
   readonly stores = new Map<string, FakeStore>();
+  abort = false;
 
   get objectStoreNames() {
     return { contains: (name: string) => this.stores.has(name) };
@@ -67,7 +73,7 @@ class FakeDatabase {
   transaction(name: string) {
     const store = this.stores.get(name);
     if (!store) throw new Error(`No existe el almacén ${name}`);
-    return new FakeTransaction(store);
+    return new FakeTransaction(store, this.abort);
   }
 }
 
@@ -144,6 +150,15 @@ test("sin registro devuelve null y no toca la base de la identidad v1", async ()
     assert.equal(db.stores.has("identity"), false, "nada de la identidad de v1 aquí");
     assert.ok(db.stores.has("device-v2"));
     assert.ok(db.stores.has("device-key-v2"));
+  });
+});
+
+test("una transacción abortada no se toma por guardada", async () => {
+  await withFakeIndexedDb(async (db) => {
+    db.abort = true;
+    const store = indexedDbStore();
+    await assert.rejects(() => store.save(estado("usr_ana")), /abort/i);
+    assert.equal(db.stores.get("device-v2")!.entries.size, 0);
   });
 });
 

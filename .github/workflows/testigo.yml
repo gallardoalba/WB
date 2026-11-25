@@ -13,6 +13,12 @@ on:
     - cron: "17 3 * * *"
   workflow_dispatch:
 
+# Dos ejecuciones a la vez leerían el mismo artefacto anterior y competirían por
+# subir historiales distintos. Se encolan en vez de pisarse.
+concurrency:
+  group: testigo
+  cancel-in-progress: false
+
 permissions:
   contents: read
   # Leer el artefacto de la ejecución anterior (`actions/download-artifact` con

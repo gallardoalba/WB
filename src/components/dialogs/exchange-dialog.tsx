@@ -113,6 +113,32 @@ function trustPeerKeys(userId: string, keys: PeerKey[]): void {
   }
 }
 
+/** Última huella v2 comparada con esta persona. */
+function v2SafetyKey(userId: string): string {
+  return `v2-safety:${userId}`;
+}
+
+/** Devuelve true si la huella cambió desde la última comparación guardada. */
+function rememberV2Safety(userId: string, safety: string | null): boolean {
+  if (!safety) return false;
+  try {
+    const previous = localStorage.getItem(v2SafetyKey(userId));
+    if (previous && previous !== safety) return true;
+    if (!previous) localStorage.setItem(v2SafetyKey(userId), safety);
+  } catch {
+    // Sin almacenamiento local no se puede recordar; no se bloquea por ello.
+  }
+  return false;
+}
+
+function trustV2Safety(userId: string): void {
+  try {
+    localStorage.removeItem(v2SafetyKey(userId));
+  } catch {
+    // Nada que borrar.
+  }
+}
+
 /**
  * El protocolo v2 se carga aparte: arrastra libolm (WASM) y solo hace falta
  * cuando este navegador tiene ya su dispositivo. Si no está, el hilo sigue
@@ -300,6 +326,7 @@ export function ExchangeDialog({
     const v2Safety = await getV2Module()
       .then((bridge) => bridge?.safetyWith(me.id, peer.id))
       .catch(() => null);
+    const v2SafetyChanged = rememberV2Safety(peer.id, v2Safety ?? null);
     // Lo que llegue cifrado con v2 se descifra con el dispositivo de este
     // navegador. `senderDeviceId` es el campo del protocolo v2; `keyId` es la
     // ranura de v1 y en v2 va vacío.
@@ -331,7 +358,11 @@ export function ExchangeDialog({
       safety,
       v2Safety: v2Safety ?? null,
       v2Failed: v2Decoded?.failed ?? 0,
-      v2Blocked: v2Decoded?.blocked ?? null,
+      v2Blocked:
+        v2Decoded?.blocked ??
+        (v2SafetyChanged
+          ? "La huella de los dispositivos de la otra persona ha cambiado. Compárala por otro canal antes de seguir."
+          : null),
     };
   }
 
@@ -616,7 +647,7 @@ export function ExchangeDialog({
       // el texto, se perdería al recargar.
       void getV2Module()
         .then((bridge) =>
-          bridge?.rememberSentV2(thread.me.id, data.message.id, body),
+          bridge?.rememberSentV2(thread.me.id, `request:${requestId}`, data.message.id, body),
         )
         .catch(() => undefined);
       form.reset();
@@ -632,6 +663,14 @@ export function ExchangeDialog({
     if (!thread) return;
     trustPeerKeys(thread.peer.id, thread.peerKeys);
     setThread({ ...thread, keyChanged: false });
+  }
+
+  async function trustNewV2Fingerprint() {
+    if (!thread) return;
+    trustV2Safety(thread.peer.id);
+    const bridge = await getV2Module().catch(() => null);
+    await bridge?.forgetPeerV2(thread.me.id, thread.peer.id);
+    window.location.reload();
   }
 
   async function reportMessage(messageId: string) {
@@ -1166,11 +1205,20 @@ export function ExchangeDialog({
       )}
 
       {thread?.v2Blocked && (
-        <p className="form-error" role="alert">
-          {t(
-            "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
-          )}
-        </p>
+        <div className="form-error" role="alert">
+          <p>
+            {t(
+              "No se ha podido comprobar la identidad del dispositivo de la otra persona: no se muestra el mensaje. No sigas por otro canal hasta aclararlo.",
+            )}
+          </p>
+          <button
+            type="button"
+            className="secondary-button small"
+            onClick={() => void trustNewV2Fingerprint()}
+          >
+            {t("He comparado la nueva huella y quiero continuar")}
+          </button>
+        </div>
       )}
 
       {thread && thread.v2Failed > 0 && (

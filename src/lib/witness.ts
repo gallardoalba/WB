@@ -84,8 +84,10 @@ export function auditPublished(input: {
     }
   }
 
-  const chain = verifyChain([...input.catalogue].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-  const keyChain = verifyKeyChain([...input.keys].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  // El registro solo crece: `itemCount` es la vara monotónica. La fecha puede
+  // venir del llamador y no sirve para ordenar una cadena de instantáneas.
+  const chain = verifyChain([...input.catalogue].sort((a, b) => b.itemCount - a.itemCount));
+  const keyChain = verifyKeyChain([...input.keys].sort((a, b) => b.itemCount - a.itemCount));
   problems.push(...chain.problems, ...keyChain.problems);
 
   return {
@@ -98,12 +100,12 @@ export function auditPublished(input: {
   };
 }
 
-/** La entrada más reciente de un registro, por fecha (y sin fiarse del orden). */
+/** La entrada más reciente de un registro, por `itemCount` (el log solo crece). */
 export function newestEntry(entries: WitnessEntry[], log: WitnessLog): WitnessEntry | null {
   let newest: WitnessEntry | null = null;
   for (const entry of entries) {
     if (entry.log !== log) continue;
-    if (!newest || entry.createdAt > newest.createdAt) newest = entry;
+    if (!newest || entry.itemCount > newest.itemCount) newest = entry;
   }
   return newest;
 }
@@ -162,7 +164,11 @@ export function compareWithWitness(seen: WitnessEntry[], published: WitnessEntry
         );
       }
     }
-    if (publicado.id !== apuntado.id && publicado.createdAt < apuntado.createdAt) {
+    if (
+      publicado.id !== apuntado.id &&
+      (publicado.itemCount < apuntado.itemCount ||
+        (publicado.itemCount === apuntado.itemCount && publicado.createdAt < apuntado.createdAt))
+    ) {
       problems.push(
         `${log}: lo publicado (${publicado.id}) es anterior a lo último que el testigo vio (${apuntado.id})`,
       );

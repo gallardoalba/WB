@@ -1,9 +1,8 @@
 /**
  * Número de seguridad de los dispositivos v2.
  *
- * Es la única comprobación que cubre el primer contacto: el anclaje detecta un
- * cambio posterior, pero si la clave ya venía sustituida solo se nota
- * comparando este número por otro canal. Lo que se fija aquí:
+ * Detecta cambios respecto a una comparación anterior; el primer contacto sigue
+ * siendo TOFU. Lo que se fija aquí:
  *
  * - los dos lados calculan el mismo número, sin importar quién lo pida;
  * - añadir un dispositivo —o cambiar una clave— cambia el número;

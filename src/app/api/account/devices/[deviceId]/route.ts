@@ -82,17 +82,17 @@ export const PUT = route<typeof publishDeviceSchema, "user", { deviceId: string 
     const { password, ...bundle } = body;
     const { device, change } = await publishDevice(user.id, { deviceId, ...bundle }, { password });
     warn(user.id, change);
-    // Reponer claves de un solo uso no cambia el directorio; un alta, un cambio
-    // de identidad o una reactivación sí, y sin instantánea nueva el dispositivo
-    // se queda sin prueba hasta la del día siguiente.
-    if (change !== "keys") {
-      try {
-        ensureKeySnapshotForDevice(user.id, deviceId);
-      } catch (error) {
-        // El dispositivo ya está publicado: no se rompe el alta por la firma.
-        // El cron diario lo recogerá, pero queda en el registro del servidor.
-        console.error("No se pudo firmar la instantánea del directorio:", error);
-      }
+    // Se comprueba siempre: una reposición normal no cambia la hoja, pero si
+    // la instantánea aún no incluía el estado actual (por ejemplo, un alta
+    // anterior cuya firma falló), este es el momento de repararlo.
+    try {
+      ensureKeySnapshotForDevice(user.id, deviceId);
+    } catch (error) {
+      console.error("No se pudo firmar la instantánea del directorio:", error);
+      throw new ApiError(
+        503,
+        "El dispositivo se publicó, pero no se pudo firmar su prueba del directorio. Reinténtalo.",
+      );
     }
     return json({ device, change }, 200);
   },
@@ -110,15 +110,17 @@ export const DELETE = route<undefined, "user", { deviceId: string }>(
   ({ user, params }) => {
     const deviceId = deviceIdSchema.parse(params.deviceId);
     const revoked = revokeDevice(user.id, deviceId);
+    // La retirada es un cambio del directorio: sin una instantánea nueva, la
+    // prueba que se sirve sigue diciendo `revoked:-`. Se comprueba incluso si
+    // ya estaba retirada, para reparar un intento anterior que falló.
+    let snapshotError: unknown = null;
+    try {
+      ensureKeySnapshotForDevice(user.id, deviceId);
+    } catch (error) {
+      snapshotError = error;
+      console.error("No se pudo firmar la instantánea tras retirar el dispositivo:", error);
+    }
     if (revoked) {
-      // La retirada es un cambio del directorio: sin una instantánea nueva, la
-      // prueba que se sirve sigue diciendo `revoked:-` hasta el día siguiente.
-      // Se firma en el acto, igual que al publicar un dispositivo.
-      try {
-        ensureKeySnapshotForDevice(user.id, deviceId);
-      } catch (error) {
-        console.error("No se pudo firmar la instantánea tras retirar el dispositivo:", error);
-      }
       notify({
         userId: user.id,
         type: "security",
@@ -126,6 +128,12 @@ export const DELETE = route<undefined, "user", { deviceId: string }>(
         body: "Ese dispositivo ya no recibe claves nuevas. Si no has sido tú, cambia la contraseña.",
         link: "/u/" + user.id,
       });
+    }
+    if (snapshotError) {
+      throw new ApiError(
+        503,
+        "El dispositivo se retiró, pero no se pudo firmar su prueba del directorio. Reinténtalo.",
+      );
     }
     return json({ revoked }, 200);
   },
