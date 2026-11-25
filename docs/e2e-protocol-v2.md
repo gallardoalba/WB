@@ -4,7 +4,7 @@ Status: **implemented on both sides**, with the limits listed here and in §13.
 Protocol version `wanderbibliothek:v2`. v1
 ([`e2e-protocol.md`](./e2e-protocol.md)) stays in service until the operator sets
 `E2E_V1_SUNSET`; this document says in every section what exists and what does
-not.
+not. This revision corresponds to release **1.1.1** (25 November 2026).
 
 ## 0. Why v2 exists
 
@@ -71,8 +71,15 @@ Devices are published with:
 - a **bundle signature**: Ed25519 over
   `wanderbibliothek:v2:bundle|<device_id>|<identity_key>|<signing_key>`;
 - up to 50 one-time keys per publication, each one signed: Ed25519 over
-  `wanderbibliothek:v2:otk|<device_id>|<key_id>|<key>`. The store keeps at most
-  100 per device (libolm's own cap) and drops the oldest beyond that.
+  `wanderbibliothek:v2:otk|<device_id>|<key_id>|<key>`. The server keeps at most
+  100 pending keys per device (libolm's own cap) and drops the oldest beyond
+  that; the device generates a new batch when the published count runs low.
+
+The server records the id of every key it hands out in
+`device_one_time_keys_used` (schema v75). A retried publication that contains a
+key already claimed is ignored: a lost response cannot resurrect a one-time key.
+The client also discards the unpublished batch of an interrupted publication
+and generates a new one, so the same key id is never published twice.
 
 libolm does not sign one-time keys — X3DH signs a *signed prekey*, olm has no
 equivalent — so these signatures are the only thing that stops a server from
@@ -99,10 +106,13 @@ identity also notifies the people who talk to that account.
 Removing a device marks it revoked and drops its one-time keys. The revocation
 appends a line to the key-directory log and **signs a new snapshot immediately**,
 so the inclusion proof stops saying `revoked:-` the same day. Peers re-check the
-directory for devices with an existing session every few hours; a pending
+directory for devices with an existing session every few hours. A valid
+`revoked:<date>` proof is not an error: on send it lets the client prune the
+device and continue with the remaining active devices. On receive, a pending
 message from before the revocation still opens with the session it already had,
-but new sends stop. A suspended account publishes no devices and its one-time
-keys cannot be claimed.
+but a pre-key that would establish a new session with the revoked device is
+refused. New sends to that device stop. A suspended account publishes no devices
+and its one-time keys cannot be claimed.
 
 Revocation is **not a remote wipe**: it stops new sessions and new messages for
 that device, but it cannot erase what the device already decrypted, the ratchet
@@ -118,9 +128,11 @@ session.
 
 1. Initiator fetches the peer device bundle (`GET /api/users/:id/devices`).
 2. Initiator claims one one-time key (`POST …/devices/:deviceId/claim`). The
-   server deletes the key inside the same transaction: **a one-time key is
-   handed out at most once**. Claiming is capped per caller *and* per target
-   device, so nobody can drain a stranger's keys with a handful of accounts.
+   server deletes the pending key and records its id in the v75 tombstone inside
+   the same transaction: **a one-time key is handed out at most once**, and a
+   later publication cannot revive it. Claiming is capped per caller *and* per
+   target device, so nobody can drain a stranger's keys with a handful of
+   accounts.
 3. Initiator **verifies** the bundle signature and the one-time-key signature
    with the device's signing key, and — if it has seen the device before —
    requires the **pair** `(identity_key, signing_key)` to be the one it stored,
@@ -131,8 +143,11 @@ session.
    bundle that does not verify never opens a session, and the client says so
    instead of silently falling back to v1.
 4. Initiator builds the outbound session and sends a pre-key message.
-5. Responder builds the inbound session from the pre-key message, removes the
-   used one-time key from its account, and replies with normal messages.
+5. Responder builds the inbound session from the pre-key message, consumes the
+   used one-time key from its account, and replies with normal messages. If the
+   sender device was revoked after the message was sent, an existing session may
+   still open that pending message; the server tombstone and the directory proof
+   are what stop a new session from being established with that device.
 
 If no one-time key is left, the claim returns `409` and the client waits for the
 peer to publish more; there is no fallback to an unauthenticated handshake.
@@ -232,8 +247,16 @@ ciphertext.
   that state— and rebuilds the thread from it. That is a deliberate trade-off:
   forward secrecy protects against the server and the network, not against a
   compromised device that holds the local history.
-- A session is forgotten (`session.free()`) when the conversation closes and the
-  user leaves it; reopening starts a new session.
+- The WASM session object is freed after each operation, but its pickled ratchet
+  stays in the device state and is reused across reloads. Closing a dialog does
+  **not** delete the session. Sessions and pins are forgotten only when the user
+  explicitly resets trust for that peer (`forgetPeerV2`) or removes the device
+  (`forgetV2Device`); after a reset, the next send establishes a new session.
+- The local plaintext cache keeps the last **500** messages
+  (`DECRYPTED_CACHE_LIMIT`). Older entries are dropped as new ones arrive, so
+  after a reload a thread is rebuilt from that recent cache. The server keeps
+  the envelopes, but without the device state it cannot decrypt them; this is
+  the same trade-off as forward secrecy — a lost device loses its history.
 - The `verified` mark is keyed by `account:device` and stores the `(identity,
   signing)` pair that was checked: it is reused while those keys are the same —
   re-proving inclusion on every message buys nothing, because the pin is what
@@ -290,8 +313,11 @@ Lines (`keyDirectoryLines`):
   key in the device list, the client would pin it on the first prekey and later
   sends would fail. The last field is what makes inclusion mean something about
   *state*: without it a proof only shows the device was once in the directory,
-  so the leaf of a revoked device would verify forever. The client refuses
-  anything that is not `revoked:-`, and says so instead of opening a session.
+  so the leaf of a revoked device would verify forever. The client opens a
+  session only when the leaf says `revoked:-`; a valid `revoked:<date>` proof is
+  accepted only to prune the device on send or to explain why a new inbound
+  session is refused. A successful check is reused for up to six hours; after
+  that, or when either key changes, the proof is fetched again.
   A v1 slot deleted with its account gets a `revoked:<date>` tombstone line so
   the append-only history does not present it as still active.
 
@@ -319,8 +345,10 @@ What the client checks before trusting a device (`verifyDeviceProof`):
   interpreted;
 - the line walks up to the snapshot root and the snapshot is signed by the
   operator key pinned on first use;
-- the device is **active** in that line (`revoked:-`), not merely present: the
-  directory keeps history, so a revoked device is still in the tree;
+- the leaf's **state** is checked, not just its presence: the directory keeps
+  history, so a revoked device is still in the tree. A `revoked:<date>` leaf is
+  a valid proof of retirement, not a forged proof; the caller decides whether to
+  prune it (send) or refuse a new session (receive);
 - the snapshot is **not older** than the last one this device already used;
 - and, when the root changed, that the new snapshot **contains** the old one: the
   client asks `GET /api/transparency/keys/consistency?from=<id>&to=<id>` and
@@ -406,6 +434,38 @@ The local cache of decrypted messages (§5) is encrypted with the same key and h
 the same property. The CSP, the absence of third-party scripts and the encrypted
 state raise the cost; they do not turn XSS into a non-event.
 
+### Recovery and trust reset
+
+The protocol does not hide a key change: it stops. Recovery is a deliberate
+operation, not an automatic acceptance of the new keys.
+
+- **The peer changed device or keys.** Sending and receiving fail with a
+  verification error, because the pinned `(identity, signing)` pair no longer
+  matches. The user compares the new safety number (§7) over another channel;
+  the interface offers «He comparado la nueva huella y quiero continuar», which
+  calls `forgetPeerV2` for that account. That removes the peer's sessions, pins,
+  verification marks and `knownDevices` entries, but keeps this browser's own
+  identity. The next send pins the new device and establishes a new session.
+- **The device was revoked.** A valid revocation proof prunes it on send. On
+  receive, a pending message may still open with the session it already had, but
+  a pre-key cannot create a new session. Reactivating the same device id requires
+  the account password and new keys; peers see a new fingerprint.
+- **The server publishes different keys for this browser.** Before using the
+  device, the client compares the server's own-device list with the local
+  identity and signing keys. A mismatch disables v2 for that browser and tells
+  the person to activate it again from «Mi cuenta»; it is not silently accepted.
+- **Browser data was lost or restored from an old profile.** The private ratchet
+  state is gone, so the history that device had decrypted is unreadable. The
+  user activates a new device; peers see a new safety number and must compare it.
+- **The operator signing key was rotated.** The operator key is pinned on first
+  use by the client and the witness. Rotation is a planned operation: it needs a
+  new witness file and reactivation of the clients; an automatic acceptance
+  would defeat the pin.
+- **The database was restored from a backup older than a snapshot the client
+  already used.** The client refuses to continue because the new snapshot does
+  not contain the old root. Reactivating the device starts the directory anchor
+  from scratch, with the same TOFU trust as the first activation.
+
 ## 9. Metadata
 
 v2 does not hide who talks to whom. Concrete reductions, in order:
@@ -423,9 +483,10 @@ v2 does not hide who talks to whom. Concrete reductions, in order:
 0. While both protocols coexist, a client **tries v2 first**. If the peer has
    any device, the message goes out **only** in v2: shipping a v1 copy as well
    would hand the server a static-key ciphertext of every message, which is the
-   hole v2 exists to close. v1 envelopes are produced only for peers that have
-   no device yet, which keeps the rollout non-breaking without keeping the
-   weaker copy around.
+   hole v2 exists to close. v1 envelopes are produced only while this browser
+   has not activated v2 or the peer has no device; the server refuses a v1-only
+   message once the peer has a v2 device. This keeps the rollout non-breaking
+   without keeping the weaker copy around.
 1. Clients publish a device bundle on first use; v1 `user_keys` rows become a
    read-only `web` device for existing accounts.
 2. A thread uses v2 as soon as the other person has a device (0); while nobody
@@ -450,8 +511,10 @@ history after a seizure. Therefore:
   peer has no device»: it is an error unless the missing device comes with a
   valid inclusion proof of its revocation. The server-side rule is a second
   line, not the only one, because a hostile server can ignore its own rules;
-- v1 is accepted only for threads created before v2 shipped, and the client
-  marks those threads as legacy in the interface;
+- v1 remains available while this browser has not activated v2 or the peer has
+  no v2 device, including new threads; there is no per-thread age gate. Once the
+  peer has a device, the server refuses a v1-only message, and the client never
+  falls back to v1 after a missing or invalid directory proof;
 - a client that receives a v1 envelope in a v2 thread refuses it and reports it
   as an attack, not as a compatibility gap.
 
@@ -476,7 +539,19 @@ Required before calling v2 done:
 - a consistency proof generated on the server verifies with the client's own
   implementation for every pair of sizes up to nine leaves, including powers of
   two, odd sizes and the single-leaf tree;
-- client verification of a peer's device key against the committed root.
+- client verification of a peer's device key against the committed root;
+- a valid revocation proof prunes the device on send, while a pending message
+  from that device only opens with an existing session; a pre-key from an
+  omitted or revoked device cannot establish a new one;
+- the server cannot swap the local device's public keys without the client
+  disabling v2;
+- a claimed one-time key cannot be republished after a lost response (v75
+  tombstone), and an interrupted publication does not reuse the old batch;
+- an IndexedDB transaction that aborts is not treated as a saved state;
+- the anti-downgrade envelope check is repeated inside the transaction that
+  writes the message;
+- the witness orders snapshots by `itemCount` and rejects a rollback even when
+  the dates are forged.
 
 ## 12. The ratchet library
 
@@ -499,12 +574,21 @@ deliberate choice over writing one here, and it is also the weakest link:
   compromised `node_modules`. What pins the package itself is `npm ci` with the
   lockfile and the registry's integrity hashes.
 
-The migration target is `@matrix-org/matrix-sdk-crypto-wasm` (vodozemac compiled
-to WASM, maintained, audited). It exposes the higher-level `OlmMachine` rather
-than raw `Account`/`Session`, which also brings device tracking and cross-signing
-— but it shapes the transport like Matrix events, so it belongs to the client
-milestone, not to this increment. Until then this document must not claim "as
-strong as Signal": the ratchet is comparable, and the layer around it is not.
+The migration target is [vodozemac](https://github.com/matrix-org/vodozemac)
+(Rust, maintained and audited). There is no official npm package that exposes
+its raw `Account`/`Session` primitives: `@matrix-org/matrix-sdk-crypto-wasm` is
+official, but it exposes the higher-level Matrix `OlmMachine`, so it is not a
+drop-in replacement for this protocol. The practical path is a small
+`wasm-bindgen` wrapper over vodozemac using `libolm-compat` to migrate existing
+pickles, or a reviewed third-party binding; either way it is a separate
+migration, not a dependency swap.
+
+**This repository's binding, envelope format, directory rules and trust layer
+have not had an independent cryptographic audit.** libolm has been audited;
+that audit does not cover this code. Tests, code review and the threat model
+above are necessary, but they are not a substitute for an external audit. Until
+then this document must not claim "as strong as Signal": the ratchet is
+comparable, and the layer around it is not.
 
 ## 13. Where the implementation stands
 
@@ -515,11 +599,13 @@ Shipped in this release:
 | libolm wrapper: account, pre-key session, encrypt/decrypt, `pickle`, bundle and one-time-key signatures | `src/lib/e2e-v2.ts`, `src/lib/e2e-v2-format.ts` | `tests/e2e-v2.test.ts` |
 | Sealed record: padding to 256 bytes and conversation inside the ciphertext | `src/lib/e2e-v2.ts` | `tests/e2e-v2.test.ts` |
 | Server-side Ed25519 verification of bundle and keys | `src/lib/ed25519.ts` | `tests/devices.test.ts` |
-| Device registry, gated publishing, one-time keys handed out once, pruning, revocation | `src/lib/repo/devices.ts`, migration v70 | `tests/devices.test.ts` |
+| Device registry, gated publishing, one-time keys handed out once, pruning, revocation | `src/lib/repo/devices.ts`, migrations v70 and v75 | `tests/devices.test.ts` |
+| Claimed one-time keys leave a tombstone (`device_one_time_keys_used`) and cannot be republished | `src/lib/repo/devices.ts`, migration v75 | `tests/devices.test.ts` |
 | `PUT/DELETE /api/account/devices/:deviceId`, `GET /api/users/:id/devices`, `POST …/devices/:deviceId/claim` | `src/app/api/**/devices*` | the static scan in `tests/route.test.ts` (wrapper, quota and origin for every route file) plus the repository behind them in `tests/devices.test.ts` |
 | Device keys in the signed key directory | `src/lib/transparency.ts` | `tests/key-transparency.test.ts` |
 | Envelopes carried inside each message (v1 slot or v2 device), refused from outsiders | `src/lib/repo/shared.ts`, `requests.ts`, `direct.ts`, migration v71 | `tests/message-v2.test.ts` |
 | Client: open the device, send to every device, decrypt and remember what was read, pin peers (the **full pair**, identity and signing key, on both the send and the receive path) | `src/lib/e2e-v2-device.ts` | `tests/e2e-v2-device.test.ts` |
+| Server cannot swap the keys of the local device without the client disabling v2; the account page shows the mismatch | `src/lib/e2e-v2-device.ts`, `src/components/account-settings.tsx` | `tests/e2e-v2-device.test.ts` |
 | Device state at rest: `AES-GCM` with a non-extractable key in IndexedDB | `src/lib/e2e-v2-idb.ts` | `tests/e2e-v2-idb.test.ts` |
 | Safety number over **all** devices of both sides, iterated SHA-512 (5200) | `src/lib/e2e-v2-safety.ts` | `tests/e2e-v2-safety.test.ts` |
 | Client check that a device is in the signed directory (mandatory: without proof no session is opened; inclusion proof + snapshot signature, signer pinned) | `src/lib/e2e-v2-directory.ts`, `GET /api/users/:id/devices/:deviceId/proof` | `tests/e2e-v2-directory.test.ts`, `tests/e2e-v2-device.test.ts` |
@@ -535,23 +621,32 @@ Shipped in this release:
 | Account deletion revokes and removes v2 device rows, one-time keys and leaves tombstones in the directory | `src/lib/repo/account.ts` | `tests/key-transparency.test.ts` |
 | Sunset switch for v1: a date after which v1 envelopes are refused with `410`, and a count of what is left | `src/lib/repo/shared.ts`, `src/lib/repo/maintenance.ts` | `tests/message-v2.test.ts` |
 | Account device list: the owner sees their devices and can revoke one; a browser without a device is told in «My account» that it cannot read v2-only messages | `src/components/account-settings.tsx`, `GET /api/account/devices`, `DELETE /api/account/devices/:id` | the static scan in `tests/route.test.ts` |
-| Witness: pins catalogue and key roots, verifies signatures and chains, `--check` fails on a rewritten root or a missing snapshot | `src/lib/witness.ts`, `scripts/witness-roots.ts`, `.github/workflows/testigo.yml` | `tests/witness.test.ts` |
+| Witness: pins catalogue and key roots, verifies signatures and chains, orders by `itemCount`, `--check` fails on a rewritten root, a forged date or a missing snapshot | `src/lib/witness.ts`, `scripts/witness-roots.ts`, `.github/workflows/testigo.yml` | `tests/witness.test.ts` |
 
 How far the interface goes: activating v2 in «Mi cuenta» publishes the device.
 Exchanges and direct messages **prefer v2 and send only v2** when the peer has
-a device, falling back to v1 —one envelope per slot, no ratchet— only while the
-peer has none (§10). They decrypt whatever arrives, so the rollout does not cut
-anyone off, and the thread shows the device safety number (§7) next to the v1
-one.
+a device, falling back to v1 —one envelope per slot, no ratchet— only while this
+browser has not activated v2 or the peer has none (§10). They decrypt whatever
+arrives, so the rollout does not cut anyone off, and the thread shows the device
+safety number (§7) next to the v1 one.
 
 Not implemented yet, and therefore **not** claimed by the documentation: a
 witness that is not the operator (§7 — the script exists, the independent copy is
 a human step), the consistency proof for the catalogue log (§7), v1 actually
-being switched off (the switch exists, the date is an operator decision), and
-protection against rolling back the *local* device state (§8).
+being switched off (the switch exists, the date is an operator decision),
+protection against rolling back the *local* device state (§8), and an independent
+cryptographic audit of this binding and protocol (§12).
 
 ## 14. Change control
 
 `wanderbibliothek:v2`, the envelope fields and the `conversation` strings are
 part of the protocol. Changing them requires a new version, dual-read in both
 clients, and an entry here.
+
+### Revision history
+
+- **1.1.1** (25 November 2026): documentation correction for the v75 one-time-key
+  tombstone, revocation versus pending messages, trust reset, the 500-message
+  local cache, the real v1 fallback rule, updated acceptance tests and the
+  vodozemac migration path. No wire-format change.
+- **1.1.0** (25 November 2026): first stable v2 release; schema v75.
