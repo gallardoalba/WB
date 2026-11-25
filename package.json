@@ -1,6 +1,6 @@
 {
   "name": "wanderbibliothek",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Intercambio de libros físicos entre lectores: catálogo por ciudad y mensajería cifrada de extremo a extremo.",
   "license": "AGPL-3.0-only",

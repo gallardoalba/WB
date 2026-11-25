@@ -18,7 +18,7 @@ All of this has to pass; CI runs the same:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 936 unit and integration tests (132 files)
+npm test            # 968 unit and integration tests (133 files)
 npm run build
 npm run test:e2e    # Playwright: 64 cases in 12 files (Chromium); first time:
                     # npx playwright install chromium
@@ -44,8 +44,8 @@ directory).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 936 pruebas unitarias y de integración (132 ficheros),
-  build y 64/64 E2E (Chromium) y el humo en Firefox/WebKit.
+  Validado: tsc, eslint, 968 pruebas unitarias y de integración (133 ficheros),
+  build y 64 casos E2E en Chromium, con los omitidos que correspondan, y el humo en Firefox/WebKit.
   ```
 
 - **UI language**: strings are written in Spanish, and the German and English
