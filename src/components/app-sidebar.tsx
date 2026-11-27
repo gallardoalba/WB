@@ -126,7 +126,11 @@ export function AppSidebar({
             (unreadMessages > 0 ? (
               <span
                 className="nav-count unread"
-                aria-label={t("{n} mensajes sin leer", { n: unreadMessages })}
+                aria-label={
+                  unreadMessages === 1
+                    ? t("1 mensaje sin leer")
+                    : t("{n} mensajes sin leer", { n: unreadMessages })
+                }
               >
                 {unreadMessages}
               </span>

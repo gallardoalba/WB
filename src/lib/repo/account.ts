@@ -348,6 +348,14 @@ export function exportAccountData(userId: string) {
     )
     .all(userId, userId, userId, userId, userId);
 
+  // Una dirección pendiente de confirmar también está guardada: la exportación
+  // la incluye (no llega a ser la del perfil, así que no va dentro de `user`).
+  const pendingEmail = (
+    db.prepare("SELECT pending_email FROM users WHERE id = ?").get(userId) as
+      | { pending_email: string | null }
+      | undefined
+  )?.pending_email ?? null;
+
   return {
     exportedAt: nowIso(),
     // Los mensajes cifrados van como sobre (`ciphertext` + `iv`): solo se
@@ -355,6 +363,7 @@ export function exportAccountData(userId: string) {
     encryptionNote:
       "Los mensajes con encrypted = 1 están cifrados de extremo a extremo; el servidor no puede descifrarlos. Los sobres (`messageEnvelopes` y `directEnvelopes`) traen uno por dispositivo y solo se abren con la clave privada de ese dispositivo.",
     user,
+    pendingEmail,
     listings,
     requests,
     messages,

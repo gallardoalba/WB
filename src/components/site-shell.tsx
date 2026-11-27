@@ -200,7 +200,9 @@ export async function SiteShell({
           <span>{t("Tratos")}</span>
           {unreadMessages > 0 && (
             <span className="sr-only">
-              {translate(locale, "{n} mensajes sin leer", { n: unreadMessages })}
+              {unreadMessages === 1
+                ? translate(locale, "1 mensaje sin leer")
+                : translate(locale, "{n} mensajes sin leer", { n: unreadMessages })}
             </span>
           )}
         </Link>

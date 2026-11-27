@@ -95,7 +95,7 @@ test("el correo no cambia hasta abrir el enlace que va a la dirección nueva", a
     expect(pedido.status()).toBe(200);
 
     const estado = await (await request.get("/api/account/email")).json();
-    expect(estado).toEqual({ email: account.email, pendingEmail: nuevo });
+    expect(estado).toEqual({ email: account.email, pendingEmail: nuevo, pendingExpired: false });
 
     // El enlace se manda a la dirección **nueva**, que es la prueba de que el
     // buzón es de quien pide el cambio.
@@ -109,7 +109,7 @@ test("el correo no cambia hasta abrir el enlace que va a la dirección nueva", a
     expect(await confirmado.json()).toMatchObject({ emailChanged: true, email: nuevo });
 
     const despues = await (await request.get("/api/account/email")).json();
-    expect(despues).toEqual({ email: nuevo, pendingEmail: null });
+    expect(despues).toEqual({ email: nuevo, pendingEmail: null, pendingExpired: false });
   } finally {
     deleteAccount(account.id, [account.email, nuevo]);
   }

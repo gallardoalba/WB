@@ -231,9 +231,9 @@ export function OfferForm({
     setLookupFailed(false);
     setError("");
     if (!normalized || !isValidIsbn(normalized)) {
-      // Un ISBN a medio escribir no es un error: no se avisa hasta que hay
-      // algo que parece un ISBN y no cuadra.
-      setIsbnInvalid(Boolean(normalized));
+      // Un ISBN a medio escribir no es un error: el aviso llega al salir del
+      // campo (ver `onIsbnBlur`), no con la primera cifra.
+      setIsbnInvalid(false);
       setLooking(false);
       resetFields();
       return;
@@ -271,6 +271,13 @@ export function OfferForm({
         if (seq === lookupSeq.current) setLooking(false);
       }
     }, 350);
+  }
+
+  /** Al salir del campo se avisa si lo escrito no es un ISBN válido. */
+  function onIsbnBlur() {
+    if (noIsbn) return;
+    const normalized = normalizeIsbn(scan);
+    setIsbnInvalid(normalized !== null && !isValidIsbn(normalized));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -355,6 +362,7 @@ export function OfferForm({
               value={scan}
               aria-describedby="offer-isbn-hint"
               onChange={(event) => onIsbnChange(event.target.value)}
+              onBlur={onIsbnBlur}
             />
           </div>
           {/* La salida para los libros que no llevan ISBN, justo debajo del

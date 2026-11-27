@@ -270,7 +270,7 @@ export function AuthDialog({
                 autoFocus
                 placeholder="123456 o ABCDE-FGHIJ"
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? "auth-help" : undefined}
+                aria-describedby={error ? "auth-help auth-error" : "auth-help"}
               />
             </label>
             <p className="form-hint" id="auth-help">

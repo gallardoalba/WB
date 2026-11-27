@@ -26,7 +26,12 @@ type StoredKeys = {
   history: KeyHistory[];
 };
 type TotpState = { enabled: boolean; pending: boolean; recoveryRemaining: number };
-type AccountEmail = { email: string; pendingEmail: string | null };
+type AccountEmail = {
+  email: string;
+  pendingEmail: string | null;
+  /** Hubo un cambio pedido cuyo enlace ya caducó. */
+  pendingExpired: boolean;
+};
 
 /**
  * Ajustes de la cuenta. Vive en su propia página (`/cuenta`) en vez de en un
@@ -592,7 +597,9 @@ export function AccountSettings({
     setEmailMsg("");
     try {
       await api("/api/account/email", { method: "DELETE" });
-      setEmailState((current) => (current ? { ...current, pendingEmail: null } : current));
+      setEmailState((current) =>
+        current ? { ...current, pendingEmail: null, pendingExpired: false } : current,
+      );
       setEmailMsg(t("Cambio de correo cancelado."));
     } catch (caught) {
       setEmailError(
@@ -853,6 +860,11 @@ export function AccountSettings({
               </div>
             )}
           </dl>
+          {emailState?.pendingExpired && !emailState.pendingEmail && (
+            <p className="form-note" role="status">
+              {t("El enlace del cambio anterior caducó. Pide uno nuevo si sigues queriendo cambiar el correo.")}
+            </p>
+          )}
           {emailState?.pendingEmail && (
             <>
               <p className="form-note">

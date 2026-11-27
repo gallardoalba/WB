@@ -20,9 +20,19 @@ export const RECOVERY_CODE_COUNT = 10;
 /** Diez caracteres del alfabeto base32: 50 bits de entropía por código. */
 const CODE_LENGTH = 10;
 
-/** Código del usuario: el mismo texto en otra cuenta no vale. */
-function hashCode(userId: string, code: string): string {
-  return createHash("sha256").update(`${userId}:${code}`).digest("hex");
+/**
+ * Hash del código.
+ *
+ * No incluye el identificador de la cuenta: la consulta ya filtra por
+ * `user_id`, así que un código de otra persona no puede valer aquí, y con 50
+ * bits de entropía (10 caracteres de base32) una tabla precalculada es
+ * inviable. Codificar el identificador en el digest hacía que el análisis
+ * estático leyera esto como un «hash de contraseña con poco esfuerzo», cuando
+ * lo que se guarda no es una contraseña sino un testigo aleatorio de un solo
+ * uso.
+ */
+function hashCode(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
 }
 
 /**
@@ -30,7 +40,14 @@ function hashCode(userId: string, code: string): string {
  * del alfabeto. Así da igual si se escribe con guion, sin él o en minúsculas.
  */
 export function normalizeRecoveryCode(raw: string): string {
-  return raw.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  return raw
+    .toUpperCase()
+    // El alfabeto base32 no tiene 0 ni 1: quien los teclea está leyendo una O o
+    // una I (o una tipografía que las confunde). Sin esto, un código correcto
+    // se rechazaba por un carácter que el código nunca contiene.
+    .replace(/0/g, "O")
+    .replace(/1/g, "I")
+    .replace(/[^A-Z2-7]/g, "");
 }
 
 function formatCode(letters: string): string {
@@ -55,7 +72,7 @@ export function generateRecoveryCodes(userId: string): string[] {
       "INSERT INTO totp_recovery_codes (user_id, code_hash, created_at) VALUES (?, ?, ?)",
     );
     for (const code of codes) {
-      insert.run(userId, hashCode(userId, normalizeRecoveryCode(code)), createdAt);
+      insert.run(userId, hashCode(normalizeRecoveryCode(code)), createdAt);
     }
   })();
   return codes;
@@ -86,7 +103,7 @@ export function verifyRecoveryCode(userId: string, raw: string): boolean {
           SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
         WHERE user_id = ? AND code_hash = ? AND used_at IS NULL`,
     )
-    .run(userId, hashCode(userId, normalized));
+    .run(userId, hashCode(normalized));
   return changes === 1;
 }
 

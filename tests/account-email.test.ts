@@ -8,6 +8,7 @@
  * misma dirección.
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { before, beforeEach, test } from "node:test";
 
 process.env.WANDERBIBLIOTHEK_DB = ":memory:";
@@ -117,6 +118,37 @@ test("un enlace de cambio solo se gasta una vez", () => {
 
   assert.ok(tokens.consumeAccountToken(token, "change_email"));
   assert.equal(tokens.consumeAccountToken(token, "change_email"), null);
+});
+
+test("un enlace caducado deja de contar como cambio pendiente", () => {
+  const user = cuenta();
+  repo.requestEmailChange(user.id, "caducado@wanderbibliothek.test");
+  const token = tokens.issueAccountToken(user.id, "change_email");
+  assert.equal(tokens.hasValidAccountToken(user.id, "change_email"), true);
+
+  // Se envejece el enlace: la dirección sigue apuntada, pero ya no se puede
+  // confirmar y la interfaz no debe anunciarla como pendiente.
+  dbModule
+    .getDb()
+    .prepare(
+      "UPDATE account_tokens SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day') WHERE token_hash = ?",
+    )
+    .run(createHash("sha256").update(token).digest("hex"));
+
+  assert.equal(tokens.hasValidAccountToken(user.id, "change_email"), false);
+  assert.equal(tokens.consumeAccountToken(token, "change_email"), null);
+});
+
+test("la exportación incluye la dirección pendiente", () => {
+  const user = cuenta();
+  repo.requestEmailChange(user.id, "exportada@wanderbibliothek.test");
+  const data = repo.exportAccountData(user.id) as { pendingEmail: string | null };
+  assert.equal(data.pendingEmail, "exportada@wanderbibliothek.test");
+
+  // Sin cambio en curso no hay nada que enseñar.
+  repo.cancelEmailChange(user.id);
+  const limpio = repo.exportAccountData(user.id) as { pendingEmail: string | null };
+  assert.equal(limpio.pendingEmail, null);
 });
 
 test("si otra cuenta toma la dirección antes, la confirmación no la pisa", () => {

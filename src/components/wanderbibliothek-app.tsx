@@ -1884,7 +1884,9 @@ export default function WanderbibliothekApp({
           <span>{t("Tratos")}</span>
           {user && unreadMessages > 0 && (
             <span className="sr-only">
-              {t("{n} mensajes sin leer", { n: unreadMessages })}
+              {unreadMessages === 1
+                ? t("1 mensaje sin leer")
+                : t("{n} mensajes sin leer", { n: unreadMessages })}
             </span>
           )}
         </button>

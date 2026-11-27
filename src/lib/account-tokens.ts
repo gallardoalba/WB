@@ -167,6 +167,24 @@ export function peekAccountToken(raw: string, purpose: TokenPurpose): string | n
   return row?.user_id ?? null;
 }
 
+/**
+ * ¿Queda algún enlace vigente de ese propósito? No lo consume.
+ *
+ * El cambio de correo lo usa para no enseñar como «pendiente» una dirección
+ * cuyo enlace ya caducó: la persona no podría confirmarla y el aviso solo
+ * confundiría.
+ */
+export function hasValidAccountToken(userId: string, purpose: TokenPurpose): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT 1 FROM account_tokens
+        WHERE user_id = ? AND purpose = ? AND used_at IS NULL
+          AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    )
+    .get(userId, purpose);
+  return Boolean(row);
+}
+
 /** Invalida los enlaces vigentes de un propósito (por ejemplo, al cancelar). */
 export function revokeAccountTokens(userId: string, purpose: TokenPurpose): void {
   getDb()

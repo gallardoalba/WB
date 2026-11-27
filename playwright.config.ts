@@ -84,7 +84,7 @@ export default defineConfig({
           // Clave de 32 bytes para cifrar el secreto TOTP. Sin ella, activar la
           // verificación en dos pasos responde 500 (es justo lo que protege
           // `checkEnv()` en producción). Es una clave de pruebas, no un secreto.
-          APP_ENCRYPTION_KEY: "f".repeat(64),
+          APP_ENCRYPTION_KEY: process.env.APP_ENCRYPTION_KEY ?? "f".repeat(64),
           // Clave Ed25519 de pruebas para firmar las instantáneas del directorio.
           // Sin ella el cliente v2 no puede verificar dispositivos y las pruebas
           // de mensajería v2 no llegarían a establecer sesión. No es un secreto.

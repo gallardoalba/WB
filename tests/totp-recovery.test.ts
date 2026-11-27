@@ -98,6 +98,23 @@ test("se acepta escrito en minúsculas y sin el guion", () => {
   assert.equal(repo.verifySecondFactor(user.id, suelto), true);
 });
 
+test("acepta 0 y 1 escritos en lugar de O e I", () => {
+  // El alfabeto de los códigos no incluye 0 ni 1: si alguien los teclea está
+  // leyendo una O o una I, y rechazar el código por eso sería un callejón sin
+  // salida justo cuando más se necesita.
+  const user = cuenta();
+  const secret = repo.startTotpSetup(user.id).secret;
+  const [code] = repo.enableTotp(user.id, totp.totpCode(secret, totp.totpStep()));
+
+  const conNumeros = code!.replace(/O/g, "0").replace(/I/g, "1");
+  assert.equal(repo.verifySecondFactor(user.id, conNumeros), true);
+});
+
+test("normaliza los caracteres que se confunden al copiar", () => {
+  assert.equal(repo.normalizeRecoveryCode("o0i1-2345"), "OOII2345");
+  assert.equal(repo.normalizeRecoveryCode(" abcd-efghi "), "ABCDEFGHI");
+});
+
 test("regenerar invalida los códigos anteriores", () => {
   const user = cuenta();
   const secret = repo.startTotpSetup(user.id).secret;
