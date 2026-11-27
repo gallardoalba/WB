@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDownUp, BookOpen, Compass, Heart, Plus, Users } from "lucide-react";
 import type { SessionUser } from "@/lib/domain";
@@ -18,6 +18,8 @@ import { RepositoryLink } from "./repository-link";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { MastodonLink } from "./mastodon-link";
 import { FooterSeparator } from "./footer-sep";
+import { SiteNotifications } from "./site-notifications";
+import { SessionExpiryRedirect } from "./session-expiry-redirect";
 
 /**
  * Shell de las páginas internas: misma barra lateral, misma cabecera, mismo
@@ -61,6 +63,7 @@ export async function SiteShell({
   const unreadNotifications = user ? countUnreadNotifications(user.id) : 0;
   return (
     <main className={rail ? "app-shell" : "app-shell no-rail"}>
+      <SessionExpiryRedirect />
       <a className="skip-link" href="#main-content">
         {t("Saltar al contenido")}
       </a>
@@ -100,7 +103,16 @@ export async function SiteShell({
             <RepositoryLink label={t("Código en GitHub")} />
             <LocaleSwitcher locale={locale} />
             <ThemeToggle />
-            <AccountMenu user={user} variant="topbar" />
+            {user && (
+              <Suspense fallback={null}>
+                <SiteNotifications initialUnread={unreadNotifications} />
+              </Suspense>
+            )}
+            <AccountMenu
+              user={user}
+              variant="topbar"
+              unreadNotifications={unreadNotifications}
+            />
           </div>
         </header>
 
@@ -158,7 +170,11 @@ export async function SiteShell({
       </section>
 
       <nav className="mobile-bottom-nav" aria-label={t("Navegación móvil")}>
-        <Link href={href("/descubrir")}>
+        <Link
+          href={href("/descubrir")}
+          className={section === "obra" ? "mobile-active" : undefined}
+          aria-current={section === "obra" ? "page" : undefined}
+        >
           <Compass size={19} />
           <span>{t("Descubrir")}</span>
         </Link>
@@ -173,16 +189,33 @@ export async function SiteShell({
           <span>{t("Ofrecer")}</span>
         </Link>
         <Link href={href("/intercambios")}>
-          <ArrowDownUp size={19} />
-          {/* Misma etiqueta corta que la barra de la aplicación: «Intercambios»
-              no cabe en el hueco de ~76 px y se pegaba a «Comunidad». */}
-          <span>{t("Cambios")}</span>
+          <span className="mobile-nav-icon">
+            <ArrowDownUp size={19} />
+            {unreadMessages > 0 && (
+              <span className="mobile-nav-badge" aria-hidden="true">
+                {unreadMessages > 9 ? "9+" : unreadMessages}
+              </span>
+            )}
+          </span>
+          <span>{t("Tratos")}</span>
+          {unreadMessages > 0 && (
+            <span className="sr-only">
+              {unreadMessages === 1
+                ? translate(locale, "1 mensaje sin leer")
+                : translate(locale, "{n} mensajes sin leer", { n: unreadMessages })}
+            </span>
+          )}
         </Link>
         <Link
           href={href("/comunidad")}
           className={
-            section === "lectores" || section === "listas"
+            section === "lectores" || section === "listas" || section === "perfil"
               ? "mobile-active"
+              : undefined
+          }
+          aria-current={
+            section === "lectores" || section === "listas" || section === "perfil"
+              ? "page"
               : undefined
           }
         >

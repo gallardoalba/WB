@@ -46,17 +46,31 @@ test("la base migra a la versión actual con 2FA y privacidad", () => {
 });
 
 test("activar, verificar y desactivar la verificación en dos pasos", () => {
-  assert.deepEqual(repo.getTotpState("usr_ana"), { enabled: false, pending: false });
+  assert.deepEqual(repo.getTotpState("usr_ana"), {
+    enabled: false,
+    pending: false,
+    recoveryRemaining: 0,
+  });
 
   const setup = repo.startTotpSetup("usr_ana");
   assert.match(setup.secret, /^[A-Z2-7]+$/);
   assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\//);
-  assert.deepEqual(repo.getTotpState("usr_ana"), { enabled: false, pending: true });
+  assert.deepEqual(repo.getTotpState("usr_ana"), {
+    enabled: false,
+    pending: true,
+    recoveryRemaining: 0,
+  });
 
   const code = totp.totpCode(setup.secret, totp.totpStep());
   assert.throws(() => repo.enableTotp("usr_ana", "000000"), /no es válido/);
-  repo.enableTotp("usr_ana", code);
-  assert.deepEqual(repo.getTotpState("usr_ana"), { enabled: true, pending: false });
+  // Activar entrega los códigos de recuperación en claro (solo esa vez).
+  const recoveryCodes = repo.enableTotp("usr_ana", code);
+  assert.equal(recoveryCodes.length, 10);
+  assert.deepEqual(repo.getTotpState("usr_ana"), {
+    enabled: true,
+    pending: false,
+    recoveryRemaining: 10,
+  });
 
   // El código recién usado ya no vale (anti-replay).
   assert.equal(repo.verifyUserTotp("usr_ana", code), false);
@@ -64,7 +78,11 @@ test("activar, verificar y desactivar la verificación en dos pasos", () => {
   assert.equal(repo.verifyUserTotp("usr_clara", "000000"), true);
 
   repo.disableTotp("usr_ana");
-  assert.deepEqual(repo.getTotpState("usr_ana"), { enabled: false, pending: false });
+  assert.deepEqual(repo.getTotpState("usr_ana"), {
+    enabled: false,
+    pending: false,
+    recoveryRemaining: 0,
+  });
 });
 
 test("no se puede activar sin generar el secreto", () => {

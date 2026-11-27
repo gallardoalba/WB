@@ -17,7 +17,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import type { MessageKey } from "@/lib/i18n";
-import { localeTag, pick } from "@/lib/locale";
+import { localePath, localeTag, pick } from "@/lib/locale";
 import { socialMetadata } from "@/lib/social";
 import { ReaderCard } from "@/components/reader-card";
 import {
@@ -108,6 +108,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const viewer = await requirePageUser(`/u/${id}`);
   const locale = await getLocale();
   const t = (text: string, vars?: Record<string, string | number>) => translate(locale, text, vars);
+  const href = (path: string) => localePath(locale, path);
   const profile = getPublicProfile(id, viewer?.id ?? null, { page });
   if (!profile) notFound();
   // Mensajería directa según la preferencia de quien la recibe (y sin bloqueos).
@@ -133,7 +134,7 @@ export default async function Page({ params, searchParams }: PageProps) {
             <h1>{profile.user.name}</h1>
             <p>
               {t(
-                "Este perfil es reservado: su estantería, sus comentarios y su ciudad solo los ve quien esa persona ha elegido.",
+                "Este perfil es reservado: su estantería, sus comentarios y su ciudad solo los ve quien tiene acceso.",
               )}
             </p>
             <span className="profile-place">
@@ -147,7 +148,6 @@ export default async function Page({ params, searchParams }: PageProps) {
           userName={profile.user.name}
           isBlocked={profile.isBlocked}
           isFollowing={profile.isFollowing}
-          followers={0}
           isAuthenticated={Boolean(viewer) && !profile.isMe}
           canFollow={Boolean(viewer) && !profile.isMe && !profile.isBlocked}
           canMessage={false}
@@ -231,11 +231,11 @@ export default async function Page({ params, searchParams }: PageProps) {
         userName={profile.user.name}
         isBlocked={profile.isBlocked}
         isFollowing={profile.isFollowing}
-        followers={profile.followers}
         isAuthenticated={Boolean(viewer) && !profile.isMe}
         canFollow={Boolean(viewer) && !profile.isMe && !profile.isBlocked}
         canMessage={canMessage}
         openMessages={openMessages}
+        messageHint={Boolean(viewer) && !profile.isMe && !profile.isBlocked && !canMessage}
       />
 
       <section className="profile-journey" aria-labelledby="journey-title">
@@ -288,42 +288,39 @@ export default async function Page({ params, searchParams }: PageProps) {
 
       <nav className="profile-tabs" aria-label={t("Secciones del perfil")}>
         <Link
-          href={`/u/${profile.user.id}`}
+          href={href(`/u/${profile.user.id}`)}
           className={tab === "shelf" ? "profile-tab active" : "profile-tab"}
           aria-current={tab === "shelf" ? "page" : undefined}
         >
           <BookOpen size={14} /> {t("Estantería")}
         </Link>
         <Link
-          href={`/u/${profile.user.id}?tab=activity`}
+          href={href(`/u/${profile.user.id}?tab=activity`)}
           className={tab === "activity" ? "profile-tab active" : "profile-tab"}
           aria-current={tab === "activity" ? "page" : undefined}
         >
           <Activity size={14} /> {t("Muro")}
         </Link>
         <Link
-          href={`/u/${profile.user.id}?tab=comments`}
+          href={href(`/u/${profile.user.id}?tab=comments`)}
           className={tab === "comments" ? "profile-tab active" : "profile-tab"}
           aria-current={tab === "comments" ? "page" : undefined}
         >
-          <MessageCircle size={14} /> {t("Conversaciones")}
+          <MessageCircle size={14} /> {t("Comentarios")}
         </Link>
         <Link
-          href={`/u/${profile.user.id}?tab=followers`}
+          href={href(`/u/${profile.user.id}?tab=followers`)}
           className={tab === "followers" ? "profile-tab active" : "profile-tab"}
           aria-current={tab === "followers" ? "page" : undefined}
         >
           <Users size={14} /> {t("Seguidores")} ({profile.followers})
         </Link>
         <Link
-          href={`/u/${profile.user.id}?tab=following`}
+          href={href(`/u/${profile.user.id}?tab=following`)}
           className={tab === "following" ? "profile-tab active" : "profile-tab"}
           aria-current={tab === "following" ? "page" : undefined}
         >
           <UserPlus size={14} /> {t("Siguiendo")} ({profile.following})
-        </Link>
-        <Link href="/lectores" className="profile-tab">
-          <Users size={14} /> {t("Lectores")}
         </Link>
       </nav>
 
@@ -364,7 +361,7 @@ export default async function Page({ params, searchParams }: PageProps) {
                 ) : (
                   <Link
                     className="secondary-button small"
-                    href={`/u/${profile.user.id}?page=${profile.page - 1}`}
+                    href={href(`/u/${profile.user.id}?page=${profile.page - 1}`)}
                   >
                     {t("Anterior")}
                   </Link>
@@ -373,7 +370,7 @@ export default async function Page({ params, searchParams }: PageProps) {
                 {profile.hasMoreListings ? (
                   <Link
                     className="secondary-button small"
-                    href={`/u/${profile.user.id}?page=${profile.page + 1}`}
+                    href={href(`/u/${profile.user.id}?page=${profile.page + 1}`)}
                   >
                     {t("Siguiente")}
                   </Link>
@@ -416,7 +413,7 @@ export default async function Page({ params, searchParams }: PageProps) {
                     </p>
                     <span>
                       {formatWhen(item.createdAt, locale)} <i>·</i>{" "}
-                      <Link href={`/libro/${item.listingId}`} className="inline-link">
+                      <Link href={href(`/libro/${item.listingId}`)} className="inline-link">
                         {t("ver el ejemplar")}
                       </Link>
                     </span>
@@ -461,7 +458,7 @@ export default async function Page({ params, searchParams }: PageProps) {
                   </div>
                   <Link
                     className="conversation-open"
-                    href={`/obra/${item.bookId}#c-${item.id}`}
+                    href={href(`/obra/${item.bookId}#c-${item.id}`)}
                     aria-label={t("Abrir la conversación sobre {title}", { title: item.bookTitle })}
                   >
                     <MessageCircle size={16} />
@@ -517,7 +514,7 @@ export default async function Page({ params, searchParams }: PageProps) {
           </div>
           <div className="list-grid">
             {lists.map((list) => (
-              <Link key={list.id} href={`/listas/${list.id}`} className="list-card">
+              <Link key={list.id} href={href(`/listas/${list.id}`)} className="list-card">
                 <strong>{list.title}</strong>
                 <span>{list.items === 1 ? t("1 libro") : t("{n} libros", { n: list.items })}</span>
                 {list.description && <p>{list.description}</p>}
@@ -543,7 +540,7 @@ export default async function Page({ params, searchParams }: PageProps) {
         {hasMoreReviews && (
           <Link
             className="secondary-button small load-more"
-            href={`/u/${profile.user.id}?reviews=all`}
+            href={href(`/u/${profile.user.id}?reviews=all`)}
           >
             {t("Ver las {count} valoraciones", { count: profile.ratingCount })}
           </Link>

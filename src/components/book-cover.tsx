@@ -50,7 +50,10 @@ export function BookCover({
       alt={t("Portada de {title}", { title })}
       fill
       sizes={sizes}
-      priority={priority}
+      // `priority` de `next/image` está obsoleto en Next 16: el LCP se marca
+      // con `loading="eager"` y `fetchPriority`.
+      loading={priority ? "eager" : undefined}
+      fetchPriority={priority ? "high" : undefined}
       // La portada la sirve la propia aplicación (`/api/cover/book/<id>`), que
       // la lee del disco: el navegador no habla con ningún tercero. Se deja que
       // el optimizador de Next la reduzca al hueco y la convierta a WebP: antes

@@ -59,15 +59,20 @@ test("las preferencias se guardan y se leen con el usuario", () => {
 
 test("con la ciudad oculta solo la ve quien la publica", () => {
   const listing = owner();
+  const ownDistance = repo.getListing(listing.id, listing.owner.id)?.distanceKm;
+  assert.notEqual(ownDistance, null, "el propietario debe ver su distancia");
   repo.setUserPrivacy(listing.owner.id, { ...DEFAULT_PRIVACY, cityPrecision: "hidden" });
 
   assert.equal(repo.getListing(listing.id, "usr_ana")?.city, "");
+  assert.equal(repo.getListing(listing.id, "usr_ana")?.distanceKm, null);
   assert.equal(repo.getListing(listing.id, listing.owner.id)?.city, listing.city);
+  assert.equal(repo.getListing(listing.id, listing.owner.id)?.distanceKm, ownDistance);
   // Y tampoco aparece en el perfil público.
   assert.equal(repo.getPublicProfile(listing.owner.id, "usr_ana")?.user.city, "");
 
   repo.setUserPrivacy(listing.owner.id, DEFAULT_PRIVACY);
   assert.equal(repo.getListing(listing.id, "usr_ana")?.city, listing.city);
+  assert.equal(repo.getListing(listing.id, "usr_ana")?.distanceKm, listing.distanceKm);
 });
 
 test("un perfil «solo yo» queda reservado para el resto", () => {
@@ -87,7 +92,7 @@ test("un perfil «solo yo» queda reservado para el resto", () => {
   assert.equal(propio.restricted, false);
 });
 
-test("«solo a quienes sigo» se abre con el seguimiento", () => {
+test("«solo a quienes me siguen» se abre con el seguimiento", () => {
   repo.setUserPrivacy("usr_lucia", { ...DEFAULT_PRIVACY, profileVisibility: "followers" });
 
   const antes = repo.getPublicProfile("usr_lucia", "usr_ana");
@@ -202,7 +207,7 @@ test("el directorio respeta la visibilidad del perfil", () => {
     false,
   );
 
-  // «Solo a quienes sigo»: aparece con el nombre (reconocer a quién sigues) pero
+  // «Solo a quienes me siguen»: aparece con el nombre (reconocer a quién sigues) pero
   // sin biografía hasta que hay seguimiento.
   repo.setUserPrivacy("usr_lucia", { ...DEFAULT_PRIVACY, profileVisibility: "followers" });
   const sinSeguir = viewers("usr_ana").readers.find((reader) => reader.user.id === "usr_lucia");

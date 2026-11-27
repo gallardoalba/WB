@@ -7,6 +7,7 @@ import { Dialog } from "../dialog";
 import { api } from "@/lib/client-api";
 import type { NotificationView } from "@/lib/domain";
 import { formatWhen } from "@/lib/text";
+import { localePath } from "@/lib/locale";
 import { useI18n } from "../i18n-provider";
 import type { BaseDialogProps } from "./shared";
 
@@ -15,21 +16,35 @@ export function NotificationsDialog({
   onClose,
   notifications,
   unread,
+  hasMore: hasMoreProp,
+  loading = false,
+  error: externalError = "",
   onMarkRead,
   onRefresh,
 }: BaseDialogProps & {
   notifications: NotificationView[];
   unread: number;
+  /** La primera página ya trae esta información; si no, se deduce del tamaño. */
+  hasMore?: boolean;
+  /** La lista se está pidiendo (armazón sin snapshot). */
+  loading?: boolean;
+  /** Error al pedir la primera página. */
+  error?: string;
   onMarkRead: () => void;
   onRefresh: () => void;
 }) {
   const { t, locale } = useI18n();
   const [extra, setExtra] = useState<NotificationView[]>([]);
-  const [hasMore, setHasMore] = useState(notifications.length >= 25);
+  // La primera página puede llegar después de montar el diálogo (armazón sin
+  // snapshot): el valor del servidor manda hasta que se pida otra página.
+  const [hasMoreFromLoad, setHasMoreFromLoad] = useState<boolean | null>(null);
+  const hasMore = hasMoreFromLoad ?? hasMoreProp ?? notifications.length >= 25;
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>([]);
+  /** Avisos marcados como leídos en esta visita: no desaparecen de la lista. */
+  const [readIds, setReadIds] = useState<string[]>([]);
 
   // El servidor manda la primera página; las demás se piden bajo demanda. El
   // desplazamiento se cuenta sobre lo que ya trajo el servidor, no sobre la
@@ -45,7 +60,7 @@ export function NotificationsDialog({
     setLoadError("");
     try {
       await api(`/api/notifications/${notificationId}`, { method: "PATCH" });
-      setHidden((current) => [...current, notificationId]);
+      setReadIds((current) => [...current, notificationId]);
       onRefresh();
     } catch (caught) {
       setLoadError(caught instanceof Error ? caught.message : t("No se pudo marcar el aviso."));
@@ -76,7 +91,7 @@ export function NotificationsDialog({
         `/api/notifications?offset=${offset}`,
       );
       setExtra((current) => [...current, ...data.notifications]);
-      setHasMore(data.hasMore);
+      setHasMoreFromLoad(data.hasMore);
     } catch (caught) {
       setLoadError(caught instanceof Error ? caught.message : t("No se pudieron cargar más avisos."));
     } finally {
@@ -99,33 +114,37 @@ export function NotificationsDialog({
         </button>
       )}
 
-      {items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <p className="empty-note">{t("Cargando…")}</p>
+      ) : items.length === 0 && !loadError && !externalError ? (
         <p className="empty-note">{t("Todavía no tienes avisos.")}</p>
       ) : (
         <ul className="inbox-list">
-          {items.map((item) => (
-            <li key={item.id} className={item.readAt ? "inbox-item" : "inbox-item unread"}>
+          {items.map((item) => {
+            const isUnread = !item.readAt && !readIds.includes(item.id);
+            return (
+            <li key={item.id} className={isUnread ? "inbox-item unread" : "inbox-item"}>
               <div className="inbox-copy">
                 <strong>{item.title}</strong>
                 <span>{formatWhen(item.createdAt, locale)}</span>
                 {item.body && <p>{item.body}</p>}
               </div>
               {item.link && (
-                <Link className="inline-link" href={item.link} onClick={onClose}>
+                <Link className="inline-link" href={localePath(locale, item.link)} onClick={onClose}>
                   {item.type === "follow" ? t("Ver perfil") : t("Ver")} <ArrowRight size={14} />
                 </Link>
               )}
               {!item.link && item.requestId && (
                 <Link
                   className="inline-link"
-                  href={`/intercambios?t=${encodeURIComponent(item.requestId)}`}
+                  href={localePath(locale, `/intercambios?t=${encodeURIComponent(item.requestId)}`)}
                   onClick={onClose}
                 >
                   {t("Ver intercambio")} <ArrowRight size={14} />
                 </Link>
               )}
               <div className="inbox-actions">
-                {!item.readAt && (
+                {isUnread && (
                   <button
                     type="button"
                     className="message-report"
@@ -145,7 +164,8 @@ export function NotificationsDialog({
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 
@@ -160,9 +180,9 @@ export function NotificationsDialog({
         </button>
       )}
 
-      {loadError && (
+      {(loadError || externalError) && (
         <p className="form-error" role="alert">
-          {loadError}
+          {loadError || externalError}
         </p>
       )}
     </Dialog>

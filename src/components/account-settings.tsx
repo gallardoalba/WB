@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Lock, LogOut, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/client-api";
@@ -24,6 +24,13 @@ type StoredKeys = {
   keys: { platform: string; keyId: string }[];
   keyId: string | null;
   history: KeyHistory[];
+};
+type TotpState = { enabled: boolean; pending: boolean; recoveryRemaining: number };
+type AccountEmail = {
+  email: string;
+  pendingEmail: string | null;
+  /** Hubo un cambio pedido cuyo enlace ya caducó. */
+  pendingExpired: boolean;
 };
 
 /**
@@ -78,7 +85,7 @@ export function AccountSettings({
   const [verifyMsg, setVerifyMsg] = useState("");
   const [verifyBusy, setVerifyBusy] = useState(false);
 
-  const [totp, setTotp] = useState<{ enabled: boolean; pending: boolean } | null>(null);
+  const [totp, setTotp] = useState<TotpState | null>(null);
   const [totpSecret, setTotpSecret] = useState("");
   const [totpUri, setTotpUri] = useState("");
   const [totpQr, setTotpQr] = useState("");
@@ -87,6 +94,22 @@ export function AccountSettings({
   const [totpBusy, setTotpBusy] = useState(false);
   const [totpMsg, setTotpMsg] = useState("");
   const [totpError, setTotpError] = useState("");
+  /** Códigos de recuperación en claro: solo existen en esta visita. */
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoveryMsg, setRecoveryMsg] = useState("");
+  const [recoveryError, setRecoveryError] = useState("");
+  const [copyMsg, setCopyMsg] = useState("");
+
+  const [emailState, setEmailState] = useState<AccountEmail | null>(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMsg, setEmailMsg] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const [keys, setKeys] = useState<StoredKeys | null>(null);
   const [localKeyId, setLocalKeyId] = useState<string | null>(null);
@@ -106,7 +129,8 @@ export function AccountSettings({
   const [keyError, setKeyError] = useState("");
 
   const [alertOn, setAlertOn] = useState(alertsOn);
-  const [alertBusy, setAlertBusy] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+  const cryptoRef = useRef<HTMLDetailsElement | null>(null);
 
   // El dispositivo v2 no se crea solo: publicar la identidad de este navegador
   // es una decisión (y puede pedir contraseña), así que aquí solo se mira si ya
@@ -199,7 +223,7 @@ export function AccountSettings({
 
   useEffect(() => {
     let cancelled = false;
-    api<{ enabled: boolean; pending: boolean }>("/api/account/totp")
+    api<TotpState>("/api/account/totp")
       .then((state) => {
         if (!cancelled) setTotp(state);
       })
@@ -218,6 +242,39 @@ export function AccountSettings({
     };
   }, [t]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api<AccountEmail>("/api/account/email")
+      .then((state) => {
+        if (!cancelled) setEmailState(state);
+      })
+      .catch(() => {
+        // Sin respuesta el panel sigue enseñando el correo de la sesión.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // El error de cualquier formulario se pinta arriba: si no se lleva el foco,
+  // quien guarda desde el final de la página no llega a verlo.
+  useEffect(() => {
+    if (!accountError) return;
+    const error = errorRef.current;
+    if (!error) return;
+    error.focus({ preventScroll: true });
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    error.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+  }, [accountError]);
+
+  // «Ir a Mi cuenta» desde una conversación llega con #cifrado: la sección
+  // tiene que abrirse, no quedarse plegada a mitad de página.
+  useEffect(() => {
+    if (window.location.hash !== "#cifrado" || !cryptoRef.current) return;
+    cryptoRef.current.open = true;
+    cryptoRef.current.scrollIntoView({ block: "start" });
+  }, []);
+
   // «Activo» significa que la clave de la cuenta es la de este navegador: si
   // hay otra publicada, este dispositivo no puede leer los mensajes nuevos.
   const keyActive = Boolean(keys?.keyId) && keys?.keyId === localKeyId;
@@ -231,7 +288,7 @@ export function AccountSettings({
     setPending(true);
     try {
       await api("/api/auth/logout", { method: "POST" });
-      router.replace("/");
+      router.replace(localePath(locale, "/"));
       router.refresh();
     } finally {
       setPending(false);
@@ -381,6 +438,7 @@ export function AccountSettings({
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const city = String(data.get("city") ?? user.city);
     setBusyAccount(true);
     setAccountError("");
     setAccountMsg("");
@@ -389,10 +447,16 @@ export function AccountSettings({
         method: "PATCH",
         body: {
           name: data.get("name"),
-          city: data.get("city"),
+          city,
           bio: data.get("bio") ?? "",
           emailNotifications: data.get("emailNotifications") === "on",
         },
+      });
+      // El aviso de ciudad forma parte de este formulario: se guarda con el
+      // resto para que dos checkboxes contiguos no tengan dos semánticas.
+      await api("/api/alerts/availability", {
+        method: "POST",
+        body: { city, enabled: alertOn },
       });
       setAccountMsg(t("Perfil actualizado."));
       router.refresh();
@@ -400,29 +464,6 @@ export function AccountSettings({
       setAccountError(caught instanceof Error ? caught.message : t("No se pudo guardar el perfil."));
     } finally {
       setBusyAccount(false);
-    }
-  }
-
-  async function toggleAlert() {
-    const next = !alertOn;
-    setAlertBusy(true);
-    try {
-      await api("/api/alerts/availability", {
-        method: "POST",
-        body: { city: user.city, enabled: next },
-      });
-      setAlertOn(next);
-      setAccountMsg(
-        next
-          ? t("Te avisaremos de los libros nuevos en {city}.", { city: user.city })
-          : t("Ya no te avisaremos de libros nuevos en {city}.", { city: user.city }),
-      );
-    } catch (caught) {
-      setAccountError(
-        caught instanceof Error ? caught.message : t("No se pudo guardar el aviso."),
-      );
-    } finally {
-      setAlertBusy(false);
     }
   }
 
@@ -440,7 +481,7 @@ export function AccountSettings({
       setTotpUri(data.otpauthUrl);
       setTotpQr(data.qrDataUrl);
       setTotpPassword("");
-      setTotp({ enabled: false, pending: true });
+      setTotp((current) => ({ ...current, enabled: false, pending: true, recoveryRemaining: 0 }));
     } catch (caught) {
       setTotpError(caught instanceof Error ? caught.message : t("No se pudo generar el secreto."));
     } finally {
@@ -454,20 +495,118 @@ export function AccountSettings({
     setTotpError("");
     setTotpMsg("");
     try {
-      const state = await api<{ enabled: boolean; pending: boolean }>("/api/account/totp/enable", {
-        method: "POST",
-        body: { code: totpCode },
-      });
+      const state = await api<TotpState & { recoveryCodes: string[] }>(
+        "/api/account/totp/enable",
+        { method: "POST", body: { code: totpCode } },
+      );
       setTotp(state);
       setTotpSecret("");
       setTotpUri("");
       setTotpQr("");
       setTotpCode("");
       setTotpMsg(t("Verificación en dos pasos activada."));
+      // Los códigos llegan una sola vez: se enseñan aquí mismo para que se
+      // puedan guardar antes de salir de la página.
+      setRecoveryCodes(state.recoveryCodes);
     } catch (caught) {
       setTotpError(caught instanceof Error ? caught.message : t("No se pudo activar la verificación."));
     } finally {
       setTotpBusy(false);
+    }
+  }
+
+  async function regenerateRecovery(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRecoveryBusy(true);
+    setRecoveryError("");
+    setRecoveryMsg("");
+    setCopyMsg("");
+    try {
+      const state = await api<TotpState & { recoveryCodes: string[] }>(
+        "/api/account/totp/recovery",
+        { method: "POST", body: { password: recoveryPassword, code: recoveryCode } },
+      );
+      setTotp(state);
+      setRecoveryCodes(state.recoveryCodes);
+      setRecoveryPassword("");
+      setRecoveryCode("");
+      setRecoveryMsg(t("Códigos nuevos generados. Los anteriores ya no valen."));
+    } catch (caught) {
+      setRecoveryError(
+        caught instanceof Error ? caught.message : t("No se pudieron generar los códigos."),
+      );
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
+  async function copyRecoveryCodes() {
+    setCopyMsg("");
+    try {
+      await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+      setCopyMsg(t("Códigos copiados."));
+    } catch {
+      setCopyMsg(t("No se pudo copiar. Selecciona los códigos y cópialos a mano."));
+    }
+  }
+
+  function downloadRecoveryCodes() {
+    const text = [
+      t("Códigos de recuperación de Wanderbibliothek"),
+      t("Cada código sirve una vez. Guárdalos fuera del teléfono."),
+      "",
+      ...recoveryCodes,
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "wanderbibliothek-codigos-de-recuperacion.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function requestEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailBusy(true);
+    setEmailError("");
+    setEmailMsg("");
+    try {
+      const state = await api<AccountEmail>("/api/account/email", {
+        method: "PATCH",
+        body: { password: emailPassword, email: newEmail, code: emailCode },
+      });
+      setEmailState(state);
+      setNewEmail("");
+      setEmailPassword("");
+      setEmailCode("");
+      setEmailMsg(
+        t("Te hemos enviado un enlace a {email}. El correo no cambia hasta que lo abras.", {
+          email: state.pendingEmail ?? "",
+        }),
+      );
+    } catch (caught) {
+      setEmailError(caught instanceof Error ? caught.message : t("No se pudo cambiar el correo."));
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
+  async function cancelEmailChangeRequest() {
+    setEmailBusy(true);
+    setEmailError("");
+    setEmailMsg("");
+    try {
+      await api("/api/account/email", { method: "DELETE" });
+      setEmailState((current) =>
+        current ? { ...current, pendingEmail: null, pendingExpired: false } : current,
+      );
+      setEmailMsg(t("Cambio de correo cancelado."));
+    } catch (caught) {
+      setEmailError(
+        caught instanceof Error ? caught.message : t("No se pudo cancelar el cambio de correo."),
+      );
+    } finally {
+      setEmailBusy(false);
     }
   }
 
@@ -477,13 +616,16 @@ export function AccountSettings({
     setTotpError("");
     setTotpMsg("");
     try {
-      await api("/api/account/totp/disable", {
+      const state = await api<TotpState>("/api/account/totp/disable", {
         method: "POST",
         body: { password: totpPassword, code: totpCode },
       });
-      setTotp({ enabled: false, pending: false });
+      setTotp(state);
       setTotpPassword("");
       setTotpCode("");
+      // Sin 2FA los códigos de recuperación no sirven para nada: se vacían
+      // también en pantalla para no dejar la impresión de que siguen valiendo.
+      setRecoveryCodes([]);
       setTotpMsg(t("Verificación en dos pasos desactivada."));
     } catch (caught) {
       setTotpError(caught instanceof Error ? caught.message : t("No se pudo desactivar la verificación."));
@@ -518,7 +660,7 @@ export function AccountSettings({
     setAccountError("");
     try {
       await api("/api/account/delete", { method: "POST", body: { password: deletePassword } });
-      router.replace("/");
+      router.replace(localePath(locale, "/"));
       router.refresh();
     } catch (caught) {
       setAccountError(caught instanceof Error ? caught.message : t("No se pudo eliminar la cuenta."));
@@ -583,12 +725,19 @@ export function AccountSettings({
         </p>
       )}
       {accountError && (
-        <p className="form-error" id="account-error" role="alert">
+        <p
+          ref={errorRef}
+          className="form-error"
+          id="account-error"
+          role="alert"
+          tabIndex={-1}
+        >
           {accountError}
         </p>
       )}
 
       <div className="account-box">
+        <h2 className="sr-only">{t("Editar perfil")}</h2>
         <details open>
           <summary>{t("Editar perfil")}</summary>
           <form onSubmit={saveProfile}>
@@ -604,7 +753,7 @@ export function AccountSettings({
               maxLength={60}
               required
             />
-            <p className="form-note">
+            <p className="form-hint">
               {t("Así te ven las demás personas. Puedes usar un seudónimo.")}
             </p>
             <label htmlFor="profile-city">{t("Ciudad")}</label>
@@ -640,17 +789,17 @@ export function AccountSettings({
                 id="profile-city-alerts"
                 type="checkbox"
                 checked={alertOn}
-                onChange={() => void toggleAlert()}
-                disabled={alertBusy}
+                onChange={(event) => setAlertOn(event.target.checked)}
               />
               {t("Avisarme de nuevos libros en {city}", { city: user.city })}
             </label>
-            <button className="secondary-button small" type="submit" disabled={busyAccount}>
+            <button className="primary-button small" type="submit" disabled={busyAccount}>
               {t("Guardar perfil")}
             </button>
           </form>
         </details>
 
+        <h2 className="sr-only">{t("Cambiar contraseña")}</h2>
         <details>
           <summary>{t("Cambiar contraseña")}</summary>
           <form onSubmit={changeOwnPassword}>
@@ -675,13 +824,105 @@ export function AccountSettings({
               onChange={(event) => setNewPassword(event.target.value)}
               required
             />
-            <button className="secondary-button small" type="submit" disabled={busyAccount}>
+            <button className="primary-button small" type="submit" disabled={busyAccount}>
               {t("Guardar contraseña")}
             </button>
           </form>
         </details>
 
-        <details className="crypto-section">
+        <h2 className="sr-only">{t("Correo de la cuenta")}</h2>
+        <details>
+          <summary id="correo">{t("Correo de la cuenta")}</summary>
+          {emailError && (
+            <p className="form-error" role="alert">
+              {emailError}
+            </p>
+          )}
+          {emailMsg && (
+            <p className="action-feedback" role="status">
+              {emailMsg}
+            </p>
+          )}
+          <p className="form-hint">
+            {t(
+              "El correo sirve para entrar y para recuperar la cuenta. Nunca se enseña en el perfil.",
+            )}
+          </p>
+          <dl className="account-summary">
+            <div>
+              <dt>{t("Correo actual")}</dt>
+              <dd>{emailState?.email ?? user.email}</dd>
+            </div>
+            {emailState?.pendingEmail && (
+              <div>
+                <dt>{t("Pendiente de confirmar")}</dt>
+                <dd>{emailState.pendingEmail}</dd>
+              </div>
+            )}
+          </dl>
+          {emailState?.pendingExpired && !emailState.pendingEmail && (
+            <p className="form-note" role="status">
+              {t("El enlace del cambio anterior caducó. Pide uno nuevo si sigues queriendo cambiar el correo.")}
+            </p>
+          )}
+          {emailState?.pendingEmail && (
+            <>
+              <p className="form-note">
+                {t(
+                  "El cambio no se aplica hasta que abras el enlace que te hemos enviado a esa dirección.",
+                )}
+              </p>
+              <button
+                type="button"
+                className="secondary-button small"
+                disabled={emailBusy}
+                onClick={() => void cancelEmailChangeRequest()}
+              >
+                {t("Cancelar el cambio")}
+              </button>
+            </>
+          )}
+          <form onSubmit={requestEmail}>
+            <label htmlFor="email-new">{t("Nueva dirección de correo")}</label>
+            <input
+              id="email-new"
+              type="email"
+              autoComplete="email"
+              maxLength={254}
+              value={newEmail}
+              onChange={(event) => setNewEmail(event.target.value)}
+              required
+            />
+            <label htmlFor="email-password">{t("Contraseña actual")}</label>
+            <input
+              id="email-password"
+              type="password"
+              autoComplete="current-password"
+              value={emailPassword}
+              onChange={(event) => setEmailPassword(event.target.value)}
+              required
+            />
+            {totp?.enabled && (
+              <>
+                <label htmlFor="email-code">{t("Código de verificación o de recuperación")}</label>
+                <input
+                  id="email-code"
+                  autoComplete="one-time-code"
+                  maxLength={20}
+                  value={emailCode}
+                  onChange={(event) => setEmailCode(event.target.value)}
+                  required
+                />
+              </>
+            )}
+            <button className="primary-button small" type="submit" disabled={emailBusy}>
+              {emailBusy ? t("Enviando…") : t("Enviar enlace de confirmación")}
+            </button>
+          </form>
+        </details>
+
+        <h2 className="sr-only">{t("Cifrado de mensajes")}</h2>
+        <details className="crypto-section" id="cifrado" ref={cryptoRef}>
           <summary>
             <span>{t("Cifrado de mensajes")}</span>
             <span className={`crypto-badge${keyActive ? " is-on" : ""}`}>
@@ -922,6 +1163,7 @@ export function AccountSettings({
           </div>
         </details>
 
+        <h2 className="sr-only">{t("Verificación en dos pasos")}</h2>
         <details>
           <summary>{t("Verificación en dos pasos")}</summary>
           {totpError && (
@@ -934,37 +1176,145 @@ export function AccountSettings({
               {totpMsg}
             </p>
           )}
+          {/* Los códigos se enseñan una sola vez: al activar y al regenerarlos.
+              Después solo queda el hash, así que aquí no hay nada que «volver a
+              ver». */}
+          {recoveryCodes.length > 0 && (
+            <div className="recovery-codes">
+              <h3>{t("Guarda estos códigos de recuperación")}</h3>
+              <p className="form-note">
+                {t(
+                  "Cada código sirve una vez y sustituye al de la aplicación si pierdes el teléfono. Guárdalos fuera del propio teléfono.",
+                )}
+              </p>
+              <ul className="recovery-list">
+                {recoveryCodes.map((code) => (
+                  <li key={code}>
+                    <code>{code}</code>
+                  </li>
+                ))}
+              </ul>
+              <div className="recovery-actions">
+                <button
+                  type="button"
+                  className="secondary-button small"
+                  onClick={() => void copyRecoveryCodes()}
+                >
+                  {t("Copiar códigos")}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button small"
+                  onClick={downloadRecoveryCodes}
+                >
+                  {t("Descargar")}
+                </button>
+                <button
+                  type="button"
+                  className="primary-button small"
+                  onClick={() => {
+                    setRecoveryCodes([]);
+                    setCopyMsg("");
+                  }}
+                >
+                  {t("Ya los he guardado")}
+                </button>
+              </div>
+              {copyMsg && (
+                <p className="form-hint" role="status">
+                  {copyMsg}
+                </p>
+              )}
+            </div>
+          )}
+
           {totp === null ? (
             <p className="form-hint">{totpError ? t("No se pudo cargar el estado.") : t("Cargando…")}</p>
           ) : totp.enabled ? (
-            <form onSubmit={disableTotp}>
-              <p className="form-hint">
-                {t("La cuenta pide un código de tu aplicación de autenticación al entrar.")}
-              </p>
-              <label htmlFor="totp-disable-password">{t("Contraseña actual")}</label>
-              <input
-                id="totp-disable-password"
-                type="password"
-                autoComplete="current-password"
-                value={totpPassword}
-                onChange={(event) => setTotpPassword(event.target.value)}
-                required
-              />
-              <label htmlFor="totp-disable-code">{t("Código actual")}</label>
-              <input
-                id="totp-disable-code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                value={totpCode}
-                onChange={(event) => setTotpCode(event.target.value)}
-                required
-              />
-              <button className="secondary-button small" type="submit" disabled={totpBusy}>
-                {t("Desactivar")}
-              </button>
-            </form>
+            <>
+              <form onSubmit={disableTotp}>
+                <p className="form-hint">
+                  {t("La cuenta pide un código de tu aplicación de autenticación al entrar.")}
+                </p>
+                <label htmlFor="totp-disable-password">{t("Contraseña actual")}</label>
+                <input
+                  id="totp-disable-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={totpPassword}
+                  onChange={(event) => setTotpPassword(event.target.value)}
+                  required
+                />
+                <label htmlFor="totp-disable-code">
+                  {t("Código de verificación o de recuperación")}
+                </label>
+                <input
+                  id="totp-disable-code"
+                  autoComplete="one-time-code"
+                  maxLength={20}
+                  value={totpCode}
+                  onChange={(event) => setTotpCode(event.target.value)}
+                  required
+                />
+                <button className="secondary-button small" type="submit" disabled={totpBusy}>
+                  {t("Desactivar")}
+                </button>
+              </form>
+
+              <h3>{t("Códigos de recuperación")}</h3>
+              {recoveryError && (
+                <p className="form-error" role="alert">
+                  {recoveryError}
+                </p>
+              )}
+              {recoveryMsg && (
+                <p className="action-feedback" role="status">
+                  {recoveryMsg}
+                </p>
+              )}
+              {totp.recoveryRemaining === 0 ? (
+                <p className="form-error" role="alert">
+                  {t("No te quedan códigos de recuperación.")}
+                </p>
+              ) : (
+                <p className="form-note">
+                  {totp.recoveryRemaining === 1
+                    ? t("Te queda 1 código de recuperación.")
+                    : t("Te quedan {n} códigos de recuperación.", { n: totp.recoveryRemaining })}
+                </p>
+              )}
+              <details>
+                <summary>{t("Generar códigos nuevos")}</summary>
+                <p className="form-hint">
+                  {t("Al generarlos, los códigos que ya tenías dejan de valer.")}
+                </p>
+                <form onSubmit={regenerateRecovery}>
+                  <label htmlFor="recovery-password">{t("Contraseña actual")}</label>
+                  <input
+                    id="recovery-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={recoveryPassword}
+                    onChange={(event) => setRecoveryPassword(event.target.value)}
+                    required
+                  />
+                  <label htmlFor="recovery-code">
+                    {t("Código de verificación o de recuperación")}
+                  </label>
+                  <input
+                    id="recovery-code"
+                    autoComplete="one-time-code"
+                    maxLength={20}
+                    value={recoveryCode}
+                    onChange={(event) => setRecoveryCode(event.target.value)}
+                    required
+                  />
+                  <button className="secondary-button small" type="submit" disabled={recoveryBusy}>
+                    {t("Generar códigos nuevos")}
+                  </button>
+                </form>
+              </details>
+            </>
           ) : totpSecret ? (
             <form onSubmit={enableTotp}>
               <p className="form-hint">
@@ -1020,34 +1370,12 @@ export function AccountSettings({
           )}
         </details>
 
-        <a className="secondary-button small" href="/api/account/export" download>
-          <Download size={14} /> {t("Descargar mis datos")}
-        </a>
-
-        <details className="danger-zone">
-          <summary>{t("Eliminar cuenta")}</summary>
-          <form onSubmit={removeAccount}>
-            <p>{t("Se retirarán tus publicaciones y se cerrará la sesión.")}</p>
-            <label htmlFor="delete-password">{t("Confirma con tu contraseña")}</label>
-            <input
-              id="delete-password"
-              aria-describedby={accountError ? "account-error" : undefined}
-              type="password"
-              autoComplete="current-password"
-              value={deletePassword}
-              onChange={(event) => setDeletePassword(event.target.value)}
-              required
-            />
-            <button className="secondary-button small danger" type="submit" disabled={busyAccount}>
-              {t("Eliminar mi cuenta")}
-            </button>
-          </form>
-        </details>
       </div>
 
       <div className="account-box">
+        <h2 className="sr-only">{t("Privacidad y datos")}</h2>
         <details>
-          <summary>{t("Privacidad")}</summary>
+          <summary>{t("Privacidad y datos")}</summary>
           <form onSubmit={savePrivacy}>
             <p className="form-note">
               {t("Decides qué ve la comunidad. El correo nunca se enseña.")}
@@ -1061,9 +1389,12 @@ export function AccountSettings({
               }
             >
               <option value="members">{t("Toda la comunidad")}</option>
-              <option value="followers">{t("Solo a quienes sigo")}</option>
+              <option value="followers">{t("Solo a quienes me siguen")}</option>
               <option value="private">{t("Solo yo")}</option>
             </select>
+            <p className="form-hint">
+              {t("Tu nombre sigue visible para que puedan identificarte; el resto no.")}
+            </p>
 
             <label htmlFor="privacy-city">{t("Mi ciudad")}</label>
             <select
@@ -1124,14 +1455,43 @@ export function AccountSettings({
                 {privacyMsg}
               </p>
             )}
-            <button className="secondary-button small" type="submit" disabled={privacyBusy}>
+            <button className="primary-button small" type="submit" disabled={privacyBusy}>
               {privacyBusy ? t("Guardando…") : t("Guardar privacidad")}
             </button>
           </form>
+          <hr className="account-divider" />
+          <h3>{t("Descargar mis datos")}</h3>
+          <p className="form-hint">
+            {t("Descarga un archivo JSON con los datos de tu cuenta.")}
+          </p>
+          <a className="secondary-button small" href="/api/account/export" download>
+            <Download size={14} /> {t("Descargar mis datos")}
+          </a>
+
+          <div className="danger-zone">
+            <h3>{t("Eliminar cuenta")}</h3>
+            <form onSubmit={removeAccount}>
+              <p>{t("Se retirarán tus publicaciones y se cerrará la sesión.")}</p>
+              <label htmlFor="delete-password">{t("Confirma con tu contraseña")}</label>
+              <input
+                id="delete-password"
+                aria-describedby={accountError ? "account-error" : undefined}
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(event) => setDeletePassword(event.target.value)}
+                required
+              />
+              <button className="secondary-button small danger" type="submit" disabled={busyAccount}>
+                {t("Eliminar mi cuenta")}
+              </button>
+            </form>
+          </div>
         </details>
       </div>
 
       <div className="account-box">
+        <h2 className="sr-only">{t("Primeros pasos")}</h2>
         <details>
           <summary>{t("Primeros pasos")}</summary>
           <p className="form-note">

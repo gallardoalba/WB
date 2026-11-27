@@ -9,7 +9,7 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
-import { pick } from "@/lib/locale";
+import { localePath, pick } from "@/lib/locale";
 import { getCopyJourney, getListing, countBookComments } from "@/lib/repo";
 import { socialMetadata } from "@/lib/social";
 import {
@@ -151,7 +151,7 @@ export default async function Page({ params }: PageProps) {
             )}
           </dl>
 
-          <Link href={`/obra/${listing.bookId}`} className="work-link">
+          <Link href={localePath(locale, `/obra/${listing.bookId}`)} className="work-link">
             <MessageCircle size={15} />
             {comments === 0
               ? t("Abrir la conversación sobre este libro")
@@ -160,7 +160,7 @@ export default async function Page({ params }: PageProps) {
                 : t("{n} comentarios sobre este libro", { n: comments })}
           </Link>
 
-          <Link href={`/u/${listing.owner.id}`} className="owner-badge">
+          <Link href={localePath(locale, `/u/${listing.owner.id}`)} className="owner-badge">
             <span className={`avatar tone-${toneForId(listing.owner.id)}`}>
               {initialsOf(listing.owner.name)}
             </span>

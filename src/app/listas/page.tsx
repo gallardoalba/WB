@@ -4,6 +4,7 @@ import { Library } from "lucide-react";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { regionName } from "@/lib/cities";
+import { localePath } from "@/lib/locale";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { alternatesFor } from "@/lib/seo";
@@ -65,7 +66,7 @@ export default async function Page({ searchParams }: PageProps) {
     if (next.q) params.set("q", String(next.q));
     if (Number(next.page) > 1) params.set("page", String(next.page));
     const search = params.toString();
-    return search ? `/listas?${search}` : "/listas";
+    return localePath(locale, search ? `/listas?${search}` : "/listas");
   };
 
   return (
@@ -110,10 +111,10 @@ export default async function Page({ searchParams }: PageProps) {
           <h2>{query ? t("Ninguna lista con esa búsqueda") : t("Todavía no hay listas públicas")}</h2>
           <p>
             {t(
-              "Las listas se crean desde la ficha de una obra o desde tu perfil y quedan visibles para toda la comunidad.",
+              "Las listas se crean desde la ficha de una obra y quedan visibles para toda la comunidad.",
             )}
           </p>
-          <Link href="/descubrir" className="secondary-button small">
+          <Link href={localePath(locale, "/descubrir")} className="secondary-button small">
             {t("Explorar el catálogo")}
           </Link>
         </div>
@@ -121,7 +122,7 @@ export default async function Page({ searchParams }: PageProps) {
         <ul className="community-lists list-index">
           {lists.map((list) => (
             <li key={list.id}>
-              <Link href={`/listas/${list.id}`} className="community-list-card">
+              <Link href={localePath(locale, `/listas/${list.id}`)} className="community-list-card">
                 <strong>{list.title}</strong>
                 <span>
                   {list.owner.name || t("Una persona de la comunidad")}{" · "}

@@ -16,7 +16,7 @@ import { translate } from "@/lib/i18n";
 import { localePath, type Locale } from "@/lib/locale";
 import { AccountMenu } from "./account-menu";
 
-export type RailSection = "listas" | "lectores" | "obra" | "perfil" | "admin" | "admin-stats";
+export type RailSection = "listas" | "lectores" | "obra" | "perfil" | "cuenta" | "admin" | "admin-stats";
 
 /**
  * Barra lateral de las páginas que no viven dentro del catálogo. Mantiene la
@@ -41,6 +41,7 @@ export function SiteRail({
   const t = (text: string, vars?: Record<string, string | number>) =>
     translate(locale, text, vars);
   const itemClass = (active: boolean) => (active ? "nav-item active" : "nav-item");
+  const current = (active: boolean) => (active ? "page" : undefined);
   // Enlaces con el prefijo del idioma de la página (`/es/…`).
   const href = (path: string) => localePath(locale, path);
 
@@ -60,7 +61,11 @@ export function SiteRail({
       </p>
 
       <nav className="primary-nav" aria-label={t("Navegación principal")}>
-        <Link className={itemClass(false)} href={href("/descubrir")}>
+        <Link
+          className={itemClass(section === "obra")}
+          href={href("/descubrir")}
+          aria-current={current(section === "obra")}
+        >
           <Compass size={18} />
           <span>{t("Descubrir")}</span>
         </Link>
@@ -71,7 +76,7 @@ export function SiteRail({
           {user ? <Plus size={18} /> : <Lock size={18} />}
           <span>{t("Ofrecer un libro")}</span>
         </Link>
-        <Link className={itemClass(section === "perfil")} href={href("/estanteria")}>
+        <Link className={itemClass(false)} href={href("/estanteria")}>
           {user ? <Heart size={18} /> : <Lock size={18} />}
           <span>{t("Mi estantería")}</span>
         </Link>
@@ -80,7 +85,14 @@ export function SiteRail({
           <span>{t("Intercambios")}</span>
           {user &&
             (unreadMessages > 0 ? (
-              <span className="nav-count unread" aria-label={t("{n} mensajes sin leer", { n: unreadMessages })}>
+              <span
+                className="nav-count unread"
+                aria-label={
+                  unreadMessages === 1
+                    ? t("1 mensaje sin leer")
+                    : t("{n} mensajes sin leer", { n: unreadMessages })
+                }
+              >
                 {unreadMessages}
               </span>
             ) : (
@@ -92,9 +104,12 @@ export function SiteRail({
       <nav className="primary-nav" aria-label={t("Comunidad")}>
         <Link
           className={itemClass(
-            section === "listas" || section === "lectores"
+            section === "listas" || section === "lectores" || section === "perfil",
           )}
           href={href("/comunidad")}
+          aria-current={current(
+            section === "listas" || section === "lectores" || section === "perfil",
+          )}
         >
           {user ? <Users size={18} /> : <Lock size={18} />}
           <span>{t("Comunidad")}</span>
@@ -105,7 +120,11 @@ export function SiteRail({
           exactamente igual que la página de cuenta. */}
       {user && (user.isAdmin || user.isModerator) ? (
         <nav className="primary-nav" aria-label={t("Administración")}>
-          <Link className={itemClass(section === "admin")} href={href("/admin")}>
+          <Link
+            className={itemClass(section === "admin")}
+            href={href("/admin")}
+            aria-current={current(section === "admin")}
+          >
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>
@@ -113,6 +132,7 @@ export function SiteRail({
             <Link
               className={itemClass(section === "admin-stats")}
               href={href("/admin/estadisticas")}
+              aria-current={current(section === "admin-stats")}
             >
               <BarChart3 size={18} />
               <span>{t("Estadísticas")}</span>
@@ -121,7 +141,11 @@ export function SiteRail({
         </nav>
       ) : null}
 
-      <AccountMenu user={user} unreadNotifications={unreadNotifications} />
+      <AccountMenu
+        user={user}
+        unreadNotifications={unreadNotifications}
+        active={section === "cuenta"}
+      />
     </aside>
   );
 }

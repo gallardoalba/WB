@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, MonitorSmartphone } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { formatWhen } from "@/lib/text";
+import { localePath } from "@/lib/locale";
 import { useI18n } from "./i18n-provider";
 
 type SessionInfo = {
@@ -30,8 +31,10 @@ export function SessionsPanel() {
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [opened, setOpened] = useState(false);
 
   useEffect(() => {
+    if (!opened) return;
     let cancelled = false;
     api<{ sessions: SessionInfo[] }>("/api/account/sessions")
       .then((data) => {
@@ -49,7 +52,7 @@ export function SessionsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [opened, t]);
 
   async function close(session: SessionInfo) {
     setBusy(session.id);
@@ -62,7 +65,7 @@ export function SessionsPanel() {
       );
       if (result.current) {
         // Era la sesión de este navegador: se sale igual que con «Cerrar sesión».
-        router.replace("/");
+        router.replace(localePath(locale, "/"));
         router.refresh();
         return;
       }
@@ -77,7 +80,12 @@ export function SessionsPanel() {
 
   return (
     <div className="account-box">
-      <details>
+      <h2 className="sr-only">{t("Sesiones abiertas")}</h2>
+      <details
+        onToggle={(event) => {
+          if (event.currentTarget.open) setOpened(true);
+        }}
+      >
         <summary>{t("Sesiones abiertas")}</summary>
         <p className="form-note">
           {t("Dónde has entrado con tu cuenta. Cierra lo que no reconozcas.")}

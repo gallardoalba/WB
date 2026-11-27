@@ -249,6 +249,76 @@ export function clearAuthFailures(key: string): void {
   getDb().prepare("DELETE FROM auth_attempts WHERE attempt_key = ?").run(key);
 }
 
+/** Correo actual y dirección pendiente de confirmar (si la hay). */
+export function getAccountEmail(userId: string): {
+  email: string;
+  pendingEmail: string | null;
+} | null {
+  const row = getDb()
+    .prepare("SELECT email, pending_email FROM users WHERE id = ?")
+    .get(userId) as { email: string; pending_email: string | null } | undefined;
+  return row ? { email: row.email, pendingEmail: row.pending_email } : null;
+}
+
+/**
+ * Deja apuntada la dirección nueva. El correo **no** cambia aquí: hace falta
+ * abrir el enlace que se manda a esa misma dirección, para que una sesión
+ * robada no pueda llevarse la cuenta a un buzón ajeno.
+ */
+export function requestEmailChange(userId: string, email: string): void {
+  const db = getDb();
+  const current = db.prepare("SELECT email FROM users WHERE id = ?").get(userId) as
+    | { email: string }
+    | undefined;
+  if (!current) throw new ApiError(404, "La cuenta no existe.");
+  if (current.email === email) throw new ApiError(422, "Ese es el correo que ya tienes.");
+
+  // Aquí sí se dice que está ocupado: quien llega hasta este formulario ya ha
+  // demostrado que es la cuenta (sesión y contraseña), y sin el aviso la
+  // persona se quedaría esperando un enlace que nunca se manda.
+  const taken = db.prepare("SELECT 1 FROM users WHERE email = ? AND id <> ?").get(email, userId);
+  if (taken) throw new ApiError(409, "Ese correo ya está en uso en otra cuenta.");
+
+  db.prepare("UPDATE users SET pending_email = ? WHERE id = ?").run(email, userId);
+}
+
+/**
+ * Aplica el cambio confirmado: la dirección nueva pasa a ser la de la cuenta y
+ * queda verificada (se acaba de demostrar que el buzón es suyo).
+ */
+export function applyEmailChange(userId: string): { previous: string; email: string } | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT email, pending_email FROM users WHERE id = ?")
+    .get(userId) as { email: string; pending_email: string | null } | undefined;
+  if (!row?.pending_email) return null;
+
+  try {
+    const { changes } = db
+      .prepare(
+        `UPDATE users
+            SET email = ?,
+                pending_email = NULL,
+                email_verified_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE id = ? AND pending_email = ?`,
+      )
+      .run(row.pending_email, userId, row.pending_email);
+    if (changes !== 1) return null;
+  } catch (error) {
+    // Otra cuenta tomó esa dirección entre la petición y la confirmación.
+    if (isConstraintError(error)) {
+      throw new ApiError(409, "Ese correo ya está en uso en otra cuenta.");
+    }
+    throw error;
+  }
+  return { previous: row.email, email: row.pending_email };
+}
+
+/** Cancela un cambio que aún no se ha confirmado. */
+export function cancelEmailChange(userId: string): void {
+  getDb().prepare("UPDATE users SET pending_email = NULL WHERE id = ?").run(userId);
+}
+
 export function markEmailVerified(userId: string): void {
   getDb()
     .prepare(

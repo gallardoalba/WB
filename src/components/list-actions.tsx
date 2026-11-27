@@ -6,10 +6,11 @@ import { Pencil, Trash2, X } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useI18n } from "./i18n-provider";
+import { localePath } from "@/lib/locale";
 
 /** Borra una lista propia y devuelve al catálogo. */
 export function ListDeleteButton({ listId }: { listId: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +22,7 @@ export function ListDeleteButton({ listId }: { listId: string }) {
     setError("");
     try {
       await api(`/api/lists/${listId}`, { method: "DELETE" });
-      router.push("/");
+      router.push(localePath(locale, "/listas"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("No se pudo borrar la lista."));
       setPending(false);

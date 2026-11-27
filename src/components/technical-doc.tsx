@@ -2,9 +2,10 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
 import { translate } from "@/lib/i18n";
-import { pick } from "@/lib/locale";
+import { localePath, pick } from "@/lib/locale";
 import type { DocBlock, TechnicalDocument } from "@/lib/technical";
 import { LocaleSwitcher } from "./locale-switcher";
+import { ThemeToggle } from "./theme-toggle";
 
 /**
  * Pinta un texto con los fragmentos entre acentos graves como `código` y los
@@ -123,10 +124,13 @@ export function TechnicalDoc({
   return (
     <main className="page-shell doc-shell">
       <div className="page-topbar">
-        <Link className="back-link" href="/">
+        <Link className="back-link" href={localePath(locale, "/")}>
           <ArrowLeft size={16} /> {t("Inicio")}
         </Link>
-        <LocaleSwitcher locale={locale} />
+        <div className="page-topbar-actions">
+          <LocaleSwitcher locale={locale} />
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="doc-layout">

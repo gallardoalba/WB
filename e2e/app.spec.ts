@@ -536,6 +536,8 @@ test("las miniaturas sin portada no dejan imágenes rotas", async ({ page }) => 
 
   // Los libros del seed no tienen imagen en los proveedores: el hueco se
   // resuelve con el icono, no con el icono de «imagen rota» del navegador.
+  // El seed deja el intercambio completado en el historial, no entre los activos.
+  await page.locator(".exchange-tabs .category-tab").nth(1).click();
   const rows = page.locator(".exchange-row");
   await expect(rows.first()).toBeVisible();
   const rotas = await page
@@ -559,21 +561,23 @@ test("un intercambio completado se archiva y se restaura", async ({ page }) => {
   // pulsación se pierde en un elemento que todavía no tiene eventos.
   await waitForHydration(page);
 
-  // El seed deja un intercambio completado entre Ana y Lucía.
+  // El seed deja un intercambio completado entre Ana y Lucía: vive en el
+  // historial, no en «Activos».
+  const tabs = page.locator(".exchange-tabs .category-tab");
+  await tabs.nth(1).click();
   const activo = page.locator(".exchange-row", { hasText: "Gott und der Staat" });
   await expect(activo).toBeVisible();
   await activo.locator(".exchange-archive").click();
   await expect(activo).toHaveCount(0);
 
-  const tabs = page.locator(".exchange-tabs .category-tab");
-  await tabs.nth(1).click();
+  await tabs.nth(2).click();
   const archivado = page.locator(".exchange-row", { hasText: "Gott und der Staat" });
   await expect(archivado).toBeVisible();
 
   // Se devuelve a la lista para no dejar el seed a medias para otras pruebas.
   await archivado.locator(".exchange-archive").click();
   await expect(archivado).toHaveCount(0);
-  await tabs.nth(0).click();
+  await tabs.nth(1).click();
   await expect(page.locator(".exchange-row", { hasText: "Gott und der Staat" })).toBeVisible();
 });
 

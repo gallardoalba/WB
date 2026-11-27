@@ -43,3 +43,37 @@ export async function AppSkeleton({
     </main>
   );
 }
+
+/**
+ * Esqueleto de una página de formulario (cuenta): no dibuja tarjetas de libros,
+ * que es lo que llega después en el catálogo, sino campos y bloques.
+ */
+export async function FormSkeleton({ boxes = 3 }: { boxes?: number }) {
+  const locale = await getLocale();
+  const t = (text: string) => translate(locale, text);
+  return (
+    <main className="app-shell" aria-busy="true">
+      <span className="sr-only" role="status" aria-live="polite">
+        {t("Cargando…")}
+      </span>
+      <div className="rail-skeleton" aria-hidden="true">
+        <div className="skeleton-block rail-skeleton-brand" />
+        <div className="skeleton-block rail-skeleton-item" />
+        <div className="skeleton-block rail-skeleton-item" />
+        <div className="skeleton-block rail-skeleton-item" />
+        <div className="skeleton-block rail-skeleton-user" />
+      </div>
+      <section className="main-panel">
+        <div className="page-skeleton" aria-hidden="true">
+          <div className="skeleton-block skeleton-title" />
+          <div className="skeleton-block skeleton-subtitle" />
+          <div className="skeleton-form">
+            {Array.from({ length: boxes }, (_, index) => (
+              <div key={index} className="skeleton-block skeleton-form-block" />
+            ))}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

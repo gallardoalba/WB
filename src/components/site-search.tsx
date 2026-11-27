@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { translate } from "@/lib/i18n";
-import type { Locale } from "@/lib/locale";
+import { localePath, type Locale } from "@/lib/locale";
 
 /**
  * Buscador global de la cabecera.
@@ -25,11 +25,18 @@ export function SiteSearch({
   return (
     <form
       className="site-search"
-      action={guest ? "/descubrir" : "/buscar"}
+      action={localePath(locale, guest ? "/descubrir" : "/buscar")}
       method="get"
       role="search"
     >
       <Search size={15} aria-hidden className="site-search-icon" />
+      <button
+        type="submit"
+        className="site-search-icon-button"
+        aria-label={t("Buscar")}
+      >
+        <Search size={15} aria-hidden />
+      </button>
       <label className="sr-only" htmlFor="site-search-q">
         {t("Buscar en la comunidad")}
       </label>
@@ -38,7 +45,7 @@ export function SiteSearch({
         type="search"
         name="q"
         defaultValue={defaultValue}
-        placeholder={t("Buscar libros, lectores…")}
+        placeholder={t(guest ? "Buscar libros" : "Buscar libros, lectores…")}
         maxLength={60}
         autoComplete="off"
       />

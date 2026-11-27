@@ -3,8 +3,9 @@ import { ArrowLeft } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
 import { translate } from "@/lib/i18n";
 import type { LegalConfig, LegalDocument } from "@/lib/legal";
-import { pick } from "@/lib/locale";
+import { localePath, pick } from "@/lib/locale";
 import { LocaleSwitcher } from "./locale-switcher";
+import { ThemeToggle } from "./theme-toggle";
 
 /**
  * Marco de las páginas legales. Es público y no necesita sesión: tiene que
@@ -23,10 +24,13 @@ export function LegalDoc({
   return (
     <main className="page-shell legal-shell">
       <div className="page-topbar">
-        <Link className="back-link" href="/">
+        <Link className="back-link" href={localePath(locale, "/")}>
           <ArrowLeft size={16} /> {t("Inicio")}
         </Link>
-        <LocaleSwitcher locale={locale} />
+        <div className="page-topbar-actions">
+          <LocaleSwitcher locale={locale} />
+          <ThemeToggle />
+        </div>
       </div>
 
       <article className="legal-doc">

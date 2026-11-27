@@ -2,7 +2,7 @@ import { json, readJson } from "@/lib/api";
 import { destroyUserSessions } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { verifyPassword } from "@/lib/password";
-import { disableTotp, getTotpState, getUserWithPassword, verifyUserTotp } from "@/lib/repo";
+import { disableTotp, getTotpState, getUserWithPassword, verifySecondFactor } from "@/lib/repo";
 import { totpDisableSchema } from "@/lib/validation";
 import { route } from "@/lib/route";
 
@@ -18,9 +18,13 @@ export const POST = route(
     }
 
     if (getTotpState(user.id).enabled) {
-      if (!input.code) throw new ApiError(422, "Introduce el código de verificación.");
-      if (!verifyUserTotp(user.id, input.code)) {
-        throw new ApiError(422, "El código de verificación no es válido o ha caducado.");
+      if (!input.code) {
+        throw new ApiError(422, "Introduce el código de verificación o uno de recuperación.");
+      }
+      // Se acepta también un código de recuperación: quien perdió el teléfono
+      // tiene que poder desactivarlo (y volver a activarlo con el nuevo).
+      if (!verifySecondFactor(user.id, input.code)) {
+        throw new ApiError(422, "El código no es válido o ha caducado.");
       }
     }
 
@@ -28,6 +32,6 @@ export const POST = route(
     // Al cambiar el segundo factor se cierran las demás sesiones: si el cambio
     // no era de la persona, no debe quedarse dentro con la sesión anterior.
     destroyUserSessions(user.id);
-    return json({ enabled: false, pending: false });
+    return json(getTotpState(user.id));
   },
 );

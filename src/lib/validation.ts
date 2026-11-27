@@ -85,10 +85,12 @@ export const loginSchema = z.object({
     .refine((value) => z.email().safeParse(value).success, "Introduce un correo válido."),
   password: z.string().min(1, "Escribe tu contraseña."),
   // Segundo factor opcional: solo se pide cuando la cuenta lo tiene activo.
+  // Vale el código de 6 dígitos de la aplicación o uno de los de recuperación
+  // (diez caracteres con un guion en medio).
   code: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, "El código debe tener 6 dígitos.")
+    .max(20, "El código es demasiado largo.")
     .optional(),
 });
 
@@ -105,7 +107,7 @@ export const totpSetupSchema = z.object({
 
 export const totpDisableSchema = z.object({
   password: z.string().min(1, "Escribe tu contraseña para confirmar."),
-  code: z.string().trim().optional().default(""),
+  code: z.string().trim().max(20, "El código es demasiado largo.").optional().default(""),
 });
 
 export const listingSchema = z.object({
@@ -463,6 +465,28 @@ export const deleteAccountSchema = z.object({
 
 export const tokenSchema = z.object({
   token: z.string().trim().min(20, "El enlace no es válido."),
+});
+
+/** Cambiar de correo: contraseña, dirección nueva y —con 2FA— un código. */
+export const emailChangeSchema = z.object({
+  password: z.string().min(1, "Escribe tu contraseña para confirmar."),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(254, "El correo es demasiado largo.")
+    .refine((value) => z.email().safeParse(value).success, "Introduce un correo válido."),
+  code: z.string().trim().max(20, "El código es demasiado largo.").optional(),
+});
+
+/** Generar códigos de recuperación nuevos exige la contraseña y un código. */
+export const totpRecoverySchema = z.object({
+  password: z.string().min(1, "Escribe tu contraseña para confirmar."),
+  code: z
+    .string()
+    .trim()
+    .min(6, "Introduce un código de verificación o de recuperación.")
+    .max(20, "El código es demasiado largo."),
 });
 
 const accountEmail = z

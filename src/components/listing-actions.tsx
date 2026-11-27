@@ -20,6 +20,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { Dialog } from "./dialog";
 import { RequestDialog } from "./dialogs/request-dialog";
 import { useI18n } from "./i18n-provider";
+import { authPath, localePath } from "@/lib/locale";
 import {
   BOOK_LANGUAGES,
   CATEGORIES,
@@ -80,7 +81,7 @@ export function ListingActions({
   year,
   series,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   // Las etiquetas ya guardadas se muestran siempre, aunque el género haya
   // cambiado: así se ven y se pueden quitar a mano en vez de desaparecer solas.
   const categoryTags = tagsForCategory(category);
@@ -382,7 +383,7 @@ export function ListingActions({
         </p>
       ) : status === "available" ? (
         !isAuthenticated ? (
-          <Link className="primary-button" href={`/?auth=1&next=${encodeURIComponent(`/libro/${listingId}`)}`}>
+          <Link className="primary-button" href={authPath(localePath(locale, `/libro/${listingId}`))}>
             {t("Inicia sesión para pedirlo")} <ArrowRight size={16} />
           </Link>
         ) : (

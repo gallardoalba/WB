@@ -35,5 +35,6 @@ export * from "./repo/snapshots";
 export * from "./repo/social";
 export * from "./repo/stats";
 export * from "./repo/totp";
+export * from "./repo/totp-recovery";
 export * from "./repo/users";
 export * from "./repo/wants";

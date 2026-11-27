@@ -16,6 +16,7 @@ import {
 import type { SessionUser } from "@/lib/domain";
 import { api } from "@/lib/client-api";
 import { initialsOf, toneForId } from "@/lib/text";
+import { authPath, localePath } from "@/lib/locale";
 import { useI18n } from "./i18n-provider";
 
 type Props = {
@@ -25,6 +26,8 @@ type Props = {
   onOpenAuth?: () => void;
   onLoggedOut?: () => void;
   variant?: "sidebar" | "topbar";
+  /** La página de cuenta está abierta: se marca el acceso como actual. */
+  active?: boolean;
 };
 
 /**
@@ -38,8 +41,9 @@ export function AccountMenu({
   onOpenAuth,
   onLoggedOut,
   variant = "sidebar",
+  active = false,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -48,7 +52,11 @@ export function AccountMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const authHref = `/?auth=1&next=${encodeURIComponent(pathname || "/")}`;
+  const authHref = authPath(pathname || "/");
+  // El menú de las páginas internas no puede abrir el diálogo en el sitio: deja
+  // el parámetro en la ruta actual y `SiteNotifications` lo abre al montar.
+  const notificationsHref = `${pathname || "/"}?notifications=1`;
+  const badge = unreadNotifications > 9 ? "9+" : String(unreadNotifications);
 
   // Al abrir, el foco entra en el primer elemento: el menú es operable con
   // teclado y los lectores de pantalla anuncian el rol correcto.
@@ -122,8 +130,13 @@ export function AccountMenu({
     }
   }
 
-  const triggerClass =
-    variant === "topbar" ? "top-avatar account-trigger" : "profile-row account-trigger";
+  const triggerClass = [
+    variant === "topbar" ? "top-avatar account-trigger" : "profile-row account-trigger",
+    active ? "is-active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const current = active ? ("page" as const) : undefined;
 
   if (!user) {
     if (variant === "topbar") {
@@ -167,6 +180,7 @@ export function AccountMenu({
         className={triggerClass}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-current={current}
         aria-label={
           variant === "topbar"
             ? // El monograma está a la vista y es lo que se nombra al dictar:
@@ -211,7 +225,7 @@ export function AccountMenu({
           <Link
             className="account-menu-item"
             role="menuitem"
-            href={`/u/${user.id}`}
+            href={localePath(locale, `/u/${user.id}`)}
             onClick={() => setOpen(false)}
           >
             <User size={15} /> {t("Mi perfil")}
@@ -219,7 +233,7 @@ export function AccountMenu({
           <Link
             className="account-menu-item"
             role="menuitem"
-            href="/cuenta"
+            href={localePath(locale, "/cuenta")}
             onClick={() => setOpen(false)}
           >
             <Settings size={15} /> {t("Cuenta")}
@@ -236,19 +250,19 @@ export function AccountMenu({
             >
               <Bell size={15} /> {t("Avisos")}
               {unreadNotifications > 0 && (
-                <span className="account-menu-badge">{unreadNotifications}</span>
+                <span className="account-menu-badge">{badge}</span>
               )}
             </button>
           ) : (
             <Link
               className="account-menu-item"
               role="menuitem"
-              href="/?notifications=1"
+              href={notificationsHref}
               onClick={() => setOpen(false)}
             >
               <Bell size={15} /> {t("Avisos")}
               {unreadNotifications > 0 && (
-                <span className="account-menu-badge">{unreadNotifications}</span>
+                <span className="account-menu-badge">{badge}</span>
               )}
             </Link>
           )}

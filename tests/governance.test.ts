@@ -224,7 +224,10 @@ test("el enlace de apelación vale una vez, para apelar y para nadie más", asyn
   assert.equal(tokens.peekAccountToken(token, "appeal"), "usr_lucia");
   assert.equal(tokens.peekAccountToken(token, "appeal"), "usr_lucia");
   assert.equal(tokens.consumeAccountToken(token, "reset_password"), null);
-  assert.equal(tokens.consumeAccountToken(token, "appeal"), "usr_lucia");
+  assert.deepEqual(tokens.consumeAccountToken(token, "appeal"), {
+    userId: "usr_lucia",
+    purpose: "appeal",
+  });
   assert.equal(tokens.consumeAccountToken(token, "appeal"), null);
 });
 
@@ -338,7 +341,10 @@ test("pedir un enlace nuevo reenvía la sanción si el primero se perdió", asyn
   const mail = lastMail(db, "lucia@wanderbibliothek.test");
   assert.ok(mail, "se reenvía el correo con el enlace");
   const token = mail!.body.match(/\/apelar\?token=([a-f0-9]{64})/)![1];
-  assert.equal(tokens.consumeAccountToken(token, "appeal"), "usr_lucia");
+  assert.deepEqual(tokens.consumeAccountToken(token, "appeal"), {
+    userId: "usr_lucia",
+    purpose: "appeal",
+  });
 });
 
 test("pedir un enlace no revela nada ni duplica una apelación abierta", async () => {

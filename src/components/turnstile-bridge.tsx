@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "./i18n-provider";
 
 /**
  * Puente de Turnstile para la app Android.
@@ -38,6 +39,7 @@ const SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=exp
  * compilar y la imagen se compila en la CI, donde la clave no está.
  */
 export function TurnstileBridge({ siteKey = null }: { siteKey?: string | null }) {
+  const { t } = useI18n();
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export function TurnstileBridge({ siteKey = null }: { siteKey?: string | null })
     <div className="turnstile-bridge">
       <div ref={container} />
       {!siteKey && (
-        <p className="form-hint">Turnstile no está configurado en este servidor.</p>
+        <p className="form-hint">{t("Turnstile no está configurado en este servidor.")}</p>
       )}
     </div>
   );

@@ -95,6 +95,8 @@ export function OfferForm({
   const [editions, setEditions] = useState<OtherEdition[]>([]);
   const [looking, setLooking] = useState(false);
   const [missing, setMissing] = useState(false);
+  const [isbnInvalid, setIsbnInvalid] = useState(false);
+  const [lookupFailed, setLookupFailed] = useState(false);
   // Libros sin ISBN (antiguos, de autor, folletos): el campo se reserva y la
   // ficha se escribe a mano, sin datos de ningún catálogo.
   const [noIsbn, setNoIsbn] = useState(false);
@@ -113,7 +115,8 @@ export function OfferForm({
   const availableTags = tagsForCategory(category);
   // El título y la autoría los pone el ISBN. Solo se escriben a mano cuando
   // ningún catálogo conoce la edición (autoeditados, ediciones antiguas…).
-  const manual = noIsbn || (missing && !knownBook && !metadata);
+  const manual =
+    noIsbn || lookupFailed || (missing && !knownBook && !metadata);
   // Cuando el dato viene del ISBN, el desplegable se lee como un dato fijo.
   const autoCategory = Boolean(knownBook?.category ?? metadata?.category);
   const autoLanguage = Boolean(knownBook ?? metadata?.language);
@@ -134,6 +137,8 @@ export function OfferForm({
     setMissing(false);
     setLooking(false);
     setNoIsbn(false);
+    setIsbnInvalid(false);
+    setLookupFailed(false);
     setCover(null);
     setSelectedTags([]);
     setCategory("");
@@ -207,6 +212,8 @@ export function OfferForm({
     setMetadata(null);
     setEditions([]);
     setMissing(false);
+    setIsbnInvalid(false);
+    setLookupFailed(false);
     setLooking(false);
     setError("");
   }
@@ -220,8 +227,13 @@ export function OfferForm({
     setMetadata(null);
     setEditions([]);
     setMissing(false);
+    setIsbnInvalid(false);
+    setLookupFailed(false);
     setError("");
     if (!normalized || !isValidIsbn(normalized)) {
+      // Un ISBN a medio escribir no es un error: el aviso llega al salir del
+      // campo (ver `onIsbnBlur`), no con la primera cifra.
+      setIsbnInvalid(false);
       setLooking(false);
       resetFields();
       return;
@@ -252,12 +264,20 @@ export function OfferForm({
           });
         }
       } catch {
-        // Si la consulta falla, se puede escribir a mano: no se bloquea.
-        if (seq === lookupSeq.current) setMissing(true);
+        // Si la consulta falla, se puede escribir a mano: no se bloquea, pero
+        // no se miente diciendo que ningún catálogo conoce el ISBN.
+        if (seq === lookupSeq.current) setLookupFailed(true);
       } finally {
         if (seq === lookupSeq.current) setLooking(false);
       }
     }, 350);
+  }
+
+  /** Al salir del campo se avisa si lo escrito no es un ISBN válido. */
+  function onIsbnBlur() {
+    if (noIsbn) return;
+    const normalized = normalizeIsbn(scan);
+    setIsbnInvalid(normalized !== null && !isValidIsbn(normalized));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -335,12 +355,14 @@ export function OfferForm({
               name="isbn"
               required={!noIsbn}
               disabled={noIsbn}
-              inputMode="numeric"
+              inputMode="text"
+              autoComplete="off"
               placeholder="978…"
               maxLength={17}
               value={scan}
               aria-describedby="offer-isbn-hint"
               onChange={(event) => onIsbnChange(event.target.value)}
+              onBlur={onIsbnBlur}
             />
           </div>
           {/* La salida para los libros que no llevan ISBN, justo debajo del
@@ -361,6 +383,18 @@ export function OfferForm({
                 )
               : t("Obligatorio: está en la contraportada o detrás de la portada.")}
           </small>
+          {isbnInvalid && !noIsbn && (
+            <p className="form-hint isbn-missing" role="status">
+              {t("El ISBN no parece válido. Revisa que tenga 10 o 13 cifras.")}
+            </p>
+          )}
+          {lookupFailed && (
+            <p className="form-hint isbn-missing" role="status">
+              {t(
+                "No se pudo consultar el catálogo. Puedes escribir el título y la autoría a mano o volver a intentarlo.",
+              )}
+            </p>
+          )}
           {looking && (
             <p className="form-hint" role="status">
               {t("Buscando el libro por su ISBN…")}
@@ -499,33 +533,37 @@ export function OfferForm({
           </div>
         </div>
 
-        <fieldset className="tag-field">
-          <legend>
-            {t("Etiquetas (hasta 3, opcional)")}
-            <span className="tag-counter" aria-live="polite">
-              {" "}
-              {selectedTags.length}/{MAX_TAGS}
-            </span>
-          </legend>
-          <div className="tag-options">
-            {availableTags.map((tag) => {
-              const checked = selectedTags.includes(tag);
-              return (
-                <label key={tag} className={`tag-option${checked ? " selected" : ""}`}>
-                  <input
-                    type="checkbox"
-                    name="tags"
-                    value={tag}
-                    checked={checked}
-                    onChange={() => toggleTag(tag)}
-                    disabled={!checked && selectedTags.length >= MAX_TAGS}
-                  />
-                  {t(tag)}
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
+        {category && availableTags.length > 0 ? (
+          <fieldset className="tag-field">
+            <legend>
+              {t("Etiquetas (hasta 3, opcional)")}
+              <span className="tag-counter" aria-live="polite">
+                {" "}
+                {selectedTags.length}/{MAX_TAGS}
+              </span>
+            </legend>
+            <div className="tag-options">
+              {availableTags.map((tag) => {
+                const checked = selectedTags.includes(tag);
+                return (
+                  <label key={tag} className={`tag-option${checked ? " selected" : ""}`}>
+                    <input
+                      type="checkbox"
+                      name="tags"
+                      value={tag}
+                      checked={checked}
+                      onChange={() => toggleTag(tag)}
+                      disabled={!checked && selectedTags.length >= MAX_TAGS}
+                    />
+                    {t(tag)}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        ) : !category ? (
+          <p className="form-hint">{t("Elige un género para ver las etiquetas.")}</p>
+        ) : null}
 
         </section>
         </div>

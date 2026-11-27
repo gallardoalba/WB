@@ -147,7 +147,10 @@ test("el perfil público se pagina", () => {
 
 test("los tokens de cuenta son de un solo uso y caducan", () => {
   const raw = tokens.issueAccountToken("usr_ana", "verify_email");
-  assert.equal(tokens.consumeAccountToken(raw, "verify_email"), "usr_ana");
+  assert.deepEqual(tokens.consumeAccountToken(raw, "verify_email"), {
+    userId: "usr_ana",
+    purpose: "verify_email",
+  });
   assert.equal(tokens.consumeAccountToken(raw, "verify_email"), null);
 
   const other = tokens.issueAccountToken("usr_ana", "reset_password");

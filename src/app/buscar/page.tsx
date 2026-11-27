@@ -5,6 +5,7 @@ import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { localePath } from "@/lib/locale";
 import { allowPageView } from "@/lib/page-throttle";
 import { listPublicReadingLists, listReaders, searchBooks } from "@/lib/repo";
 
@@ -135,14 +136,14 @@ export default async function Page({ searchParams }: PageProps) {
               <ul>
                 {books.map((book) => (
                   <li key={book.id}>
-                    <Link href={`/obra/${book.id}`}>
+                    <Link href={localePath(locale, `/obra/${book.id}`)}>
                       <strong>{book.title}</strong>
                       <span>{book.author}</span>
                     </Link>
                   </li>
                 ))}
               </ul>
-              <Link className="search-more" href={`/descubrir?q=${encoded}`}>
+              <Link className="search-more" href={localePath(locale, `/descubrir?q=${encoded}`)}>
                 {t("Buscar en el catálogo")}
               </Link>
             </section>
@@ -156,14 +157,14 @@ export default async function Page({ searchParams }: PageProps) {
               <ul>
                 {readers.readers.map((reader) => (
                   <li key={reader.user.id}>
-                    <Link href={`/u/${reader.user.id}`}>
+                    <Link href={localePath(locale, `/u/${reader.user.id}`)}>
                       <strong>{reader.user.name}</strong>
                       <span>{reader.user.city}</span>
                     </Link>
                   </li>
                 ))}
               </ul>
-              <Link className="search-more" href={`/lectores?q=${encoded}`}>
+              <Link className="search-more" href={localePath(locale, `/lectores?q=${encoded}`)}>
                 {t("Ver todos los lectores")}
               </Link>
             </section>
@@ -177,7 +178,7 @@ export default async function Page({ searchParams }: PageProps) {
               <ul>
                 {lists.lists.map((list) => (
                   <li key={list.id}>
-                    <Link href={`/listas/${list.id}`}>
+                    <Link href={localePath(locale, `/listas/${list.id}`)}>
                       <strong>{list.title}</strong>
                       <span>
                         {list.owner.name} ·{" "}
@@ -187,7 +188,7 @@ export default async function Page({ searchParams }: PageProps) {
                   </li>
                 ))}
               </ul>
-              <Link className="search-more" href={`/listas?q=${encoded}`}>
+              <Link className="search-more" href={localePath(locale, `/listas?q=${encoded}`)}>
                 {t("Ver todas las listas")}
               </Link>
             </section>

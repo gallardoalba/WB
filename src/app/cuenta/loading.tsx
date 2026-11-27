@@ -1,6 +1,6 @@
-import { AppSkeleton } from "@/components/app-skeleton";
+import { FormSkeleton } from "@/components/app-skeleton";
 
-/** Mientras llega el contenido: el armazón se pinta ya. */
+/** La cuenta es un formulario: el esqueleto tiene que parecerse a eso. */
 export default function Loading() {
-  return <AppSkeleton rows={3} />;
+  return <FormSkeleton boxes={3} />;
 }

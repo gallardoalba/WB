@@ -243,7 +243,8 @@ export function listReaders(options: {
       followers: row.followers,
       isFollowing: Boolean(row.is_following),
       isMe: false,
-      distanceKm: row.distance_km,
+      // Si la persona oculta su ciudad, la distancia también se oculta.
+      distanceKm: row.city_precision === "hidden" ? null : row.distance_km,
       sharedBooks: row.shared_books,
       lastActiveAt: row.last_active,
     })),

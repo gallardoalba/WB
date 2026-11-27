@@ -64,7 +64,7 @@ export function AppSidebar({
       : {};
   return (
     <aside className="sidebar">
-      <Link className="brand" href="/">
+      <Link className="brand" href={localePath(locale, "/")}>
         <span className="brand-mark">
           <BookOpen size={20} strokeWidth={2.2} />
         </span>
@@ -126,7 +126,11 @@ export function AppSidebar({
             (unreadMessages > 0 ? (
               <span
                 className="nav-count unread"
-                aria-label={t("{n} mensajes sin leer", { n: unreadMessages })}
+                aria-label={
+                  unreadMessages === 1
+                    ? t("1 mensaje sin leer")
+                    : t("{n} mensajes sin leer", { n: unreadMessages })
+                }
               >
                 {unreadMessages}
               </span>
@@ -154,7 +158,7 @@ export function AppSidebar({
           usan el otro armazón (SiteRail), y en el catálogo no estaba. */}
       {user && (user.isAdmin || user.isModerator) ? (
         <nav className="primary-nav" aria-label={t("Administración")}>
-          <Link className="nav-item" href="/admin">
+          <Link className="nav-item" href={localePath(locale, "/admin")}>
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>

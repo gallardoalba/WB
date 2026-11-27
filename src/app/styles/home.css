@@ -151,7 +151,9 @@
 
 @media (max-width: 480px) {
   .shelf-arrow {
-    top: 80px;
+    /* En móvil se desliza con el dedo; la flecha además sacaba 2-3 px de
+       scroll horizontal al quedar fuera del margen. */
+    display: none;
   }
 }
 

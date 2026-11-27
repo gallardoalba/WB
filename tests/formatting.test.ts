@@ -30,9 +30,11 @@ test("una fecha inválida no se pinta como «Invalid Date»", () => {
   }
 });
 
-test("la distancia usa coma decimal y no presume cuando no se sabe", () => {
+test("la distancia usa el separador decimal del idioma y no presume cuando no se sabe", () => {
   assert.equal(formatDistance(1.5), "1,5 km");
   assert.equal(formatDistance(1.5, "de"), "1,5 km");
+  assert.equal(formatDistance(1.5, "en"), "1.5 km");
+  assert.equal(formatDistance(1234.5, "en"), "1,234.5 km");
   // Sin ciudad conocida, cada idioma tiene su aviso.
   assert.equal(formatDistance(null, "de"), "Ohne Angabe");
   assert.equal(formatDistance(null, "en"), "No distance");

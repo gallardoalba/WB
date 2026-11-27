@@ -197,7 +197,10 @@ export function toListingView(row: ListingRow, viewerId?: string | null): Listin
     // La ciudad es la del anuncio, pero quien publica puede preferir no
     // enseñarla: entonces solo la ve en sus propios ejemplares.
     city: row.owner_city_precision === "hidden" && !row.is_mine ? "" : row.city,
-    distanceKm: row.distance_km,
+    // La distancia se calcula desde la ciudad del anuncio: si esa ciudad se
+    // oculta, la distancia también, o la ciudad sería deducible.
+    distanceKm:
+      row.owner_city_precision === "hidden" && !row.is_mine ? null : row.distance_km,
     // Cualquier URL antigua de Open Library se sirve desde la app: la CSP solo
     // permite imágenes del propio origen.
     coverUrl: normalizeCoverUrl(row.cover_url),

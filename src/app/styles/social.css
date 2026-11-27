@@ -35,6 +35,19 @@
   font-weight: 600;
 }
 
+.feed-switch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feed-switch-label {
+  color: var(--muted-2);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .feed-switch {
   display: inline-flex;
   gap: 4px;
@@ -75,6 +88,14 @@
   border-color: var(--green);
   background: var(--green-pale);
   color: var(--green-strong);
+}
+
+.profile-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .reader-filters {

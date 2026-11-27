@@ -48,12 +48,12 @@ export const EN: TechnicalDocument = {
           lines: [
             "src/",
             "  app/                 pages and route handlers (App Router)",
-            "    api/               76 route files grouped by domain",
+            "    api/               78 route files grouped by domain",
             "    styles/            tokens, typography, structure, cards, dialogs, detail pages",
             "    proxy.ts           CSP with nonce and security headers",
             "  components/          server shell and client islands",
             "  lib/",
-            "    db/                connection, base schema (v2), migrations (v3–v75), seed",
+            "    db/                connection, base schema (v2), migrations (v3–v76), seed",
             "    repo/              SQL queries per domain; repo.ts only re-exports",
             "    validation.ts      Zod schemas with translated messages",
             "    secret-box.ts      reversible encryption with a key ring (TOTP)",
@@ -113,7 +113,7 @@ export const EN: TechnicalDocument = {
         },
         {
           kind: "p",
-          text: "The API has 76 route files under `src/app/api`, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
+          text: "The API has 78 route files under `src/app/api`, and every one of them goes through `route()` (`src/lib/route.ts`). The wrapper applies the session, the Zod schema for the body, the quota, the origin guard for mutations, the translation of errors into JSON (`handleApiError()`) and the trace headers in a single place. `tests/route.test.ts` checks against the files that no route stays outside the wrapper, drops the JSON error translation or skips the origin check on writes.",
         },
         {
           kind: "list",
@@ -123,7 +123,7 @@ export const EN: TechnicalDocument = {
             "`/api/requests`, `/api/requests/[id]` and their derivatives (`events` over SSE, `messages`, `read`, `review`): the whole exchange lifecycle.",
             "`/api/books/*`: work search, comments, likes, per-work notifications and reading states.",
             "`/api/lists/*`, `/api/direct/*`, `/api/users/[userId]/follow`, `/api/blocks`: lists, encrypted direct messaging, following and blocking.",
-            "`/api/account/*`: profile, language, password, encryption keys, TOTP, export and deletion.",
+            "`/api/account/*`: profile, email, language, password, encryption keys, TOTP, export and deletion.",
             "`/api/account/appeals`, `/api/account/appeal-link`, `/api/admin/appeals/[id]`: appeals with a single-use token; the link can be requested again with the account email, and the review is done by a different person, from the team or, with their name recorded, from another instance.",
             "`/api/admin/*`, `/api/reports`, `/api/comments/[id]`, `/api/notifications`: reports, moderation, comments and notifications.",
             "`/api/cover/*`, `/api/isbn/[isbn]`: covers and bibliographic record (DNB and Open Library). The cover is streamed from disk without copying it into memory, carries a version in the URL (`?v=…`) so no cache serves the old one, and nginx keeps it at the edge.",
@@ -197,7 +197,7 @@ export const EN: TechnicalDocument = {
             "Local state is encrypted with AES-GCM and a non-extractable key, serialised across tabs with `navigator.locks`, and keeps the last 500 decrypted messages.",
             "Limits: at most 5 devices per account and no post-quantum protection. libolm is deprecated: migrating to vodozemac needs an `Account`/`Session` wrapper or `OlmMachine`. The binding and these rules have not had an independent cryptographic audit.",
             "A 256-bit session in an `httpOnly` cookie with `SameSite=Lax`; in production only the `__Host-` prefix is accepted and only its SHA-256 lives in the database.",
-            "Two-step verification (TOTP per RFC 6238, ±1 step window and anti-replay) is mandatory for moderation and administration in production; the secrets are stored encrypted. Sanctions carry a reason and a duration (1–365 days), and the appeal is reviewed by a different team member.",
+            "Two-step verification (TOTP per RFC 6238, ±1 step window and anti-replay) is mandatory for moderation and administration in production; the secrets are stored encrypted and ten hashed recovery codes allow signing in without the app. The account email only changes once a link sent to the new address is opened; that requires the password (and the second factor when enabled), and the previous mailbox gets a notice. Sanctions carry a reason and a duration (1–365 days), and the appeal is reviewed by a different team member.",
             "Atomic quotas in the database per IP and per account, with `429` and `Retry-After`.",
             "`route()` checks the origin on every mutation, whether or not a quota is declared; the quota can live in the wrapper or inside the handler when a route chains several layers (for instance, a short and a daily limit). `readJson()` requires `application/json` and cuts off bodies over 64 KB.",
             "CSP with nonce and `strict-dynamic`, `X-Frame-Options: DENY`, COOP/CORP, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and HSTS in production (`src/proxy.ts`).",
@@ -308,7 +308,7 @@ export const EN: TechnicalDocument = {
       blocks: [
         {
           kind: "p",
-          text: "`npm test` runs the unit and integration suite with the Node test runner on SQLite in memory; `npm run test:e2e` adds 64 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
+          text: "`npm test` runs the unit and integration suite with the Node test runner on SQLite in memory; `npm run test:e2e` adds 67 browser tests in Chromium, starting its own server on port 3100; `npm run test:e2e:smoke` runs the WebCrypto and IndexedDB smoke in Firefox and WebKit.",
         },
         {
           kind: "p",

@@ -25,6 +25,7 @@ import {
 } from "@/lib/e2e";
 import { formatWhen } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
+import { localePath } from "@/lib/locale";
 
 /**
  * Las dos partes derivan la misma clave a partir del par de identificadores
@@ -483,7 +484,7 @@ export function DirectMessageDialog({
                 "Este navegador no puede leer ni escribir esta conversación: su clave no está publicada en tu cuenta o hay otra en su lugar. Publícala desde «Mi cuenta», que pedirá tu contraseña, para seguir.",
               )}
             </p>
-            <a className="secondary-button small" href="/cuenta">
+            <a className="secondary-button small" href={localePath(locale, "/cuenta#cifrado")}>
               {t("Ir a Mi cuenta")}
             </a>
           </div>

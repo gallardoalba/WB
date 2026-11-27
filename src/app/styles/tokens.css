@@ -17,7 +17,10 @@
   --green-fill-strong: #24452f;
   --green-strong: #24452f;
   --green-pale: #e6eee3;
-  --coral: #b4503a;
+  /* 4,69:1 sobre --coral-soft y 5,37:1 sobre el papel: el coral anterior
+     (#b4503a) se quedaba en 4,08 sobre el fondo coral de los avisos —el de
+     «confirma tu correo»— y no pasaba AA en texto normal. */
+  --coral: #a84732;
   --coral-soft: #f6e3dc;
   --focus: #a8422c;
   /* Texto sobre un relleno (botones y distintivos verdes): no es «blanco puro»

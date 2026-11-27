@@ -18,9 +18,9 @@ All of this has to pass; CI runs the same:
 ```bash
 npm run typecheck   # next typegen + tsc
 npm run lint
-npm test            # 968 unit and integration tests (133 files)
+npm test            # 990 unit and integration tests (135 files)
 npm run build
-npm run test:e2e    # Playwright: 64 cases in 12 files (Chromium); first time:
+npm run test:e2e    # Playwright: 67 cases in 13 files (Chromium); first time:
                     # npx playwright install chromium
 npm run test:e2e:smoke  # WebCrypto/IndexedDB on Firefox and WebKit
                     # npx playwright install firefox webkit
@@ -44,8 +44,8 @@ directory).
   El servidor lo comprobaba, pero la interfaz seguía mostrando «Aceptar»
   hasta que llegaba el 409.
 
-  Validado: tsc, eslint, 968 pruebas unitarias y de integración (133 ficheros),
-  build y 64 casos E2E en Chromium, con los omitidos que correspondan, y el humo en Firefox/WebKit.
+  Validado: tsc, eslint, 990 pruebas unitarias y de integración (135 ficheros),
+  build y 67 casos E2E en Chromium, con los omitidos que correspondan, y el humo en Firefox/WebKit.
   ```
 
 - **UI language**: strings are written in Spanish, and the German and English

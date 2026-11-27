@@ -41,6 +41,74 @@ export function verificationMail(locale: Locale, link: string): MailText {
   };
 }
 
+/**
+ * Confirmación del correo nuevo. Va **a la dirección nueva**: abrir el enlace es
+ * la prueba de que el buzón es de quien lo pide.
+ */
+export function emailChangeMail(locale: Locale, link: string, email: string): MailText {
+  if (locale === "de") {
+    return {
+      subject: "Bestätige deine neue E-Mail bei Wanderbibliothek",
+      text:
+        `Du hast beantragt, die E-Mail deines Wanderbibliothek-Kontos auf ${email} zu ändern.\n` +
+        "Öffne diesen Link, um die Änderung zu bestätigen (er gilt 24 Stunden):\n" +
+        `${link}\n\n` +
+        "Wenn du das nicht warst, ignoriere diese Nachricht: deine E-Mail bleibt unverändert.",
+    };
+  }
+  if (locale === "en") {
+    return {
+      subject: "Confirm your new email at Wanderbibliothek",
+      text:
+        `You asked to change the email of your Wanderbibliothek account to ${email}.\n` +
+        "Open this link to confirm the change (it is valid for 24 hours):\n" +
+        `${link}\n\n` +
+        "If this was not you, ignore this message: your email stays as it is.",
+    };
+  }
+  return {
+    subject: "Confirma tu nuevo correo en Wanderbibliothek",
+    text:
+      `Has pedido cambiar el correo de tu cuenta de Wanderbibliothek a ${email}.\n` +
+      "Abre este enlace para confirmar el cambio (caduca en 24 horas):\n" +
+      `${link}\n\n` +
+      "Si no has sido tú, ignora este mensaje: tu correo no cambia.",
+  };
+}
+
+/**
+ * Aviso al buzón anterior. No lleva enlace: solo informa, para que quien pierda
+ * el correo se entere de que la cuenta se ha movido a otro sitio.
+ */
+export function emailChangedNoticeMail(
+  locale: Locale,
+  input: { previous: string; email: string },
+): MailText {
+  if (locale === "de") {
+    return {
+      subject: "Die E-Mail deines Wanderbibliothek-Kontos wurde geändert",
+      text:
+        `Die E-Mail des Kontos ${input.previous} ist jetzt ${input.email}.\n\n` +
+        "Wenn du das nicht warst, wende dich bitte an das ModerationsTeam der Instanz, " +
+        "damit die Änderung überprüft werden kann.",
+    };
+  }
+  if (locale === "en") {
+    return {
+      subject: "Your Wanderbibliothek email was changed",
+      text:
+        `The email of the account ${input.previous} is now ${input.email}.\n\n` +
+        "If this was not you, please contact the instance moderators so the change can be reviewed.",
+    };
+  }
+  return {
+    subject: "El correo de tu cuenta de Wanderbibliothek ha cambiado",
+    text:
+      `El correo de la cuenta ${input.previous} es ahora ${input.email}.\n\n` +
+      "Si no has sido tú, escribe al equipo de moderación de la instancia para que revise el cambio.",
+  };
+}
+
 export function passwordResetMail(locale: Locale, link: string): MailText {
   if (locale === "de") {
     return {

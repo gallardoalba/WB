@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import type { ReaderView } from "@/lib/domain";
 import { formatDistance, formatWhen, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
+import { localePath } from "@/lib/locale";
 
 /** Tarjeta de una persona en el directorio, con seguimiento instantáneo. */
 export function ReaderCard({
@@ -46,14 +47,19 @@ export function ReaderCard({
   return (
     <article className="reader-card">
       <Link
-        href={`/u/${reader.user.id}`}
+        href={localePath(locale, `/u/${reader.user.id}`)}
         className={`avatar reader-avatar tone-${toneForId(reader.user.id)}`}
-        aria-label={t("Ver el perfil de {name}", { name: reader.user.name })}
+        // Las iniciales están a la vista: quien dicta dice «CM», así que el
+        // nombre accesible tiene que contenerlas (WCAG 2.5.3). Sin ellas, axe
+        // marcaba `label-content-name-mismatch` en cada tarjeta.
+        aria-label={`${initialsOf(reader.user.name)} · ${t("Ver el perfil de {name}", {
+          name: reader.user.name,
+        })}`}
       >
         {initialsOf(reader.user.name)}
       </Link>
       <div className="reader-copy">
-        <Link href={`/u/${reader.user.id}`} className="reader-name">
+        <Link href={localePath(locale, `/u/${reader.user.id}`)} className="reader-name">
           {reader.user.name}
         </Link>
         <span className="reader-meta">

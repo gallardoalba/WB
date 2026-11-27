@@ -13,7 +13,7 @@ import {
   liftSuspension,
   publicSessionUser,
   recordAuthFailure,
-  verifyUserTotp,
+  verifySecondFactor,
 } from "@/lib/repo";
 import { clientKey, guard, hasClientIp, hit } from "@/lib/throttle";
 import { loginSchema } from "@/lib/validation";
@@ -101,15 +101,21 @@ export const POST = route<undefined, "none">(
       if (!code) {
         return json(
           {
-            error: "Introduce el código de verificación de tu aplicación de autenticación.",
+            error:
+              "Introduce el código de tu aplicación de autenticación o uno de tus códigos de recuperación.",
             twoFactorRequired: true,
           },
           401,
         );
       }
-      if (!verifyUserTotp(account.id, code)) {
+      // Vale el código de 6 dígitos o uno de recuperación: sin esa segunda vía,
+      // perder el teléfono cerraría la cuenta para siempre.
+      if (!verifySecondFactor(account.id, code)) {
         recordAuthFailure(totpKey);
-        throw new ApiError(401, "El código de verificación no es válido o ha caducado.");
+        throw new ApiError(
+          401,
+          "El código no es válido o ha caducado. Si has usado un código de recuperación, comprueba que no esté gastado.",
+        );
       }
       clearAuthFailures(totpKey);
     }
