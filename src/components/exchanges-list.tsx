@@ -14,6 +14,7 @@ import { api } from "@/lib/client-api";
 import { REQUEST_STATUS_LABELS, type RequestView } from "@/lib/domain";
 import { formatWhen, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
+import { localePath } from "@/lib/locale";
 import { EmptyState } from "./empty-state";
 
 /** Un intercambio cerrado, cancelado o completado, se puede archivar. */
@@ -29,10 +30,11 @@ function canArchive(request: RequestView): boolean {
  * se usa cuando no hay portada, y el hueco entero lleva a la ficha.
  */
 function MiniCover({ listing }: { listing: RequestView["listing"] }) {
+  const { locale } = useI18n();
   const [failed, setFailed] = useState(false);
   return (
     <Link
-      href={`/libro/${listing.id}`}
+      href={localePath(locale, `/libro/${listing.id}`)}
       className={`mini-cover tone-${toneForId(listing.id)}`}
       // La fila ya tiene el enlace del título: este solo ahorra apuntar fino.
       aria-hidden="true"
@@ -111,12 +113,26 @@ export function ExchangesList({
   onChanged: () => void;
 }) {
   const { t, locale } = useI18n();
-  const [tab, setTab] = useState<"active" | "archived">("active");
+  const [tab, setTab] = useState<"active" | "history" | "archived">("active");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const archivedTab = tab === "archived";
-  const items = archivedTab ? archivedRequests : requests;
-  const shownTotal = archivedTab ? archivedTotal : total;
+  // Un intercambio completado ya no está «activo», aunque siga sin archivar.
+  const activeItems = requests.filter(
+    (request) => request.status === "pending" || request.status === "accepted",
+  );
+  const historyItems = requests.filter(
+    (request) => request.status !== "pending" && request.status !== "accepted",
+  );
+  const items =
+    tab === "archived" ? archivedRequests : tab === "history" ? historyItems : activeItems;
+  const shownTotal =
+    tab === "archived"
+      ? archivedTotal
+      : tab === "history"
+        ? historyItems.length
+        : activeItems.length;
+  const truncated =
+    tab === "archived" ? archivedTotal > archivedRequests.length : total > requests.length;
 
   async function toggleArchive(request: RequestView) {
     setBusyId(request.id);
@@ -142,7 +158,8 @@ export function ExchangesList({
     <>
       <div className="shelf-tabs exchange-tabs" role="group" aria-label={t("Filtrar intercambios")}>
         {([
-          ["active", "Activos", total],
+          ["active", "Activos", activeItems.length],
+          ["history", "Historial", historyItems.length],
           ["archived", "Archivados", archivedTotal],
         ] as const).map(([value, label, count]) => (
           <button
@@ -167,11 +184,29 @@ export function ExchangesList({
       )}
 
       {items.length === 0 ? (
-        archivedTab ? (
+        tab === "archived" ? (
           <EmptyState
             icon={<Archive size={24} />}
             title={t("No hay intercambios archivados")}
             hint={t("Aquí aparecen los intercambios cancelados o completados que archives.")}
+          />
+        ) : tab === "history" ? (
+          <EmptyState
+            icon={<Archive size={24} />}
+            title={t("Todavía no hay historial")}
+            hint={t("Aquí aparecen los intercambios completados, cancelados o caducados.")}
+          />
+        ) : historyItems.length > 0 ? (
+          <EmptyState
+            icon={<ArrowDownUp size={24} />}
+            title={t("No hay intercambios en curso")}
+            hint={t("Tienes {n} en el historial.", { n: historyItems.length })}
+            action={
+              <button type="button" className="primary-button" onClick={() => setTab("history")}>
+                {t("Ver el historial ({n})", { n: historyItems.length })}
+                <ArrowRight size={16} />
+              </button>
+            }
           />
         ) : (
           <EmptyState
@@ -199,7 +234,7 @@ export function ExchangesList({
               <MiniCover listing={request.listing} />
               <div className="exchange-info">
                 <strong>
-                  <Link href={`/libro/${request.listing.id}`} className="card-link">
+                  <Link href={localePath(locale, `/libro/${request.listing.id}`)} className="card-link">
                     {request.listing.title}
                   </Link>
                 </strong>
@@ -258,16 +293,16 @@ export function ExchangesList({
           })}
           {/* La vista trae un máximo de 500: si hay más, se dice. Callarlo dejaba a
               quien más intercambia con un historial que se cortaba sin avisar. */}
-          {shownTotal > items.length && (
+          {truncated && (
             <p className="form-hint exchange-truncated" role="status">
-              {archivedTab
+              {tab === "archived"
                 ? t("Se muestran los {shown} intercambios archivados más recientes de {total}.", {
                     shown: items.length,
                     total: shownTotal,
                   })
                 : t("Se muestran los {shown} intercambios más recientes de {total}.", {
                     shown: items.length,
-                    total: shownTotal,
+                    total: total,
                   })}
             </p>
           )}

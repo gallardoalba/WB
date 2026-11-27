@@ -184,6 +184,9 @@ test("readJson corta los cuerpos demasiado grandes", async () => {
 
 test("un token de cuenta solo se puede consumir una vez", () => {
   const raw = tokens.issueAccountToken("usr_clara", "reset_password");
-  assert.equal(tokens.consumeAccountToken(raw, "reset_password"), "usr_clara");
+  assert.deepEqual(tokens.consumeAccountToken(raw, "reset_password"), {
+    userId: "usr_clara",
+    purpose: "reset_password",
+  });
   assert.equal(tokens.consumeAccountToken(raw, "reset_password"), null);
 });

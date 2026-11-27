@@ -62,6 +62,7 @@ const EXPECTED_TABLES = [
   "reviews",
   "sessions",
   "throttle",
+  "totp_recovery_codes",
   "transparency_snapshots",
   "user_keys",
   "users",

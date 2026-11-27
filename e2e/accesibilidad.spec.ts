@@ -72,6 +72,16 @@ test("la ficha de un ejemplar no tiene barreras de accesibilidad", async ({ page
   await revisar(page, "la ficha de un ejemplar");
 });
 
+test("el directorio de lectores no tiene barreras de accesibilidad", async ({ page }) => {
+  // El avatar es un enlace cuyo texto visible son las iniciales: si el nombre
+  // accesible no las contiene, axe lo denuncia en cada tarjeta (2.5.3).
+  await login(page, "ana@wanderbibliothek.test");
+  await page.goto("/lectores");
+  await waitForHydration(page);
+  await expect(page.locator(".reader-card").first()).toBeVisible();
+  await revisar(page, "el directorio de lectores");
+});
+
 test("la ventana de acceso no tiene barreras de accesibilidad", async ({ page }) => {
   await page.goto("/");
   await waitForHydration(page);

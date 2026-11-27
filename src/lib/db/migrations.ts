@@ -2396,6 +2396,38 @@ function migrateToV75(db: Db) {
   db.pragma("user_version = 75");
 }
 
+/**
+ * v76: cambio de correo y códigos de recuperación del segundo factor.
+ *
+ * `pending_email` guarda la dirección nueva hasta que se abre el enlace que se
+ * manda a esa misma dirección: así una sesión robada no puede cambiar el correo
+ * (y con él la recuperación de la cuenta) sin acceso al buzón.
+ *
+ * Los códigos de recuperación se guardan **hasheados**: valen una vez y sirven
+ * para entrar cuando se pierde la aplicación de autenticación. `used_at` marca
+ * el que ya se gastó.
+ */
+function migrateToV76(db: Db) {
+  const userColumns = (db.pragma("table_info(users)") as { name: string }[]).map(
+    (column) => column.name,
+  );
+  if (!userColumns.includes("pending_email")) {
+    db.exec("ALTER TABLE users ADD COLUMN pending_email TEXT");
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS totp_recovery_codes (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      used_at TEXT,
+      PRIMARY KEY (user_id, code_hash)
+    );
+    CREATE INDEX IF NOT EXISTS totp_recovery_codes_user
+      ON totp_recovery_codes(user_id, used_at);
+  `);
+  db.pragma("user_version = 76");
+}
+
 export function migrate(db: Db) {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
@@ -2540,6 +2572,7 @@ export function migrate(db: Db) {
   if (userVersion(db) < 73) migrateToV73(db);
   if (userVersion(db) < 74) migrateToV74(db);
   if (userVersion(db) < 75) migrateToV75(db);
+  if (userVersion(db) < 76) migrateToV76(db);
 
   backfillSearchKeys(db);
 }

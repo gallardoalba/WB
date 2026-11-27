@@ -13,7 +13,8 @@ import { requirePageUser } from "@/lib/page-auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { regionName } from "@/lib/cities";
-import { socialMetadata } from "@/lib/social";import { pick } from "@/lib/locale";
+import { socialMetadata } from "@/lib/social";
+import { localePath, pick } from "@/lib/locale";
 import { ListPicker } from "@/components/list-picker";
 import {
   countBookWants,
@@ -121,7 +122,7 @@ export default async function Page({ params }: PageProps) {
               {tags.map((tag) => (
                 <Link
                   key={tag}
-                  href={`/descubrir?tag=${encodeURIComponent(tag)}`}
+                  href={localePath(locale, `/descubrir?tag=${encodeURIComponent(tag)}`)}
                   className="tag-chip"
                 >
                   {t(tag)}
@@ -229,7 +230,7 @@ export default async function Page({ params }: PageProps) {
           <ul className="edition-list">
             {otherVersions.map((edition) => (
               <li key={edition.id}>
-                <Link href={`/obra/${edition.id}`}>
+                <Link href={localePath(locale, `/obra/${edition.id}`)}>
                   <strong>{edition.title}</strong>
                 </Link>
                 <span>

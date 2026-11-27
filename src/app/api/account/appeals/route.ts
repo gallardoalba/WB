@@ -24,9 +24,9 @@ export const POST = route<undefined, "none">(
     }
     const { token, message } = appealSchema.parse(await readJson(request));
     assertTokenShape(token);
-    const userId = consumeAccountToken(token, "appeal");
-    if (!userId) throw new ApiError(410, "El enlace ha caducado o ya se ha usado.");
-    createAppeal(userId, message);
+    const consumed = consumeAccountToken(token, "appeal");
+    if (!consumed) throw new ApiError(410, "El enlace ha caducado o ya se ha usado.");
+    createAppeal(consumed.userId, message);
     return json({ ok: true });
   },
 );

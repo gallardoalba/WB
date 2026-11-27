@@ -515,6 +515,8 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  max-width: min(360px, 40%);
+  overflow: hidden;
   color: var(--muted-2);
   font-size: 14px;
 }
@@ -534,6 +536,7 @@
 }
 
 .topbar-actions {
+  margin-left: auto;
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -553,7 +556,7 @@
      flotaba entre dos vacíos iguales. Ahora ocupa lo que hay y se encoge (hasta
      desaparecer el texto, nunca el icono) cuando la barra se estrecha. */
   flex: 1 1 240px;
-  min-width: 0;
+  min-width: 220px;
   order: 2;
   padding: 0 10px;
   border: 1px solid var(--line);
@@ -572,6 +575,25 @@
 .site-search-icon {
   flex: none;
   color: var(--muted-2);
+}
+
+/* En móvil el botón de enviar desaparece de la derecha; la lupa pasa a ser
+   el botón, para que tocarla haga algo. */
+.site-search-icon-button {
+  display: none;
+  flex: none;
+  width: 32px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-2);
+  cursor: pointer;
+}
+
+.site-search-icon-button:hover {
+  color: var(--green);
 }
 
 .site-search input {
@@ -1395,6 +1417,18 @@
   height: 210px;
 }
 
+.skeleton-form {
+  display: grid;
+  max-width: 720px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.skeleton-form-block {
+  height: 64px;
+  border-radius: var(--radius);
+}
+
 @keyframes skeleton-shimmer {
   from {
     background-position: 100% 0;
@@ -1468,7 +1502,7 @@
   color: var(--green);
 }
 
-.empty-state :is(h2, h3) {
+.empty-state :is(h1, h2, h3) {
   margin: var(--space-4) 0 var(--space-1);
   font-family: var(--serif);
   font-size: 22px;

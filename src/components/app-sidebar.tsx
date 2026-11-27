@@ -64,7 +64,7 @@ export function AppSidebar({
       : {};
   return (
     <aside className="sidebar">
-      <Link className="brand" href="/">
+      <Link className="brand" href={localePath(locale, "/")}>
         <span className="brand-mark">
           <BookOpen size={20} strokeWidth={2.2} />
         </span>
@@ -154,7 +154,7 @@ export function AppSidebar({
           usan el otro armazón (SiteRail), y en el catálogo no estaba. */}
       {user && (user.isAdmin || user.isModerator) ? (
         <nav className="primary-nav" aria-label={t("Administración")}>
-          <Link className="nav-item" href="/admin">
+          <Link className="nav-item" href={localePath(locale, "/admin")}>
             <ShieldCheck size={18} />
             <span>{t("Moderación")}</span>
           </Link>

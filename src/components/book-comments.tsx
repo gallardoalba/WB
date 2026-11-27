@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { REPORT_REASONS, type BookCommentView } from "@/lib/domain";
 import { formatWhen, initialsOf, toneForId } from "@/lib/text";
 import { useI18n } from "./i18n-provider";
+import { authPath, localePath } from "@/lib/locale";
 
 type Props = {
   bookId: string;
@@ -315,7 +316,7 @@ export function BookComments({
           {comment.authorAnonymous ? (
             <span className="comment-author">{t("Una persona de la comunidad")}</span>
           ) : (
-            <Link href={`/u/${comment.author.id}`} className="comment-author">
+            <Link href={localePath(locale, `/u/${comment.author.id}`)} className="comment-author">
               {comment.author.name}
             </Link>
           )}
@@ -404,7 +405,7 @@ export function BookComments({
                     {reply.authorAnonymous ? (
                       <span className="comment-author">{t("Una persona de la comunidad")}</span>
                     ) : (
-                      <Link href={`/u/${reply.author.id}`} className="comment-author">
+                      <Link href={localePath(locale, `/u/${reply.author.id}`)} className="comment-author">
                         {reply.author.name}
                       </Link>
                     )}
@@ -491,7 +492,7 @@ export function BookComments({
         </form>
       ) : (
         <p className="comments-signin">
-          <Link href={`/?auth=1&next=${encodeURIComponent(pathname || "/")}`}>
+          <Link href={authPath(pathname || "/")}>
             {t("Entra en tu cuenta")}
           </Link>{" "}
           {t("para comentar este libro.")}

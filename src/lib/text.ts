@@ -129,6 +129,10 @@ export function formatDistance(
     if (locale === "en") return "No distance";
     return "Sin distancia";
   }
-  return `${distanceKm.toFixed(1).replace(".", ",")} km`;
+  const formatted = new Intl.NumberFormat(localeTag(locale), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(distanceKm);
+  return `${formatted} km`;
 }
 

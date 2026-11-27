@@ -87,7 +87,27 @@ export function localePath(locale: Locale, path: string): string {
   const clean = path.startsWith("/") ? path : `/${path}`;
   const prefix = LOCALE_PREFIX[locale];
   if (!prefix) return clean;
-  return clean === "/" ? prefix : `${prefix}${clean}`;
+  // La consulta se separa antes de componer: `/es/?auth=1` acaba en un 308 a
+  // `/es?auth=1` (barra final), y ese salto se comía el `?auth=1` al navegar
+  // desde el armazón interno. La portada con parámetros queda `/es?auth=1`.
+  const queryAt = clean.indexOf("?");
+  const base = queryAt === -1 ? clean : clean.slice(0, queryAt);
+  const query = queryAt === -1 ? "" : clean.slice(queryAt);
+  return `${prefix}${base === "/" ? "" : base}${query}`;
+}
+
+/**
+ * Entrada al diálogo de acceso, **siempre** en la portada sin prefijo.
+ *
+ * `/es` y `/en` son reescrituras de `/`: al empujar `/es?auth=1` desde una
+ * página interna, el router de Next da la navegación por hecha con lo que ya
+ * tenía de `/es` y no pide la parte dinámica, así que el diálogo no se abre
+ * aunque la URL diga `auth=1`. La portada canónica sí cambia de ruta y siempre
+ * se pide; el idioma lo pone la cookie y `next` devuelve a la página de origen
+ * con su prefijo.
+ */
+export function authPath(next?: string | null): string {
+  return next ? `/?auth=1&next=${encodeURIComponent(next)}` : "/?auth=1";
 }
 
 /**

@@ -177,7 +177,9 @@ export function AuthDialog({
           : mode === "register"
             ? t("Solo necesitamos tu nombre, un correo y tu ciudad para poner en marcha los intercambios.")
             : mode === "totp"
-              ? t("Abre tu aplicación de autenticación y escribe el código de 6 dígitos.")
+              ? t(
+                  "Abre tu aplicación de autenticación y escribe el código de 6 dígitos, o uno de tus códigos de recuperación.",
+                )
               : t("Escribe tu correo y te enviaremos un enlace para elegir una contraseña nueva.")
       }
       overline={t("TU COMUNIDAD DE LECTURA")}
@@ -256,26 +258,33 @@ export function AuthDialog({
           </>
         )}
         {mode === "totp" ? (
-          <label>
-            {t("Código de verificación")}
-            <input
-              name="code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              required
-              autoFocus
-              placeholder="123456"
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "auth-error" : undefined}
-            />
-          </label>
+          <>
+            <label>
+              {t("Código de verificación o de recuperación")}
+              <input
+                key="auth-code"
+                name="code"
+                autoComplete="one-time-code"
+                maxLength={20}
+                required
+                autoFocus
+                placeholder="123456 o ABCDE-FGHIJ"
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "auth-help" : undefined}
+              />
+            </label>
+            <p className="form-hint" id="auth-help">
+              {t(
+                "Escribe el código de 6 dígitos de tu aplicación o uno de los códigos de recuperación que guardaste.",
+              )}
+            </p>
+          </>
         ) : (
           <>
             <label>
               {t("Correo")}
               <input
+                key="auth-email"
                 name="email"
                 type="email"
                 autoComplete="email"
@@ -289,6 +298,7 @@ export function AuthDialog({
               <label>
                 {t("Contraseña")}
                 <input
+                  key="auth-password"
                   name="password"
                   type="password"
                   autoComplete={mode === "login" ? "current-password" : "new-password"}

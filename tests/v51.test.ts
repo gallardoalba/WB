@@ -24,6 +24,16 @@ test("la portada de cada idioma es el prefijo a secas", () => {
   assert.equal(localePath("en", "/"), "/en");
 });
 
+test("la consulta no deja la portada con barra final", () => {
+  // `/es/?auth=1` responde 308 hacia `/es?auth=1` y el salto se llevaba por
+  // delante el parámetro: el diálogo de acceso no llegaba a abrirse desde la
+  // ficha pública.
+  assert.equal(localePath("es", "/?auth=1&next=%2Fes%2Fwerk%2Fx"), "/es?auth=1&next=%2Fes%2Fwerk%2Fx");
+  assert.equal(localePath("en", "/?notifications=1"), "/en?notifications=1");
+  assert.equal(localePath("es", "/descubrir?tag=Krimi"), "/es/descubrir?tag=Krimi");
+  assert.equal(localePath("de", "/?auth=1"), "/?auth=1");
+});
+
 test("una ruta sin barra inicial no duplica la barra", () => {
   assert.equal(localePath("es", "werk/x"), "/es/werk/x");
 });

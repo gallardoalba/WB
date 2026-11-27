@@ -140,6 +140,14 @@
     display: none;
   }
 
+  .site-search-icon {
+    display: none;
+  }
+
+  .site-search-icon-button {
+    display: grid;
+  }
+
   .content-wrap {
     min-height: calc(100vh - 60px);
     padding: 16px 16px calc(120px + env(safe-area-inset-bottom));
@@ -335,6 +343,18 @@
     flex-direction: column;
   }
 
+  /* Los separadores sueltos entre grupos quedaban como una línea con «·». */
+  .page-footer > .footer-sep {
+    display: none;
+  }
+
+  /* Enlaces del pie: 15 px de alto no son un objetivo táctil cómodo. */
+  .page-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+  }
+
   .page-shell {
     padding: 16px 16px 40px;
   }
@@ -391,6 +411,31 @@
     bottom: 78px;
     left: 12px;
     max-width: none;
+  }
+
+  /* El contador de mensajes va pegado al icono, no como una tercera línea. */
+  .mobile-nav-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+
+  .mobile-nav-badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    min-width: 17px;
+    height: 17px;
+    display: grid;
+    place-items: center;
+    padding: 0 4px;
+    border: 2px solid var(--paper);
+    border-radius: 999px;
+    background: var(--badge-coral-bg);
+    color: var(--badge-coral-ink);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
   }
 
   .mobile-bottom-nav {
@@ -479,7 +524,15 @@
    debajo de ~740 px de armazón las migas y los accesos se quedan solos arriba y
    el buscador baja a su línea, a todo el ancho. Antes se repartía el poco sitio
    que sobraba y acababa en un campo de 60 px (solo se veía el icono). */
-@container (max-width: 740px) {
+/* El enlace al repositorio es prescindible en la cabecera: con títulos largos
+   robaba el sitio que necesita el buscador. */
+@container (max-width: 1100px) {
+  .topbar-actions .repository-link {
+    display: none;
+  }
+}
+
+@container (max-width: 1000px) {
   .topbar-actions {
     order: 2;
   }
@@ -487,6 +540,14 @@
   .site-search {
     order: 3;
     flex: 1 0 100%;
+  }
+
+  /* Con el buscador en su propia línea, la miga ya no compite con él: ocupa lo
+     que dejan los accesos en vez de recortarse a «Ini… / Der eindimensionale
+     Men…», que no dice dónde estás. */
+  .breadcrumb {
+    flex: 1 1 auto;
+    max-width: none;
   }
 }
 
@@ -519,6 +580,27 @@
   .mobile-bottom-nav a,
   .mobile-bottom-nav button {
     padding: 0;
+  }
+
+  /* A 320 px cada hueco mide ~61 px y «Comunidad» a 12 px ocupa 62: las
+     etiquetas se tocaban («DescubrirEstantería») o partían por la mitad
+     («Comunida/d»). Un punto y medio menos de letra y algo menos de relleno las
+     deja enteras y separadas, sin tocar el texto. El guionado entra solo cuando
+     una palabra no cabe ni así («Gemeinschaft» en alemán): parte en sílabas en
+     vez de quedar cortada por el borde. */
+  @media (max-width: 360px) {
+    .mobile-bottom-nav {
+      padding-right: 2px;
+      padding-left: 2px;
+    }
+
+    .mobile-bottom-nav a,
+    .mobile-bottom-nav button,
+    .mobile-bottom-nav .mobile-add {
+      font-size: 10.5px;
+      letter-spacing: -0.01em;
+      hyphens: auto;
+    }
   }
 
   .book-grid {
@@ -862,6 +944,19 @@
   .edit-box summary,
   .admin-actions .secondary-button {
     min-height: 44px;
+  }
+
+  /* Los tres cajones de intercambios y los filtros del estante son pastillas
+     cortas: en una fila se leen de un vistazo y, si no caben, se deslizan como
+     las pestañas de la comunidad en vez de partirse en dos líneas. */
+  .shelf-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .shelf-tabs .category-tab {
+    flex: 0 0 auto;
   }
 
   .admin-actions {

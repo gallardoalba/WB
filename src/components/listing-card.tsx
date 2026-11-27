@@ -7,6 +7,7 @@ import { BookCover } from "./book-cover";
 import type { ListingView } from "@/lib/domain";
 import { STATUS_RIBBON } from "@/lib/listing-status";
 import { initialsOf, toneForId } from "@/lib/text";
+import { localePath } from "@/lib/locale";
 import { useI18n } from "./i18n-provider";
 
 export function ListingCard({
@@ -36,11 +37,11 @@ export function ListingCard({
    */
   priority?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const Heading = headingLevel === 2 ? "h2" : "h3";
   // Sin `href` explícito, la ficha del ejemplar (privada): es lo que abre con
   // sesión.
-  const target = href ?? `/libro/${listing.id}`;
+  const target = localePath(locale, href ?? `/libro/${listing.id}`);
   return (
     <article className="book-card">
       <div className={`cover-frame tone-${toneForId(listing.id)}`}>
@@ -103,7 +104,7 @@ export function ListingCard({
           {listing.tags.slice(0, 2).map((tag) => (
             <Link
               key={tag}
-              href={`/descubrir?tag=${encodeURIComponent(tag)}`}
+              href={localePath(locale, `/descubrir?tag=${encodeURIComponent(tag)}`)}
               className="tag-chip"
               title={t("Ver libros con la etiqueta {tag}", { tag: t(tag) })}
             >
@@ -119,7 +120,7 @@ export function ListingCard({
               <span className={`avatar owner-avatar tone-${toneForId(listing.owner.id)}`}>
                 {initialsOf(listing.owner.name)}
               </span>
-              <Link href={`/u/${listing.owner.id}`} className="owner-name">
+              <Link href={localePath(locale, `/u/${listing.owner.id}`)} className="owner-name">
                 {listing.isMine ? t("Tú") : listing.owner.name}
               </Link>
             </>

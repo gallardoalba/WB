@@ -328,7 +328,103 @@
 
 .account-settings summary {
   cursor: pointer;
+  padding: 6px 0;
   font-weight: 700;
+}
+
+.account-divider {
+  margin: 20px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.account-box h3 {
+  margin: 16px 0 4px;
+  font-size: 15px;
+}
+
+/* Correo de la cuenta: la dirección actual y la pendiente, en filas como las
+   del resumen de arriba. */
+.account-summary {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0;
+}
+
+.account-summary div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.account-summary dt {
+  color: var(--muted);
+}
+
+.account-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Códigos de recuperación del segundo factor: se leen una vez, así que la
+   rejilla tiene que dejar verlos todos sin scroll. */
+.recovery-codes {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--green-fill);
+  border-radius: var(--radius-sm);
+  background: var(--green-pale);
+}
+
+.recovery-codes h3 {
+  margin: 0 0 4px;
+}
+
+.recovery-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recovery-list code {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .recovery-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* En /cuenta, el acceso a la cuenta es lo que está abierto: el avatar se
+   marca sin convertir la fila en otra cosa. */
+.sidebar .account-trigger.is-active {
+  color: var(--green-strong);
+}
+
+.sidebar .account-trigger.is-active .avatar {
+  box-shadow: 0 0 0 2px var(--green);
 }
 
 .account-settings form {
@@ -509,6 +605,18 @@
 .community-tabs .feed-tab {
   padding: 8px 14px;
   font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .community-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .community-tabs .feed-tab {
+    flex: 0 0 auto;
+  }
 }
 
 .community-tabs .feed-tab.active {

@@ -4,9 +4,10 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
+import { localePath } from "@/lib/locale";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   useEffect(() => {
     console.error("[app] error no controlado", error);
   }, [error]);
@@ -25,7 +26,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           <button type="button" className="secondary-button" onClick={reset}>
             {t("Reintentar")}
           </button>
-          <Link className="primary-button" href="/">
+          <Link className="primary-button" href={localePath(locale, "/descubrir")}>
             {t("Ir al catálogo")}
           </Link>
         </div>

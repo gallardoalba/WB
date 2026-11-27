@@ -14,27 +14,27 @@ export function ProfileActions({
   userName,
   isBlocked,
   isFollowing,
-  followers,
   isAuthenticated,
   canFollow,
   canMessage = false,
   openMessages = false,
+  messageHint = false,
 }: {
   userId: string;
   userName: string;
   isBlocked: boolean;
   isFollowing: boolean;
-  followers: number;
   isAuthenticated: boolean;
   canFollow: boolean;
   canMessage?: boolean;
   openMessages?: boolean;
+  /** Explica por qué no hay botón de mensaje cuando la persona no lo permite. */
+  messageHint?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
   const [blocked, setBlocked] = useState(isBlocked);
   const [following, setFollowing] = useState(isFollowing);
-  const [followerCount, setFollowerCount] = useState(followers);
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
@@ -51,7 +51,6 @@ export function ProfileActions({
         { method: "POST", body: { follow: next } },
       );
       setFollowing(data.following);
-      setFollowerCount(data.followers);
       setFeedback(
         data.following
           ? t("Sigues a {name}. Sus novedades aparecerán en «Siguiendo».", { name: userName })
@@ -132,9 +131,7 @@ export function ProfileActions({
           onClick={toggleFollow}
         >
           {following ? <UserCheck size={14} /> : <UserPlus size={14} />}
-          {following
-            ? t("Siguiendo · {n}", { n: followerCount })
-            : t("Seguir · {n}", { n: followerCount })}
+          {following ? t("Siguiendo") : t("Seguir")}
         </button>
       )}
       {canMessage && !blocked && (
@@ -143,6 +140,13 @@ export function ProfileActions({
           peerName={userName}
           autoOpen={openMessages}
         />
+      )}
+      {messageHint && !blocked && (
+        <p className="profile-hint">
+          {t(
+            "La mensajería se abre cuando la otra persona lo permite: con seguimiento mutuo o después de un intercambio.",
+          )}
+        </p>
       )}
       <button
         type="button"

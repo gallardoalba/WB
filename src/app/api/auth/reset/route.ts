@@ -21,8 +21,9 @@ export const POST = route<undefined, "none">(
     const { token, password } = resetPasswordSchema.parse(await readJson(request));
     assertTokenShape(token);
 
-    const userId = consumeAccountToken(token, "reset_password");
-    if (!userId) throw new ApiError(410, "El enlace ha caducado o ya se ha usado.");
+    const consumed = consumeAccountToken(token, "reset_password");
+    if (!consumed) throw new ApiError(410, "El enlace ha caducado o ya se ha usado.");
+    const { userId } = consumed;
     if (!getUserById(userId)) throw new ApiError(404, "La cuenta no existe.");
 
     changePassword(userId, await hashPassword(password));

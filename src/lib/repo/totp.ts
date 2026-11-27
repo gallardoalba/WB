@@ -2,9 +2,20 @@ import { getDb } from "../db";
 import { ApiError } from "../errors";
 import { decryptSecret, encryptSecret, totpContext } from "../secret-box";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "../totp";
+import {
+  clearRecoveryCodes,
+  countRecoveryCodes,
+  generateRecoveryCodes,
+  verifyRecoveryCode,
+} from "./totp-recovery";
 import { getUserById } from "./users";
 
-export type TotpState = { enabled: boolean; pending: boolean };
+export type TotpState = {
+  enabled: boolean;
+  pending: boolean;
+  /** Códigos de recuperación sin gastar (solo tienen sentido con 2FA activo). */
+  recoveryRemaining: number;
+};
 
 type TotpRow = {
   totp_secret: string | null;
@@ -25,6 +36,7 @@ export function getTotpState(userId: string): TotpState {
     enabled: Boolean(row.totp_enabled_at),
     // Hay secreto pero todavía no se ha confirmado con un código.
     pending: Boolean(row.totp_secret) && !row.totp_enabled_at,
+    recoveryRemaining: countRecoveryCodes(userId),
   };
 }
 
@@ -47,8 +59,11 @@ export function startTotpSetup(userId: string): { secret: string; otpauthUrl: st
   return { secret, otpauthUrl: otpauthUrl(secret, user.email) };
 }
 
-/** Confirma el secreto pendiente con un código válido. */
-export function enableTotp(userId: string, code: string): void {
+/**
+ * Confirma el secreto pendiente con un código válido y entrega los códigos de
+ * recuperación en claro: es la única vez que se pueden leer.
+ */
+export function enableTotp(userId: string, code: string): string[] {
   const row = readRow(userId);
   if (!row?.totp_secret) throw new ApiError(409, "Genera primero el secreto de verificación.");
   if (row.totp_enabled_at) throw new ApiError(409, "La verificación en dos pasos ya está activa.");
@@ -66,14 +81,21 @@ export function enableTotp(userId: string, code: string): void {
         WHERE id = ?`,
     )
     .run(step, userId);
+
+  // Los diez códigos se generan justo al activar: quien activa tiene la
+  // aplicación a mano y es el momento en que puede guardarlos.
+  return generateRecoveryCodes(userId);
 }
 
 export function disableTotp(userId: string): void {
-  getDb()
-    .prepare(
-      "UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL WHERE id = ?",
-    )
-    .run(userId);
+  getDb().transaction(() => {
+    getDb()
+      .prepare(
+        "UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL WHERE id = ?",
+      )
+      .run(userId);
+    clearRecoveryCodes(userId);
+  })();
 }
 
 /**
@@ -99,4 +121,19 @@ export function verifyUserTotp(userId: string, code: string): boolean {
     )
     .run(Math.max(row.totp_last_step ?? 0, step), userId, step);
   return consumed.changes === 1;
+}
+
+/**
+ * Comprueba el segundo factor aceptando el código de la aplicación o uno de
+ * recuperación. Devuelve true si la cuenta no tiene 2FA.
+ *
+ * El código de recuperación gasta una de las diez salidas: por eso regenerarlos
+ * exige un código vigente y no solo la contraseña.
+ */
+export function verifySecondFactor(userId: string, code: string): boolean {
+  const row = readRow(userId);
+  if (!row?.totp_secret || !row.totp_enabled_at) return true;
+  const clean = code.trim();
+  if (/^\d{6}$/.test(clean)) return verifyUserTotp(userId, clean);
+  return verifyRecoveryCode(userId, clean);
 }

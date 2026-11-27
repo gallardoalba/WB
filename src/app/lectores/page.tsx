@@ -5,6 +5,7 @@ import { ReaderCard } from "@/components/reader-card";
 import { PageHeader, SiteShell } from "@/components/site-shell";
 import { requirePageUser } from "@/lib/page-auth";
 import { regionName } from "@/lib/cities";
+import { localePath } from "@/lib/locale";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { allowPageView } from "@/lib/page-throttle";
@@ -78,7 +79,7 @@ export default async function Page({ searchParams }: PageProps) {
     if (next.sort) params.set("sort", String(next.sort));
     if (Number(next.page) > 1) params.set("page", String(next.page));
     const search = params.toString();
-    return search ? `/lectores?${search}` : "/lectores";
+    return localePath(locale, search ? `/lectores?${search}` : "/lectores");
   };
 
   return (

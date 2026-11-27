@@ -57,8 +57,13 @@ import { LinkHint } from "./link-hint";
 const ExchangeDialog = dynamic(() =>
   import("./dialogs/exchange-dialog").then((module) => module.ExchangeDialog),
 );
+function OfferFormLoading() {
+  const { t } = useI18n();
+  return <p className="empty-note">{t("Cargando…")}</p>;
+}
+
 const OfferForm = dynamic(() => import("./offer-form").then((module) => module.OfferForm), {
-  loading: () => <p className="empty-note">Cargando…</p>,
+  loading: () => <OfferFormLoading />,
 });
 const NotificationsDialog = dynamic(() =>
   import("./dialogs/notifications-dialog").then((module) => module.NotificationsDialog),
@@ -152,7 +157,7 @@ const VIEW_TITLES = {
 } satisfies Record<Exclude<View, "home">, MessageKey>;
 
 const COMMUNITY_TAB_LABELS: Record<CommunityTab, MessageKey> = {
-  conversations: "Conversaciones",
+  conversations: "Comentarios",
   activity: "Actividad",
   readers: "Lectores",
   lists: "Listas",
@@ -456,8 +461,10 @@ export default function WanderbibliothekApp({
       if (next.scope && next.scope !== "region") params.set("scope", String(next.scope));
       if (Number(next.page) > 1) params.set("page", String(next.page));
       const query = params.toString();
-      // Cada vista tiene su ruta: la URL queda compartible (`/estanteria?page=2`).
-      const target = VIEW_PATHS[next.view as View] ?? pathname;
+      // Cada vista tiene su ruta: la URL queda compartible (`/estanteria?page=2`)
+      // y conserva el prefijo del idioma (`/es/estanteria`).
+      const targetPath = VIEW_PATHS[next.view as View];
+      const target = targetPath ? localePath(locale, targetPath) : pathname;
       // Cambiar de vista empieza arriba; cambiar un filtro no mueve la página.
       // El desplazamiento lo hace el router **después** de pintar la vista
       // nueva: hacerlo a mano en el efecto dejaba la página a media altura
@@ -466,7 +473,7 @@ export default function WanderbibliothekApp({
         router.replace(query ? `${target}?${query}` : target, { scroll: cambiaVista });
       });
     },
-    [filters.category, filters.feed, filters.language, filters.q, filters.radius, filters.shelf, filters.sort, filters.tag, filters.tab, filters.scope, page, pathname, router, view],
+    [filters.category, filters.feed, filters.language, filters.q, filters.radius, filters.shelf, filters.sort, filters.tag, filters.tab, filters.scope, locale, page, pathname, router, view],
   );
 
   /**
@@ -750,6 +757,16 @@ export default function WanderbibliothekApp({
 
   const visibleSorts = user ? SORTS : SORTS.filter((sort) => sort !== "near");
   const sortValue = !user && filters.sort === "near" ? "recent" : filters.sort;
+  // Un catálogo vacío no es lo mismo que una búsqueda sin resultados: en una
+  // instancia recién instalada no hay filtros que limpiar.
+  const emptyCatalog =
+    view !== "shelf" &&
+    total === 0 &&
+    !filters.q &&
+    !filters.tag &&
+    filters.category === "Todos" &&
+    filters.language === "Todos" &&
+    filters.radius === 0;
 
   function clearFilters() {
     setSearch("");
@@ -1079,6 +1096,8 @@ export default function WanderbibliothekApp({
                 </p>
                 <div className="feed-header-controls">
                   {user && (
+                    <div className="feed-switch-group">
+                      <span className="feed-switch-label">{t("Ámbito")}</span>
                     <div className="feed-switch" role="group" aria-label={t("Ámbito de la comunidad")}>
                       <button
                         type="button"
@@ -1103,8 +1122,11 @@ export default function WanderbibliothekApp({
                         {user.city}
                       </button>
                     </div>
+                    </div>
                   )}
                   {user && (filters.tab === "conversations" || filters.tab === "activity") && (
+                    <div className="feed-switch-group">
+                      <span className="feed-switch-label">{t("Mostrar")}</span>
                     <div className="feed-switch" role="group" aria-label={t("Filtrar el muro")}>
                       <button
                         type="button"
@@ -1126,6 +1148,7 @@ export default function WanderbibliothekApp({
                       >
                         {t("Siguiendo")}
                       </button>
+                    </div>
                     </div>
                   )}
                 </div>
@@ -1171,7 +1194,7 @@ export default function WanderbibliothekApp({
                     </div>
                     <Link
                       className="conversation-open"
-                      href={`/obra/${item.bookId}#c-${item.id}`}
+                      href={href(`/obra/${item.bookId}#c-${item.id}`)}
                       aria-label={t("Abrir la conversación sobre {title}", { title: item.bookTitle })}
                     >
                       <ArrowRight size={16} />
@@ -1195,7 +1218,7 @@ export default function WanderbibliothekApp({
                       </p>
                       <span>
                         {formatWhen(item.createdAt, locale)} <i>·</i>{" "}
-                        <Link href={`/libro/${item.listingId}`} className="inline-link">
+                        <Link href={href(`/libro/${item.listingId}`)} className="inline-link">
                           {t("ver el ejemplar")}
                         </Link>
                       </span>
@@ -1244,7 +1267,7 @@ export default function WanderbibliothekApp({
                       <ul className="community-lists">
                         {publicLists.map((list) => (
                           <li key={list.id}>
-                            <Link href={`/listas/${list.id}`} className="community-list-card">
+                            <Link href={href(`/listas/${list.id}`)} className="community-list-card">
                               <strong>{list.title}</strong>
                               <span>
                                 {list.owner.name} ·{" "}
@@ -1550,13 +1573,13 @@ export default function WanderbibliothekApp({
                     <ListingCard
                       key={listing.id}
                       listing={listing}
-                      priority={index === 0}
+                      priority={(view === "discover" || view === "shelf") && index === 0}
                       headingLevel={view === "home" ? 3 : 2}
                       // Sin sesión, la tarjeta lleva a la ficha pública de la
                       // obra: se puede ojear sin cuenta y trae el botón para
                       // entrar y pedirla. Antes abría una vista previa en un
                       // diálogo que se quedaba a medias y no se podía compartir.
-                      href={user ? undefined : href(`/werk/${listing.bookId}`)}
+                      href={user ? undefined : `/werk/${listing.bookId}`}
                       // El corazón solo vive en «Descubrir»: en la portada
                       // tapaba la portada en móvil y el estante es para ojear.
                       actions={
@@ -1592,18 +1615,32 @@ export default function WanderbibliothekApp({
                     title={
                       view === "shelf" && !user
                         ? t("Entra para guardar tu estantería")
-                        : t("No encontramos libros por aquí.")
+                        : emptyCatalog
+                          ? t("Todavía no hay ejemplares en el catálogo.")
+                          : t("No encontramos libros por aquí.")
                     }
                     hint={
                       view === "shelf" && !user
                         ? t("Inicia sesión para conservar tus favoritos y publicaciones.")
-                        : t("Prueba con otro título, autor o género.")
+                        : emptyCatalog
+                          ? t("Si tienes un libro para compartir, publícalo y empezará a circular.")
+                          : t("Prueba con otro título, autor o género.")
                     }
                     action={
                       view === "shelf" && !user ? (
                       <button type="button" className="primary-button small" onClick={() => setAuthOpen(true)}>
                         {t("Entrar")}
                       </button>
+                      ) : emptyCatalog ? (
+                        user ? (
+                          <button type="button" className="primary-button small" onClick={openOffer}>
+                            {t("Ofrecer un libro")}
+                          </button>
+                        ) : (
+                          <button type="button" className="primary-button small" onClick={() => setAuthOpen(true)}>
+                            {t("Entrar")}
+                          </button>
+                        )
                       ) : (
                         <button
                           type="button"
@@ -1833,11 +1870,23 @@ export default function WanderbibliothekApp({
           onPointerEnter={() => prefetchView("exchanges")}
           onClick={() => (requireAuth() ? navigate({ view: "exchanges", page: 1 }) : undefined)}
         >
-          <ArrowDownUp size={19} />
+          <span className="mobile-nav-icon">
+            <ArrowDownUp size={19} />
+            {user && unreadMessages > 0 && (
+              <span className="mobile-nav-badge" aria-hidden="true">
+                {unreadMessages > 9 ? "9+" : unreadMessages}
+              </span>
+            )}
+          </span>
           {/* En la barra inferior el hueco es de ~58 px: «Intercambios» no cabe
-              y se partía por la mitad. El nombre completo sigue en la barra
-              lateral y en el breadcrumb. */}
-          <span>{t("Cambios")}</span>
+              y se partía por la mitad. «Tratos» cabe y no se confunde con
+              «cambios» de ajustes. */}
+          <span>{t("Tratos")}</span>
+          {user && unreadMessages > 0 && (
+            <span className="sr-only">
+              {t("{n} mensajes sin leer", { n: unreadMessages })}
+            </span>
+          )}
         </button>
         <button
           type="button"

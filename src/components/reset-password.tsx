@@ -6,10 +6,11 @@ import { KeyRound, Check } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { useUrlToken } from "@/lib/use-url-token";
 import { useI18n } from "./i18n-provider";
+import { authPath, localePath } from "@/lib/locale";
 
 export function ResetPassword({ token: initialToken }: { token: string }) {
   const { token, ready } = useUrlToken(initialToken);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [error, setError] = useState("");
 
@@ -46,7 +47,7 @@ export function ResetPassword({ token: initialToken }: { token: string }) {
         </span>
         <h2>{t("Falta el enlace")}</h2>
         <p>{t("Abre el enlace completo que te hemos enviado por correo.")}</p>
-        <Link className="secondary-button small" href="/">
+        <Link className="secondary-button small" href={localePath(locale, "/descubrir")}>
           {t("Volver al catálogo")}
         </Link>
       </div>
@@ -63,7 +64,7 @@ export function ResetPassword({ token: initialToken }: { token: string }) {
         <p className="action-feedback" role="status">
           {t("Ya puedes entrar con tu contraseña nueva. Hemos cerrado las demás sesiones.")}
         </p>
-        <Link className="primary-button" href="/?auth=1">
+        <Link className="primary-button" href={authPath()}>
           {t("Entrar")}
         </Link>
       </div>

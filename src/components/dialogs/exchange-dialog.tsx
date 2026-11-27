@@ -27,6 +27,7 @@ import { allowedTargets } from "@/lib/request-flow";
 import type { MessageKey } from "@/lib/i18n";
 import { formatWhen } from "@/lib/text";
 import { useI18n } from "../i18n-provider";
+import { localePath } from "@/lib/locale";
 import { ACTION_LABELS, type BaseDialogProps } from "./shared";
 
 const EXCHANGE_STEPS = ["Solicitado", "Aceptado", "Entrega", "Valoración"] as const;
@@ -1075,7 +1076,7 @@ export function ExchangeDialog({
               "Este navegador no tiene publicada su clave de cifrado. Actívala desde «Mi cuenta» para leer y escribir en esta conversación.",
             )}
           </p>
-          <a className="secondary-button small" href="/cuenta">
+          <a className="secondary-button small" href={localePath(locale, "/cuenta#cifrado")}>
             {t("Ir a Mi cuenta")}
           </a>
         </div>

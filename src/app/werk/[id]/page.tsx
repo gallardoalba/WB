@@ -7,7 +7,7 @@ import { SiteShell } from "@/components/site-shell";
 import { getSessionUser } from "@/lib/auth";
 import { translate } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
-import { localePath, type Locale } from "@/lib/locale";
+import { authPath, localePath, type Locale } from "@/lib/locale";
 import { alternatesFor } from "@/lib/seo";
 import { socialMetadata } from "@/lib/social";
 import { getPublicWork, type PublicWork } from "@/lib/repo";
@@ -167,7 +167,7 @@ export default async function Page({ params }: PageProps) {
                 </Link>
               ) : (
                 <Link
-                  href={`/?auth=1&next=${encodeURIComponent(requestPath)}`}
+                  href={authPath(requestPath)}
                   className="primary-button public-work-primary"
                 >
                   <BookOpen size={16} aria-hidden="true" /> {t("Entrar para pedirlo")}

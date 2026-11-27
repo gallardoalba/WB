@@ -34,7 +34,7 @@ export default async function Page() {
 
   if (!(await allowPageView(120, 60_000, user.id))) {
     return (
-      <SiteShell user={user} section="perfil" title={t("Cuenta")}>
+      <SiteShell user={user} section="cuenta" title={t("Cuenta")}>
         <div className="page-shell">
           <h1>{t("Demasiadas peticiones")}</h1>
           <p className="empty-note">{t("Espera un minuto antes de volver a cargar la cuenta.")}</p>
@@ -53,7 +53,7 @@ export default async function Page() {
   const alertsOn = listAvailabilityAlerts(user.id).includes(user.city);
 
   return (
-    <SiteShell user={user} section="perfil" title={t("Cuenta")}>
+    <SiteShell user={user} section="cuenta" title={t("Cuenta")}>
       <PageHeader
         title={user.name}
         description={user.bio || t("Sin biografía todavía.")}

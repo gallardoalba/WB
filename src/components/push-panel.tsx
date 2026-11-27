@@ -37,8 +37,10 @@ export function PushPanel() {
   const [aviso, setAviso] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
 
   useEffect(() => {
+    if (!opened) return;
     let cancelado = false;
     (async () => {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -64,7 +66,7 @@ export function PushPanel() {
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [opened]);
 
   async function activar() {
     setBusy(true);
@@ -127,7 +129,12 @@ export function PushPanel() {
 
   return (
     <div className="account-box">
-      <details>
+      <h2 className="sr-only">{t("Avisos en este dispositivo")}</h2>
+      <details
+        onToggle={(event) => {
+          if (event.currentTarget.open) setOpened(true);
+        }}
+      >
         <summary>{t("Avisos en este dispositivo")}</summary>
         <p className="form-note">
           {t(

@@ -2,14 +2,24 @@ import { createHash, randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { ApiError } from "./errors";
 import { DEFAULT_LOCALE, normalizeLocale, type Locale } from "./locale";
-import { passwordResetMail, suspensionMail, appealResolvedMail, verificationMail } from "./mail-templates";
+import {
+  emailChangedNoticeMail,
+  emailChangeMail,
+  passwordResetMail,
+  suspensionMail,
+  appealResolvedMail,
+  verificationMail,
+} from "./mail-templates";
 import { siteUrl } from "./site";
 import { enqueueMail } from "./outbox";
 
-export type TokenPurpose = "verify_email" | "reset_password" | "appeal";
+export type TokenPurpose = "verify_email" | "reset_password" | "appeal" | "change_email";
 
 const TTL_MINUTES: Record<TokenPurpose, number> = {
   verify_email: 60 * 24,
+  // Mismo plazo que la confirmación inicial: el enlace va al buzón nuevo y la
+  // persona puede tardar en abrirlo desde el móvil.
+  change_email: 60 * 24,
   reset_password: 60,
   // Una persona suspendida puede necesitar días para decidir apelar; el enlace
   // caduca con el tiempo suficiente para hacerlo sin dejarlo abierto siempre.
@@ -47,10 +57,21 @@ export function issueAccountToken(userId: string, purpose: TokenPurpose): string
   return raw;
 }
 
-/** Consume el token (una sola vez) y devuelve el usuario o null. */
-export function consumeAccountToken(raw: string, purpose: TokenPurpose): string | null {
+/**
+ * Consume el token (una sola vez) y devuelve el usuario o null.
+ *
+ * Acepta varios propósitos porque `/verificar` atiende dos enlaces distintos
+ * —confirmar la cuenta y confirmar el correo nuevo— y el token es lo único que
+ * llega en la URL. El propósito consumido se devuelve para saber qué aplicar.
+ */
+export function consumeAccountToken(
+  raw: string,
+  purpose: TokenPurpose | readonly TokenPurpose[],
+): { userId: string; purpose: TokenPurpose } | null {
   const db = getDb();
   const tokenHash = hashToken(raw);
+  const purposes = Array.isArray(purpose) ? purpose : [purpose as TokenPurpose];
+  const marks = purposes.map(() => "?").join(", ");
 
   // El UPDATE condicional es la parte atómica: si dos peticiones llegan a la
   // vez, solo una cambia `used_at` y la otra se queda sin token.
@@ -59,16 +80,16 @@ export function consumeAccountToken(raw: string, purpose: TokenPurpose): string 
       .prepare(
         `UPDATE account_tokens
             SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-          WHERE token_hash = ? AND purpose = ? AND used_at IS NULL
+          WHERE token_hash = ? AND purpose IN (${marks}) AND used_at IS NULL
             AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
       )
-      .run(tokenHash, purpose);
+      .run(tokenHash, ...purposes);
     if (changes !== 1) return null;
 
     const row = db
-      .prepare("SELECT user_id FROM account_tokens WHERE token_hash = ? AND purpose = ?")
-      .get(tokenHash, purpose) as { user_id: string } | undefined;
-    return row?.user_id ?? null;
+      .prepare("SELECT user_id, purpose FROM account_tokens WHERE token_hash = ?")
+      .get(tokenHash) as { user_id: string; purpose: TokenPurpose } | undefined;
+    return row ? { userId: row.user_id, purpose: row.purpose } : null;
   })();
 }
 
@@ -82,6 +103,26 @@ export async function sendVerificationEmail(userId: string, email: string): Prom
   // página lo borra de la barra en cuanto lo lee.
   const link = `${siteUrl()}/verificar?token=${token}&lang=${accountLocale(userId)}`;
   enqueueMail({ to: email, ...verificationMail(accountLocale(userId), link) });
+}
+
+/**
+ * Encola el enlace de confirmación del correo nuevo. El token se ata a la
+ * cuenta, no a la dirección: la dirección pendiente vive en `users.pending_email`
+ * y solo se aplica al abrir este enlace.
+ */
+export async function sendEmailChangeConfirmation(userId: string, email: string): Promise<void> {
+  const token = issueAccountToken(userId, "change_email");
+  const link = `${siteUrl()}/verificar?token=${token}&lang=${accountLocale(userId)}`;
+  enqueueMail({ to: email, ...emailChangeMail(accountLocale(userId), link, email) });
+}
+
+/**
+ * Avisa al buzón **anterior** de que la cuenta cambió de dirección. Es la única
+ * forma de que quien pierde el correo se entere de que alguien lo ha cambiado.
+ */
+export function sendEmailChangedNotice(userId: string, previous: string, email: string): void {
+  const locale = accountLocale(userId);
+  enqueueMail({ to: previous, ...emailChangedNoticeMail(locale, { previous, email }) });
 }
 
 /** Encola el enlace de recuperación. No revela si el correo existe. */
@@ -124,6 +165,13 @@ export function peekAccountToken(raw: string, purpose: TokenPurpose): string | n
     )
     .get(hashToken(raw), purpose) as { user_id: string } | undefined;
   return row?.user_id ?? null;
+}
+
+/** Invalida los enlaces vigentes de un propósito (por ejemplo, al cancelar). */
+export function revokeAccountTokens(userId: string, purpose: TokenPurpose): void {
+  getDb()
+    .prepare("DELETE FROM account_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL")
+    .run(userId, purpose);
 }
 
 /** Encola el aviso de suspensión con el enlace de apelación. */
